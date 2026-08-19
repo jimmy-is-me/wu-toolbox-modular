@@ -71,7 +71,7 @@ class WU_Login_Limiter {
     
     public function add_admin_menu() {
         add_submenu_page(
-            'wumetax-toolkit',
+            'wu-toolbox-modular',
             '登入嘗試限制',
             '登入嘗試限制',
             'manage_options',
