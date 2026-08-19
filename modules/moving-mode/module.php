@@ -62,11 +62,11 @@ class WU_Moving_Mode {
      */
     public function add_admin_menu() {
         add_submenu_page(
-            'wumetax-toolkit',
+            'wu-toolbox-modular',
             '維護模式設定',
             '維護模式設定',
             'wu-moving-mode',
-            'moving-mode',
+            'wu-moving-mode',
             array($this, 'render_settings_page')
         );
     }
