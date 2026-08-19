@@ -3,7 +3,7 @@
  * Module: user-switcher
  * Loaded only when enabled in WU Toolbox Modular.
  */
-?>
+
 /**
  * 使用者切換模組
  * 幫助管理員快速輕鬆地在 WordPress 使用者帳戶之間切換
