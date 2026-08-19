@@ -49,7 +49,7 @@ class WU_Revision_Manager {
      */
     public function add_admin_menu() {
         add_submenu_page(
-            'wumetax-toolkit',
+            'wu-toolbox-modular',
             '修訂版本管理',
             '修訂版本管理',
             'manage_options',
