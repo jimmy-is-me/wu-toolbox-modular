@@ -33,11 +33,11 @@ class WU_No_Cache_Pages {
      */
     public function add_submenu_page() {
         add_submenu_page(
-            'wumetax-toolkit',
+            'wu-toolbox-modular',
             '無快取頁面設定',
             '無快取頁面',
             'manage_options',
-            'wu-no_cache_pages',
+            'wu-no-cache-pages',
             array($this, 'settings_page')
         );
     }
