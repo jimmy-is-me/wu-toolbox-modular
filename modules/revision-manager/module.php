@@ -3,7 +3,7 @@
  * Module: revision-manager
  * Loaded only when enabled in WU Toolbox Modular.
  */
-?>
+
 /**
  * 修訂版本管理模組
  * 功能：限制文章修訂版本數量，防止資料庫膨脹
