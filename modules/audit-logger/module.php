@@ -3,7 +3,7 @@
  * Module: audit-logger
  * Loaded only when enabled in WU Toolbox Modular.
  */
-?>
+
 if (!defined('ABSPATH')) exit;
 
 class WU_Audit_Logger {
