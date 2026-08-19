@@ -3,7 +3,7 @@
  * Module: content-duplicator
  * Loaded only when enabled in WU Toolbox Modular.
  */
-?>
+
 /**
  * 內容重複模組
  * 一鍵複製頁面、貼文和自訂貼文的功能
