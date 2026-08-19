@@ -57,7 +57,7 @@ class WU_User_Switcher {
     
     public function add_admin_menu() {
         add_submenu_page(
-            'wumetax-toolkit',
+            'wu-toolbox-modular',
             '使用者切換器',
             '使用者切換器',
             'manage_options',
