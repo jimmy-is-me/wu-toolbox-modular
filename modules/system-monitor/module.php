@@ -3,7 +3,7 @@
  * Module: system-monitor
  * Loaded only when enabled in WU Toolbox Modular.
  */
-?>
+
 /**
  * 網站監控模組
  * 功能：顯示當前網站資訊和記憶體使用情況，監測網站相關程序，網站容量監控
