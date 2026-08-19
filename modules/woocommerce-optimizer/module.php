@@ -3,7 +3,7 @@
  * Module: woocommerce-optimizer
  * Loaded only when enabled in WU Toolbox Modular.
  */
-?>
+
 /**
  * WooCommerce 優化器模組
  * 功能:清理和優化 WooCommerce 設定
