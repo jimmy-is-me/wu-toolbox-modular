@@ -10,7 +10,7 @@ if (!defined('ABSPATH')) exit;
 // ✅ 修正：slug 改為 plugin-downloader，不與父選單衝突
 add_action('admin_menu', function() {
     add_submenu_page(
-        'wumetax-toolkit',
+        'wu-toolbox-modular',
         '常用外掛管理',
         '常用外掛管理',
         'manage_options',
