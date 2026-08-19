@@ -3,7 +3,7 @@
  * Module: media-encoder
  * Loaded only when enabled in WU Toolbox Modular.
  */
-?>
+
 if (!defined('ABSPATH')) exit;
 
 /* === 媒體編碼器:選單 === */
