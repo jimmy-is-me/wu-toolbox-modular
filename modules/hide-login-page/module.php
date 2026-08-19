@@ -37,7 +37,7 @@ class WU_Hide_Login_Page {
      */
     public function add_submenu_page() {
         add_submenu_page(
-            'wumetax-toolkit',
+            'wu-toolbox-modular',
             '變更登入網址',
             '變更登入網址',
             'manage_options',
