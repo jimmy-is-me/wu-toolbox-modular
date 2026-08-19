@@ -3,7 +3,7 @@
  * Module: no-cache-pages
  * Loaded only when enabled in WU Toolbox Modular.
  */
-?>
+
 /**
  * No Cache Pages Module
  * 無快取頁面管理工具
