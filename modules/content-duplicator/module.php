@@ -170,7 +170,7 @@ class WU_Content_Duplicator {
 
     public function add_admin_menu() {
         add_submenu_page(
-            'wumetax-toolkit',
+            'wu-toolbox-modular',
             '內容重複設定',
             '內容重複設定',
             'manage_options',
