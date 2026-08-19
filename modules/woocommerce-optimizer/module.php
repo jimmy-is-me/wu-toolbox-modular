@@ -26,7 +26,7 @@ class WU_WooCommerce_Optimizer {
     
     public function add_admin_menu() {
         add_submenu_page(
-            'wumetax-toolkit',
+            'wu-toolbox-modular',
             'WooCommerce 優化器',
             'WooCommerce 優化器',
             'manage_options',
