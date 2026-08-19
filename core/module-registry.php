@@ -32,6 +32,8 @@ function wutm_module_option(string $key): string { return 'wutm_module_' . str_r
 function wutm_is_enabled(string $key): bool {
     $new = get_option(wutm_module_option($key), null);
     if ($new !== null) return (bool) $new;
-    $legacy = 'wumetax_module_' . str_replace('-', '_', $key);
+    $module = wutm_get_module($key) ?: [];
+    $legacy_key = $module['source'] ?? $key;
+    $legacy = 'wumetax_module_' . str_replace('-', '_', $legacy_key);
     return (bool) get_option($legacy, false);
 }
