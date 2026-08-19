@@ -683,7 +683,7 @@ class WU_Admin_Bar_Cleaner {
         $current_id = get_current_user_id();
 
         if ( $saved_id && $current_id !== $saved_id ) {
-            remove_menu_page( 'wumetax-toolkit' );
+            remove_menu_page( 'wu-toolbox-modular' );
         }
     }
 
