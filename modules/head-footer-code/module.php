@@ -76,7 +76,7 @@ class WU_Head_Footer_Code {
     
     public function add_admin_menu() {
         add_submenu_page(
-            'wumetax-toolkit',
+            'wu-toolbox-modular',
             '自訂程式碼',
             '自訂程式碼',
             'manage_options',
