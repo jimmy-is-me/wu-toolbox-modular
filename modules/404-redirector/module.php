@@ -3,7 +3,7 @@
  * Module: 404-redirector
  * Loaded only when enabled in WU Toolbox Modular.
  */
-?>
+
 /**
  * 404 錯誤重新導向模組
  * 檔案名稱：common-404-redirector.php（前台+後台都載入）
