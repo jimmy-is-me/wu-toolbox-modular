@@ -19,7 +19,7 @@ if (!defined('ABSPATH')) exit;
 
 add_action('admin_menu', function() {
 	add_submenu_page(
-		'wumetax-toolkit',
+		'wu-toolbox-modular',
 		'儀表板設定',
 		'儀表板設定',
 		'manage_options',
