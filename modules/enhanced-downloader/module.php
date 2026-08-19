@@ -3,7 +3,7 @@
  * Module: enhanced-downloader
  * Loaded only when enabled in WU Toolbox Modular.
  */
-?>
+
 /**
  * 增強下載器模組
  * 功能：在外掛程式和主題管理頁面添加下載按鈕
