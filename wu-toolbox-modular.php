@@ -22,6 +22,7 @@ defined('WUMETAX_URL') || define('WUMETAX_URL', WUTM_URL);
 require_once WUTM_PATH . 'core/module-registry.php';
 require_once WUTM_PATH . 'core/module-loader.php';
 require_once WUTM_PATH . 'core/admin-page.php';
+require_once WUTM_PATH . 'core/module-menu.php';
 
 register_activation_hook(__FILE__, function () {
     add_option('wutm_activation_redirect', true, '', false);
