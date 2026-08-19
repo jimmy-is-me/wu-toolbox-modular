@@ -58,7 +58,7 @@ class WU_Admin_Bar_Cleaner {
 
     public function add_admin_menu(): void {
         add_submenu_page(
-            'wumetax-toolkit',
+            'wu-toolbox-modular',
             '後台介面管理',
             '後台介面管理',
             'manage_options',
