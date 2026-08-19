@@ -446,7 +446,7 @@ class WU_Transients_Manager {
      */
     public function add_admin_menu() {
         add_submenu_page(
-            'wumetax-toolkit',
+            'wu-toolbox-modular',
             '瞬態資料管理',
             '瞬態資料管理',
             'manage_options',
