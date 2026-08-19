@@ -25,11 +25,11 @@ class WU_System_Monitor {
     
     public function add_admin_menu(): void {
         add_submenu_page(
-            'wumetax-toolkit',
+            'wu-toolbox-modular',
             '網站效能監控',
             '網站效能監控',
             'manage_options',         // ✅ 修正：使用正確的 WordPress capability
-            'wumetax-system-monitor',
+            'wu-system-monitor',
             array($this, 'admin_page')
         );
     }
