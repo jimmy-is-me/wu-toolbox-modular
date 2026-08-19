@@ -320,11 +320,11 @@ add_action('wp_footer', function(): void {
 
 add_action('admin_menu', function(): void {
     add_submenu_page(
-        'wumetax-toolkit',
+        'wu-toolbox-modular',
         '文章優化設定',
         '文章優化設定',
         'manage_options',
-        'wu-post-optimization-settings',
+        'wu-post-optimization',
         'wu_post_optimization_settings_page'
     );
 });
