@@ -73,7 +73,7 @@ class WU_404_Redirector {
      */
     public function add_admin_menu() {
         add_submenu_page(
-            'wumetax-toolkit',
+            'wu-toolbox-modular',
             '404重新導向',
             '404重新導向',
             'manage_options',
