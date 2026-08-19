@@ -3,7 +3,7 @@
  * Module: transients-manager
  * Loaded only when enabled in WU Toolbox Modular.
  */
-?>
+
 /**
  * Transients 管理模組
  * 管理 WordPress Transients，提升網站性能
