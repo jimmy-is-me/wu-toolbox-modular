@@ -1,0 +1,41 @@
+name: Build WordPress release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate tag and plugin version
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          PLUGIN_VERSION="$(grep -E '^[[:space:]]*\* Version:' wu-toolbox-modular.php | sed -E 's/^[[:space:]]*\* Version:[[:space:]]*//')"
+          test -n "$PLUGIN_VERSION"
+          test "$TAG_VERSION" = "$PLUGIN_VERSION"
+      - name: Build installable plugin ZIP
+        shell: bash
+        run: |
+          set -euo pipefail
+          STAGE="$RUNNER_TEMP/wu-toolbox-modular"
+          mkdir -p "$STAGE/wu-toolbox-modular"
+          rsync -a . "$STAGE/wu-toolbox-modular/" \
+            --exclude '.git' --exclude '.github' --exclude 'node_modules' \
+            --exclude 'tests' --exclude 'test' --exclude 'work' --exclude 'dist' --exclude '*.log'
+          test -f "$STAGE/wu-toolbox-modular/wu-toolbox-modular.php"
+          cd "$STAGE"
+          zip -qr "$GITHUB_WORKSPACE/wu-toolbox-modular.zip" wu-toolbox-modular
+          unzip -l "$GITHUB_WORKSPACE/wu-toolbox-modular.zip" | grep -q 'wu-toolbox-modular/wu-toolbox-modular.php'
+      - name: Create GitHub Release and upload ZIP
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: wu-toolbox-modular.zip
