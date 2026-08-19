@@ -3,7 +3,7 @@
  * Module: hide-login-page
  * Loaded only when enabled in WU Toolbox Modular.
  */
-?>
+
 /**
  * Hide Login Page Module
  * 隱藏WordPress後台登入位置工具
