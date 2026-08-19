@@ -3,7 +3,7 @@
  * Module: login-limiter
  * Loaded only when enabled in WU Toolbox Modular.
  */
-?>
+
 /**
  * 登入嘗試限制模組
  * 防止暴力破解攻擊，限制每個IP的登入嘗試次數
