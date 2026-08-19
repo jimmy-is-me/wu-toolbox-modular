@@ -3,7 +3,7 @@
  * Module: moving-mode
  * Loaded only when enabled in WU Toolbox Modular.
  */
-?>
+
 /**
  * 維護模式模組
  * 功能:網站維護模式、管理員登入、即時預覽
