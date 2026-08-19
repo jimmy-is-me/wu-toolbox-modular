@@ -3,7 +3,7 @@
  * Module: head-footer-code
  * Loaded only when enabled in WU Toolbox Modular.
  */
-?>
+
 /**
  * Head & Footer Code 模組
  * 輕鬆插入自訂代碼到網站頭部和底部
