@@ -3,7 +3,7 @@
  * Module: post-optimization
  * Loaded only when enabled in WU Toolbox Modular.
  */
-?>
+
 if (!defined('ABSPATH')) exit;
 
 /*
