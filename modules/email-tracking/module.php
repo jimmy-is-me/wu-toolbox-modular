@@ -130,7 +130,7 @@ $wu_api_email_sent = false;
 
 add_action('admin_menu', function() {
     add_submenu_page(
-        'wumetax-toolkit',
+        'wu-toolbox-modular',
         '郵件追蹤管理',
         '郵件追蹤管理',
         'manage_options',
