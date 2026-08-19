@@ -103,7 +103,7 @@ class WU_Enhanced_User_List {
 
     public function add_admin_menu(): void {
         add_submenu_page(
-            'wumetax-toolkit',
+            'wu-toolbox-modular',
             '強化使用者功能',
             '強化使用者功能',
             'manage_options',
