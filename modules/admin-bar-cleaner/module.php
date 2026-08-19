@@ -3,7 +3,7 @@
  * Module: admin-bar-cleaner
  * Loaded only when enabled in WU Toolbox Modular.
  */
-?>
+
 /**
  * 後台設定模組
  * 功能：後台設定、安全性強化
