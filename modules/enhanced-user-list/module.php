@@ -3,7 +3,7 @@
  * Module: enhanced-user-list
  * Loaded only when enabled in WU Toolbox Modular.
  */
-?>
+
 /**
  * 增強使用者列表模組
  * 在使用者列表中添加上次登入時間、註冊日期等資訊
