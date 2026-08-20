@@ -14,7 +14,9 @@ final class WUTM_GitHub_Release_Updater {
         add_filter('site_transient_update_plugins', [$this, 'inject_update']);
         add_filter('pre_set_site_transient_update_plugins', [$this, 'inject_update']);
         add_filter('plugins_api', [$this, 'plugin_information'], 20, 3);
-        add_filter('upgrader_pre_download', [$this, 'download_release_asset'], 20, 3);\n        add_action('load-update-core.php', [$this, 'clear_cache_before_update']);\n        add_action('load-plugins.php', [$this, 'clear_cache_before_update']);
+        add_filter('upgrader_pre_download', [$this, 'download_release_asset'], 20, 3);
+        add_action('load-update-core.php', [$this, 'clear_cache_before_update']);
+        add_action('load-plugins.php', [$this, 'clear_cache_before_update']);
     }
 
     public function inject_update($transient) {
@@ -66,7 +68,11 @@ final class WUTM_GitHub_Release_Updater {
         return $file;
     }
 
-    public function clear_cache_before_update(): void {\n        delete_site_transient(self::CACHE_KEY);\n    }\n\n    private function get_release(): ?array {
+    public function clear_cache_before_update(): void {
+        delete_site_transient(self::CACHE_KEY);
+    }
+
+    private function get_release(): ?array {
         $cached = get_site_transient(self::CACHE_KEY);
         if (is_array($cached)) return $cached ?: null;
         $response = wp_remote_get('https://api.github.com/repos/' . self::REPOSITORY . '/releases/latest', ['timeout' => 12, 'redirection' => 3, 'headers' => ['Accept' => 'application/vnd.github+json', 'User-Agent' => $this->user_agent()]]);
