@@ -84,3 +84,57 @@ input:focus,textarea:focus,select:focus{border-color:var(--wutm-wp-blue)!importa
   .wutm-wrap .wutm-header h1{font-size:24px}
   .wrap:not(.wutm-wrap)>h1:first-of-type{margin:-24px -28px 24px!important}
 }
+
+/* v1.1.5 consistency pass: spacing, rounded frames, equal cards and native title color. */
+.wrap,.wutm-wrap,.wutm-module-wrap{box-sizing:border-box}
+.wrap:not(.wutm-wrap),.wutm-module-wrap{
+  padding:24px 28px 36px!important;
+  border:1px solid var(--wutm-wp-border)!important;
+  border-radius:8px!important;
+}
+.wrap:not(.wutm-wrap)>h1:first-of-type{
+  margin:-24px -28px 24px!important;
+  padding:22px 28px!important;
+  border-radius:8px!important;
+}
+.wrap h1,.wrap h2,.wrap h3,.wutm-card h3,.wutm-module-wrap h2,.wutm-module-wrap h3{
+  color:var(--wutm-wp-text)!important;
+  text-shadow:none!important;
+}
+.form-table{
+  width:100%;
+  margin:20px 0!important;
+  padding:0!important;
+  border:1px solid var(--wutm-wp-border)!important;
+  border-radius:8px!important;
+  border-collapse:separate!important;
+  border-spacing:0!important;
+  overflow:hidden;
+  background:var(--wutm-wp-panel)!important;
+}
+.form-table tr>th,.form-table tr>td{
+  padding:16px 24px!important;
+  vertical-align:top;
+  border-bottom:1px solid #c3c4c766;
+}
+.form-table tr:last-child>th,.form-table tr:last-child>td{border-bottom:0}
+.form-table th{width:30%;line-height:1.5}
+.form-table td{line-height:1.6}
+.form-table input,.form-table select,.form-table textarea{margin-top:2px}
+.wutm-grid{grid-auto-rows:minmax(148px,1fr)!important}
+.wutm-card{height:100%!important;min-height:148px!important;padding:20px!important;border-radius:8px!important}
+.wutm-card-body{min-height:108px}
+.wutm-card h3{font-size:16px!important}
+.wutm-card p{margin:4px 0 0!important;line-height:1.55}
+.wutm-settings{margin-top:auto!important;padding-top:12px!important}
+.wutm-footer{margin-top:40px!important}
+.wu-info-panel,.wu-stat-box,.wu-moving-form,.wu-moving-preview,.wu-two-column>div{
+  border-radius:8px!important;
+  padding:24px 28px 36px!important;
+  border:1px solid var(--wutm-wp-border)!important;
+  background:var(--wutm-wp-panel)!important;
+}
+@media (max-width:782px){
+  .wrap:not(.wutm-wrap)>h1:first-of-type{margin:-24px -28px 24px!important;padding:20px 24px!important}
+  .form-table tr>th,.form-table tr>td{display:block;width:auto;padding:12px 16px!important}
+}
