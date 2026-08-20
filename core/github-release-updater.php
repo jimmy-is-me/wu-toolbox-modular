@@ -5,7 +5,7 @@ final class WUTM_GitHub_Release_Updater {
     private const REPOSITORY = 'jimmy-is-me/wu-toolbox-modular';
     private const ASSET_NAME = 'wu-toolbox-modular.zip';
     private const CACHE_KEY = 'wutm_github_release_v1';
-    private const CACHE_TTL = 43200;
+    private const CACHE_TTL = 900;
 
     private string $plugin_basename;
 
@@ -14,7 +14,7 @@ final class WUTM_GitHub_Release_Updater {
         add_filter('site_transient_update_plugins', [$this, 'inject_update']);
         add_filter('pre_set_site_transient_update_plugins', [$this, 'inject_update']);
         add_filter('plugins_api', [$this, 'plugin_information'], 20, 3);
-        add_filter('upgrader_pre_download', [$this, 'download_release_asset'], 20, 3);
+        add_filter('upgrader_pre_download', [$this, 'download_release_asset'], 20, 3);\n        add_action('load-update-core.php', [$this, 'clear_cache_before_update']);\n        add_action('load-plugins.php', [$this, 'clear_cache_before_update']);
     }
 
     public function inject_update($transient) {
@@ -28,7 +28,7 @@ final class WUTM_GitHub_Release_Updater {
             'plugin' => $this->plugin_basename,
             'new_version' => $release['version'],
             'url' => $release['html_url'],
-            'package' => $release['asset_api_url'],
+            'package' => $release['browser_url'] ?: $release['asset_api_url'],
             'icons' => [], 'banners' => [], 'banners_rtl' => [],
             'tested' => get_bloginfo('version'),
             'requires_php' => '7.4',
@@ -54,7 +54,7 @@ final class WUTM_GitHub_Release_Updater {
 
     public function download_release_asset($reply, $package, $upgrader) {
         $release = $this->get_release();
-        if (!$release || $package !== $release['asset_api_url']) return $reply;
+        if (!$release || !in_array($package, [$release['asset_api_url'], $release['browser_url']], true)) return $reply;
         $response = wp_remote_get($package, ['timeout' => 45, 'redirection' => 5, 'headers' => ['Accept' => 'application/octet-stream', 'User-Agent' => $this->user_agent()]]);
         if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
             return is_wp_error($response) ? $response : new WP_Error('wutm_release_download_failed', __('無法下載 GitHub Release 更新檔。', 'wu-toolbox-modular'));
@@ -66,7 +66,7 @@ final class WUTM_GitHub_Release_Updater {
         return $file;
     }
 
-    private function get_release(): ?array {
+    public function clear_cache_before_update(): void {\n        delete_site_transient(self::CACHE_KEY);\n    }\n\n    private function get_release(): ?array {
         $cached = get_site_transient(self::CACHE_KEY);
         if (is_array($cached)) return $cached ?: null;
         $response = wp_remote_get('https://api.github.com/repos/' . self::REPOSITORY . '/releases/latest', ['timeout' => 12, 'redirection' => 3, 'headers' => ['Accept' => 'application/vnd.github+json', 'User-Agent' => $this->user_agent()]]);
@@ -84,7 +84,7 @@ final class WUTM_GitHub_Release_Updater {
             set_site_transient(self::CACHE_KEY, [], self::CACHE_TTL);
             return null;
         }
-        $release = ['version' => $tag, 'asset_api_url' => esc_url_raw($asset['url']), 'html_url' => esc_url_raw((string) ($data['html_url'] ?? 'https://github.com/' . self::REPOSITORY . '/releases')), 'body' => (string) ($data['body'] ?? '')];
+        $release = ['version' => $tag, 'asset_api_url' => esc_url_raw($asset['url']), 'browser_url' => esc_url_raw((string) ($asset['browser_download_url'] ?? '')), 'html_url' => esc_url_raw((string) ($data['html_url'] ?? 'https://github.com/' . self::REPOSITORY . '/releases')), 'body' => (string) ($data['body'] ?? '')];
         set_site_transient(self::CACHE_KEY, $release, self::CACHE_TTL);
         return $release;
     }
