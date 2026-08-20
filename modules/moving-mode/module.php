@@ -129,7 +129,7 @@ class WU_Moving_Mode {
      */
     public function enqueue_admin_assets($hook) {
         // 僅在維護模式設定頁面載入
-        if ($hook !== 'wumetaxtoolkit_page_moving-mode') {
+        if ($hook !== 'wu-toolbox-modular_page_wu-moving-mode') {
             return;
         }
         
@@ -324,7 +324,7 @@ class WU_Moving_Mode {
     public function render_settings_page() {
         // 驗證權限
         if (!current_user_can('manage_options')) {
-            wp_die(esc_html__('您沒有足夠的權限訪問此頁面。', 'wumetax-toolkit'));
+            wp_die(esc_html__('您沒有足夠的權限訪問此頁面。', 'wu-toolbox-modular'));
         }
         
         // 處理表單提交
@@ -332,12 +332,12 @@ class WU_Moving_Mode {
             // 驗證 Nonce
             if (!isset($_POST[$this->nonce_field]) || 
                 !wp_verify_nonce($_POST[$this->nonce_field], $this->nonce_action)) {
-                wp_die(esc_html__('安全驗證失敗', 'wumetax-toolkit'));
+                wp_die(esc_html__('安全驗證失敗', 'wu-toolbox-modular'));
             }
             
             // 再次驗證權限
             if (!current_user_can('manage_options')) {
-                wp_die(esc_html__('權限不足', 'wumetax-toolkit'));
+                wp_die(esc_html__('權限不足', 'wu-toolbox-modular'));
             }
             
             // 儲存設定
