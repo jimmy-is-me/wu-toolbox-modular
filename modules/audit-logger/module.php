@@ -109,8 +109,8 @@ class WU_Audit_Logger {
     public function add_submenu_page() {
         add_submenu_page(
             'wu-toolbox-modular',
-            '使用者紀錄',
-            '使用者紀錄',
+            '操作日誌',
+            '操作日誌',
             'manage_options',
             'wu-audit-logger',
             array($this, 'settings_page')
@@ -282,8 +282,9 @@ class WU_Audit_Logger {
 
         $current = $this->options;
         ?>
-        <div class="wrap">
-            <h1>後台紀錄追蹤</h1>
+        <div class="wrap wutm-module-wrap wutm-audit-logger">
+            <h1>操作日誌</h1>
+            <p class="wutm-module-subtitle">記錄重要後台活動，提供可篩選、可清理的操作紀錄。</p>
             
             <form method="post" action="">
                 <?php wp_nonce_field('wu_audit_logger_save','wu_audit_logger_nonce'); ?>
