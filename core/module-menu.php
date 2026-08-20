@@ -10,9 +10,12 @@ add_action('admin_enqueue_scripts', function (): void {
     if (!$screen) return;
 
     $id = (string) $screen->id;
-    if ($id !== 'toplevel_page_wu-toolbox-modular' && strpos($id, 'wu-toolbox-modular_page_wu-') !== 0) {
-        return;
-    }
+    $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
+    $is_wu_screen = $id === 'toplevel_page_wu-toolbox-modular'
+        || strpos($id, 'wu-toolbox-modular_page_wu-') === 0
+        || $page === 'wu-toolbox-modular'
+        || strpos($page, 'wu-') === 0;
+    if (!$is_wu_screen) return;
 
     wp_enqueue_style(
         'wutm-admin',
