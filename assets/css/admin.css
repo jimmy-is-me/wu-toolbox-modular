@@ -63,3 +63,24 @@ input:focus,textarea:focus,select:focus{border-color:var(--wutm-wp-blue)!importa
 @keyframes wutm-scan{0%,35%{transform:translateX(-100%)}65%,100%{transform:translateX(100%)}}
 @media (max-width:782px){.wutm-grid{grid-template-columns:1fr}.wutm-card{min-height:112px}}
 @media (prefers-reduced-motion:reduce){.wutm-card.on,.wutm-wrap .wutm-header:after,.wrap>h1:first-child:after,.wrap:not(.wutm-wrap)>h1:first-of-type:after{animation:none}}
+
+/* v1.1.4 refinements: WPCD-inspired hero, aligned cards and branded footer. */
+.wutm-wrap .wutm-header{
+  background:linear-gradient(135deg,#061326 0%,#0b2a4c 52%,#1d4f8f 100%)!important;
+  min-height:132px;display:flex;align-items:center;justify-content:space-between;gap:24px;
+}
+.wutm-wrap .wutm-header h1{font-size:28px;letter-spacing:.01em}
+.wutm-wrap .wutm-header p{color:#9ecbff!important;margin:8px 0 0}
+.wutm-wrap .wutm-header>span{color:#ffc857!important;white-space:nowrap}
+.wutm-grid{grid-auto-rows:1fr}
+.wutm-card{height:100%}
+.wutm-card-body{display:flex;flex-direction:column}
+.wutm-settings{margin-top:auto;display:inline-block;padding-top:10px}
+.wutm-footer{margin:36px 0 12px;padding:16px 0 0;border-top:1px solid var(--wutm-wp-border);color:var(--wutm-wp-muted);font-size:12px;text-align:center}
+.wrap:not(.wutm-wrap),.wutm-module-wrap{padding:24px 28px 36px!important;border-radius:8px!important}
+.wrap:not(.wutm-wrap)>h1:first-of-type{margin:-24px -28px 24px!important;border-radius:8px!important}
+@media (max-width:782px){
+  .wutm-wrap .wutm-header{align-items:flex-start;flex-direction:column;min-height:0}
+  .wutm-wrap .wutm-header h1{font-size:24px}
+  .wrap:not(.wutm-wrap)>h1:first-of-type{margin:-24px -28px 24px!important}
+}
