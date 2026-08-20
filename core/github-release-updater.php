@@ -28,7 +28,7 @@ final class WUTM_GitHub_Release_Updater {
             'plugin' => $this->plugin_basename,
             'new_version' => $release['version'],
             'url' => $release['html_url'],
-            'package' => $release['browser_url'] ?: $release['asset_api_url'],
+            'package' => (($release['browser_url'] ?? '') ?: $release['asset_api_url']),
             'icons' => [], 'banners' => [], 'banners_rtl' => [],
             'tested' => get_bloginfo('version'),
             'requires_php' => '7.4',
@@ -54,7 +54,7 @@ final class WUTM_GitHub_Release_Updater {
 
     public function download_release_asset($reply, $package, $upgrader) {
         $release = $this->get_release();
-        if (!$release || !in_array($package, [$release['asset_api_url'], $release['browser_url']], true)) return $reply;
+        if (!$release || !in_array($package, [$release['asset_api_url'], ($release['browser_url'] ?? '')], true)) return $reply;
         $response = wp_remote_get($package, ['timeout' => 45, 'redirection' => 5, 'headers' => ['Accept' => 'application/octet-stream', 'User-Agent' => $this->user_agent()]]);
         if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
             return is_wp_error($response) ? $response : new WP_Error('wutm_release_download_failed', __('無法下載 GitHub Release 更新檔。', 'wu-toolbox-modular'));
