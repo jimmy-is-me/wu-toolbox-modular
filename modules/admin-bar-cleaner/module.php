@@ -63,7 +63,7 @@ class WU_Admin_Bar_Cleaner {
             '後台介面管理',
             'manage_options',
             'wu-admin-bar-cleaner',
-            'wu_admin_bar_settings'
+            [ $this, 'admin_page' ]
         );
     }
 
@@ -404,15 +404,10 @@ class WU_Admin_Bar_Cleaner {
         </div>
 
         <style>
-        .wu-status-on     { color:#00a32a; font-weight:700; }
-        .wu-status-off    { color:#d63638; font-weight:700; }
-        .wu-status-custom { color:#0073aa; font-weight:700; }
-        .card             { background:#fff; border:1px solid #ccd0d4; padding:20px; margin:20px 0; border-radius:4px; }
-        .wu-status-table  { width:100%; margin-top:10px; border-collapse:collapse; }
-        .wu-status-table th,
-        .wu-status-table td { padding:8px 12px; border:1px solid #e0e0e0; text-align:left; }
-        .wu-status-table th { background:#f5f5f5; }
-        .wu-status-table tbody tr:hover { background:#fafafa; }
+        .wu-status-on{color:#35df92;font-weight:700}.wu-status-off{color:#ff8a3d;font-weight:700}.wu-status-custom{color:#ffc857;font-weight:700}
+        .card{background:transparent;border:1px solid #3a8fc566;padding:20px;margin:20px 0;border-radius:14px;box-shadow:0 0 20px #020b1844}
+        .wu-status-table{width:100%;margin-top:10px;border-collapse:collapse;color:#eaf8ff}.wu-status-table th,.wu-status-table td{padding:10px 12px;border-bottom:1px solid #3a8fc566;text-align:left}.wu-status-table th{color:#ffc857;background:transparent}.wu-status-table tbody tr:hover{background:#ffc8570d}
+        .wu-admin-bar-settings .form-table{background:transparent!important}
         </style>
 
         <script>
