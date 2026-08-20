@@ -40,7 +40,11 @@ class WU_Admin_Bar_Cleaner {
     private const PROTECTED_ROLES = [ 'subscriber', 'administrator' ];
 
     public function __construct() {
-        add_action( 'plugins_loaded', [ $this, 'init' ], 5 );
+        if ( did_action( 'plugins_loaded' ) ) {
+            $this->init();
+        } else {
+            add_action( 'plugins_loaded', [ $this, 'init' ], 5 );
+        }
     }
 
     public function init(): void {
