@@ -121,7 +121,7 @@ class WU_Content_Duplicator {
 
     public function enqueue_admin_assets($hook) {
         // ✅ 修正：正確的子頁面 hook 名稱格式
-        $allowed_hooks = ['edit.php', 'post.php', 'post-new.php', 'wumetax-toolkit_page_wu-content-duplicator'];
+        $allowed_hooks = ['edit.php', 'post.php', 'post-new.php', 'wu-toolbox-modular_page_wu-content-duplicator'];
 
         if (!in_array($hook, $allowed_hooks, true)) return;
 
