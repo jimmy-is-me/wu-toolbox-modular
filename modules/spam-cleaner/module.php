@@ -8,11 +8,11 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-define( 'SPAM_CLEANER_OPT_KEYWORDS', 'spam_cleaner_keywords' );
-define( 'SPAM_CLEANER_OPT_SPEED',    'spam_cleaner_speed_mode' );
+define( 'WUTM_SPAM_CLEANER_OPT_KEYWORDS', 'wutm_spam_cleaner_keywords' );
+define( 'WUTM_SPAM_CLEANER_OPT_SPEED',    'wutm_spam_cleaner_speed_mode' );
 
 /* ── 預設關鍵字 ───────────────────────────────────────────── */
-function spam_cleaner_default_keywords() {
+function wutm_spam_cleaner_default_keywords() {
     return implode( "\n", [
         'blogspot',
         'btc',
@@ -27,8 +27,8 @@ function spam_cleaner_default_keywords() {
 }
 
 /* ── 取得關鍵字陣列 ───────────────────────────────────────── */
-function spam_cleaner_get_keywords() {
-    $raw   = get_option( SPAM_CLEANER_OPT_KEYWORDS, spam_cleaner_default_keywords() );
+function wutm_spam_cleaner_get_keywords() {
+    $raw   = get_option( WUTM_SPAM_CLEANER_OPT_KEYWORDS, wutm_spam_cleaner_default_keywords() );
     $lines = preg_split( '/\r\n|\r|\n/', $raw );
     $out   = [];
     foreach ( $lines as $line ) {
@@ -41,8 +41,8 @@ function spam_cleaner_get_keywords() {
 }
 
 /* ── 建立 WHERE 片段（user_login LIKE ...） ───────────────── */
-function spam_cleaner_build_where() {
-    $keywords = spam_cleaner_get_keywords();
+function wutm_spam_cleaner_build_where() {
+    $keywords = wutm_spam_cleaner_get_keywords();
     if ( empty( $keywords ) ) return '';
 
     global $wpdb;
@@ -54,8 +54,8 @@ function spam_cleaner_build_where() {
 }
 
 /* ── 查詢（支援 offset 分頁） ────────────────────────────── */
-function spam_cleaner_get_users( $limit = 100, $offset = 0 ) {
-    $where = spam_cleaner_build_where();
+function wutm_spam_cleaner_get_users( $limit = 100, $offset = 0 ) {
+    $where = wutm_spam_cleaner_build_where();
     if ( ! $where ) return [];
 
     global $wpdb;
@@ -75,8 +75,8 @@ function spam_cleaner_get_users( $limit = 100, $offset = 0 ) {
 }
 
 /* ── 計算總筆數 ───────────────────────────────────────────── */
-function spam_cleaner_count_all() {
-    $where = spam_cleaner_build_where();
+function wutm_spam_cleaner_count_all() {
+    $where = wutm_spam_cleaner_build_where();
     if ( ! $where ) return 0;
 
     global $wpdb;
@@ -91,7 +91,7 @@ function spam_cleaner_count_all() {
 }
 
 /* ── 速度設定 ─────────────────────────────────────────────── */
-function spam_cleaner_speed_config( $mode ) {
+function wutm_spam_cleaner_speed_config( $mode ) {
     $mem_limit = wp_convert_hr_to_bytes( ini_get( 'memory_limit' ) );
     $mem_usage = memory_get_usage( true );
     $mem_free  = $mem_limit > 0 ? ( $mem_limit - $mem_usage ) : 256 * 1024 * 1024;
@@ -120,22 +120,22 @@ function spam_cleaner_speed_config( $mode ) {
 }
 
 /* ── 選單 ─────────────────────────────────────────────────── */
-add_action( 'admin_menu', 'spam_cleaner_menu' );
-function spam_cleaner_menu() {
-    add_submenu_page( 'wu-toolbox-modular', '垃圾帳號清除', '垃圾帳號清除', 'manage_options', 'wu-spam-cleaner', 'spam_cleaner_page' );
+add_action( 'admin_menu', 'wutm_spam_cleaner_menu' );
+function wutm_spam_cleaner_menu() {
+    add_submenu_page( 'wu-toolbox-modular', '垃圾帳號清除', '垃圾帳號清除', 'manage_options', 'wu-spam-cleaner', 'wutm_spam_cleaner_page' );
 }
 
 /* ── Ajax：取得使用者清單（分頁） ────────────────────────── */
-add_action( 'wp_ajax_spam_cleaner_list_users', 'spam_cleaner_ajax_list_users' );
-function spam_cleaner_ajax_list_users() {
-    check_ajax_referer( 'spam_cleaner_ajax_nonce', 'nonce' );
+add_action( 'wp_ajax_wutm_spam_cleaner_list_users', 'wutm_spam_cleaner_ajax_list_users' );
+function wutm_spam_cleaner_ajax_list_users() {
+    check_ajax_referer( 'wutm_spam_cleaner_ajax_nonce', 'nonce' );
     if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( '權限不足' );
 
     $page     = max( 1, intval( $_POST['page'] ?? 1 ) );
     $per_page = 200;
     $offset   = ( $page - 1 ) * $per_page;
-    $users    = spam_cleaner_get_users( $per_page, $offset );
-    $total    = spam_cleaner_count_all();
+    $users    = wutm_spam_cleaner_get_users( $per_page, $offset );
+    $total    = wutm_spam_cleaner_count_all();
 
     $rows = [];
     foreach ( $users as $u ) {
@@ -157,9 +157,9 @@ function spam_cleaner_ajax_list_users() {
 }
 
 /* ── Ajax：刪除指定 ID 清單 ──────────────────────────────── */
-add_action( 'wp_ajax_spam_cleaner_delete_ids', 'spam_cleaner_ajax_delete_ids' );
-function spam_cleaner_ajax_delete_ids() {
-    check_ajax_referer( 'spam_cleaner_ajax_nonce', 'nonce' );
+add_action( 'wp_ajax_wutm_spam_cleaner_delete_ids', 'wutm_spam_cleaner_ajax_delete_ids' );
+function wutm_spam_cleaner_ajax_delete_ids() {
+    check_ajax_referer( 'wutm_spam_cleaner_ajax_nonce', 'nonce' );
     if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( '權限不足' );
 
     $ids = isset( $_POST['ids'] ) ? array_map( 'intval', (array) $_POST['ids'] ) : [];
@@ -179,20 +179,20 @@ function spam_cleaner_ajax_delete_ids() {
     wp_send_json_success( [
         'deleted'   => $deleted,
         'skipped'   => $skipped,
-        'remaining' => spam_cleaner_count_all(),
+        'remaining' => wutm_spam_cleaner_count_all(),
     ] );
 }
 
 /* ── Ajax：批次刪除（自動速度） ──────────────────────────── */
-add_action( 'wp_ajax_spam_cleaner_delete_batch', 'spam_cleaner_ajax_delete_batch' );
-function spam_cleaner_ajax_delete_batch() {
-    check_ajax_referer( 'spam_cleaner_ajax_nonce', 'nonce' );
+add_action( 'wp_ajax_wutm_spam_cleaner_delete_batch', 'wutm_spam_cleaner_ajax_delete_batch' );
+function wutm_spam_cleaner_ajax_delete_batch() {
+    check_ajax_referer( 'wutm_spam_cleaner_ajax_nonce', 'nonce' );
     if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( '權限不足' );
 
     $speed_mode = sanitize_text_field( wp_unslash( $_POST['speed_mode'] ?? 'auto' ) );
-    update_option( SPAM_CLEANER_OPT_SPEED, $speed_mode );
-    $cfg   = spam_cleaner_speed_config( $speed_mode );
-    $users = spam_cleaner_get_users( $cfg['batch'] );
+    update_option( WUTM_SPAM_CLEANER_OPT_SPEED, $speed_mode );
+    $cfg   = wutm_spam_cleaner_speed_config( $speed_mode );
+    $users = wutm_spam_cleaner_get_users( $cfg['batch'] );
 
     require_once ABSPATH . 'wp-admin/includes/user.php';
 
@@ -209,45 +209,45 @@ function spam_cleaner_ajax_delete_batch() {
     wp_send_json_success( [
         'deleted'   => $deleted,
         'skipped'   => $skipped,
-        'remaining' => spam_cleaner_count_all(),
+        'remaining' => wutm_spam_cleaner_count_all(),
         'mode'      => $cfg['label'],
         'diag'      => $cfg['diag'],
     ] );
 }
 
 /* ── Ajax：儲存關鍵字 ────────────────────────────────────── */
-add_action( 'wp_ajax_spam_cleaner_save_keywords', 'spam_cleaner_ajax_save_keywords' );
-function spam_cleaner_ajax_save_keywords() {
-    check_ajax_referer( 'spam_cleaner_ajax_nonce', 'nonce' );
+add_action( 'wp_ajax_wutm_spam_cleaner_save_keywords', 'wutm_spam_cleaner_ajax_save_keywords' );
+function wutm_spam_cleaner_ajax_save_keywords() {
+    check_ajax_referer( 'wutm_spam_cleaner_ajax_nonce', 'nonce' );
     if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( '權限不足' );
 
     $raw = sanitize_textarea_field( wp_unslash( $_POST['keywords'] ?? '' ) );
-    update_option( SPAM_CLEANER_OPT_KEYWORDS, $raw );
-    wp_send_json_success( [ 'total' => spam_cleaner_count_all() ] );
+    update_option( WUTM_SPAM_CLEANER_OPT_KEYWORDS, $raw );
+    wp_send_json_success( [ 'total' => wutm_spam_cleaner_count_all() ] );
 }
 
 /* ── Ajax：重置關鍵字 ────────────────────────────────────── */
-add_action( 'wp_ajax_spam_cleaner_reset_keywords', 'spam_cleaner_ajax_reset_keywords' );
-function spam_cleaner_ajax_reset_keywords() {
-    check_ajax_referer( 'spam_cleaner_ajax_nonce', 'nonce' );
+add_action( 'wp_ajax_wutm_spam_cleaner_reset_keywords', 'wutm_spam_cleaner_ajax_reset_keywords' );
+function wutm_spam_cleaner_ajax_reset_keywords() {
+    check_ajax_referer( 'wutm_spam_cleaner_ajax_nonce', 'nonce' );
     if ( ! current_user_can( 'manage_options' ) ) wp_send_json_error( '權限不足' );
 
-    delete_option( SPAM_CLEANER_OPT_KEYWORDS );
+    delete_option( WUTM_SPAM_CLEANER_OPT_KEYWORDS );
     wp_send_json_success( [
-        'keywords' => spam_cleaner_default_keywords(),
-        'total'    => spam_cleaner_count_all(),
+        'keywords' => wutm_spam_cleaner_default_keywords(),
+        'total'    => wutm_spam_cleaner_count_all(),
     ] );
 }
 
 /* ── 後台頁面 ─────────────────────────────────────────────── */
-function spam_cleaner_page() {
+function wutm_spam_cleaner_page() {
     if ( ! current_user_can( 'manage_options' ) ) wp_die( '權限不足' );
 
-    $ajax_nonce   = wp_create_nonce( 'spam_cleaner_ajax_nonce' );
-    $keywords_raw = get_option( SPAM_CLEANER_OPT_KEYWORDS, spam_cleaner_default_keywords() );
-    $total        = spam_cleaner_count_all();
-    $speed_mode   = get_option( SPAM_CLEANER_OPT_SPEED, 'auto' );
-    $speed_cfg    = spam_cleaner_speed_config( $speed_mode );
+    $ajax_nonce   = wp_create_nonce( 'wutm_spam_cleaner_ajax_nonce' );
+    $keywords_raw = get_option( WUTM_SPAM_CLEANER_OPT_KEYWORDS, wutm_spam_cleaner_default_keywords() );
+    $total        = wutm_spam_cleaner_count_all();
+    $speed_mode   = get_option( WUTM_SPAM_CLEANER_OPT_SPEED, 'auto' );
+    $speed_cfg    = wutm_spam_cleaner_speed_config( $speed_mode );
     ?>
 <!DOCTYPE html>
 <style>
@@ -301,7 +301,7 @@ function spam_cleaner_page() {
 <div class="card" style="display:flex;align-items:center;gap:30px;">
     <div>
         <div class="sc-total" id="sc-total-count"><?php
-/** WU Toolbox Modular module: merged spam_cleaner + spam-user-cleaner functionality. */
+/** WU Toolbox Modular module: merged wutm_spam_cleaner + spam-user-cleaner functionality. */
 if ( ! defined( 'ABSPATH' ) ) exit;
 echo number_format( $total ); ?></div>
         <div class="sc-total-label">筆符合條件的垃圾帳號</div>
@@ -476,7 +476,7 @@ document.querySelectorAll('.speed-opt').forEach(el => {
 document.getElementById('sc-save-kw-btn').addEventListener('click', function(){
     const msg = document.getElementById('sc-kw-msg');
     msg.textContent = '儲存中...'; msg.style.color = '#333';
-    post('spam_cleaner_save_keywords', { keywords: document.getElementById('sc-keywords').value })
+    post('wutm_spam_cleaner_save_keywords', { keywords: document.getElementById('sc-keywords').value })
     .then(res => {
         if(res.success){
             msg.textContent = '✅ 已儲存！符合條件：' + Number(res.data.total).toLocaleString() + ' 筆';
@@ -494,7 +494,7 @@ document.getElementById('sc-save-kw-btn').addEventListener('click', function(){
 /* ── 還原預設關鍵字 ───────────────────────────────────────── */
 document.getElementById('sc-reset-kw-btn').addEventListener('click', function(){
     if(!confirm('確定還原為預設關鍵字？')) return;
-    post('spam_cleaner_reset_keywords', {}).then(res => {
+    post('wutm_spam_cleaner_reset_keywords', {}).then(res => {
         if(res.success){
             document.getElementById('sc-keywords').value = res.data.keywords;
             updateTotalUI(res.data.total);
@@ -533,7 +533,7 @@ function loadPage(page){
     document.getElementById('user-list-table').style.display = 'none';
     document.getElementById('sc-empty-msg').style.display = 'none';
 
-    post('spam_cleaner_list_users', { page })
+    post('wutm_spam_cleaner_list_users', { page })
     .then(res => {
         document.getElementById('sc-loading').style.display = 'none';
         if(!res.success){ alert('載入失敗：' + JSON.stringify(res.data)); return; }
@@ -696,7 +696,7 @@ document.getElementById('sc-delete-selected-btn').addEventListener('click', func
             return;
         }
 
-        const params = new URLSearchParams({ action:'spam_cleaner_delete_ids', nonce });
+        const params = new URLSearchParams({ action:'wutm_spam_cleaner_delete_ids', nonce });
         chunks[idx].forEach(id => params.append('ids[]', id));
 
         fetch(ajaxUrl, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'}, body:params })
@@ -732,7 +732,7 @@ document.getElementById('sc-stop-btn').addEventListener('click', function(){
 
 function runBatch(){
     if(stopped){ finishBatchUI(); return; }
-    post('spam_cleaner_delete_batch',{speed_mode:speedMode})
+    post('wutm_spam_cleaner_delete_batch',{speed_mode:speedMode})
     .then(res => {
         if(!res.success){ appendLog('warn','❌ '+JSON.stringify(res.data)); finishBatchUI(); return; }
         const d = res.data;
