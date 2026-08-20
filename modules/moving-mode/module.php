@@ -65,7 +65,7 @@ class WU_Moving_Mode {
             'wu-toolbox-modular',
             '維護模式設定',
             '維護模式設定',
-            'wu-moving-mode',
+            'manage_options',
             'wu-moving-mode',
             array($this, 'render_settings_page')
         );
