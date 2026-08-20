@@ -44,7 +44,8 @@ add_action('admin_head', function (): void {
       .notice{border-radius:10px!important;border-left-width:4px!important;box-shadow:0 3px 16px #020b1855}
       .wutm-wrap section>h2{color:#111827!important;font-size:12px;text-shadow:none;letter-spacing:.14em;position:relative;padding-left:14px}.wutm-wrap section>h2:before{content:"";position:absolute;left:0;top:50%;width:5px;height:5px;border:1px solid #1d78c8;transform:translateY(-50%);box-shadow:0 0 8px #63ddff}.wutm-wrap section>h2:after{content:"";display:inline-block;width:34px;height:1px;margin:0 0 3px 10px;background:linear-gradient(90deg,#1d78c8,transparent);animation:wutm-pulse 2.6s ease-in-out infinite}
       @keyframes wutm-breathe{0%,100%{filter:brightness(1);transform:translateY(0)}50%{filter:brightness(1.12);transform:translateY(-1px)}}
-      @keyframes wutm-scan{0%,35%{transform:translateX(-100%)}65%,100%{transform:translateX(100%)}}\n      @keyframes wutm-pulse{0%,100%{opacity:.35;transform:scaleX(.7)}50%{opacity:1;transform:scaleX(1)}}
+      @keyframes wutm-scan{0%,35%{transform:translateX(-100%)}65%,100%{transform:translateX(100%)}}
+      @keyframes wutm-pulse{0%,100%{opacity:.35;transform:scaleX(.7)}50%{opacity:1;transform:scaleX(1)}}
       @media (prefers-reduced-motion:reduce){.wutm-card.on,.wutm-wrap .wutm-header:after,.wrap>h1:first-child:after{animation:none}}
     </style>
     <?php
