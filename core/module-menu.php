@@ -33,10 +33,12 @@ add_action('admin_head', function (): void {
       .wutm-settings{color:var(--wutm-amber)!important;text-shadow:0 0 8px #ffc85755}
       .wutm-switch span{background:#244566!important;box-shadow:inset 0 0 0 1px #63ddff55}
       .wutm-switch input:checked+span{background:linear-gradient(90deg,#12a97b,#35df92)!important;box-shadow:0 0 14px #35df9277}
-      .wrap:not(.wutm-wrap) .form-table,.wrap:not(.wutm-wrap) .card,.wrap:not(.wutm-wrap) .wu-moving-form,.wrap:not(.wutm-wrap) .wu-moving-preview{background:transparent!important;box-shadow:none!important;border-color:#3a8fc566!important}\n      .form-table{border-spacing:0;margin:20px 0;padding:8px 22px}
+      .wrap:not(.wutm-wrap) .form-table,.wrap:not(.wutm-wrap) .card,.wrap:not(.wutm-wrap) .wu-moving-form,.wrap:not(.wutm-wrap) .wu-moving-preview{background:transparent!important;box-shadow:none!important;border-color:#3a8fc566!important}
+      .form-table{border-spacing:0;margin:20px 0;padding:8px 22px}
       .form-table th{color:#fff7df!important;font-weight:700}
       .form-table td{color:var(--wutm-muted)!important}
       .wrap h2,.wrap h3{color:var(--wutm-amber)!important;text-shadow:0 0 10px #ffc85733}
+      .wutm-module-wrap{max-width:1240px}.wutm-module-subtitle{color:var(--wutm-muted)!important;font-size:14px;margin:-10px 0 24px}.wutm-module-wrap hr{border-color:#3a8fc566}.wutm-module-wrap .widefat{background:transparent!important;border-color:#3a8fc566!important;color:#eaf8ff!important}.wutm-module-wrap .widefat th{color:var(--wutm-amber)!important}.wutm-module-wrap .widefat td{color:var(--wutm-muted)!important}.wutm-module-wrap label{color:#fff7df}.wutm-module-wrap .updated{border-left-color:var(--wutm-green)!important;background:#35df9212!important;color:#eaf8ff!important}
       .button,.button-secondary,.button-primary{border-radius:8px!important}
       .button-primary{background:linear-gradient(90deg,#d66b2f,#b98a2c,#1d78c8)!important;border-color:var(--wutm-amber)!important;box-shadow:0 0 16px #ff9e3d44!important;color:#fff!important}
       .button-primary:hover{filter:brightness(1.15);box-shadow:0 0 24px #ffc85766!important}
