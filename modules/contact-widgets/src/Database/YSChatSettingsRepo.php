@@ -2,11 +2,11 @@
 /**
  * 設定值存取（自訂資料表，非 wp_options）
  *
- * @package YangSheep\ChatWidgets\Database
+ * @package WUTM\ContactWidgets\Database
  * @since   1.0.0
  */
 
-namespace YangSheep\ChatWidgets\Database;
+namespace WUTM\ContactWidgets\Database;
 
 defined( 'ABSPATH' ) || exit;
 
