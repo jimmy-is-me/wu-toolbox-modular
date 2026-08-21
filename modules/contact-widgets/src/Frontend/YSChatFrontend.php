@@ -168,7 +168,7 @@ class YSChatFrontend {
         $btn_icon = (string) ( $settings['button_icon'] ?? '' );
         $tooltip  = (string) ( $settings['tooltip'] ?? 'appname' );
         $defs     = YSChatApps::all();
-        $toggle_fg = YSChatApps::contrast_fg( $color );
+        $toggle_fg = '#ffffff'; // Keep the default button icon white for consistent contrast.
 
         // 相容模式：auto（偵測到被主題破壞才由 JS 強制，防呆預設）／force（一律 !important）／off（不強制）。
         $style_mode = (string) ( $settings['style_mode'] ?? 'auto' );
