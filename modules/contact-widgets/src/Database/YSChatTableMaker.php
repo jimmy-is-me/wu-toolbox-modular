@@ -2,11 +2,11 @@
 /**
  * 資料表建立與升級
  *
- * @package YangSheep\ChatWidgets\Database
+ * @package WUTM\ContactWidgets\Database
  * @since   1.0.0
  */
 
-namespace YangSheep\ChatWidgets\Database;
+namespace WUTM\ContactWidgets\Database;
 
 defined( 'ABSPATH' ) || exit;
 
