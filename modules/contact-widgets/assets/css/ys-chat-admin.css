@@ -1,0 +1,533 @@
+/**
+ * 浮動聯絡按鈕 — 後台樣式
+ *
+ * 使用 YANGSHEEP 標準莫蘭迪色系（--ys-adm-*）
+ *
+ * @since 1.0.0
+ */
+
+/* ── 莫蘭迪色系變數（與 Hub / 市集統一） ──── */
+:root {
+    --ys-adm-bg: #f8fafb;
+    --ys-adm-card-bg: #ffffff;
+    --ys-adm-border: #e2e8ed;
+    --ys-adm-border-light: #edf1f4;
+    --ys-adm-text: #2c3e50;
+    --ys-adm-text-muted: #7b8a96;
+    --ys-adm-primary: #8fa8b8;
+    --ys-adm-primary-dark: #6b8a9a;
+    --ys-adm-primary-light: #b3c7d3;
+    --ys-adm-primary-bg: rgba(143, 168, 184, 0.1);
+    --ys-adm-success: #7dab8e;
+    --ys-adm-success-bg: #e8f3ec;
+    --ys-adm-warning: #c4a67a;
+    --ys-adm-warning-bg: #faf2e5;
+    --ys-adm-danger: #c08080;
+    --ys-adm-danger-bg: #f8e8e8;
+    --ys-adm-info-bg: #e8eff5;
+    --ys-adm-radius: 8px;
+    --ys-adm-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    --ys-adm-shadow-hover: 0 4px 16px rgba(107, 138, 154, 0.15);
+}
+
+/* ── Hero Header ──────────────────────────── */
+.ysch-hero {
+    background: linear-gradient(135deg, #8fa8b8 0%, #a8bcc8 50%, #b3c7d3 100%);
+    border-radius: 12px;
+    padding: 28px 32px;
+    margin: 12px 20px 0 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    color: #fff;
+    box-shadow: 0 4px 20px rgba(107, 138, 154, 0.25);
+}
+
+.ysch-hero-title {
+    margin: 0 0 4px;
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ysch-hero-title .dashicons {
+    font-size: 24px;
+    width: 24px;
+    height: 24px;
+}
+
+.ysch-hero-subtitle {
+    margin: 0;
+    font-size: 13px;
+    color: rgba(255, 255, 255, 0.85);
+}
+
+.ysch-version-badge {
+    background: rgba(255, 255, 255, 0.25);
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #fff;
+}
+
+/* ── 頁面容器 ─────────────────────────────── */
+.ysch-admin-wrap {
+    max-width: 860px;
+    margin: 20px 0;
+    color: var(--ys-adm-text);
+    padding-bottom: 40px;
+}
+
+/* ── 卡片 ─────────────────────────────────── */
+.ysch-card {
+    background: var(--ys-adm-card-bg);
+    border: 1px solid var(--ys-adm-border);
+    border-radius: var(--ys-adm-radius);
+    box-shadow: var(--ys-adm-shadow);
+    padding: 24px;
+    margin-bottom: 20px;
+}
+
+.ysch-card h2 {
+    font-size: 16px;
+    font-weight: 600;
+    margin: 0 0 16px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--ys-adm-border-light);
+    color: var(--ys-adm-text);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.ysch-card h2 .dashicons {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: var(--ys-adm-primary);
+}
+
+.ysch-card-migrated {
+    background: var(--ys-adm-success-bg);
+    border-color: var(--ys-adm-success);
+    padding: 14px 20px;
+}
+
+.ysch-card-migrated p {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.ysch-card-migrated .dashicons {
+    color: var(--ys-adm-success);
+}
+
+/* ── 表單元素 ─────────────────────────────── */
+.ysch-field {
+    margin-bottom: 16px;
+}
+
+.ysch-field > label {
+    display: block;
+    font-weight: 600;
+    font-size: 13px;
+    margin-bottom: 6px;
+    color: var(--ys-adm-text);
+}
+
+.ysch-field input[type="text"],
+.ysch-field input[type="url"],
+.ysch-field input[type="number"],
+.ysch-field select {
+    width: 100%;
+    max-width: 500px;
+    padding: 8px 12px;
+    font-size: 13px;
+    border: 1px solid var(--ys-adm-border);
+    border-radius: var(--ys-adm-radius);
+    background: var(--ys-adm-card-bg);
+    color: var(--ys-adm-text);
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.ysch-field input[type="number"] { max-width: 120px; }
+.ysch-field input[type="color"] {
+    width: 48px;
+    height: 36px;
+    padding: 2px;
+    border: 1px solid var(--ys-adm-border);
+    border-radius: var(--ys-adm-radius);
+    background: var(--ys-adm-card-bg);
+    cursor: pointer;
+}
+
+.ysch-field input:focus,
+.ysch-field select:focus {
+    border-color: var(--ys-adm-primary);
+    box-shadow: 0 0 0 2px var(--ys-adm-primary-bg);
+    outline: none;
+}
+
+.ysch-field .description {
+    font-size: 12px;
+    color: var(--ys-adm-text-muted);
+    margin-top: 4px;
+}
+
+.ysch-field-row {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.ysch-field-inline {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.ysch-inline-label {
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.ysch-media-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.ysch-media-row input { flex: 1; }
+
+/* ── 開關 ─────────────────────────────────── */
+.ysch-switch {
+    position: relative;
+    display: inline-block;
+    width: 44px;
+    height: 24px;
+    flex: 0 0 auto;
+}
+
+.ysch-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.ysch-switch-track {
+    position: absolute;
+    inset: 0;
+    background: var(--ys-adm-border);
+    border-radius: 24px;
+    transition: background 0.2s;
+    cursor: pointer;
+}
+
+.ysch-switch-track::before {
+    content: "";
+    position: absolute;
+    width: 18px;
+    height: 18px;
+    left: 3px;
+    top: 3px;
+    background: #fff;
+    border-radius: 50%;
+    transition: transform 0.2s;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.ysch-switch input:checked + .ysch-switch-track {
+    background: var(--ys-adm-success);
+}
+
+.ysch-switch input:checked + .ysch-switch-track::before {
+    transform: translateX(20px);
+}
+
+/* ── 位置選擇卡 ───────────────────────────── */
+.ysch-radio-group {
+    display: flex;
+    gap: 12px;
+}
+
+.ysch-radio-card input { display: none; }
+
+.ysch-radio-card-body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 20px;
+    border: 2px solid var(--ys-adm-border);
+    border-radius: var(--ys-adm-radius);
+    font-size: 13px;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.ysch-radio-card input:checked + .ysch-radio-card-body {
+    border-color: var(--ys-adm-primary);
+    background: var(--ys-adm-primary-bg);
+}
+
+.ysch-pos-preview {
+    position: relative;
+    width: 64px;
+    height: 42px;
+    background: var(--ys-adm-border-light);
+    border-radius: 4px;
+}
+
+.ysch-pos-preview i {
+    position: absolute;
+    bottom: 4px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--ys-adm-primary-dark);
+}
+
+.ysch-pos-preview-left i { left: 4px; }
+.ysch-pos-preview-right i { right: 4px; }
+.ysch-pos-preview-center i { left: 50%; transform: translateX(-50%); }
+
+/* ── App picker ───────────────────────────── */
+.ysch-app-picker {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+
+.ysch-app-add {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 12px 6px 6px;
+    border: 1px solid var(--ys-adm-border);
+    border-radius: 20px;
+    background: var(--ys-adm-card-bg);
+    font-size: 12px;
+    color: var(--ys-adm-text);
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.ysch-app-add:hover {
+    border-color: var(--ysch-app-color, var(--ys-adm-primary));
+    box-shadow: var(--ys-adm-shadow);
+}
+
+.ysch-app-add-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--ysch-app-color, #8fa8b8);
+    color: var(--ysch-app-fg, #fff);
+}
+
+.ysch-app-add-icon svg {
+    width: 13px;
+    height: 13px;
+    display: block;
+}
+
+/* ── App 已加入清單 ───────────────────────── */
+.ysch-app-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ysch-app-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--ys-adm-border);
+    border-radius: var(--ys-adm-radius);
+    background: var(--ys-adm-bg);
+}
+
+.ysch-app-row-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+    margin-top: 2px;
+}
+
+.ysch-app-row-icon svg {
+    width: 18px;
+    height: 18px;
+    display: block;
+}
+
+.ysch-app-row-icon img {
+    display: block;
+    border-radius: 50%;
+}
+
+/* App 自訂圖示按鈕列 */
+.ysch-app-icon-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 2px;
+}
+
+.ysch-app-icon-row .ysch-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+}
+
+.ysch-app-icon-row .dashicons {
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+}
+
+.ysch-app-row-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.ysch-app-row-name {
+    font-weight: 600;
+    font-size: 13px;
+}
+
+.ysch-app-row input[type="text"] {
+    width: 100%;
+    padding: 7px 10px;
+    font-size: 13px;
+    border: 1px solid var(--ys-adm-border);
+    border-radius: 6px;
+}
+
+.ysch-app-row input[type="text"]:focus {
+    border-color: var(--ys-adm-primary);
+    box-shadow: 0 0 0 2px var(--ys-adm-primary-bg);
+    outline: none;
+}
+
+.ysch-app-row .description {
+    font-size: 11px;
+    color: var(--ys-adm-text-muted);
+    margin: 0;
+}
+
+.ysch-app-row-actions {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.ysch-icon-btn {
+    border: 1px solid var(--ys-adm-border);
+    background: var(--ys-adm-card-bg);
+    border-radius: 6px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: var(--ys-adm-text-muted);
+    padding: 0;
+}
+
+.ysch-icon-btn:hover { color: var(--ys-adm-primary-dark); border-color: var(--ys-adm-primary); }
+.ysch-icon-btn.ysch-remove:hover { color: var(--ys-adm-danger); border-color: var(--ys-adm-danger); }
+.ysch-icon-btn .dashicons { font-size: 14px; width: 14px; height: 14px; }
+
+/* ── 按鈕 ─────────────────────────────────── */
+.ysch-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 24px;
+    border: none;
+    border-radius: var(--ys-adm-radius);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.ysch-btn .dashicons {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+}
+
+.ysch-btn-primary {
+    background: var(--ys-adm-primary);
+    color: #ffffff;
+}
+
+.ysch-btn-primary:hover { background: var(--ys-adm-primary-dark); }
+.ysch-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.ysch-btn-secondary {
+    background: var(--ys-adm-card-bg);
+    border: 1px solid var(--ys-adm-border);
+    color: var(--ys-adm-text);
+    padding: 8px 16px;
+}
+
+.ysch-btn-secondary:hover { border-color: var(--ys-adm-primary); color: var(--ys-adm-primary-dark); }
+
+/* ── 空白狀態 ─────────────────────────────── */
+.ysch-empty {
+    text-align: center;
+    padding: 28px 20px;
+    color: var(--ys-adm-text-muted);
+    font-size: 13px;
+    border: 1px dashed var(--ys-adm-border);
+    border-radius: var(--ys-adm-radius);
+    margin: 0;
+}
+
+/* ── 浮動通知 ─────────────────────────────── */
+.ysch-notice {
+    position: fixed;
+    top: 40px;
+    right: 20px;
+    z-index: 99999;
+    padding: 12px 20px;
+    border-radius: var(--ys-adm-radius);
+    font-size: 13px;
+    color: #fff;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    opacity: 0;
+    transform: translateY(-10px);
+    transition: all 0.3s;
+}
+
+.ysch-notice.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.ysch-notice--success { background: var(--ys-adm-success); }
+.ysch-notice--error { background: var(--ys-adm-danger); }
