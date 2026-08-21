@@ -531,3 +531,33 @@
 
 .ysch-notice--success { background: var(--ys-adm-success); }
 .ysch-notice--error { background: var(--ys-adm-danger); }
+
+
+/* WU Toolbox Modular v1.2: native WordPress admin visual system. */
+.ysch-hero {
+    max-width: 1240px;
+    margin: 0 0 24px;
+    padding: 22px 28px;
+    box-sizing: border-box;
+    background: #1d2327;
+    border: 1px solid var(--wutm-wp-border, #c3c4c7);
+    border-radius: 8px;
+    box-shadow: 0 2px 6px #00000020;
+}
+.ysch-hero-title { font-size: 21px; font-weight: 600; }
+.ysch-hero-subtitle { color: #c3c4c7; }
+.ysch-version-badge { background: transparent; color: #c3c4c7; border: 1px solid #646970; border-radius: 4px; }
+.ysch-admin-wrap { max-width: 1240px; margin: 0; padding-bottom: 36px; color: var(--wutm-wp-text, #1d2327); }
+.ysch-card { background: #fff; border: 1px solid var(--wutm-wp-border, #c3c4c7); border-radius: 8px; box-shadow: 0 1px 3px #00000018; padding: 24px 28px 36px; }
+.ysch-card h2 { color: var(--wutm-wp-text, #1d2327); border-bottom-color: var(--wutm-wp-border, #c3c4c7); }
+.ysch-card h2 .dashicons { color: var(--wutm-wp-blue, #2271b1); }
+.ysch-field > label, .ysch-inline-label { color: var(--wutm-wp-text, #1d2327); }
+.ysch-field input[type="text"], .ysch-field input[type="url"], .ysch-field input[type="number"], .ysch-field select { border-color: var(--wutm-wp-border-dark, #8c8f94); border-radius: 3px; background: #fff; color: var(--wutm-wp-text, #1d2327); }
+.ysch-field input:focus, .ysch-field select:focus { border-color: var(--wutm-wp-blue, #2271b1); box-shadow: 0 0 0 1px var(--wutm-wp-blue, #2271b1); }
+.ysch-btn-primary { background: var(--wutm-wp-blue, #2271b1); border-color: var(--wutm-wp-blue-dark, #135e96); border-radius: 4px; }
+.ysch-btn-primary:hover { background: var(--wutm-wp-blue-dark, #135e96); }
+.ysch-app-add, .ysch-radio-card { border-color: var(--wutm-wp-border, #c3c4c7); border-radius: 8px; background: #fff; color: var(--wutm-wp-text, #1d2327); }
+.ysch-app-add:hover, .ysch-radio-card:hover { border-color: var(--wutm-wp-blue, #2271b1); box-shadow: 0 0 0 1px #2271b133; }
+.ysch-switch-track { background: var(--wutm-wp-border-dark, #8c8f94); }
+.ysch-switch input:checked + .ysch-switch-track { background: var(--wutm-wp-blue, #2271b1); }
+@media (max-width: 782px) { .ysch-hero { margin-right: 0; } .ysch-card { padding: 18px 16px 24px; } }
