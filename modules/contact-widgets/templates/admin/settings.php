@@ -17,7 +17,8 @@ defined( 'ABSPATH' ) || exit;
 /** @var array $settings */
 /** @var ?array $migration */
 
-$ysch_apps_defs = YSChatApps::all();
+$ysch_apps_ready = class_exists( YSChatApps::class );
+$ysch_apps_defs = $ysch_apps_ready ? YSChatApps::all() : [];
 ?>
 <!-- Hero Header（在 .wrap 外面，避免 WP notice 注入） -->
 <div class="ysch-hero">
@@ -40,6 +41,10 @@ $ysch_apps_defs = YSChatApps::all();
 <div class="wrap"><h2 style="display:none;"></h2></div>
 
 <div class="ysch-admin-wrap">
+
+    <?php if ( ! $ysch_apps_ready ) : ?>
+    <div class="notice notice-error"><p><?php echo esc_html__( '浮動聯絡按鈕模組載入不完整，請重新啟用外掛或聯絡管理員。', 'wu-contact-widgets' ); ?></p></div>
+    <?php endif; ?>
 
     <?php if ( $migration && 'migrated' === ( $migration['status'] ?? '' ) ) : ?>
     <div class="ysch-card ysch-card-migrated">
