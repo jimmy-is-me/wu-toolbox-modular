@@ -110,7 +110,6 @@ class WUTM_Advanced_Tracking_Manager {
 			'manage_options',
 			self::MENU_SLUG,
 			array( $this, 'render_admin_page' ),
-			'dashicons-chart-line',
 			3
 		);
 	}
