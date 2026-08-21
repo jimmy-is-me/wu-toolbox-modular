@@ -2,17 +2,17 @@
 /**
  * 主外掛類別（Singleton）
  *
- * @package YangSheep\ChatWidgets
+ * @package WUTM\ContactWidgets
  * @since   1.0.0
  */
 
-namespace YangSheep\ChatWidgets;
+namespace WUTM\ContactWidgets;
 
-use YangSheep\ChatWidgets\Admin\YSChatAdmin;
-use YangSheep\ChatWidgets\Admin\YSChatAjaxHandler;
-use YangSheep\ChatWidgets\Database\YSChatSettingsRepo;
-use YangSheep\ChatWidgets\Database\YSChatTableMaker;
-use YangSheep\ChatWidgets\Frontend\YSChatFrontend;
+use WUTM\ContactWidgets\Admin\YSChatAdmin;
+use WUTM\ContactWidgets\Admin\YSChatAjaxHandler;
+use WUTM\ContactWidgets\Database\YSChatSettingsRepo;
+use WUTM\ContactWidgets\Database\YSChatTableMaker;
+use WUTM\ContactWidgets\Frontend\YSChatFrontend;
 
 defined( 'ABSPATH' ) || exit;
 
