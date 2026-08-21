@@ -8,14 +8,14 @@
  *   （NinjaTeam 以 iframe 載入 line.me 造成 iOS/Apple 裝置
  *   一進頁就跳「要開啟 LINE 嗎？」，本外掛從結構上根絕）。
  *
- * @package YangSheep\ChatWidgets\Frontend
+ * @package WUTM\ContactWidgets\Frontend
  * @since   1.0.0
  */
 
-namespace YangSheep\ChatWidgets\Frontend;
+namespace WUTM\ContactWidgets\Frontend;
 
-use YangSheep\ChatWidgets\YSChatApps;
-use YangSheep\ChatWidgets\YSChatWidgets;
+use WUTM\ContactWidgets\YSChatApps;
+use WUTM\ContactWidgets\YSChatWidgets;
 
 defined( 'ABSPATH' ) || exit;
 
