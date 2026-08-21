@@ -11,11 +11,11 @@
  * 3. 特別修復「雙重網址」（例：https://line.me/ti/p/https://line.me/R/ti/p/@xxx）
  *    — 這是 NinjaTeam 2.3.6 的已知回歸 bug，移轉時必須清洗。
  *
- * @package YangSheep\ChatWidgets
+ * @package WUTM\ContactWidgets
  * @since   1.0.0
  */
 
-namespace YangSheep\ChatWidgets;
+namespace WUTM\ContactWidgets;
 
 defined( 'ABSPATH' ) || exit;
 
