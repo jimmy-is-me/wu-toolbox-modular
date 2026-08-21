@@ -2,15 +2,15 @@
 /**
  * AJAX 處理器
  *
- * @package YangSheep\ChatWidgets\Admin
+ * @package WUTM\ContactWidgets\Admin
  * @since   1.0.0
  */
 
-namespace YangSheep\ChatWidgets\Admin;
+namespace WUTM\ContactWidgets\Admin;
 
-use YangSheep\ChatWidgets\Database\YSChatSettingsRepo;
-use YangSheep\ChatWidgets\YSChatApps;
-use YangSheep\ChatWidgets\YSChatMigration;
+use WUTM\ContactWidgets\Database\YSChatSettingsRepo;
+use WUTM\ContactWidgets\YSChatApps;
+use WUTM\ContactWidgets\YSChatMigration;
 
 defined( 'ABSPATH' ) || exit;
 
