@@ -20,7 +20,9 @@ jobs:
           TAG_VERSION="${GITHUB_REF_NAME#v}"
           PLUGIN_VERSION="$(grep -E '^[[:space:]]*\* Version:' wu-toolbox-modular.php | sed -E 's/^[[:space:]]*\* Version:[[:space:]]*//')"
           test -n "$PLUGIN_VERSION"
-          test "$TAG_VERSION" = "$PLUGIN_VERSION"
+          # Accept shorthand tags such as v1.2 as the equivalent of 1.2.0.
+          NORMALIZED_TAG="$(printf '%s' "$TAG_VERSION" | awk -F. 'NF==2{print $0 ".0"; next}{print}')"
+          test "$NORMALIZED_TAG" = "$PLUGIN_VERSION"
       - name: Build installable plugin ZIP
         shell: bash
         run: |
