@@ -94,7 +94,7 @@ class YSChatApps {
             'kakaotalk' => [
                 'title'       => 'KakaoTalk',
                 'color'       => '#fee500',
-                'icon_fg'     => '#191919',
+                'icon_fg'     => '#ffffff',
                 'placeholder' => 'channel_id',
                 'desc'        => __( '填 KakaoTalk 頻道 ID。', 'wu-contact-widgets' ),
             ],
@@ -181,6 +181,14 @@ class YSChatApps {
             }
         }
 
+        if ( 'wechat' === $key ) {
+            // Accept common public profile links without prepending the app URI scheme.
+            if ( preg_match( '#^(?:u\\.)?wechat\\.com/|^weixin\\.qq\\.com/#i', $value ) ) {
+                return 'https://' . ltrim( $value, '/' );
+            }
+            $value = ltrim( $value, '@' );
+        }
+
         if ( 'instagram' === $key ) {
             // 完整網址抽 username；純值去掉開頭 @。
             if ( preg_match( '#instagram\.com/([^/?\#\s]+)#i', $value, $m ) ) {
@@ -208,6 +216,11 @@ class YSChatApps {
                 $value = preg_replace( '#^http://#i', 'https://', $value );
             }
             return $value;
+        }
+
+        if ( 'wechat' === $key ) {
+            // WeChat deep links require the account ID to be URL encoded.
+            return 'weixin://dl/chat?' . rawurlencode( ltrim( $value, '@' ) );
         }
 
         // lin.ee 純短碼網址（無 scheme）。
