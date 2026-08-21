@@ -6,11 +6,11 @@
  * - $settings  array 目前設定
  * - $migration ?array 移轉狀態
  *
- * @package YangSheep\ChatWidgets
+ * @package WUTM\ContactWidgets
  * @since   1.0.0
  */
 
-use YangSheep\ChatWidgets\YSChatApps;
+use WUTM\ContactWidgets\YSChatApps;
 
 defined( 'ABSPATH' ) || exit;
 
