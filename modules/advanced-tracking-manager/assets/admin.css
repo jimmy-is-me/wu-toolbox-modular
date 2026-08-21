@@ -1,0 +1,42 @@
+/* Advanced Tracking Manager v2.4.0 - Admin Styles */
+.wutm-atm-wrap { max-width: 1100px; }
+.atm-version { font-size: 12px; color: #999; font-weight: normal; margin-left: 8px; }
+.atm-meta { margin: 10px 0 18px; padding: 10px 14px; background: #fff; border-left: 4px solid #2271b1; font-size: 13px; }
+
+/* Tabs */
+.atm-tabs { display: flex; gap: 6px; border-bottom: 2px solid #ddd; margin-bottom: 20px; flex-wrap: wrap; }
+.atm-tab { padding: 9px 16px; cursor: pointer; background: #f0f0f0; border: none; border-radius: 4px 4px 0 0; font-size: 13px; font-weight: 600; }
+.atm-tab.active { background: #fff; border-bottom: 2px solid #2271b1; margin-bottom: -2px; color: #2271b1; }
+.atm-tab-content { display: none; }
+.atm-tab-content.active { display: block; }
+
+/* Cards */
+.atm-card { background: #fff; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 16px; overflow: hidden; }
+.atm-card-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #f8f8f8; border-bottom: 1px solid #eee; font-weight: 600; font-size: 14px; }
+.atm-card-body { padding: 14px 16px; }
+.atm-card-body label { display: block; font-weight: 600; margin-bottom: 6px; margin-top: 10px; }
+.atm-card-body label:first-child { margin-top: 0; }
+.atm-card-body p.description { margin-top: 6px; font-size: 12px; color: #666; }
+
+/* Toggle switch */
+.atm-switch { position: relative; display: inline-block; width: 44px; height: 22px; flex-shrink: 0; }
+.atm-switch input { opacity: 0; width: 0; height: 0; }
+.atm-slider { position: absolute; cursor: pointer; inset: 0; background: #ccc; transition: .3s; border-radius: 22px; }
+.atm-slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 3px; bottom: 3px; background: #fff; transition: .3s; border-radius: 50%; }
+.atm-switch input:checked + .atm-slider { background: #2271b1; }
+.atm-switch input:checked + .atm-slider:before { transform: translateX(22px); }
+
+/* Diagnostic items */
+.atm-diag-meta { font-size: 12px; color: #888; margin-bottom: 12px; }
+.atm-diag-item { padding: 10px 14px; margin-bottom: 8px; border-radius: 4px; font-size: 13px; line-height: 1.5; }
+.atm-diag-success { background: #edfaed; border-left: 4px solid #46b450; }
+.atm-diag-warning { background: #fff8e1; border-left: 4px solid #ffb900; }
+.atm-diag-error   { background: #fdf1f1; border-left: 4px solid #dc3232; }
+.atm-diag-info    { background: #f0f6fc; border-left: 4px solid #72aee6; }
+.atm-diag-detail  { font-size: 12px; color: #555; display: block; margin-top: 4px; }
+
+/* Guide */
+.atm-guide h3 { margin-top: 18px; font-size: 14px; color: #1d2327; }
+.atm-guide ol, .atm-guide ul { padding-left: 20px; line-height: 1.8; font-size: 13px; }
+.atm-guide li { margin-bottom: 4px; }
+.atm-guide code { background: #f0f0f0; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
