@@ -108,7 +108,7 @@ class YSChatApps {
             'snapchat' => [
                 'title'       => 'Snapchat',
                 'color'       => '#fffc00',
-                'icon_fg'     => '#191919',
+                'icon_fg'     => '#ffffff',
                 'placeholder' => 'username',
                 'desc'        => __( '填 Snapchat 用戶名。', 'wu-contact-widgets' ),
             ],
