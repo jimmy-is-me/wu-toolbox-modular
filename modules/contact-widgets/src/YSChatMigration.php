@@ -11,13 +11,13 @@
  *
  * 只跑一次（wutm_contact_widgets_migrated flag），重複啟用不會重複移轉。
  *
- * @package YangSheep\ChatWidgets
+ * @package WUTM\ContactWidgets
  * @since   1.0.0
  */
 
-namespace YangSheep\ChatWidgets;
+namespace WUTM\ContactWidgets;
 
-use YangSheep\ChatWidgets\Database\YSChatSettingsRepo;
+use WUTM\ContactWidgets\Database\YSChatSettingsRepo;
 
 defined( 'ABSPATH' ) || exit;
 
