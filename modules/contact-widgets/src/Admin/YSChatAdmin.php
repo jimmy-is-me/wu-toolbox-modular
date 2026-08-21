@@ -2,15 +2,15 @@
 /**
  * 後台管理頁面
  *
- * @package YangSheep\ChatWidgets\Admin
+ * @package WUTM\ContactWidgets\Admin
  * @since   1.0.0
  */
 
-namespace YangSheep\ChatWidgets\Admin;
+namespace WUTM\ContactWidgets\Admin;
 
-use YangSheep\ChatWidgets\YSChatApps;
-use YangSheep\ChatWidgets\YSChatMigration;
-use YangSheep\ChatWidgets\YSChatWidgets;
+use WUTM\ContactWidgets\YSChatApps;
+use WUTM\ContactWidgets\YSChatMigration;
+use WUTM\ContactWidgets\YSChatWidgets;
 
 defined( 'ABSPATH' ) || exit;
 
