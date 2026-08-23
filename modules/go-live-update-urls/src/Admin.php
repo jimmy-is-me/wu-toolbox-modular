@@ -54,10 +54,15 @@ class Admin {
             } );
             return;
         }
-        $updated = \WUTM\GoLive\Database::instance()->update_the_database( $old_url, $new_url, $tables );
-        if ( ! empty( $updated ) ) {
+        $updated = \\WUTM\\GoLive\\Database::instance()->update_the_database( $old_url, $new_url, $tables );
+        $changed = array_sum( array_map( 'intval', (array) $updated ) );
+        if ( $changed > 0 ) {
+            add_action( 'admin_notices', static function () use ( $changed ): void {
+                echo '<div class="notice notice-success"><p>' . sprintf( esc_html__( '網址更新已完成，共修改 %d 筆資料。', 'wutm-go-live-update-urls' ), $changed ) . '</p></div>';
+            } );
+        } else {
             add_action( 'admin_notices', static function (): void {
-                echo '<div class="notice notice-success"><p>' . esc_html__( '網址更新已完成。', 'wutm-go-live-update-urls' ) . '</p></div>';
+                echo '<div class="notice notice-warning"><p>' . esc_html__( '未找到符合的舊網址，資料庫沒有變更。請確認網址、結尾斜線與資料表選項。', 'wutm-go-live-update-urls' ) . '</p></div>';
             } );
         }
     }
