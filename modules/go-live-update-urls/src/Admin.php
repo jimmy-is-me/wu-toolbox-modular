@@ -13,7 +13,7 @@ use WUTM\GoLive\Traits\Singleton;
 class Admin {
 	use Singleton;
 
-	public const NAME = 'wutm-go-live-update-urls-settings';
+	public const NAME = 'wu-go-live-update-urls';
 
 	public const PARENT_MENU      = 'tools.php';
 	public const OLD_URL          = 'old_url';
@@ -172,7 +172,7 @@ class Admin {
 		?>
 		<div id="wutm-go-live-update-urls/admin-page">
 			<?php
-			$this->render_admin_header( 'https://wordpress.org/plugins/wutm-go-live-update-urls/' );
+			$this->render_admin_header( admin_url( 'tools.php?page=' . self::NAME ) );
 			?>
 			<form
 				method="post"
@@ -180,9 +180,8 @@ class Admin {
 				<?php
 				wp_nonce_field( static::NONCE, static::NONCE );
 
-				do_action( 'wutm-go-live-update-urls-pro/admin/before-checkboxes', Database::instance() );
 
-				if ( apply_filters( 'wutm-go-live-update-urls-pro/admin/use-default-checkboxes', true ) ) {
+				if ( true ) {
 					?>
 					<h3>
 						<?php esc_html_e( 'WordPress 核心資料表', 'wutm-go-live-update-urls' ); ?>
@@ -210,41 +209,9 @@ class Admin {
 					</div>
 					<?php
 
-					$custom_tables = Database::instance()->get_custom_plugin_tables();
-					if ( \count( $custom_tables ) > 0 ) {
-						?>
-						<h3>
-							<?php esc_html_e( '外掛建立的資料表', 'wutm-go-live-update-urls' ); ?>
-						</h3>
-						<div class="go-live-section">
-							<p class="description" style="color:red;">
-								<strong>
-									<?php
-									/* translators: <br /> <a> </a> */
-									printf( esc_html_x( '基本版本不建議更新這些資料表！%1$s如需更新外掛建立的資料表，請使用%2$s進階版本%3$s。', '{<br />}{<a>}{</a>}', 'wutm-go-live-update-urls' ), '<br />', '<a href="https://onpointplugins.com/product/wutm-go-live-update-urls-pro/?utm_source=plugin-tables&utm_campaign=gopro&utm_medium=wp-dash" target="_blank">', '</a>' );
-									?>
-								</strong>
-							</p>
-							<p>
-								<input
-									type="checkbox"
-									data-list="custom-plugins"
-									data-js="wutm-go-live-update-urls/checkboxes/check-all" />
-								<span class="go-live-only-checked"><?php esc_html_e( '只會更新勾選的資料表。', 'wutm-go-live-update-urls' ); ?></span>
-							</p>
-							<hr />
 
-							<?php
-							$this->render_check_boxes( $custom_tables, 'custom-plugins', false );
-							?>
-						</div>
-						<?php
-					}
-				}
 
-				do_action( 'wutm-go-live-update-urls-pro/admin/after-checkboxes', Database::instance() );
-
-				if ( apply_filters( 'wutm-go-live-update-urls-pro/admin/use-default-inputs', true ) ) {
+				if ( true ) {
 					?>
 					<table class="form-table go-live-inputs">
 						<tr class="go-live-inputs-old-url">
@@ -284,7 +251,7 @@ class Admin {
 
 					<?php
 				}
-				if ( apply_filters( 'wutm-go-live-update-urls-pro/admin/use-default-checkboxes', true ) ) {
+				if ( true ) {
 					?>
 					<p class="description">
 						<strong>
