@@ -54,7 +54,7 @@ class Admin {
             } );
             return;
         }
-        $updated = \\WUTM\\GoLive\\Database::instance()->update_the_database( $old_url, $new_url, $tables );
+        $updated = \WUTM\GoLive\Database::instance()->update_the_database( $old_url, $new_url, $tables );
         $changed = array_sum( array_map( 'intval', (array) $updated ) );
         if ( $changed > 0 ) {
             add_action( 'admin_notices', static function () use ( $changed ): void {
