@@ -166,8 +166,8 @@ class Admin {
 	 * @since 5.0.0
 	 */
 	public function admin_page(): void {
-		wp_enqueue_script( 'wutm-go-live-update-urls/admin/admin-page/js', WUTM_GO_LIVE_URLS_URL . 'resources/wutm-go-live-update-urls.js', [ 'jquery' ], WUTM_GO_LIVE_URLS_VERSION, true );
-		wp_enqueue_style( 'wutm-go-live-update-urls/admin/admin-page/css', WUTM_GO_LIVE_URLS_URL . 'resources/wutm-go-live-update-urls.css', [], WUTM_GO_LIVE_URLS_VERSION );
+		wp_enqueue_script( 'wutm-go-live-update-urls/admin/admin-page/js', WUTM_GO_LIVE_URLS_URL . 'assets/go-live-update-urls.js', [ 'jquery' ], WUTM_GO_LIVE_URLS_VERSION, true );
+		wp_enqueue_style( 'wutm-go-live-update-urls/admin/admin-page/css', WUTM_GO_LIVE_URLS_URL . 'assets/go-live-update-urls.css', [], WUTM_GO_LIVE_URLS_VERSION );
 
 		?>
 		<div id="wutm-go-live-update-urls/admin-page">
