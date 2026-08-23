@@ -120,9 +120,6 @@ class Core {
 		$actions['documentation'] = \sprintf( '<a href="%s" target="_blank">%s</a>',
 			'https://onpointplugins.com/wutm-go-live-update-urls/wutm-go-live-update-urls-usage/?utm_source=wp-plugins&utm_campaign=documentation&utm_medium=wp-dash', __( '使用說明', 'wutm-go-live-update-urls' ) );
 		$actions['settings'] = \sprintf( '<a href="%1$s">%2$s</a>', Admin::instance()->get_url(), __( '設定', 'wutm-go-live-update-urls' ) );
-		if ( ! \defined( 'WUTM_GO_LIVE_URLS_PRO_VERSION' ) ) {
-			$actions['go-pro'] = \sprintf( '<a href="%1$s" target="_blank" style="color:#3db634;font-weight:700;">%2$s</a>', 'https://onpointplugins.com/product/wutm-go-live-update-urls-pro/?utm_source=wp-plugins&utm_campaign=gopro&utm_medium=wp-dash', __( '進階版', 'wutm-go-live-update-urls' ) );
-		}
 		return $actions;
 	}
 }
