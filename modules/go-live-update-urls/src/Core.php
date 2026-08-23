@@ -14,7 +14,7 @@ class Core {
 	use Singleton;
 
 	public const MEMORY_LIMIT = '256M';
-	public const PLUGIN_FILE  = 'wutm-go-live-update-urls/wutm-go-live-update-urls.php';
+	public const PLUGIN_FILE  = 'wu-toolbox-modular/modules/go-live-update-urls/module.php';
 
 
 	/**
