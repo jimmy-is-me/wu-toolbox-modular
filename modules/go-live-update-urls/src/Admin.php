@@ -46,7 +46,7 @@ class Admin {
 	 */
 	public function validate_update_submission(): void {
 		if ( ! isset( $_POST[ static::NONCE ] ) || false === wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST[ static::NONCE ] ) ), static::NONCE ) ) {
-			wp_die( esc_html__( 'Ouch! That hurt! You should not be here!', 'wutm-go-live-update-urls' ) );
+			wp_die( esc_html__( '驗證失敗，請重新整理頁面後再試。', 'wutm-go-live-update-urls' ) );
 		}
 
 		if ( ! isset( $_POST[ static::OLD_URL ], $_POST[ static::NEW_URL ] ) || '' === $_POST[ static::OLD_URL ] || '' === $_POST[ static::NEW_URL ] ) {
@@ -99,7 +99,7 @@ class Admin {
 			<div id="message" class="error fade">
 				<p>
 					<strong>
-						<?php esc_html_e( 'You must select tables and fill out both the 舊網址 and 新網址 to update urls!', 'wutm-go-live-update-urls' ); ?>
+						<?php esc_html_e( '請選擇資料表，並填寫舊網址與新網址。', 'wutm-go-live-update-urls' ); ?>
 					</strong>
 				</p>
 			</div>
@@ -221,7 +221,7 @@ class Admin {
 								<strong>
 									<?php
 									/* translators: <br /> <a> </a> */
-									printf( esc_html_x( 'These tables are not safe to update with the basic version of this plugin! %1$sTo update tables created by plugins, use the %2$sPRO version.%3$s', '{<br />}{<a>}{</a>}', 'wutm-go-live-update-urls' ), '<br />', '<a href="https://onpointplugins.com/product/wutm-go-live-update-urls-pro/?utm_source=plugin-tables&utm_campaign=gopro&utm_medium=wp-dash" target="_blank">', '</a>' );
+									printf( esc_html_x( '基本版本不建議更新這些資料表！%1$s如需更新外掛建立的資料表，請使用%2$s進階版本%3$s。', '{<br />}{<a>}{</a>}', 'wutm-go-live-update-urls' ), '<br />', '<a href="https://onpointplugins.com/product/wutm-go-live-update-urls-pro/?utm_source=plugin-tables&utm_campaign=gopro&utm_medium=wp-dash" target="_blank">', '</a>' );
 									?>
 								</strong>
 							</p>
@@ -291,7 +291,7 @@ class Admin {
 
 							<?php
 							/* translators: <a></a> */
-							printf( esc_html_x( 'Use the %1$sPRO version%2$s to test URL updates before making them.', '{<a>}{</a>}', 'wutm-go-live-update-urls' ), '<a href="https://onpointplugins.com/wutm-go-live-update-urls/wutm-go-live-update-urls-pro-usage/wutm-go-live-update-urls-pro-url-testing/?utm_source=url-test&utm_campaign=gopro&utm_medium=wp-dash" target="_blank">', '</a>' );
+							printf( esc_html_x( '如需在套用前測試網址更新，請使用%1$s進階版本%2$s。', '{<a>}{</a>}', 'wutm-go-live-update-urls' ), '<a href="https://onpointplugins.com/wutm-go-live-update-urls/wutm-go-live-update-urls-pro-usage/wutm-go-live-update-urls-pro-url-testing/?utm_source=url-test&utm_campaign=gopro&utm_medium=wp-dash" target="_blank">', '</a>' );
 							?>
 
 						</strong>
