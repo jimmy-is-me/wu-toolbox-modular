@@ -251,21 +251,7 @@ class Admin {
 
 					<?php
 				}
-				if ( true ) {
-					?>
-					<p class="description">
-						<strong>
 
-							<?php
-							/* translators: <a></a> */
-							printf( esc_html_x( '如需在套用前測試網址更新，請使用%1$s進階版本%2$s。', '{<a>}{</a>}', 'wutm-go-live-update-urls' ), '<a href="https://onpointplugins.com/wutm-go-live-update-urls/wutm-go-live-update-urls-pro-usage/wutm-go-live-update-urls-pro-url-testing/?utm_source=url-test&utm_campaign=gopro&utm_medium=wp-dash" target="_blank">', '</a>' );
-							?>
-
-						</strong>
-					</p>
-					<?php
-				}
-				?>
 				<?php submit_button( __( '更新網址', 'wutm-go-live-update-urls' ), 'primary', static::SUBMIT ); ?>
 			</form>
 		</div>
