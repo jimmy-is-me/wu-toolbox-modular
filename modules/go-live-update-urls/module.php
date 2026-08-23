@@ -33,7 +33,7 @@ spl_autoload_register( static function ( $class ) {
 
 try {
     if ( class_exists( 'WUTM\\GoLive\\Admin' ) ) {
-        \\WUTM\\GoLive\\Admin::init();
+        \WUTM\GoLive\Admin::init();
     }
 } catch ( Throwable $e ) {
     error_log( 'WU Toolbox Modular go-live-update-urls admin: ' . $e->getMessage() );
@@ -46,7 +46,7 @@ try {
 
 try {
     if ( class_exists( 'WUTM\\GoLive\\Core' ) ) {
-        \\WUTM\\GoLive\\Core::init();
+        \WUTM\GoLive\Core::init();
     }
 } catch ( Throwable $e ) {
     error_log( 'WU Toolbox Modular go-live-update-urls core: ' . $e->getMessage() );
