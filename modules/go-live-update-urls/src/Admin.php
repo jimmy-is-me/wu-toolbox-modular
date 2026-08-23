@@ -15,7 +15,7 @@ class Admin {
 
 	public const NAME = 'wu-go-live-update-urls';
 
-	public const PARENT_MENU      = 'tools.php';
+	public const PARENT_MENU      = 'wu-toolbox-modular';
 	public const OLD_URL          = 'old_url';
 	public const NEW_URL          = 'new_url';
 	public const NONCE            = 'wutm-go-live-update-urls/nonce/update-tables';
