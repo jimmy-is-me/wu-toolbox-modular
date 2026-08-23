@@ -164,3 +164,6 @@ input:focus,textarea:focus,select:focus{border-color:var(--wutm-wp-blue)!importa
 .wutm-atm-wrap .atm-card{border:1px solid var(--wutm-wp-border)!important;border-radius:8px!important;background:var(--wutm-wp-panel)!important;color:var(--wutm-wp-text)!important;box-shadow:0 1px 3px #00000018}
 .wutm-atm-wrap .atm-card-head{background:#f6f7f7!important;color:var(--wutm-wp-text)!important;border-bottom:1px solid var(--wutm-wp-border)!important;padding:16px 20px!important}
 .wutm-atm-wrap .atm-card-body{padding:20px 24px 24px!important}
+
+
+.wutm-notice-slot{display:block;margin:16px 0 20px}.wutm-notice-slot .notice{margin:0 0 12px!important;box-sizing:border-box}
