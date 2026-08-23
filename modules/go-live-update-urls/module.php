@@ -33,14 +33,21 @@ spl_autoload_register( static function ( $class ) {
 
 try {
     if ( class_exists( 'WUTM\\GoLive\\Admin' ) ) {
-        \WUTM\GoLive\Admin::init();
-        \WUTM\GoLive\Core::init();
+        \\WUTM\\GoLive\\Admin::init();
     }
 } catch ( Throwable $e ) {
-    error_log( 'WU Toolbox Modular go-live-update-urls: ' . $e->getMessage() );
+    error_log( 'WU Toolbox Modular go-live-update-urls admin: ' . $e->getMessage() );
     add_action( 'admin_notices', static function () {
         if ( current_user_can( 'manage_options' ) ) {
             echo '<div class="notice notice-error"><p>' . esc_html__( '網站網址更新模組載入失敗，請檢查外掛檔案。', 'wu-go-live-urls' ) . '</p></div>';
         }
     } );
+}
+
+try {
+    if ( class_exists( 'WUTM\\GoLive\\Core' ) ) {
+        \\WUTM\\GoLive\\Core::init();
+    }
+} catch ( Throwable $e ) {
+    error_log( 'WU Toolbox Modular go-live-update-urls core: ' . $e->getMessage() );
 }
