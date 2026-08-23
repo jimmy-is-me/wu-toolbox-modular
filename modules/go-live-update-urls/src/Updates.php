@@ -1,0 +1,304 @@
+<?php
+
+namespace WUTM\GoLive;
+
+use WUTM\GoLive\Updaters\Repo;
+use WUTM\GoLive\Updaters\Updaters_Abstract;
+
+/**
+ * Translated provided URLS into various steps to update the database.
+ *
+ * While no updates to the database are done within this class,
+ * all calls to the methods which update the database go through here
+ * except for serialized data.
+ *
+ * This class determines which data needs to be updated in which way
+ * and makes the necessary calls.
+ *
+ * @since 6.1.0
+ */
+class Updates {
+	/**
+	 * Entered OLD URL.
+	 *
+	 * @var string
+	 */
+	protected string $old_url;
+
+	/**
+	 * Entered OLD URL.
+	 *
+	 * @var string
+	 */
+	protected string $new_url;
+
+	/**
+	 * List of selected tables.
+	 *
+	 * @var string[]
+	 */
+	protected array $tables;
+
+
+	/**
+	 * Updates constructor.
+	 *
+	 * @param string   $old_url - Entered old URL.
+	 * @param string   $new_url - Entered new URL.
+	 * @param string[] $tables  - List of tables to interact with.
+	 */
+	final public function __construct( $old_url, $new_url, array $tables ) {
+		$this->old_url = $old_url;
+		$this->new_url = $new_url;
+		$this->tables = $tables;
+	}
+
+
+	/**
+	 * Update all instances of the URLS within a provided table.
+	 *
+	 * Takes care of all calls related to necessary updates.
+	 *
+	 * @param string $table - Table to update.
+	 *
+	 * @return int
+	 */
+	public function update_table_columns( $table ) {
+		$doubled = $this->get_doubled_up_subdomain();
+		$columns = $this->get_table_columns( $table );
+		$count = 0;
+		\array_walk( $columns, function( $column ) use ( $table, $doubled, &$count ) {
+			$count += Database::instance()->update_column( $table, $column, $this->old_url, $this->new_url );
+			$count += $this->update_column_with_updaters( $table, $column );
+			$this->update_email_addresses( $table, $column );
+
+			if ( null !== $doubled ) {
+				$count -= Database::instance()->update_column( $table, $column, $doubled, $this->new_url );
+			}
+		} );
+
+		return $count;
+	}
+
+
+	/**
+	 * Counts all instances of the URLS within a provided table.
+	 *
+	 * @param string $table - Table to count.
+	 *
+	 * @return int
+	 */
+	public function count_table_urls( $table ) {
+		$doubled = $this->get_doubled_up_subdomain();
+		$columns = $this->get_table_columns( $table );
+		$count = 0;
+		\array_walk( $columns, function( $column ) use ( $table, $doubled, &$count ) {
+			$count += Database::instance()->count_column_urls( $table, $column, $this->old_url );
+			$count += $this->count_column_urls_with_updaters( $table, $column );
+
+			if ( null !== $doubled ) {
+				$count -= Database::instance()->count_column_urls( $table, $column, $this->new_url );
+			}
+		} );
+
+		return $count;
+	}
+
+
+	/**
+	 * Remove any prepended subdomain from email addresses.
+	 *
+	 * If we change a domain to a subdomain like www, and an email address
+	 * is using the original domain, we end up with an email address that
+	 * includes @www We remove the prepended www from email addresses
+	 * here.
+	 *
+	 * @param string $table  - Any database table.
+	 * @param string $column - Any column within the provided table.
+	 *
+	 * @return int
+	 */
+	protected function update_email_addresses( $table, $column ) {
+		$url = wp_parse_url( $this->old_url );
+		$doubled = $this->get_doubled_up_subdomain();
+		if ( null === $doubled || ! empty( $url['scheme'] ) ) {
+			return 0;
+		}
+		return Database::instance()->update_column( $table, $column, '@' . $this->new_url, '@' . $this->old_url );
+	}
+
+
+	/**
+	 * Using all registered updaters, replace the Updater's variation
+	 * of the URL.
+	 *
+	 * Actual translation and updating handled by each updater.
+	 * We simply load and call them here.
+	 *
+	 * @param string $table  - Any database table.
+	 * @param string $column - Any column within the provided table.
+	 *
+	 * @return int
+	 */
+	protected function update_column_with_updaters( $table, $column ): int {
+		$doubled = $this->get_doubled_up_subdomain();
+		$count = 0;
+		\array_map( function( string $class_name ) use ( $doubled, $table, $column, &$count ) {
+			if ( \class_exists( $class_name ) ) {
+				/* @var Updaters_Abstract $updater - An updater instance. */
+				$updater = $class_name::factory( $table, $column, $this->old_url, $this->new_url );
+				$count += $updater->update_data();
+				if ( null !== $doubled ) {
+					$updater = $class_name::factory( $table, $column, $doubled, $this->new_url );
+					$count -= $updater->update_data();
+				}
+			}
+		}, Repo::instance()->get_updaters() );
+		return $count;
+	}
+
+
+	/**
+	 * Using all registered updaters, count the Updater's variation
+	 * of the URL.
+	 *
+	 * Actual counting handled by each updater.
+	 * We simply load and call them here.
+	 *
+	 * @param string $table  - Any database table.
+	 * @param string $column - Any column within the provided table.
+	 *
+	 * @return int
+	 */
+	protected function count_column_urls_with_updaters( $table, $column ): int {
+		$count = 0;
+		\array_map( function( $class_name ) use ( $table, $column, &$count ) {
+			if ( \class_exists( $class_name ) ) {
+				/* @var Updaters_Abstract $updater - An updater instance. */
+				$updater = $class_name::factory( $table, $column, $this->old_url, $this->new_url );
+				$count += $updater->count_urls();
+			}
+		}, Repo::instance()->get_updaters() );
+		return $count;
+	}
+
+
+	/**
+	 * Update values in all serialized columns within the specified tables.
+	 *
+	 * Detection of which columns are possibly serialized is handled within
+	 * the Serialized class. We simply provide the OLD and NEW URL and the
+	 * list of tables we are updating.
+	 *
+	 * @return array<string, int>
+	 */
+	public function update_serialized_values(): array {
+		$serialized = new Serialized( $this->old_url, $this->new_url );
+		$counts = $serialized->update_all_serialized_tables( $this->tables );
+
+		$doubled = $this->get_doubled_up_subdomain();
+		if ( null !== $doubled ) {
+			$keys = \array_keys( $counts );
+			$serialized = new Serialized( $doubled, $this->new_url );
+			$counts = \array_combine( $keys, \array_map( function( $value, $subtract ) {
+				return $value - $subtract;
+			}, $counts, $serialized->update_all_serialized_tables( $this->tables ) ) );
+			if ( false === $counts ) {
+				return [];
+			}
+
+			// Remove a prepended subdomain like www. from email addresses.
+			$serialized = new Serialized( '@' . $this->new_url, '@' . $this->old_url );
+			$counts = \array_combine( $keys, \array_map( function( $value, $subtract ) {
+				return $value - $subtract;
+			}, $counts, $serialized->update_all_serialized_tables( $this->tables ) ) );
+			if ( false === $counts ) {
+				return [];
+			}
+		}
+
+		return $counts;
+	}
+
+
+	/**
+	 * If the new domain is the old one with a new subdomain like www.
+	 * The first round of updates will create double subdomains in
+	 * the database like www.www.
+	 *
+	 * Return the doubled-up subdomain if it exists, otherwise null.
+	 *
+	 * @since 6.1.0
+	 *
+	 * @return string|null
+	 */
+	public function get_doubled_up_subdomain(): ?string {
+		if ( static::is_subdomain( $this->old_url, $this->new_url ) ) {
+			return \str_replace( $this->old_url, $this->new_url, $this->new_url );
+		}
+		return null;
+	}
+
+
+	/**
+	 * Return all database columns for a specified table that
+	 * match the column types we update.
+	 *
+	 * We include any varchar or char which are 21 characters
+	 * or above which takes care of a lot of core columns which
+	 * don't store Urls.
+	 *
+	 * @since 6.1.0
+	 *
+	 * @param string $table - Database table to retrieve from.
+	 *
+	 * @return string[]
+	 */
+	protected function get_table_columns( string $table ): array {
+		$wpdb = Database::instance()->get_wpdb();
+		$supported_types = Database::instance()->get_column_types();
+
+		$all = $wpdb->get_results( $wpdb->prepare( "SELECT COLUMN_NAME as name, COLUMN_TYPE as type FROM information_schema.COLUMNS WHERE TABLE_SCHEMA='{$wpdb->dbname}' AND TABLE_NAME=%s", $table ) );
+		if ( ! \is_array( $all ) ) {
+			return [];
+		}
+
+		$columns = \array_filter( $all, function( $column ) use ( $supported_types ) {
+			// Strip the (\d) from varchar and char with (21) and over.
+			$data_type = \preg_replace( '/\((\d{3}|[3-9]\d|2[1-9])\d*?\)/', '', $column->type );
+			return \in_array( $data_type, $supported_types, true );
+		} );
+
+		return \wp_list_pluck( $columns, 'name' );
+	}
+
+
+	/**
+	 * Is a new URL a subdomain of the old URL?
+	 *
+	 * @since 6.2.4
+	 *
+	 * @param string $old_url - 舊網址.
+	 * @param string $new_url - 新網址.
+	 *
+	 * @return bool
+	 */
+	public static function is_subdomain( $old_url, $new_url ) {
+		return false !== \strpos( $new_url, $old_url );
+	}
+
+
+	/**
+	 * Construct the Updates class.
+	 *
+	 * @param string   $old_url - Entered old URL.
+	 * @param string   $new_url - Entered new URL.
+	 *
+	 * @param string[] $tables  - List of tables to interact with.
+	 *
+	 * @return static
+	 */
+	public static function factory( $old_url, $new_url, array $tables ) {
+		return new static( $old_url, $new_url, $tables );
+	}
+}
