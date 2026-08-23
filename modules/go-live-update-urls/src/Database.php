@@ -1,0 +1,304 @@
+<?php
+
+namespace WUTM\GoLive;
+
+use WUTM\GoLive\Traits\Singleton;
+
+/**
+ * Database manipulation.
+ *
+ * @author OnPoint Plugins
+ * @since  6.0.0
+ */
+class Database {
+	use Singleton;
+
+	/**
+	 * Get the list of tables we treat as serialized when updating
+	 *
+	 * @since   5.0.0
+	 *
+	 * @return array<string, string> - array( %table_name% => %table_column% )
+	 */
+	public function get_serialized_tables(): array {
+		$wpdb = $this->get_wpdb();
+		// Default tables with serialized data.
+		$serialized_tables = [
+			$wpdb->options     => 'option_value',
+			$wpdb->postmeta    => 'meta_value',
+			$wpdb->commentmeta => 'meta_value',
+			$wpdb->termmeta    => 'meta_value',
+			$wpdb->usermeta    => 'meta_value',
+		];
+
+		if ( is_multisite() ) {
+			if ( isset( $wpdb->signups ) ) {
+				$serialized_tables[ $wpdb->signups ] = 'meta';
+			}
+			if ( isset( $wpdb->sitemeta ) ) {
+				$serialized_tables[ $wpdb->sitemeta ] = 'meta_value';
+			}
+			if ( isset( $wpdb->blogmeta ) ) {
+				$serialized_tables[ $wpdb->blogmeta ] = 'meta_value';
+			}
+		}
+
+		return (array) apply_filters( 'wutm-go-live-update-urls/database/serialized-tables', $serialized_tables );
+	}
+
+
+	/**
+	 * Get the list of tables that were not created by WP core
+	 *
+	 * @return string[]
+	 */
+	public function get_custom_plugin_tables(): array {
+		$core_tables = $this->get_core_tables();
+		$all_tables = $this->get_all_table_names();
+		$all_tables = \array_flip( $all_tables );
+		foreach ( $core_tables as $_table ) {
+			unset( $all_tables[ $_table ] );
+		}
+
+		return (array) apply_filters( 'wutm-go-live-update-urls/database/plugin-tables', \array_keys( $all_tables ) );
+	}
+
+
+	/**
+	 * Get the list of WP core tables
+	 *
+	 * @since 4.0.0
+	 *
+	 * @return string[]
+	 */
+	public function get_core_tables(): array {
+		$wpdb = $this->get_wpdb();
+
+		$tables = [
+			$wpdb->posts,
+			$wpdb->comments,
+			$wpdb->options,
+			$wpdb->postmeta,
+			$wpdb->terms,
+			$wpdb->term_taxonomy,
+			$wpdb->term_relationships,
+			$wpdb->termmeta,
+			$wpdb->commentmeta,
+			$wpdb->users,
+			$wpdb->usermeta,
+		];
+
+		if ( isset( $wpdb->links ) ) {
+			$tables[] = $wpdb->links;
+		}
+
+		if ( is_multisite() ) {
+			$tables[] = $wpdb->blogs;
+			$tables[] = $wpdb->signups;
+			$tables[] = $wpdb->site;
+			$tables[] = $wpdb->sitemeta;
+			$tables[] = $wpdb->sitecategories;
+			$tables[] = $wpdb->registration_log;
+			$tables[] = $wpdb->blogmeta;
+		}
+
+		$tables = \array_filter( $tables, '\is_string' );
+
+		return (array) apply_filters( 'wutm-go-live-update-urls/database/core-tables', $tables );
+	}
+
+
+	/**
+	 * Get types of MySQL fields which may contain URLS.
+	 *
+	 * Only fields of these types will be updated.
+	 *
+	 * @since 6.1.0
+	 *
+	 * @return string[]
+	 */
+	public function get_column_types(): array {
+		$types = [
+			'char',
+			'longtext',
+			'longtext',
+			'mediumtext',
+			'text',
+			'tinytext',
+			'varchar',
+		];
+		return (array) apply_filters( 'wutm-go-live-update-urls/database/column-types', $types, $this );
+	}
+
+
+	/**
+	 * Get the names of every table in this blog
+	 * If we are multisite, we also get the global tables.
+	 *
+	 * @since 5.0.1
+	 *
+	 * @return string[]
+	 */
+	public function get_all_table_names() {
+		$wpdb = $this->get_wpdb();
+		$query = "SELECT TABLE_NAME as TableName FROM information_schema.TABLES WHERE TABLE_SCHEMA='" . $wpdb->dbname . "' AND TABLE_NAME LIKE '" . $wpdb->esc_like( $wpdb->prefix ) . "%'";
+
+		// Site 1's 'LIKE wp_%' will return all tables in the database,
+		// so we exclude all possible sub sites (e.g., wp_2, wp_3 up to 9).
+		$not_like = '';
+		if ( 1 === (int) $wpdb->blogid && is_multisite() ) {
+			for ( $i = 1; $i <= 9; $i ++ ) {
+				$not_like .= $wpdb->prepare( '%s,', $wpdb->prefix . $i );
+			}
+			$query .= ' AND SUBSTRING(TABLE_NAME,1,4) NOT IN (' . substr( $not_like, 0, - 1 ) . ')';
+		}
+		return $wpdb->get_col( $query );
+	}
+
+
+	/**
+	 * Make the actual changes to the database
+	 *
+	 * @since 5.0.0
+	 *
+	 * @param string   $old_url - the old URL.
+	 * @param string   $new_url - the new URL.
+	 * @param string[] $tables  - the tables we are going to update.
+	 *
+	 * @return array<string, int>
+	 */
+	public function update_the_database( $old_url, $new_url, array $tables ): array {
+		do_action( 'wutm-go-live-update-urls/database/before-update', $old_url, $new_url, $tables, $this );
+		$tables = apply_filters( 'wutm-go-live-update-urls/database/update-tables', $tables, $this );
+
+		$updates = Updates::factory( $old_url, $new_url, $tables );
+		$counts = $updates->update_serialized_values();
+		foreach ( (array) $tables as $_table ) {
+			if ( ! \array_key_exists( $_table, $counts ) ) {
+				$counts[ $_table ] = 0;
+			}
+			$counts[ $_table ] += $updates->update_table_columns( $_table );
+		}
+
+		$counts = apply_filters( 'wutm-go-live-update-urls/database/updated/counts', $counts, $old_url, $new_url, $tables, $this );
+
+		do_action( 'wutm-go-live-update-urls/database/after-update', $old_url, $new_url, $tables, $this );
+		return $counts;
+	}
+
+
+	/**
+	 * Count all occurrences of the old URL within a provided
+	 * list of tables.
+	 *
+	 * @since 5.0.0
+	 *
+	 * @param string   $old_url - the old URL.
+	 * @param string   $new_url - the new URL.
+	 * @param string[] $tables  - the tables we are going to update.
+	 *
+	 * @return int[]
+	 */
+	public function count_database_urls( string $old_url, string $new_url, array $tables ): array {
+		do_action( 'wutm-go-live-update-urls/database/before-counting', $old_url, $new_url, $tables, $this );
+		$tables = apply_filters( 'wutm-go-live-update-urls/database/update-tables', $tables, $this );
+
+		$updates = Updates::factory( $old_url, $new_url, $tables );
+		$counts = [];
+		foreach ( (array) $tables as $_table ) {
+			$counts[ $_table ] = $updates->count_table_urls( $_table );
+		}
+
+		$counts = (array) apply_filters( 'wutm-go-live-update-urls/database/counted/counts', $counts, $old_url, $new_url, $tables, $this );
+
+		do_action( 'wutm-go-live-update-urls/database/after-counting', $old_url, $new_url, $tables, $this );
+
+		return $counts;
+	}
+
+
+	/**
+	 * Update an individual table's column.
+	 *
+	 * @since 5.3.0
+	 *
+	 * @param string $table   - Table to update.
+	 * @param string $column  - Column to update.
+	 * @param string $old_url - 舊網址.
+	 * @param string $new_url - 新網址.
+	 *
+	 * @return int
+	 */
+	public function update_column( $table, $column, $old_url, $new_url ): int {
+		$wpdb = $this->get_wpdb();
+
+		$count = $this->count_column_urls( $table, $column, $old_url );
+		$update_query = 'UPDATE ' . $table . ' SET `' . $column . '` = replace(`' . $column . '`, %s, %s)';
+
+		if ( $this->supports_skipping( $table ) ) {
+			$skip = esc_sql( implode( ',', (array) Skip_Rows::instance()->get_skipped( $table ) ) );
+			$primary = esc_sql( (string) Skip_Rows::instance()->get_primary_key( $table ) );
+			$update_query .= " WHERE `{$primary}` NOT IN ({$skip})";
+		}
+
+		$wpdb->query( $wpdb->prepare( $update_query, [ $old_url, $new_url ] ) );
+		return $count;
+	}
+
+
+	/**
+	 * Count of the number of rows in a table which contain the old URL.
+	 *
+	 * When updating, the serialized data is updated first and this
+	 * counts the leftovers.
+	 *
+	 * During dry-run counting, this will count all occurrences in the
+	 * database.
+	 *
+	 * @since 6.1.0
+	 *
+	 * @param string $table   - Table to update.
+	 * @param string $column  - Column to update.
+	 * @param string $old_url - 舊網址.
+	 *
+	 * @return int
+	 */
+	public function count_column_urls( $table, $column, $old_url ): int {
+		$wpdb = $this->get_wpdb();
+
+		$query = "SELECT SUM( ROUND( ( LENGTH( `{$column}` ) - LENGTH( REPLACE( `{$column}`, %s, '' ) ) ) / LENGTH( %s ) ) ) from `{$table}`";
+
+		return (int) $wpdb->get_var( $wpdb->prepare( $query, [ $old_url, $old_url ] ) );
+	}
+
+
+	/**
+	 * Access the wpdb object safely.
+	 *
+	 * @return \wpdb
+	 */
+	public function get_wpdb(): \wpdb {
+		return $GLOBALS['wpdb'];
+	}
+
+
+	/**
+	 * Does this table support skipping rows?
+	 *
+	 * 1. Does it have rows to skip?
+	 * 2. Does the filter allow skipping?
+	 *
+	 * @since 6.5.0
+	 *
+	 * @param string $table - Database table.
+	 *
+	 * @return bool
+	 */
+	protected function supports_skipping( $table ) {
+		if ( null === Skip_Rows::instance()->get_skipped( $table ) || null === Skip_Rows::instance()->get_primary_key( $table ) ) {
+			return false;
+		}
+
+		return (bool) apply_filters( 'wutm-go-live-update-urls-pro/database/supports-skipping', true, $table, $this );
+	}
+}
