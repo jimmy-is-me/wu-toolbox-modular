@@ -35,6 +35,7 @@ function wutm_modules(): array {
 function wutm_get_module(string $key): ?array { $all = wutm_modules(); return $all[$key] ?? null; }
 function wutm_module_option(string $key): string { return 'wutm_module_' . str_replace('-', '_', $key); }
 function wutm_is_enabled(string $key): bool {
+    if (function_exists('wutm_license_is_valid') && !wutm_license_is_valid()) return false;
     $new = get_option(wutm_module_option($key), null);
     if ($new !== null) return (bool) $new;
     $module = wutm_get_module($key) ?: [];
