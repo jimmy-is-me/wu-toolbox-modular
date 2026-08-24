@@ -48,7 +48,7 @@ class WU_System_Monitor {
             'show_site_usage'            => true,
             'show_plugin_performance'    => true,
             'plugin_performance_threshold' => 100,
-            'auto_refresh'               => 30,
+            'auto_refresh'               => 0,
         );
     }
     
@@ -168,15 +168,7 @@ class WU_System_Monitor {
                                 <input type="checkbox" name="show_memory_footer" value="1" <?php checked($settings['show_memory_footer']); ?>>
                                 在頁腳顯示記憶體資訊
                             </label>
-                            <label style="display: block; margin: 5px 0;">
-                                自動重新整理間隔：
-                                <select name="auto_refresh">
-                                    <option value="0"  <?php selected($settings['auto_refresh'], 0);  ?>>停用</option>
-                                    <option value="15" <?php selected($settings['auto_refresh'], 15); ?>>15 秒</option>
-                                    <option value="30" <?php selected($settings['auto_refresh'], 30); ?>>30 秒</option>
-                                    <option value="60" <?php selected($settings['auto_refresh'], 60); ?>>60 秒</option>
-                                </select>
-                            </label>
+                            <p class="description">監控資料不會自動重新整理，請使用下方的手動重新整理按鈕。</p>
                         </td>
                     </tr>
                 </table>
@@ -186,7 +178,7 @@ class WU_System_Monitor {
             
             <?php if ($settings['enabled']): ?>
             
-            <div class="system-monitor-dashboard">
+            <div class="system-monitor-dashboard"><p><button type="button" class="button button-secondary" onclick="window.location.reload();">手動重新整理</button></p>
                 <!-- 網站狀態總覽 -->
                 <div class="monitor-card">
                     <h2>網站狀態總覽</h2>
@@ -412,13 +404,7 @@ class WU_System_Monitor {
             <?php endif; ?>
         </div>
         
-        <?php if ($settings['enabled'] && $settings['auto_refresh'] > 0): ?>
-        <script>
-        setTimeout(function() {
-            location.reload();
-        }, <?php echo intval($settings['auto_refresh']) * 1000; ?>);
-        </script>
-        <?php endif; ?>
+
         
         <script>
         // ✅ 修正：將 btn 參數傳入，避免依賴全域 event 物件（舊版瀏覽器相容問題）
