@@ -21,7 +21,7 @@ defined('WUMETAX_PATH') || define('WUMETAX_PATH', WUTM_PATH);
 defined('WUMETAX_URL') || define('WUMETAX_URL', WUTM_URL);
 
 require_once WUTM_PATH . 'core/module-registry.php';
-require_once WUTM_PATH . 'core/license-manager.php';
+// License manager is intentionally kept in core/ for future use, but is disabled for now.
 require_once WUTM_PATH . 'core/module-loader.php';
 require_once WUTM_PATH . 'core/admin-page.php';
 require_once WUTM_PATH . 'core/module-menu.php';
@@ -29,13 +29,8 @@ require_once WUTM_PATH . 'core/github-release-updater.php';
 
 register_activation_hook(__FILE__, function () {
     add_option('wutm_activation_redirect', true, '', false);
-    if (!wp_next_scheduled('wutm_license_daily_check')) {
-        wp_schedule_event(time() + HOUR_IN_SECONDS, 'wutm_daily', 'wutm_license_daily_check');
-    }
 });
-register_deactivation_hook(__FILE__, function () {
-    wp_clear_scheduled_hook('wutm_license_daily_check');
-});
+register_deactivation_hook(__FILE__, function () {});
 
 add_action('admin_init', function () {
     if (!get_option('wutm_activation_redirect') || wp_doing_ajax() || is_network_admin()) return;
@@ -61,7 +56,6 @@ add_action('admin_menu', function () {
 add_action('wp_ajax_wutm_toggle_module', function () {
     check_ajax_referer('wutm_toggle_module', 'nonce');
     if (!current_user_can('manage_options')) wp_send_json_error(['message' => 'forbidden'], 403);
-    if (!wutm_license_is_valid()) wp_send_json_error(['message' => 'license_required', 'notice' => '請先完成授權驗證。'], 403);
 
     $key = sanitize_key(wp_unslash($_POST['module'] ?? ''));
     if (!wutm_get_module($key)) wp_send_json_error(['message' => 'unknown_module'], 400);
