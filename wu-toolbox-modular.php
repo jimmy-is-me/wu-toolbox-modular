@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WU Toolbox Modular
  * Description: WU Toolbox 的按需載入模組化版本。每項功能獨立，只有啟用後才會載入。
- * Version: 1.2.6
+ * Version: 1.3.0
  * Author: Wumetax
  * License: GPL-2.0-or-later
  * Text Domain: wu-toolbox-modular
@@ -12,17 +12,16 @@
 defined('ABSPATH') || exit;
 
 define('WUTM_FILE', __FILE__);
-
-define('WUTM_VERSION', '1.2.6');
+define('WUTM_VERSION', '1.3.0');
 define('WUTM_PATH', plugin_dir_path(__FILE__));
 define('WUTM_URL', plugin_dir_url(__FILE__));
 
-/* Backward-compatible constants let migrated modules retain their safe URLs. */
 defined('WUMETAX_VERSION') || define('WUMETAX_VERSION', WUTM_VERSION);
 defined('WUMETAX_PATH') || define('WUMETAX_PATH', WUTM_PATH);
 defined('WUMETAX_URL') || define('WUMETAX_URL', WUTM_URL);
 
 require_once WUTM_PATH . 'core/module-registry.php';
+require_once WUTM_PATH . 'core/license-manager.php';
 require_once WUTM_PATH . 'core/module-loader.php';
 require_once WUTM_PATH . 'core/admin-page.php';
 require_once WUTM_PATH . 'core/module-menu.php';
@@ -30,6 +29,12 @@ require_once WUTM_PATH . 'core/github-release-updater.php';
 
 register_activation_hook(__FILE__, function () {
     add_option('wutm_activation_redirect', true, '', false);
+    if (!wp_next_scheduled('wutm_license_daily_check')) {
+        wp_schedule_event(time() + HOUR_IN_SECONDS, 'wutm_daily', 'wutm_license_daily_check');
+    }
+});
+register_deactivation_hook(__FILE__, function () {
+    wp_clear_scheduled_hook('wutm_license_daily_check');
 });
 
 add_action('admin_init', function () {
@@ -56,6 +61,7 @@ add_action('admin_menu', function () {
 add_action('wp_ajax_wutm_toggle_module', function () {
     check_ajax_referer('wutm_toggle_module', 'nonce');
     if (!current_user_can('manage_options')) wp_send_json_error(['message' => 'forbidden'], 403);
+    if (!wutm_license_is_valid()) wp_send_json_error(['message' => 'license_required', 'notice' => '請先完成授權驗證。'], 403);
 
     $key = sanitize_key(wp_unslash($_POST['module'] ?? ''));
     if (!wutm_get_module($key)) wp_send_json_error(['message' => 'unknown_module'], 400);
