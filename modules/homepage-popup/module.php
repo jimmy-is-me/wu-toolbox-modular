@@ -76,7 +76,7 @@ function wutm_homepage_popup_settings(): void {
     </div>
     <script>
     jQuery(function($){
-      function reindex(){ $('#wutm-popup-slides .wutm-popup-slide').each(function(i){ $(this).find('strong').text('<?php echo esc_js(__('第', 'wu-toolbox-modular')); ?> '+(i+1)+' <?php echo esc_js(__('張', 'wu-toolbox-modular')); ?>'); $(this).find('[name]').each(function(){ var n=$(this).attr('name'); if(n) $(this).attr('name',n.replace(/wutm_popup_slides\\[\\d+\\]/,'wutm_popup_slides['+i+']')); }); }); }
+      function reindex(){ $('#wutm-popup-slides .wutm-popup-slide').each(function(i){ $(this).find('strong').text('<?php echo esc_js(__('第', 'wu-toolbox-modular')); ?> '+(i+1)+' <?php echo esc_js(__('張', 'wu-toolbox-modular')); ?>'); $(this).find('[name]').each(function(){ var n=$(this).attr('name'); if(n) $(this).attr('name',n.replace(/\\[\\d+\\]/,'wutm_popup_slides['+i+']')); }); }); }
       function bind(ctx){
         ctx.find('.wutm-popup-remove').on('click',function(){ if($('#wutm-popup-slides .wutm-popup-slide').length>1){$(this).closest('.wutm-popup-slide').remove();reindex();} });
         ctx.find('.wutm-popup-upload').on('click',function(){ var b=$(this), f=wp.media({title:'<?php echo esc_js(__('選擇圖片', 'wu-toolbox-modular')); ?>',button:{text:'<?php echo esc_js(__('使用圖片', 'wu-toolbox-modular')); ?>'},multiple:false}); f.on('select',function(){var a=f.state().get('selection').first().toJSON();b.closest('.wutm-popup-slide').find('.wutm-popup-image-id').val(a.id);b.closest('.wutm-popup-slide').find('.wutm-popup-preview').attr('src',a.url).show();b.closest('.wutm-popup-slide').find('.wutm-popup-clear').prop('disabled',false);});f.open();});
