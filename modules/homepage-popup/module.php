@@ -47,7 +47,7 @@ function wutm_homepage_popup_settings(): void {
         <?php settings_fields('wutm_homepage_popup_group'); ?>
         <section class="wutm-panel">
           <h2><?php echo esc_html__('基本設定', 'wu-toolbox-modular'); ?></h2>
-          <p><label><input type="checkbox" name="wutm_popup_enabled" value="1" <?php checked($enabled); ?>> <?php echo esc_html__('在首頁啟用彈出視窗', 'wu-toolbox-modular'); ?></label></p>
+          <p><input type="hidden" name="wutm_popup_enabled" value="0"><label><input type="checkbox" name="wutm_popup_enabled" value="1" <?php checked($enabled); ?>> <?php echo esc_html__('在首頁啟用彈出視窗', 'wu-toolbox-modular'); ?></label></p>
           <p class="description"><?php echo esc_html__('設定儲存後前台立即生效；內容會透過 AJAX 載入，不受整頁快取影響。', 'wu-toolbox-modular'); ?></p>
         </section>
         <section class="wutm-panel">
