@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WU Toolbox Modular
  * Description: WU Toolbox 的按需載入模組化版本。每項功能獨立，只有啟用後才會載入。
- * Version: 1.3.1
+ * Version: 1.3.2
  * Author: Wumetax
  * License: GPL-2.0-or-later
  * Text Domain: wu-toolbox-modular
@@ -12,7 +12,7 @@
 defined('ABSPATH') || exit;
 
 define('WUTM_FILE', __FILE__);
-define('WUTM_VERSION', '1.3.1');
+define('WUTM_VERSION', '1.3.2');
 define('WUTM_PATH', plugin_dir_path(__FILE__));
 define('WUTM_URL', plugin_dir_url(__FILE__));
 
