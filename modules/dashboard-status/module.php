@@ -2131,6 +2131,21 @@ add_action('admin_head', function() {
 	.wu-monitoring-badge::before { content: ""; position: absolute; left: 9px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: #00a32a; box-shadow: 0 0 0 0 rgba(0,163,42,.45); animation: wu-monitor-pulse 2s ease-out infinite; }
 	@keyframes wu-monitor-pulse { 0% { box-shadow: 0 0 0 0 rgba(0,163,42,.45); } 70% { box-shadow: 0 0 0 7px rgba(0,163,42,0); } 100% { box-shadow: 0 0 0 0 rgba(0,163,42,0); } }
 	@media (prefers-reduced-motion: reduce) { .wu-monitoring-badge::before { animation: none; } }
+
+	/* 儀表板版面覆寫：模組啟用時只調整此頁，不影響其他後台頁面。 */
+	body.index-php #dashboard-widgets-wrap .metabox-holder { display: block !important; }
+	body.index-php #dashboard-widgets .postbox-container { width: 100% !important; float: none !important; }
+	body.index-php #dashboard-widgets .postbox-container:empty { display: none !important; }
+	body.index-php #wu_unified_dashboard { width: 100% !important; max-width: none !important; }
+	body.index-php #wu_unified_dashboard .wu-info-table { width: 100%; overflow-x: auto; }
+	body.index-php #wu_unified_dashboard .wu-info-table tbody { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 8px; min-width: 760px; }
+	body.index-php #wu_unified_dashboard .wu-info-table tr { min-width: 0; }
+	.wu-monitoring-badge { display: inline-flex !important; align-items: center; white-space: nowrap; font-weight: 700 !important; line-height: 1.4; position: relative; z-index: 1; }
+	.wu-monitoring-badge::before { flex: 0 0 6px; position: static !important; margin-right: 7px; }
+	@media (max-width: 782px) {
+		body.index-php #dashboard-widgets .postbox-container { width: 100% !important; }
+		body.index-php #wu_unified_dashboard .wu-info-table tbody { grid-template-columns: repeat(6, minmax(120px, 1fr)); min-width: 760px; }
+	}
 </style>
 	<?php
 });
