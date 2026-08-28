@@ -343,64 +343,6 @@ function wu_render_unified_dashboard() {
 		</div>
 		<?php endif; ?>
 		
-		<!-- 推薦回饋專區 -->
-		<?php if ($referral_enabled): ?>
-		<div class="wu-section">
-			<h3 class="wu-section-title">推薦回饋專區</h3>
-			
-			<?php if (!empty($referral_content)): ?>
-			<!-- 自訂內容 -->
-			<div class="wu-referral-custom-content">
-				<?php echo wp_kses_post(wpautop($referral_content)); ?>
-			</div>
-			<?php else: ?>
-			<!-- 預設內容 -->
-			<div class="wu-referral-rules">
-				<p><strong>推薦好友,共享優惠</strong></p>
-				<div style="margin:15px 0;font-size:13px;color:#50575e;line-height:2;">
-					<div style="margin-bottom:12px;">
-						<span class="wu-referral-step">步驟 1</span>
-						<strong>當您介紹朋友加入並確認開始使用我們的主機服務後,</strong><br>
-						<span style="margin-left:20px;">→ 您可先獲得 <strong style="color:#2271b1;">1 個月</strong>的免費主機使用回饋。</span>
-					</div>
-					<div style="margin-bottom:12px;">
-						<span class="wu-referral-step">步驟 2</span>
-						<strong>之後只要該朋友持續使用滿一年,</strong><br>
-						<span style="margin-left:20px;">→ 您將再多獲得 <strong style="color:#2271b1;">1 個月</strong>免費使用時間。</span>
-					</div>
-					<div style="margin-top:15px;padding:10px;background:#f0f6fc;border-left:3px solid #2271b1;">
-						<strong>朋友用得越久,您免費使用時間也會越多。</strong>
-					</div>
-				</div>
-				<p style="margin:10px 0 0 0;font-size:11px;color:#787c82;font-style:italic;">*回饋狀態由管理端確認後更新於此頁</p>
-			</div>
-			<?php endif; ?>
-			
-			<?php if (!empty($referrals)): ?>
-			<div class="wu-card-grid">
-				<?php foreach ($referrals as $referral): ?>
-				<div class="wu-referral-card">
-					<div class="wu-referral-name"><?php echo esc_html($referral['name']); ?></div>
-					<div class="wu-referral-date"><?php echo esc_html(date('Y/m/d', strtotime($referral['date']))); ?></div>
-					<div class="wu-referral-status">
-						<?php if ($referral['rewarded']): ?>
-							<span class="wu-badge wu-badge-success">已發放</span>
-						<?php else: ?>
-							<span class="wu-badge wu-badge-pending">處理中</span>
-						<?php endif; ?>
-					</div>
-				</div>
-				<?php endforeach; ?>
-			</div>
-			<?php else: ?>
-			<div class="wu-empty-state">
-				<p>目前尚無推薦紀錄</p>
-				<p>歡迎推薦您的朋友,一起享受長期合作的優惠!</p>
-			</div>
-			<?php endif; ?>
-		</div>
-		<?php endif; ?>
-		
 		<!-- 最近處理紀錄(橫排) -->
 		<?php if (!empty($recent_work)): ?>
 		<div class="wu-section">
@@ -2228,6 +2170,19 @@ add_action('admin_head', function() {
 			margin-top: 10px;
 		}
 	}
-	</style>
+	
+	/* 精簡桌面版狀態列：六項資訊同列呈現。 */
+	@media (min-width: 783px) {
+		#wu_unified_dashboard .wu-info-table { display: block; }
+		#wu_unified_dashboard .wu-info-table tbody { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+		#wu_unified_dashboard .wu-info-table tr { display: flex; flex-direction: column; min-width: 0; border: 1px solid #ddd; background: #f6f7f7; }
+		#wu_unified_dashboard .wu-info-table th, #wu_unified_dashboard .wu-info-table td { width: auto; border: 0; padding: 10px 12px; }
+		#wu_unified_dashboard .wu-info-table td.wu-info-meta { padding-top: 0; }
+	}
+	.wu-monitoring-badge { position: relative; padding-left: 22px; }
+	.wu-monitoring-badge::before { content: ""; position: absolute; left: 9px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: #00a32a; box-shadow: 0 0 0 0 rgba(0,163,42,.45); animation: wu-monitor-pulse 2s ease-out infinite; }
+	@keyframes wu-monitor-pulse { 0% { box-shadow: 0 0 0 0 rgba(0,163,42,.45); } 70% { box-shadow: 0 0 0 7px rgba(0,163,42,0); } 100% { box-shadow: 0 0 0 0 rgba(0,163,42,0); } }
+	@media (prefers-reduced-motion: reduce) { .wu-monitoring-badge::before { animation: none; } }
+</style>
 	<?php
 });
