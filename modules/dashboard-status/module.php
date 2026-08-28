@@ -1257,58 +1257,6 @@ function wu_dashboard_settings_page() {
 					</td>
 				</tr>
 				
-				<!-- 推薦回饋專區設定 -->
-				<tr>
-					<th><label>推薦回饋專區</label></th>
-					<td>
-						<label style="display:block;margin-bottom:15px;">
-							<input type="checkbox" name="referral_enabled" value="1" <?php checked(1, $referral_enabled); ?>>
-							<strong>啟用推薦回饋專區</strong>
-							<span class="description" style="display:block;margin-top:5px;">勾選後,儀表板將顯示推薦回饋專區</span>
-						</label>
-						
-						<label style="display:block;margin-top:15px;">
-							<strong>自訂推薦內容 (選填)</strong>
-							<span class="description" style="display:block;margin-bottom:10px;">留空則顯示預設內容。支援 HTML 標籤。</span>
-							<?php 
-							wp_editor($referral_content, 'referral_content', array(
-								'textarea_name' => 'referral_content',
-								'textarea_rows' => 10,
-								'media_buttons' => false,
-								'teeny' => true,
-								'quicktags' => true
-							)); 
-							?>
-						</label>
-					</td>
-				</tr>
-				
-				<tr>
-					<th><label>推薦回饋紀錄</label></th>
-					<td>
-						<div id="referrals-list">
-							<?php if (!empty($referrals)): ?>
-								<?php foreach ($referrals as $i => $referral): ?>
-								<div class="wu-dynamic-item" style="margin-bottom:15px;padding:15px;background:#f9f9f9;border-left:3px solid #0073aa;">
-									<div style="margin-bottom:8px;">
-										<input type="text" name="referral_names[]" class="regular-text" placeholder="推薦人姓名" value="<?php echo esc_attr($referral['name']); ?>">
-										<input type="date" name="referral_dates[]" value="<?php echo esc_attr($referral['date']); ?>">
-									</div>
-									<div>
-										<label>
-											<input type="checkbox" name="referral_rewarded[<?php echo $i; ?>]" value="1" <?php checked(1, $referral['rewarded']); ?>>
-											<strong>已發放回饋</strong>
-										</label>
-										<button type="button" class="button wu-remove-item" style="margin-left:10px;">移除</button>
-									</div>
-								</div>
-								<?php endforeach; ?>
-							<?php endif; ?>
-						</div>
-						<button type="button" class="button" onclick="wuAddReferral()">+ 新增推薦紀錄</button>
-					</td>
-				</tr>
-				
 				<tr>
 					<th><label>最近處理紀錄</label></th>
 					<td>
