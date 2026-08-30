@@ -30,6 +30,9 @@ class WU_Enhanced_User_List {
 
         add_action('admin_menu', [$this, 'add_admin_menu'], 15);
 
+        add_action('admin_post_wutm_export_users_csv', [$this, 'export_users_csv']);
+        add_action('admin_post_wutm_import_users_csv', [$this, 'import_users_csv']);
+
         add_filter('manage_users_columns',         [$this, 'add_user_columns']);
         add_filter('manage_users_custom_column',   [$this, 'show_user_column_content'], 10, 3);
         add_filter('manage_users_sortable_columns',[$this, 'make_columns_sortable']);
@@ -124,9 +127,24 @@ class WU_Enhanced_User_List {
 
         $user_stats = $this->get_user_statistics();
         $s          = $this->settings;
+        $import_result = get_transient('wutm_user_import_result_' . get_current_user_id());
+        delete_transient('wutm_user_import_result_' . get_current_user_id());
         ?>
         <div class="wrap">
             <h1>增強使用者列表設定</h1>
+
+            <?php if (is_array($import_result)): ?>
+                <div class="notice <?php echo !empty($import_result['error']) ? 'notice-error' : 'notice-success'; ?> is-dismissible">
+                    <p><strong><?php echo esc_html($import_result['message'] ?? 'CSV 處理完成'); ?></strong></p>
+                    <?php if (!empty($import_result['details'])): ?>
+                        <ul style="margin:0 0 8px 18px;list-style:disc;">
+                            <?php foreach ((array) $import_result['details'] as $detail): ?>
+                                <li><?php echo esc_html($detail); ?></li>
+                            <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
 
             <div class="notice notice-info">
                 <h3 style="margin:.5em 0 .3em;">功能說明</h3>
@@ -300,7 +318,42 @@ class WU_Enhanced_User_List {
                 </table>
 
                 <?php submit_button('儲存設定'); ?>
+
             </form>
+
+            <section class="wutm-csv-tools" aria-labelledby="wutm-csv-tools-title">
+                <h2 id="wutm-csv-tools-title">CSV 使用者匯入／匯出</h2>
+                <p>可匯出可再次匯入的使用者資料。匯出檔不包含密碼；匯入既有帳號時，預設不變更角色與密碼。</p>
+
+                <div class="wutm-csv-actions">
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <?php wp_nonce_field('wutm_export_users_csv'); ?>
+                        <input type="hidden" name="action" value="wutm_export_users_csv">
+                        <label for="wutm-export-role">匯出角色</label>
+                        <select id="wutm-export-role" name="role">
+                            <option value="">所有角色</option>
+                            <?php foreach (get_editable_roles() as $role_key => $role_data): ?>
+                                <option value="<?php echo esc_attr($role_key); ?>"><?php echo esc_html(translate_user_role($role_data['name'])); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <label class="wutm-inline-choice"><input type="checkbox" name="include_meta" value="1" checked> 包含安全的自訂欄位</label>
+                        <?php submit_button('下載 CSV', 'secondary', 'submit', false); ?>
+                    </form>
+
+                    <form method="post" enctype="multipart/form-data" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <?php wp_nonce_field('wutm_import_users_csv'); ?>
+                        <input type="hidden" name="action" value="wutm_import_users_csv">
+                        <label for="wutm-users-csv">匯入 CSV</label>
+                        <input id="wutm-users-csv" type="file" name="users_csv" accept=".csv,text/csv" required>
+                        <label class="wutm-inline-choice"><input type="checkbox" name="update_existing" value="1"> 更新既有帳號的基本資料</label>
+                        <label class="wutm-inline-choice"><input type="checkbox" name="update_credentials" value="1"> 同時更新既有帳號的角色與密碼</label>
+                        <label class="wutm-inline-choice"><input type="checkbox" name="import_meta" value="1" checked> 匯入自訂欄位</label>
+                        <?php submit_button('開始匯入', 'primary', 'submit', false); ?>
+                    </form>
+                </div>
+
+                <p class="description"><strong>必要欄位：</strong><code>user_login</code>、<code>user_email</code>。可選欄位：<code>user_pass</code>、<code>first_name</code>、<code>last_name</code>、<code>nickname</code>、<code>display_name</code>、<code>user_url</code>、<code>description</code>、<code>role</code>，以及安全的自訂欄位。支援逗號、分號或 Tab 分隔的 UTF-8 CSV。</p>
+            </section>
 
             <hr>
 
@@ -802,6 +855,277 @@ class WU_Enhanced_User_List {
         }
 
         fclose($output);
+    }
+
+
+    // ===== CSV 使用者匯入／匯出 =====
+
+    public function export_users_csv(): void {
+        if (!current_user_can('manage_options')) wp_die('權限不足');
+        check_admin_referer('wutm_export_users_csv');
+
+        $role = sanitize_key(wp_unslash($_POST['role'] ?? ''));
+        $args = [
+            'fields'  => 'ID',
+            'number'  => -1,
+            'orderby' => 'ID',
+            'order'   => 'ASC',
+        ];
+        if ($role && array_key_exists($role, get_editable_roles())) $args['role'] = $role;
+
+        $user_ids = get_users($args);
+        $meta_keys = !empty($_POST['include_meta']) ? $this->get_safe_export_meta_keys() : [];
+        $this->stream_users_csv($user_ids, $meta_keys);
+        exit;
+    }
+
+    private function get_safe_export_meta_keys(): array {
+        global $wpdb;
+
+        $blocked = $this->protected_user_meta_keys();
+        $placeholders = implode(',', array_fill(0, count($blocked), '%s'));
+        $query = "SELECT DISTINCT meta_key FROM {$wpdb->usermeta}
+            WHERE meta_key NOT LIKE '\\_%' AND meta_key NOT IN ($placeholders)
+            ORDER BY meta_key ASC LIMIT 50";
+        $keys = $wpdb->get_col($wpdb->prepare($query, ...$blocked));
+
+        return array_values(array_filter(array_map('sanitize_key', (array) $keys)));
+    }
+
+    private function stream_users_csv(array $user_ids, array $meta_keys = []): void {
+        $filename = 'wu-users-' . wp_date('Y-m-d-His') . '.csv';
+        nocache_headers();
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+
+        $output = fopen('php://output', 'w');
+        fputs($output, "\xEF\xBB\xBF");
+        $headers = array_merge(
+            ['user_login', 'user_email', 'first_name', 'last_name', 'nickname', 'display_name', 'user_url', 'description', 'role', 'user_registered'],
+            $meta_keys
+        );
+        fputcsv($output, $headers);
+
+        foreach ($user_ids as $user_id) {
+            $user = get_userdata((int) $user_id);
+            if (!$user) continue;
+
+            $row = [
+                $user->user_login,
+                $user->user_email,
+                $user->first_name,
+                $user->last_name,
+                $user->nickname,
+                $user->display_name,
+                $user->user_url,
+                $user->description,
+                implode(',', (array) $user->roles),
+                $user->user_registered,
+            ];
+            foreach ($meta_keys as $meta_key) {
+                $value = get_user_meta($user->ID, $meta_key, true);
+                $row[] = is_scalar($value) ? (string) $value : wp_json_encode($value, JSON_UNESCAPED_UNICODE);
+            }
+            fputcsv($output, $row);
+        }
+        fclose($output);
+    }
+
+    public function import_users_csv(): void {
+        if (!current_user_can('manage_options')) wp_die('權限不足');
+        check_admin_referer('wutm_import_users_csv');
+
+        $result = ['message' => '', 'details' => [], 'error' => false];
+        $file = $_FILES['users_csv'] ?? null;
+        if (!is_array($file) || (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || empty($file['tmp_name'])) {
+            $this->save_csv_import_result(['message' => '找不到可匯入的 CSV 檔案。', 'details' => [], 'error' => true]);
+            $this->redirect_to_settings();
+        }
+        if ((int) ($file['size'] ?? 0) > 8 * MB_IN_BYTES || !is_uploaded_file($file['tmp_name'])) {
+            $this->save_csv_import_result(['message' => 'CSV 檔案無效或超過 8 MB 限制。', 'details' => [], 'error' => true]);
+            $this->redirect_to_settings();
+        }
+
+        $rows = $this->read_users_csv((string) $file['tmp_name']);
+        if (is_wp_error($rows)) {
+            $this->save_csv_import_result(['message' => $rows->get_error_message(), 'details' => [], 'error' => true]);
+            $this->redirect_to_settings();
+        }
+        if (count($rows) < 2) {
+            $this->save_csv_import_result(['message' => 'CSV 必須包含標題列與至少一筆資料。', 'details' => [], 'error' => true]);
+            $this->redirect_to_settings();
+        }
+        if (count($rows) > 501) {
+            $this->save_csv_import_result(['message' => '一次最多匯入 500 筆資料，請分批處理。', 'details' => [], 'error' => true]);
+            $this->redirect_to_settings();
+        }
+
+        $headers = $this->normalise_csv_headers(array_shift($rows));
+        if (!in_array('user_login', $headers, true) || !in_array('user_email', $headers, true)) {
+            $this->save_csv_import_result(['message' => 'CSV 缺少必要欄位 user_login 或 user_email。', 'details' => [], 'error' => true]);
+            $this->redirect_to_settings();
+        }
+
+        $options = [
+            'update_existing'    => !empty($_POST['update_existing']),
+            'update_credentials' => !empty($_POST['update_credentials']),
+            'import_meta'        => !empty($_POST['import_meta']),
+        ];
+        $created = 0;
+        $updated = 0;
+        $skipped = 0;
+        $details = [];
+
+        foreach ($rows as $index => $row) {
+            if (!array_filter($row, static fn($value) => trim((string) $value) !== '')) continue;
+            $data = [];
+            foreach ($headers as $column => $header) {
+                if ($header !== '' && array_key_exists($column, $row)) $data[$header] = trim((string) $row[$column]);
+            }
+            $row_result = $this->import_one_user($data, $options);
+            if ($row_result['status'] === 'created') $created++;
+            elseif ($row_result['status'] === 'updated') $updated++;
+            else $skipped++;
+
+            if ($row_result['status'] === 'skipped' && count($details) < 10) {
+                $details[] = '第 ' . ($index + 2) . ' 列：' . $row_result['message'];
+            }
+        }
+
+        $result['message'] = sprintf('CSV 匯入完成：新增 %d 位、更新 %d 位、略過 %d 位使用者。', $created, $updated, $skipped);
+        $result['details'] = $details;
+        $this->save_csv_import_result($result);
+        $this->redirect_to_settings();
+    }
+
+    private function import_one_user(array $data, array $options): array {
+        $login = sanitize_user($data['user_login'] ?? '', true);
+        $email = sanitize_email($data['user_email'] ?? '');
+        $existing = $login ? get_user_by('login', $login) : false;
+        if (!$existing && $email && is_email($email)) $existing = get_user_by('email', $email);
+
+        if ($existing) {
+            if (empty($options['update_existing'])) {
+                return ['status' => 'skipped', 'message' => sprintf('使用者「%s」已存在，未勾選更新既有帳號。', $existing->user_login)];
+            }
+
+            $update = ['ID' => $existing->ID];
+            if ($email && is_email($email)) {
+                $email_owner = get_user_by('email', $email);
+                if (!$email_owner || (int) $email_owner->ID === (int) $existing->ID) $update['user_email'] = $email;
+            }
+            foreach (['first_name', 'last_name', 'nickname', 'display_name', 'user_url', 'description'] as $field) {
+                if (array_key_exists($field, $data)) {
+                    $update[$field] = $field === 'user_url' ? esc_url_raw($data[$field]) : sanitize_text_field($data[$field]);
+                }
+            }
+            if (!empty($options['update_credentials']) && !empty($data['user_pass'])) $update['user_pass'] = $data['user_pass'];
+
+            $updated_id = wp_update_user($update);
+            if (is_wp_error($updated_id)) return ['status' => 'skipped', 'message' => $updated_id->get_error_message()];
+
+            if (!empty($options['update_credentials'])) $this->assign_import_role((int) $existing->ID, $data['role'] ?? '');
+            if (!empty($options['import_meta'])) $this->import_custom_user_meta((int) $existing->ID, $data);
+            return ['status' => 'updated', 'message' => ''];
+        }
+
+        if (!$login || !validate_username($login)) return ['status' => 'skipped', 'message' => '使用者名稱不正確。'];
+        if (!$email || !is_email($email)) return ['status' => 'skipped', 'message' => '電子郵件地址不正確。'];
+        if (username_exists($login) || email_exists($email)) return ['status' => 'skipped', 'message' => '使用者名稱或電子郵件已存在。'];
+
+        $insert = [
+            'user_login'   => $login,
+            'user_email'   => $email,
+            'user_pass'    => !empty($data['user_pass']) ? $data['user_pass'] : wp_generate_password(24, true, true),
+            'first_name'   => sanitize_text_field($data['first_name'] ?? ''),
+            'last_name'    => sanitize_text_field($data['last_name'] ?? ''),
+            'nickname'     => sanitize_text_field($data['nickname'] ?? ''),
+            'display_name' => sanitize_text_field($data['display_name'] ?? ''),
+            'user_url'     => esc_url_raw($data['user_url'] ?? ''),
+            'description'  => sanitize_textarea_field($data['description'] ?? ''),
+        ];
+        $user_id = wp_insert_user($insert);
+        if (is_wp_error($user_id)) return ['status' => 'skipped', 'message' => $user_id->get_error_message()];
+
+        $this->assign_import_role((int) $user_id, $data['role'] ?? '');
+        if (!empty($options['import_meta'])) $this->import_custom_user_meta((int) $user_id, $data);
+        return ['status' => 'created', 'message' => ''];
+    }
+
+    private function assign_import_role(int $user_id, string $role_value): void {
+        $roles = get_editable_roles();
+        $role = sanitize_key(trim(explode(',', $role_value)[0] ?? ''));
+        if ($role && isset($roles[$role])) {
+            $user = new WP_User($user_id);
+            $user->set_role($role);
+        }
+    }
+
+    private function import_custom_user_meta(int $user_id, array $data): void {
+        $known = ['user_login', 'user_email', 'user_pass', 'first_name', 'last_name', 'nickname', 'display_name', 'user_url', 'description', 'role', 'user_registered', 'id'];
+        foreach ($data as $key => $value) {
+            $meta_key = sanitize_key($key);
+            if (!$meta_key || in_array($meta_key, $known, true) || in_array($meta_key, $this->protected_user_meta_keys(), true) || str_starts_with($meta_key, '_')) continue;
+            update_user_meta($user_id, $meta_key, sanitize_textarea_field($value));
+        }
+    }
+
+    private function protected_user_meta_keys(): array {
+        return ['wp_capabilities', 'wp_user_level', 'capabilities', 'user_level', 'session_tokens', 'application_passwords', 'dismissed_wp_pointers', 'wp_dashboard_quick_press_last_post_id'];
+    }
+
+    private function read_users_csv(string $path) {
+        $contents = file_get_contents($path);
+        if ($contents === false) return new WP_Error('wutm_csv_read', '無法讀取 CSV 檔案。');
+        if (str_starts_with($contents, "\xEF\xBB\xBF")) $contents = substr($contents, 3);
+
+        if (str_starts_with($contents, "\xFF\xFE") || str_starts_with($contents, "\xFE\xFF")) {
+            if (!function_exists('mb_convert_encoding')) return new WP_Error('wutm_csv_encoding', '請將 UTF-16 CSV 另存為 UTF-8 後再匯入。');
+            $encoding = str_starts_with($contents, "\xFF\xFE") ? 'UTF-16LE' : 'UTF-16BE';
+            $contents = mb_convert_encoding(substr($contents, 2), 'UTF-8', $encoding);
+        }
+
+        $first_line = strtok($contents, "\r\n");
+        $delimiters = [',' => substr_count($first_line ?: '', ','), ';' => substr_count($first_line ?: '', ';'), "\t" => substr_count($first_line ?: '', "\t")];
+        arsort($delimiters);
+        $delimiter = (string) array_key_first($delimiters);
+
+        $stream = fopen('php://temp', 'r+');
+        fwrite($stream, $contents);
+        rewind($stream);
+        $rows = [];
+        while (($row = fgetcsv($stream, 0, $delimiter)) !== false) {
+            if ($row !== [null]) $rows[] = $row;
+        }
+        fclose($stream);
+        return $rows;
+    }
+
+    private function normalise_csv_headers(array $headers): array {
+        $aliases = [
+            'username' => 'user_login', 'login' => 'user_login',
+            'email' => 'user_email', 'email_address' => 'user_email',
+            'password' => 'user_pass', 'website' => 'user_url', 'url' => 'user_url',
+            'biography' => 'description', 'roles' => 'role', 'user_role' => 'role',
+            'user_id' => 'id',
+        ];
+        $normalised = [];
+        foreach ($headers as $header) {
+            $key = strtolower(trim((string) $header));
+            $key = preg_replace('/\s+/', '_', $key);
+            $key = preg_replace('/[^a-z0-9_-]/', '', $key);
+            $normalised[] = $aliases[$key] ?? $key;
+        }
+        return $normalised;
+    }
+
+    private function save_csv_import_result(array $result): void {
+        set_transient('wutm_user_import_result_' . get_current_user_id(), $result, 5 * MINUTE_IN_SECONDS);
+    }
+
+    private function redirect_to_settings(): void {
+        wp_safe_redirect(admin_url('admin.php?page=wu-enhanced-user-list'));
+        exit;
     }
 
     // ===== 自訂頭像 =====
