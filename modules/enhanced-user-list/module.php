@@ -889,7 +889,7 @@ class WU_Enhanced_User_List {
             ORDER BY meta_key ASC LIMIT 50";
         $keys = $wpdb->get_col($wpdb->prepare($query, ...$blocked));
 
-        return array_values(array_filter(array_map('sanitize_key', (array) $keys)));
+        return array_values(array_filter(array_map('sanitize_key', (array) $keys), fn($key) => !$this->is_protected_user_meta_key($key)));
     }
 
     private function stream_users_csv(array $user_ids, array $meta_keys = []): void {
@@ -1016,7 +1016,7 @@ class WU_Enhanced_User_List {
             }
             foreach (['first_name', 'last_name', 'nickname', 'display_name', 'user_url', 'description'] as $field) {
                 if (array_key_exists($field, $data)) {
-                    $update[$field] = $field === 'user_url' ? esc_url_raw($data[$field]) : sanitize_text_field($data[$field]);
+                    $update[$field] = $field === 'user_url' ? esc_url_raw($data[$field]) : ($field === 'description' ? sanitize_textarea_field($data[$field]) : sanitize_text_field($data[$field]));
                 }
             }
             if (!empty($options['update_credentials']) && !empty($data['user_pass'])) $update['user_pass'] = $data['user_pass'];
@@ -1065,13 +1065,19 @@ class WU_Enhanced_User_List {
         $known = ['user_login', 'user_email', 'user_pass', 'first_name', 'last_name', 'nickname', 'display_name', 'user_url', 'description', 'role', 'user_registered', 'id'];
         foreach ($data as $key => $value) {
             $meta_key = sanitize_key($key);
-            if (!$meta_key || in_array($meta_key, $known, true) || in_array($meta_key, $this->protected_user_meta_keys(), true) || str_starts_with($meta_key, '_')) continue;
+            if (!$meta_key || in_array($meta_key, $known, true) || $this->is_protected_user_meta_key($meta_key) || str_starts_with($meta_key, '_')) continue;
             update_user_meta($user_id, $meta_key, sanitize_textarea_field($value));
         }
     }
 
     private function protected_user_meta_keys(): array {
         return ['wp_capabilities', 'wp_user_level', 'capabilities', 'user_level', 'session_tokens', 'application_passwords', 'dismissed_wp_pointers', 'wp_dashboard_quick_press_last_post_id'];
+    }
+
+    private function is_protected_user_meta_key(string $meta_key): bool {
+        return in_array($meta_key, $this->protected_user_meta_keys(), true)
+            || str_ends_with($meta_key, 'capabilities')
+            || str_ends_with($meta_key, 'user_level');
     }
 
     private function read_users_csv(string $path) {
