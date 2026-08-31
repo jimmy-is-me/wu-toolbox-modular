@@ -191,3 +191,12 @@ input:focus,textarea:focus,select:focus{border-color:var(--wutm-wp-blue)!importa
 .wutm-csv-actions .button{margin-top:10px}
 .wutm-csv-tools code{font-size:12px}
 @media (max-width:782px){.wutm-csv-tools{padding:20px 18px}.wutm-csv-actions{grid-template-columns:1fr}.wutm-csv-actions form{padding:16px}}
+
+
+/* v1.4.4: compact drag-and-drop ordering module. */
+.wutm-ordering-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:20px}
+.wutm-ordering-panel{box-sizing:border-box;padding:20px 22px;border:1px solid var(--wutm-wp-border);border-radius:8px;background:var(--wutm-wp-panel);box-shadow:0 1px 3px #00000018}
+.wutm-ordering-panel h2{margin-top:0}.wutm-order-select{margin:0 0 16px}.wutm-order-list{margin:0;padding:0;list-style:none;border:1px solid var(--wutm-wp-border);border-radius:8px;overflow:hidden}
+.wutm-order-list li{display:flex;align-items:center;gap:10px;min-height:40px;padding:9px 12px;border-bottom:1px solid #c3c4c766;background:#fff}.wutm-order-list li:last-child{border-bottom:0}.wutm-order-list li small{margin-left:auto;color:var(--wutm-wp-muted)}.wutm-order-list li a{margin-left:8px}
+.wutm-order-handle{cursor:grab;color:var(--wutm-wp-muted);font-size:18px;line-height:1}.wutm-order-list.is-saving{opacity:.55;pointer-events:none}.wutm-order-placeholder{height:42px;border:1px dashed var(--wutm-wp-blue)!important;background:#2271b10d!important}
+@media(max-width:782px){.wutm-ordering-grid{grid-template-columns:1fr}.wutm-ordering-panel{padding:18px}.wutm-order-list li{padding:10px}}
