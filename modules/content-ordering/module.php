@@ -29,11 +29,22 @@ class WUTM_Content_Ordering {
     }
 
     private function post_types(): array {
-        return array_filter(get_post_types(['show_ui'=>true], 'objects'), static fn($type) => !in_array($type->name, ['attachment','revision','nav_menu_item'], true));
+        $types = get_post_types(['show_ui' => true], 'objects');
+        // WooCommerce can register products with different UI flags by version.
+        // Always expose them when WooCommerce itself has registered the type.
+        if (post_type_exists('product')) {
+            $types['product'] = get_post_type_object('product');
+        }
+        return array_filter($types, static fn($type) => $type && !in_array($type->name, ['attachment','revision','nav_menu_item'], true));
     }
 
     private function taxonomies(): array {
-        return array_filter(get_taxonomies(['show_ui'=>true], 'objects'), static fn($tax) => !in_array($tax->name, ['post_format','nav_menu'], true));
+        $taxonomies = get_taxonomies(['show_ui' => true], 'objects');
+        // Keep product categories available even if a WooCommerce extension changes its UI flag.
+        if (taxonomy_exists('product_cat')) {
+            $taxonomies['product_cat'] = get_taxonomy('product_cat');
+        }
+        return array_filter($taxonomies, static fn($tax) => $tax && !in_array($tax->name, ['post_format','nav_menu'], true));
     }
 
     public function assets(string $hook): void {
@@ -83,13 +94,13 @@ class WUTM_Content_Ordering {
                 <section class="wutm-ordering-panel">
                     <h2>文章排序</h2>
                     <p class="description">選擇文章、頁面、商品或自訂內容類型後，按住每筆資料左側的 ☰ 拖曳。狀態欄顯示該內容目前的發布狀態。</p>
-                    <form method="get" class="wutm-order-select"><input type="hidden" name="page" value="<?php echo esc_attr(self::SLUG); ?>"><label>內容類型 <select name="post_type" onchange="this.form.submit()"><?php foreach($types as $key=>$obj): ?><option value="<?php echo esc_attr($key); ?>" <?php selected($type,$key); ?>><?php echo esc_html($obj->labels->name); ?></option><?php endforeach; ?></select></label></form>
+                    <form method="get" class="wutm-order-select"><input type="hidden" name="page" value="<?php echo esc_attr(self::SLUG); ?>"><label>內容類型 <select name="post_type" onchange="this.form.submit()"><?php foreach($types as $key=>$obj): ?><option value="<?php echo esc_attr($key); ?>" <?php selected($type,$key); ?>><?php echo esc_html($key === 'product' ? '商品（WooCommerce）' : $obj->labels->name); ?></option><?php endforeach; ?></select></label></form>
                     <?php if(empty($posts)): ?><p>此類型沒有可排序內容。</p><?php else: ?><ol class="wutm-order-list" data-kind="post" data-post-type="<?php echo esc_attr($type); ?>"><?php foreach($posts as $post): ?><li data-id="<?php echo (int)$post->ID; ?>"><span class="wutm-order-handle" aria-label="拖曳排序">☰</span><span><?php echo esc_html(get_the_title($post) ?: '（無標題）'); ?></span><small><?php echo esc_html($post->post_status); ?></small><a href="<?php echo esc_url(get_edit_post_link($post->ID)); ?>">編輯</a></li><?php endforeach; ?></ol><?php endif; ?>
                 </section>
                 <section class="wutm-ordering-panel">
                     <h2>分類排序</h2>
                     <p class="description">選擇文章分類、商品分類或自訂分類法後，按住 ☰ 拖曳。右側「項」是目前使用此分類的內容數量。</p>
-                    <form method="get" class="wutm-order-select"><input type="hidden" name="page" value="<?php echo esc_attr(self::SLUG); ?>"><input type="hidden" name="post_type" value="<?php echo esc_attr($type); ?>"><label>分類法 <select name="taxonomy" onchange="this.form.submit()"><?php foreach($taxes as $key=>$obj): ?><option value="<?php echo esc_attr($key); ?>" <?php selected($tax,$key); ?>><?php echo esc_html($obj->labels->name); ?></option><?php endforeach; ?></select></label></form>
+                    <form method="get" class="wutm-order-select"><input type="hidden" name="page" value="<?php echo esc_attr(self::SLUG); ?>"><input type="hidden" name="post_type" value="<?php echo esc_attr($type); ?>"><label>分類法 <select name="taxonomy" onchange="this.form.submit()"><?php foreach($taxes as $key=>$obj): ?><option value="<?php echo esc_attr($key); ?>" <?php selected($tax,$key); ?>><?php echo esc_html($key === 'product_cat' ? '商品分類（WooCommerce）' : $obj->labels->name); ?></option><?php endforeach; ?></select></label></form>
                     <?php if(is_wp_error($terms)||empty($terms)): ?><p>此分類法沒有可排序項目。</p><?php else: ?><ol class="wutm-order-list" data-kind="term" data-taxonomy="<?php echo esc_attr($tax); ?>"><?php foreach($terms as $term): ?><li data-id="<?php echo (int)$term->term_id; ?>"><span class="wutm-order-handle" aria-label="拖曳排序">☰</span><span><?php echo esc_html($term->name); ?></span><small><?php echo (int)$term->count; ?> 項</small><a href="<?php echo esc_url(get_edit_term_link($term)); ?>">編輯</a></li><?php endforeach; ?></ol><?php endif; ?>
                 </section>
             </div>
