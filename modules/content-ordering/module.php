@@ -55,7 +55,7 @@ class WUTM_Content_Ordering {
         $type=sanitize_key(wp_unslash($_GET['post_type']??array_key_first($types))); if(!isset($types[$type]))$type=array_key_first($types);
         $tax=sanitize_key(wp_unslash($_GET['taxonomy']??array_key_first($taxes))); if(!isset($taxes[$tax]))$tax=array_key_first($taxes);
         $posts=$type?get_posts(['post_type'=>$type,'post_status'=>['publish','draft','private','pending','future'],'posts_per_page'=>300,'orderby'=>'menu_order','order'=>'ASC','suppress_filters'=>true]):[];
-        $terms=$tax?get_terms(['taxonomy'=>$tax,'hide_empty'=>false,'number'=>300,'orderby'=>'meta_value_num','meta_key'=>'wutm_ordering_position','order'=>'ASC']):[];
+        $terms=$tax?get_terms(['taxonomy'=>$tax,'hide_empty'=>false,'number'=>300,'orderby'=>'name','order'=>'ASC']):[]; if(is_array($terms)) usort($terms, static fn($a,$b) => ((int)get_term_meta($a->term_id,'wutm_ordering_position',true) ?: PHP_INT_MAX) <=> ((int)get_term_meta($b->term_id,'wutm_ordering_position',true) ?: PHP_INT_MAX));
         ?>
         <div class="wrap wutm-module-wrap">
             <h1>文章及分類排序</h1>
