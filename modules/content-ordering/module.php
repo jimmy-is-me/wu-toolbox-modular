@@ -170,7 +170,10 @@ class WUTM_Content_Ordering {
         if (strpos($clauses['join'], $alias) === false) {
             $clauses['join'] .= " LEFT JOIN {$wpdb->termmeta} AS {$alias} ON t.term_id = {$alias}.term_id AND {$alias}.meta_key = 'wutm_ordering_position' ";
         }
-        $clauses['orderby'] = "COALESCE(CAST({$alias}.meta_value AS UNSIGNED), 2147483647) ASC, t.name ASC";
+        // WP_Term_Query expects the ORDER BY keyword in this clause; leaving it out
+        // appends the expression directly after WHERE and breaks MariaDB queries.
+        $clauses['orderby'] = "ORDER BY COALESCE(CAST({$alias}.meta_value AS UNSIGNED), 2147483647) ASC, t.name ASC";
+        $clauses['order'] = '';
         return $clauses;
     }
 }
