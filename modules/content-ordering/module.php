@@ -1,7 +1,7 @@
 <?php
 /**
  * Module: content-ordering
- * Drag-and-drop ordering for posts and taxonomy terms.
+ * Combined clean ordering engine for posts, products, pages and taxonomy terms.
  */
 defined('ABSPATH') || exit;
 
@@ -77,7 +77,7 @@ class WUTM_Content_Ordering {
         <div class="wrap wutm-module-wrap">
             <h1>文章及分類排序</h1>
             <p class="wutm-module-subtitle">在此頁選擇內容類型或分類法後，直接拖曳 ☰ 圖示排序；排序會立即儲存。</p>
-            <div class="notice notice-info inline"><p><strong>操作位置：</strong>本模組是唯一的拖曳排序位置，不會在 WordPress 原本的文章、商品、頁面或分類列表加入按鈕。每次最多載入 300 筆，避免大型網站後台逾時。</p></div>
+            <div class="notice notice-info inline"><p><strong>整合排序引擎：</strong>文章、頁面與商品使用 WordPress 原生 <code>menu_order</code>；分類與商品分類使用獨立排序值。拖曳只會在本模組頁出現，不會改動原本列表介面。每次最多載入 300 筆，避免大型網站後台逾時。</p></div>
 
             <section class="wutm-ordering-panel">
                 <h2>排序套用設定</h2>
@@ -85,7 +85,7 @@ class WUTM_Content_Ordering {
                     <?php wp_nonce_field('wutm_content_ordering_save'); ?><input type="hidden" name="action" value="wutm_content_ordering_save">
                     <label class="wutm-inline-choice"><input type="checkbox" name="auto_posts" value="1" <?php checked($s['auto_posts']); ?>> <strong>將文章排序套用到前台</strong>：首頁與內容類型彙整頁等使用 WordPress 標準查詢的地方，會依您在下方設定的順序顯示。</label>
                     <label class="wutm-inline-choice"><input type="checkbox" name="auto_terms" value="1" <?php checked($s['auto_terms']); ?>> <strong>將分類排序套用到前台</strong>：選單、分類清單等使用 WordPress 標準查詢的地方，會依您在下方設定的順序顯示。</label>
-                    <p class="description">不勾選時，只會儲存排序，不會改變訪客看到的順序。所有具有後台介面的自訂文章類型／分類法（包括商品與 ACF 建立的類型）都能在下方下拉選單選取。</p>
+                    <p class="description">不勾選時，只會儲存排序，不會改變訪客看到的順序。啟用後，首頁、內容彙整頁與商品分類頁等使用標準 WordPress 查詢的畫面會採用排序；搜尋、單篇內容與日期／作者封存頁維持原本邏輯。所有具有後台介面的自訂文章類型／分類法（包括商品與 ACF 建立的類型）都能在下方下拉選單選取。</p>
                     <?php submit_button('儲存設定', 'secondary', 'submit', false); ?>
                 </form>
             </section>
@@ -129,13 +129,27 @@ class WUTM_Content_Ordering {
     }
 
     public function apply_post_order(WP_Query $query): void {
-        $s=$this->settings();if(empty($s['auto_posts'])||is_admin()||!$query->is_main_query()||!$query->is_post_type_archive()&&!$query->is_home())return;
-        if($query->get('orderby')||$query->get('ignore_wutm_order'))return;$query->set('orderby','menu_order');$query->set('order','ASC');
+        $settings = $this->settings();
+        if (empty($settings['auto_posts']) || is_admin() || !$query->is_main_query()) return;
+        // Preserve searches, singular views and date/author archives where chronological order matters.
+        if ($query->is_search() || $query->is_singular() || $query->is_date() || $query->is_author()) return;
+        // Compatible escape hatches for themes or custom queries that intentionally choose an order.
+        if ($query->get('orderby') || $query->get('ignore_wutm_order') || $query->get('ignore_custom_sort')) return;
+
+        $post_type = $query->get('post_type');
+        if (is_array($post_type)) {
+            foreach ($post_type as $type) if (!isset($this->post_types()[$type])) return;
+        } elseif ($post_type && !isset($this->post_types()[$post_type])) {
+            return;
+        }
+        $query->set('orderby', 'menu_order');
+        $query->set('order', 'ASC');
     }
 
     public function apply_term_order(WP_Term_Query $query): void {
         $s=$this->settings();if(empty($s['auto_terms'])||is_admin())return;$taxonomies=(array)($query->query_vars['taxonomy']??[]);if(!$taxonomies)return;
         foreach($taxonomies as $tax){if(!isset($this->taxonomies()[$tax]))return;}
+        if (!empty($query->query_vars['ignore_term_order']) || !empty($query->query_vars['ignore_wutm_order'])) return;
         if(!empty($query->query_vars['orderby'])&&!in_array($query->query_vars['orderby'],['name','none'],true))return;
         $query->query_vars['wutm_content_order'] = true;
     }
