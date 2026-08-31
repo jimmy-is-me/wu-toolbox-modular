@@ -201,3 +201,13 @@ input:focus,textarea:focus,select:focus{border-color:var(--wutm-wp-blue)!importa
 .wutm-order-handle{cursor:grab;color:var(--wutm-wp-muted);font-size:18px;line-height:1}.wutm-order-list.is-saving{opacity:.55;pointer-events:none}.wutm-order-placeholder{height:42px;border:1px dashed var(--wutm-wp-blue)!important;background:#2271b10d!important}
 @media(max-width:782px){.wutm-ordering-grid{grid-template-columns:1fr}.wutm-ordering-panel{padding:18px}.wutm-order-list li{padding:10px}}
 
+
+
+/* v1.4.9: global text search and replace module. */
+.wutm-text-replace .wutm-ordering-panel{max-width:1120px;margin:20px 0}
+.wutm-text-replace .form-table{margin:0}.wutm-text-replace .form-table th{width:180px}
+.wutm-text-replace .wutm-target-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 22px;max-width:760px;margin-top:12px}
+.wutm-text-replace .wutm-action-row{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin:20px 0 0}
+.wutm-confirm-replace{font-weight:600;color:#50575e}
+.wutm-replace-results .widefat{margin:16px 0}.wutm-replace-results .widefat th,.wutm-replace-results .widefat td{padding:12px 14px}
+@media(max-width:782px){.wutm-text-replace .form-table th{width:auto}.wutm-text-replace .wutm-target-list{grid-template-columns:1fr}.wutm-text-replace .wutm-action-row{align-items:flex-start;flex-direction:column}}
