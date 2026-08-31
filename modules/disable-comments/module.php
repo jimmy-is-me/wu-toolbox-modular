@@ -95,7 +95,6 @@ final class WUTM_Disable_Comments {
     public static function remove_comment_widgets(): void {
         if (!self::enabled()) return;
         unregister_widget('WP_Widget_Recent_Comments');
-        unregister_widget('WP_Widget_Recent_Comments');
     }
 
     public static function remove_admin_bar_item(): void {
