@@ -16,11 +16,13 @@ class WUTM_Content_Ordering {
         add_action('wp_ajax_wutm_order_posts', [$this, 'save_posts']);
         add_action('wp_ajax_wutm_order_terms', [$this, 'save_terms']);
         add_action('pre_get_posts', [$this, 'apply_post_order']);
+        add_action('pre_get_posts', [$this, 'apply_admin_post_order']);
         add_action('pre_get_terms', [$this, 'apply_term_order']);
+        add_action('pre_get_terms', [$this, 'apply_admin_term_order']);
     }
 
     private function settings(): array {
-        return wp_parse_args((array)get_option(self::OPTION, []), ['auto_posts'=>false,'auto_terms'=>false]);
+        return wp_parse_args((array)get_option(self::OPTION, []), ['auto_posts'=>false,'auto_terms'=>false,'admin_lists'=>true]);
     }
 
     public function menu(): void {
@@ -36,8 +38,16 @@ class WUTM_Content_Ordering {
     }
 
     public function assets(string $hook): void {
-        if ($hook !== 'wu-toolbox_page_' . self::SLUG) return;
+        $screen = get_current_screen();
+        $settings = $this->settings();
+        $is_module = $hook === 'wu-toolbox_page_' . self::SLUG;
+        $is_post_list = !empty($settings['admin_lists']) && $screen && $screen->base === 'edit' && isset($this->post_types()[$screen->post_type]);
+        $is_term_list = !empty($settings['admin_lists']) && $screen && $screen->base === 'edit-tags' && isset($this->taxonomies()[$screen->taxonomy]);
+        if (!$is_module && !$is_post_list && !$is_term_list) return;
+
         wp_enqueue_script('jquery-ui-sortable');
+        $context = ['nonce'=>wp_create_nonce('wutm_content_ordering'),'postType'=>$is_post_list ? $screen->post_type : '','taxonomy'=>$is_term_list ? $screen->taxonomy : ''];
+        wp_add_inline_script('jquery-ui-sortable', 'window.WUTMOrdering=' . wp_json_encode($context) . ';', 'before');
         wp_add_inline_script('jquery-ui-sortable', 'jQuery(function($){
             function save(list, action, extra){
                 var ids=list.sortable("toArray",{attribute:"data-id"});
@@ -45,8 +55,17 @@ class WUTM_Content_Ordering {
                 $.post(ajaxurl,Object.assign({action:action,nonce:WUTMOrdering.nonce,ids:ids},extra)).always(function(){list.removeClass("is-saving");});
             }
             $(".wutm-order-list").sortable({handle:".wutm-order-handle",placeholder:"wutm-order-placeholder",update:function(){var l=$(this);save(l,l.data("kind")==="term"?"wutm_order_terms":"wutm_order_posts",l.data("kind")==="term"?{taxonomy:l.data("taxonomy")}:{post_type:l.data("post-type")});}});
+            if(WUTMOrdering.postType){
+                var posts=$("#the-list");
+                posts.find("tr").each(function(){$(this).find(".row-title").first().before("<button type=button class=wutm-admin-order-handle aria-label=拖曳排序>☰</button>");});
+                posts.sortable({items:"tr",handle:".wutm-admin-order-handle",placeholder:"wutm-admin-order-placeholder",helper:function(e,tr){var h=tr.clone();h.children().each(function(i){$(this).width(tr.children().eq(i).width());});return h;},update:function(){save(posts,"wutm_order_posts",{post_type:WUTMOrdering.postType});}});
+            }
+            if(WUTMOrdering.taxonomy){
+                var terms=$("#the-list");
+                terms.find("tr").each(function(){$(this).find(".row-title").first().before("<button type=button class=wutm-admin-order-handle aria-label=拖曳排序>☰</button>");});
+                terms.sortable({items:"tr",handle:".wutm-admin-order-handle",placeholder:"wutm-admin-order-placeholder",helper:function(e,tr){var h=tr.clone();h.children().each(function(i){$(this).width(tr.children().eq(i).width());});return h;},update:function(){save(terms,"wutm_order_terms",{taxonomy:WUTMOrdering.taxonomy});}});
+            }
         });');
-        wp_add_inline_script('jquery-ui-sortable', 'window.WUTMOrdering=' . wp_json_encode(['nonce'=>wp_create_nonce('wutm_content_ordering')]) . ';', 'before');
     }
 
     public function page(): void {
@@ -68,6 +87,8 @@ class WUTM_Content_Ordering {
                     <?php wp_nonce_field('wutm_content_ordering_save'); ?><input type="hidden" name="action" value="wutm_content_ordering_save">
                     <label class="wutm-inline-choice"><input type="checkbox" name="auto_posts" value="1" <?php checked($s['auto_posts']); ?>> 自動將文章／自訂文章類型的標準前台查詢依排序顯示</label>
                     <label class="wutm-inline-choice"><input type="checkbox" name="auto_terms" value="1" <?php checked($s['auto_terms']); ?>> 自動將分類法項目依排序顯示</label>
+                    <label class="wutm-inline-choice"><input type="checkbox" name="admin_lists" value="1" <?php checked($s['admin_lists']); ?>> 在原本的文章、頁面、商品與分類列表直接啟用拖曳排序</label>
+                    <p class="description">所有具有後台介面的自訂文章類型／分類法（包含 ACF 建立的類型）都會自動出現排序控制。</p>
                     <?php submit_button('儲存設定', 'secondary', 'submit', false); ?>
                 </form>
             </section>
@@ -89,7 +110,7 @@ class WUTM_Content_Ordering {
 
     public function save_settings(): void {
         if(!current_user_can('manage_options'))wp_die('權限不足');check_admin_referer('wutm_content_ordering_save');
-        update_option(self::OPTION,['auto_posts'=>!empty($_POST['auto_posts']),'auto_terms'=>!empty($_POST['auto_terms'])],false);
+        update_option(self::OPTION,['auto_posts'=>!empty($_POST['auto_posts']),'auto_terms'=>!empty($_POST['auto_terms']),'admin_lists'=>!empty($_POST['admin_lists'])],false);
         wp_safe_redirect($this->page_url());exit;
     }
 
@@ -108,6 +129,15 @@ class WUTM_Content_Ordering {
         foreach(array_values(array_filter(array_map('absint',(array)($_POST['ids']??[])))) as $position=>$id){$term=get_term($id,$taxonomy);if($term&&!is_wp_error($term))update_term_meta($id,'wutm_ordering_position',$position);}wp_send_json_success();
     }
 
+    public function apply_admin_post_order(WP_Query $query): void {
+        if (!is_admin() || !current_user_can('manage_options') || empty($this->settings()['admin_lists']) || !$query->is_main_query()) return;
+        $screen = get_current_screen();
+        if (!$screen || $screen->base !== 'edit' || !isset($this->post_types()[$screen->post_type])) return;
+        if ($query->get('orderby') || $query->get('s')) return;
+        $query->set('orderby', 'menu_order');
+        $query->set('order', 'ASC');
+    }
+
     public function apply_post_order(WP_Query $query): void {
         $s=$this->settings();if(empty($s['auto_posts'])||is_admin()||!$query->is_main_query()||!$query->is_post_type_archive()&&!$query->is_home())return;
         if($query->get('orderby')||$query->get('ignore_wutm_order'))return;$query->set('orderby','menu_order');$query->set('order','ASC');
@@ -118,6 +148,16 @@ class WUTM_Content_Ordering {
         foreach($taxonomies as $tax){if(!isset($this->taxonomies()[$tax]))return;}
         if(!empty($query->query_vars['orderby'])&&!in_array($query->query_vars['orderby'],['name','none'],true))return;
         $query->query_vars['meta_key']='wutm_ordering_position';$query->query_vars['orderby']='meta_value_num';$query->query_vars['order']='ASC';
+    }
+
+    public function apply_admin_term_order(WP_Term_Query $query): void {
+        if (!is_admin() || !current_user_can('manage_options') || empty($this->settings()['admin_lists'])) return;
+        $screen = get_current_screen();
+        if (!$screen || $screen->base !== 'edit-tags' || !isset($this->taxonomies()[$screen->taxonomy])) return;
+        if (!empty($query->query_vars['orderby']) && !in_array($query->query_vars['orderby'], ['name', 'none'], true)) return;
+        $query->query_vars['meta_key'] = 'wutm_ordering_position';
+        $query->query_vars['orderby'] = 'meta_value_num';
+        $query->query_vars['order'] = 'ASC';
     }
 }
 new WUTM_Content_Ordering();
