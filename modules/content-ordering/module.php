@@ -58,12 +58,12 @@ class WUTM_Content_Ordering {
             $(".wutm-order-list").sortable({handle:".wutm-order-handle",placeholder:"wutm-order-placeholder",update:function(){var l=$(this);save(l,l.data("kind")==="term"?"wutm_order_terms":"wutm_order_posts",l.data("kind")==="term"?{taxonomy:l.data("taxonomy")}:{post_type:l.data("post-type")});}});
             if(WUTMOrdering.postType){
                 var posts=$("#the-list");
-                posts.find("tr").each(function(){$(this).find(".row-title").first().before("<button type=button class=wutm-admin-order-handle aria-label=拖曳排序>☰</button>");});
+                posts.find("tr").each(function(){var id=(this.id||"").replace(/^[^-]+-/,"");$(this).attr("data-id",id);$(this).find(".row-title").first().before("<button type=button class=wutm-admin-order-handle aria-label=拖曳排序>☰</button>");});
                 posts.sortable({items:"tr",handle:".wutm-admin-order-handle",placeholder:"wutm-admin-order-placeholder",helper:function(e,tr){var h=tr.clone();h.children().each(function(i){$(this).width(tr.children().eq(i).width());});return h;},update:function(){save(posts,"wutm_order_posts",{post_type:WUTMOrdering.postType});}});
             }
             if(WUTMOrdering.taxonomy){
                 var terms=$("#the-list");
-                terms.find("tr").each(function(){$(this).find(".row-title").first().before("<button type=button class=wutm-admin-order-handle aria-label=拖曳排序>☰</button>");});
+                terms.find("tr").each(function(){var id=(this.id||"").replace(/^[^-]+-/,"");$(this).attr("data-id",id);$(this).find(".row-title").first().before("<button type=button class=wutm-admin-order-handle aria-label=拖曳排序>☰</button>");});
                 terms.sortable({items:"tr",handle:".wutm-admin-order-handle",placeholder:"wutm-admin-order-placeholder",helper:function(e,tr){var h=tr.clone();h.children().each(function(i){$(this).width(tr.children().eq(i).width());});return h;},update:function(){save(terms,"wutm_order_terms",{taxonomy:WUTMOrdering.taxonomy});}});
             }
         });');
