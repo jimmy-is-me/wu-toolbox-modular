@@ -200,3 +200,17 @@ input:focus,textarea:focus,select:focus{border-color:var(--wutm-wp-blue)!importa
 .wutm-order-list li{display:flex;align-items:center;gap:10px;min-height:40px;padding:9px 12px;border-bottom:1px solid #c3c4c766;background:#fff}.wutm-order-list li:last-child{border-bottom:0}.wutm-order-list li small{margin-left:auto;color:var(--wutm-wp-muted)}.wutm-order-list li a{margin-left:8px}
 .wutm-order-handle{cursor:grab;color:var(--wutm-wp-muted);font-size:18px;line-height:1}.wutm-order-list.is-saving{opacity:.55;pointer-events:none}.wutm-order-placeholder{height:42px;border:1px dashed var(--wutm-wp-blue)!important;background:#2271b10d!important}
 @media(max-width:782px){.wutm-ordering-grid{grid-template-columns:1fr}.wutm-ordering-panel{padding:18px}.wutm-order-list li{padding:10px}}
+
+
+/* v1.4.5: native WordPress content and taxonomy list ordering. */
+.wutm-admin-order-handle{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:24px;height:24px;margin:0 8px 0 0;padding:0;
+  border:0;border-radius:4px;background:transparent;color:#50575e;
+  cursor:grab;font-size:16px;line-height:1;vertical-align:middle;
+}
+.wutm-admin-order-handle:hover,.wutm-admin-order-handle:focus{background:#f0f0f1;color:#2271b1;box-shadow:none;outline:1px solid #2271b1}
+.wutm-admin-order-handle:active{cursor:grabbing}
+#wutm-ordering-native-note{margin:12px 0}
+.wutm-admin-order-placeholder td{height:44px;border:1px dashed #2271b1!important;background:#f0f6fc!important}
+#the-list.is-saving{opacity:.6;pointer-events:none}
