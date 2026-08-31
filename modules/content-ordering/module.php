@@ -19,6 +19,7 @@ class WUTM_Content_Ordering {
         add_action('pre_get_posts', [$this, 'apply_admin_post_order']);
         add_action('pre_get_terms', [$this, 'apply_term_order']);
         add_action('pre_get_terms', [$this, 'apply_admin_term_order']);
+        add_filter('terms_clauses', [$this, 'apply_term_order_clauses'], 10, 3);
     }
 
     private function settings(): array {
@@ -147,7 +148,7 @@ class WUTM_Content_Ordering {
         $s=$this->settings();if(empty($s['auto_terms'])||is_admin())return;$taxonomies=(array)($query->query_vars['taxonomy']??[]);if(!$taxonomies)return;
         foreach($taxonomies as $tax){if(!isset($this->taxonomies()[$tax]))return;}
         if(!empty($query->query_vars['orderby'])&&!in_array($query->query_vars['orderby'],['name','none'],true))return;
-        $query->query_vars['meta_key']='wutm_ordering_position';$query->query_vars['orderby']='meta_value_num';$query->query_vars['order']='ASC';
+        $query->query_vars['wutm_content_order'] = true;
     }
 
     public function apply_admin_term_order(WP_Term_Query $query): void {
@@ -155,9 +156,22 @@ class WUTM_Content_Ordering {
         $screen = get_current_screen();
         if (!$screen || $screen->base !== 'edit-tags' || !isset($this->taxonomies()[$screen->taxonomy])) return;
         if (!empty($query->query_vars['orderby']) && !in_array($query->query_vars['orderby'], ['name', 'none'], true)) return;
-        $query->query_vars['meta_key'] = 'wutm_ordering_position';
-        $query->query_vars['orderby'] = 'meta_value_num';
-        $query->query_vars['order'] = 'ASC';
+        $query->query_vars['wutm_content_order'] = true;
+    }
+
+    /**
+     * Use a LEFT JOIN so new, unsorted terms still remain visible in the
+     * original WordPress taxonomy list and can be dragged into position.
+     */
+    public function apply_term_order_clauses(array $clauses, array $taxonomies, array $args): array {
+        if (empty($args['wutm_content_order'])) return $clauses;
+        global $wpdb;
+        $alias = 'wutm_order_meta';
+        if (strpos($clauses['join'], $alias) === false) {
+            $clauses['join'] .= " LEFT JOIN {$wpdb->termmeta} AS {$alias} ON t.term_id = {$alias}.term_id AND {$alias}.meta_key = 'wutm_ordering_position' ";
+        }
+        $clauses['orderby'] = "COALESCE(CAST({$alias}.meta_value AS UNSIGNED), 2147483647) ASC, t.name ASC";
+        return $clauses;
     }
 }
 new WUTM_Content_Ordering();
