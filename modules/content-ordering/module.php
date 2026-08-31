@@ -132,7 +132,7 @@ class WUTM_Content_Ordering {
 
     /**
      * Use a LEFT JOIN so new, unsorted terms still remain visible in the
-     * original WordPress taxonomy list and can be dragged into position.
+     * module list until the administrator drags them into position.
      */
     public function apply_term_order_clauses(array $clauses, array $taxonomies, array $args): array {
         if (empty($args['wutm_content_order'])) return $clauses;
