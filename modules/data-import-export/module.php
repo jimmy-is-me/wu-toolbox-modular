@@ -1,7 +1,7 @@
 <?php
 /**
  * Module: data-import-export
- * Unified CSV import/export for users and WooCommerce orders.
+ * Unified CSV import/export for users, WooCommerce products and orders.
  */
 defined('ABSPATH') || exit;
 
@@ -14,6 +14,8 @@ class WUTM_Data_Import_Export {
         add_action('admin_menu', [$this, 'menu'], 15);
         add_action('admin_post_wutm_die_export_users', [$this, 'export_users']);
         add_action('admin_post_wutm_die_import_users', [$this, 'import_users']);
+        add_action('admin_post_wutm_die_export_products', [$this, 'export_products']);
+        add_action('admin_post_wutm_die_import_products', [$this, 'import_products']);
         add_action('admin_post_wutm_die_export_orders', [$this, 'export_orders']);
         add_action('admin_post_wutm_die_import_orders', [$this, 'import_orders']);
         add_action('admin_post_wutm_die_export_password_hashes', [$this, 'export_password_hashes']);
@@ -45,7 +47,7 @@ class WUTM_Data_Import_Export {
         ?>
         <div class="wrap wutm-module-wrap">
             <h1>資料匯入／匯出</h1>
-            <p class="wutm-module-subtitle">集中管理使用者、WooCommerce 訂單與舊密碼雜湊。所有匯入均需管理員操作，不會在背景自動執行。</p>
+            <p class="wutm-module-subtitle">集中管理使用者、WooCommerce 商品、訂單與舊密碼雜湊。所有匯入均需管理員操作，不會在背景自動執行。</p>
             <?php if (is_array($result)): ?><div class="notice <?php echo !empty($result['error']) ? 'notice-error' : 'notice-success'; ?>"><p><strong><?php echo esc_html($result['message']); ?></strong></p><?php if (!empty($result['details'])): ?><ul><?php foreach ((array) $result['details'] as $detail): ?><li><?php echo esc_html($detail); ?></li><?php endforeach; ?></ul><?php endif; ?></div><?php endif; ?>
 
             <section class="wutm-csv-tools">
@@ -68,6 +70,30 @@ class WUTM_Data_Import_Export {
                     </form>
                 </div>
                 <p class="description">必要欄位：<code>user_login</code>、<code>user_email</code>。可選：<code>user_pass</code>、<code>first_name</code>、<code>last_name</code>、<code>nickname</code>、<code>display_name</code>、<code>user_url</code>、<code>description</code>、<code>role</code> 與安全自訂欄位。</p>
+            </section>
+
+            <section class="wutm-csv-tools">
+                <h2>WooCommerce 商品匯入／匯出</h2>
+                <?php if (!$wc_ready): ?><div class="notice notice-warning inline"><p>尚未偵測到 WooCommerce；商品功能目前不載入，不會影響網站運作。</p></div><?php else: ?>
+                <p>可匯出或匯入簡單、外部／聯盟及群組商品。CSV 包含 SKU、價格、庫存、分類、標籤與圖片網址；既有商品預設略過，勾選後才會更新。</p>
+                <div class="wutm-csv-actions">
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <?php wp_nonce_field('wutm_die_export_products'); ?><input type="hidden" name="action" value="wutm_die_export_products">
+                        <label>商品狀態 <select name="status"><option value="">所有狀態</option><option value="publish">已發佈</option><option value="draft">草稿</option><option value="private">私密</option></select></label>
+                        <label>商品類型 <select name="type"><option value="">所有類型</option><option value="simple">簡單商品</option><option value="external">外部／聯盟商品</option><option value="grouped">群組商品</option></select></label>
+                        <label>商品分類 <select name="category"><option value="">所有分類</option><?php foreach (get_terms(['taxonomy' => 'product_cat', 'hide_empty' => false]) as $category): if (is_wp_error($category)) continue; ?><option value="<?php echo (int) $category->term_id; ?>"><?php echo esc_html($category->name); ?></option><?php endforeach; ?></select></label>
+                        <?php submit_button('下載商品 CSV', 'secondary', 'submit', false); ?>
+                    </form>
+                    <form method="post" enctype="multipart/form-data" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <?php wp_nonce_field('wutm_die_import_products'); ?><input type="hidden" name="action" value="wutm_die_import_products">
+                        <label>匯入商品 CSV <input type="file" name="csv" accept=".csv,text/csv" required></label>
+                        <label class="wutm-inline-choice"><input type="checkbox" name="update_existing" value="1"> 依相同 SKU 或 ID 更新既有商品</label>
+                        <label class="wutm-inline-choice"><input type="checkbox" name="download_images" value="1"> 下載圖片網址並設為商品圖片（可能需要較久時間）</label>
+                        <?php submit_button('開始商品匯入', 'primary', 'submit', false); ?>
+                    </form>
+                </div>
+                <p class="description">建議先下載一份商品 CSV 作為範本。必要欄位：<code>name</code>；建議加入唯一的 <code>sku</code>。支援：<code>regular_price</code>、<code>sale_price</code>、<code>stock_quantity</code>、<code>categories</code>、<code>tags</code>、<code>image_urls</code>、<code>gallery_image_urls</code>。分類／標籤及多張圖片以 <code>|</code> 分隔；階層分類以 <code>父分類 &gt; 子分類</code> 表示。</p>
+                <?php endif; ?>
             </section>
 
             <section class="wutm-csv-tools">
@@ -163,6 +189,192 @@ class WUTM_Data_Import_Export {
 
     private function set_role(int $id,string $value):void{$role=sanitize_key(trim(explode(',',$value)[0]??''));if($role&&isset(get_editable_roles()[$role]))(new WP_User($id))->set_role($role);}
     private function save_user_meta(int $id,array $data,bool $enabled):void{if(!$enabled)return;$known=['user_login','user_email','user_pass','first_name','last_name','nickname','display_name','user_url','description','role'];foreach($data as $key=>$value){$key=sanitize_key($key);if($key&&!in_array($key,$known,true)&&!$this->protected_meta($key))update_user_meta($id,$key,sanitize_textarea_field($value));}}
+
+    private function product_term_path(WP_Term $term): string {
+        $names = [$term->name];
+        foreach (array_reverse(get_ancestors($term->term_id, 'product_cat', 'taxonomy')) as $parent_id) {
+            $parent = get_term($parent_id, 'product_cat');
+            if ($parent && !is_wp_error($parent)) array_unshift($names, $parent->name);
+        }
+        return implode(' > ', $names);
+    }
+
+    private function product_image_urls(WC_Product $product): array {
+        $main = $product->get_image_id() ? wp_get_attachment_url($product->get_image_id()) : '';
+        $gallery = [];
+        foreach ($product->get_gallery_image_ids() as $image_id) {
+            $url = wp_get_attachment_url($image_id);
+            if ($url) $gallery[] = $url;
+        }
+        return [$main ?: '', implode('|', $gallery)];
+    }
+
+    public function export_products(): void {
+        $this->guard('wutm_die_export_products');
+        if (!function_exists('wc_get_products')) wp_die('尚未啟用 WooCommerce。');
+        $status = sanitize_key(wp_unslash($_POST['status'] ?? ''));
+        $type = sanitize_key(wp_unslash($_POST['type'] ?? ''));
+        $category = absint($_POST['category'] ?? 0);
+        $base_args = ['limit' => 100, 'paginate' => true, 'return' => 'objects', 'status' => $status ?: ['publish', 'draft', 'private']];
+        if ($type) $base_args['type'] = $type;
+        if ($category) $base_args['category'] = [$category];
+        nocache_headers();
+        header('Content-Type:text/csv;charset=utf-8');
+        header('Content-Disposition:attachment; filename="wu-products-' . wp_date('Ymd-His') . '.csv"');
+        $out = fopen('php://output', 'w');
+        fputs($out, "\xEF\xBB\xBF");
+        fputcsv($out, ['id','sku','name','slug','status','type','regular_price','sale_price','stock_status','stock_quantity','manage_stock','backorders','featured','catalog_visibility','tax_status','tax_class','weight','length','width','height','description','short_description','categories','tags','image_urls','gallery_image_urls','external_url','button_text','grouped_product_skus']);
+        $page = 1;
+        do {
+            $result = wc_get_products(array_merge($base_args, ['page' => $page]));
+            $products = is_object($result) ? $result->products : (array) $result;
+            foreach ($products as $product) {
+                if (!$product instanceof WC_Product) continue;
+                $categories = array_filter(array_map(function ($term_id) {
+                    $term = get_term($term_id, 'product_cat');
+                    return $term && !is_wp_error($term) ? $this->product_term_path($term) : '';
+                }, $product->get_category_ids()));
+                $tags = array_filter(array_map(function ($term_id) {
+                    $term = get_term($term_id, 'product_tag');
+                    return $term && !is_wp_error($term) ? $term->name : '';
+                }, $product->get_tag_ids()));
+                [$image, $gallery] = $this->product_image_urls($product);
+                $grouped_skus = [];
+                if ($product->is_type('grouped')) foreach ($product->get_children() as $child_id) {
+                    $child = wc_get_product($child_id);
+                    if ($child && $child->get_sku()) $grouped_skus[] = $child->get_sku();
+                }
+                fputcsv($out, [$product->get_id(),$product->get_sku(),$product->get_name(),$product->get_slug(),$product->get_status(),$product->get_type(),$product->get_regular_price(),$product->get_sale_price(),$product->get_stock_status(),$product->get_stock_quantity(),$product->get_manage_stock() ? 'yes' : 'no',$product->get_backorders(),$product->is_featured() ? 'yes' : 'no',$product->get_catalog_visibility(),$product->get_tax_status(),$product->get_tax_class(),$product->get_weight(),$product->get_length(),$product->get_width(),$product->get_height(),$product->get_description(),$product->get_short_description(),implode('|', $categories),implode('|', $tags),$image,$gallery,$product->is_type('external') ? $product->get_product_url() : '',$product->is_type('external') ? $product->get_button_text() : '',implode('|', $grouped_skus)]);
+            }
+            $page++;
+        } while (is_object($result) && $page <= (int) $result->max_num_pages);
+        fclose($out);
+        exit;
+    }
+
+    private function product_term_ids(string $value, string $taxonomy, bool $hierarchical = false): array {
+        $ids = [];
+        foreach (array_filter(array_map('trim', explode('|', $value))) as $path) {
+            $parent = 0;
+            $parts = $hierarchical ? array_filter(array_map('trim', explode('>', $path))) : [$path];
+            foreach ($parts as $name) {
+                $existing = term_exists($name, $taxonomy, $parent);
+                if (!$existing) $existing = wp_insert_term($name, $taxonomy, $hierarchical ? ['parent' => $parent] : []);
+                if (is_wp_error($existing)) { $parent = 0; break; }
+                $parent = (int) (is_array($existing) ? $existing['term_id'] : $existing);
+            }
+            if ($parent) $ids[] = $parent;
+        }
+        return array_values(array_unique($ids));
+    }
+
+    private function sideload_product_image(string $url, int $product_id): int {
+        $url = esc_url_raw(trim($url));
+        if (!$url || !wp_http_validate_url($url)) return 0;
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+        require_once ABSPATH . 'wp-admin/includes/media.php';
+        require_once ABSPATH . 'wp-admin/includes/image.php';
+        $id = media_sideload_image($url, $product_id, null, 'id');
+        return is_wp_error($id) ? 0 : (int) $id;
+    }
+
+    public function import_products(): void {
+        $this->guard('wutm_die_import_products');
+        if (!function_exists('wc_get_product_object')) $this->redirect(['message' => '尚未啟用 WooCommerce。', 'details' => [], 'error' => true]);
+        $rows = $this->read_csv_upload('csv');
+        if (is_wp_error($rows)) $this->redirect(['message' => $rows->get_error_message(), 'details' => [], 'error' => true]);
+        $headers = $this->headers(array_shift($rows));
+        if (!in_array('name', $headers, true)) $this->redirect(['message' => '商品 CSV 缺少 name 欄位。', 'details' => [], 'error' => true]);
+        $created = 0; $updated = 0; $skipped = 0; $details = [];
+        $allow_update = !empty($_POST['update_existing']);
+        $download_images = !empty($_POST['download_images']);
+        $valid_types = ['simple', 'external', 'grouped'];
+        foreach ($rows as $row_number => $row) {
+            $data = [];
+            foreach ($headers as $index => $key) if ($key !== '' && isset($row[$index])) $data[$key] = trim((string) $row[$index]);
+            if (!array_filter($data)) continue;
+            $sku = wc_clean($data['sku'] ?? '');
+            $existing_id = !empty($data['id']) ? absint($data['id']) : 0;
+            $existing = $existing_id ? wc_get_product($existing_id) : false;
+            if (!$existing && $sku) {
+                $by_sku = wc_get_product_id_by_sku($sku);
+                $existing = $by_sku ? wc_get_product($by_sku) : false;
+            }
+            if ($existing && !$allow_update) {
+                $skipped++;
+                if (count($details) < 8) $details[] = '第 ' . ($row_number + 2) . ' 列：SKU 或 ID 已存在，未勾選更新。';
+                continue;
+            }
+            $type = sanitize_key($data['type'] ?? ($existing ? $existing->get_type() : 'simple'));
+            if (!in_array($type, $valid_types, true)) {
+                $skipped++;
+                if (count($details) < 8) $details[] = '第 ' . ($row_number + 2) . ' 列：僅支援簡單、外部／聯盟與群組商品。';
+                continue;
+            }
+            $product = $existing ? wc_get_product_object($type, $existing->get_id()) : wc_get_product_object($type);
+            if (!$product instanceof WC_Product) {
+                $skipped++;
+                if (count($details) < 8) $details[] = '第 ' . ($row_number + 2) . ' 列：無法建立商品物件。';
+                continue;
+            }
+            $name = sanitize_text_field($data['name'] ?? '');
+            if (!$name) {
+                $skipped++;
+                if (count($details) < 8) $details[] = '第 ' . ($row_number + 2) . ' 列：商品名稱不可空白。';
+                continue;
+            }
+            $product->set_name($name);
+            if ($sku) $product->set_sku($sku);
+            foreach (['slug','description','short_description','tax_class','weight','length','width','height'] as $field) if (isset($data[$field])) {
+                $method = 'set_' . $field;
+                if (is_callable([$product, $method])) $product->{$method}($field === 'description' || $field === 'short_description' ? wp_kses_post($data[$field]) : wc_clean($data[$field]));
+            }
+            foreach (['regular_price','sale_price'] as $field) if (isset($data[$field])) $product->{'set_' . $field}(wc_format_decimal($data[$field]));
+            if (isset($data['status']) && in_array($data['status'], ['publish','draft','private','pending'], true)) $product->set_status($data['status']);
+            if (isset($data['stock_status']) && in_array($data['stock_status'], ['instock','outofstock','onbackorder'], true)) $product->set_stock_status($data['stock_status']);
+            if (isset($data['manage_stock'])) $product->set_manage_stock(in_array(strtolower($data['manage_stock']), ['1','yes','true'], true));
+            if (isset($data['stock_quantity']) && $data['stock_quantity'] !== '') $product->set_stock_quantity(wc_stock_amount($data['stock_quantity']));
+            if (isset($data['backorders'])) $product->set_backorders(in_array($data['backorders'], ['yes','no','notify'], true) ? $data['backorders'] : 'no');
+            if (isset($data['featured'])) $product->set_featured(in_array(strtolower($data['featured']), ['1','yes','true'], true));
+            if (isset($data['catalog_visibility'])) $product->set_catalog_visibility(in_array($data['catalog_visibility'], ['visible','catalog','search','hidden'], true) ? $data['catalog_visibility'] : 'visible');
+            if (isset($data['tax_status'])) $product->set_tax_status(in_array($data['tax_status'], ['taxable','shipping','none'], true) ? $data['tax_status'] : 'taxable');
+            if (isset($data['categories'])) $product->set_category_ids($this->product_term_ids($data['categories'], 'product_cat', true));
+            if (isset($data['tags'])) $product->set_tag_ids($this->product_term_ids($data['tags'], 'product_tag'));
+            if ($product->is_type('external')) {
+                if (isset($data['external_url'])) $product->set_product_url(esc_url_raw($data['external_url']));
+                if (isset($data['button_text'])) $product->set_button_text(sanitize_text_field($data['button_text']));
+            }
+            try {
+                $product_id = $product->save();
+            } catch (Throwable $exception) {
+                $skipped++;
+                if (count($details) < 8) $details[] = '第 ' . ($row_number + 2) . ' 列：' . $exception->getMessage();
+                continue;
+            }
+            if ($product->is_type('grouped') && !empty($data['grouped_product_skus'])) {
+                $children = [];
+                foreach (array_filter(array_map('trim', explode('|', $data['grouped_product_skus']))) as $child_sku) {
+                    $child_id = wc_get_product_id_by_sku($child_sku);
+                    if ($child_id) $children[] = $child_id;
+                }
+                $product->set_children($children);
+                $product->save();
+            }
+            if ($download_images && !empty($data['image_urls'])) {
+                $featured = $this->sideload_product_image(explode('|', $data['image_urls'])[0], $product_id);
+                if ($featured) $product->set_image_id($featured);
+                $gallery = [];
+                foreach (array_filter(array_map('trim', explode('|', $data['gallery_image_urls'] ?? ''))) as $url) {
+                    $image_id = $this->sideload_product_image($url, $product_id);
+                    if ($image_id) $gallery[] = $image_id;
+                }
+                if ($gallery) $product->set_gallery_image_ids($gallery);
+                if ($featured || $gallery) $product->save();
+            }
+            $existing ? $updated++ : $created++;
+        }
+        $this->redirect(['message' => "商品匯入完成：新增 {$created}、更新 {$updated}、略過 {$skipped}。", 'details' => $details, 'error' => false]);
+    }
 
     public function export_orders(): void {
         $this->guard('wutm_die_export_orders'); if(!function_exists('wc_get_orders'))wp_die('尚未啟用 WooCommerce。');$args=['limit'=>-1,'return'=>'objects','orderby'=>'date','order'=>'ASC'];$status=sanitize_key(wp_unslash($_POST['status']??''));if($status)$args['status']=$status;$from=sanitize_text_field(wp_unslash($_POST['date_from']??''));$to=sanitize_text_field(wp_unslash($_POST['date_to']??''));if($from)$args['date_created']='>='.$from;if($to)$args['date_created']=($from?'>='.$from.'...':'<=') . $to;
