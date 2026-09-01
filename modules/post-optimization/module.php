@@ -243,8 +243,8 @@ function wu_generate_toc(string $content): string {
     $toc_html .= '</div><nav class="wu-toc-nav" aria-label="文章目錄">';
 
     foreach ($toc_items as $item) {
-        $indent    = ($item['level'] - 2) * 1.5;
-        $toc_html .= '<div class="wu-toc-item" style="padding-left:' . $indent . 'em;">';
+        $depth     = max(0, (int) $item['level'] - 2);
+        $toc_html .= '<div class="wu-toc-item" style="--wu-toc-depth:' . $depth . ';">';
         $toc_html .= '<a href="#' . esc_attr($item['id']) . '" class="wu-toc-link">';
         $toc_html .= '<span class="wu-toc-num">' . esc_html($item['number']) . '</span>';
         $toc_html .= '<span class="wu-toc-text">' . esc_html($item['text']) . '</span>';
@@ -283,7 +283,7 @@ add_action('wp_footer', function(): void {
         color: #1d2327; display: flex; align-items: center; gap: .5em;
     }
     .wu-toc-nav { line-height: 1.9; }
-    .wu-toc-item { margin-bottom: .3em; }
+    .wu-toc-item { margin-bottom: .3em; padding-left: calc(var(--wu-toc-depth, 0) * 1.25em); }
     .wu-toc-link {
         color: #0073aa; text-decoration: none;
         display: inline-flex; align-items: baseline; gap: .5em;
@@ -296,6 +296,30 @@ add_action('wp_footer', function(): void {
     }
     .wu-toc-link:hover .wu-toc-num { color: #0073aa; }
     .wu-views { opacity: .8; font-size: .9em; margin-top: 1em; }
+    @media (max-width: 600px) {
+        .wu-toc-container {
+            width: 100%; margin: 1.25em 0; padding: 1em .9em;
+            border-radius: 7px;
+        }
+        .wu-toc-title {
+            margin-bottom: .65em; font-size: clamp(18px, 5vw, 20px);
+            gap: .4em;
+        }
+        .wu-toc-nav {
+            font-size: clamp(14px, 3.8vw, 16px);
+            line-height: 1.55;
+        }
+        .wu-toc-item {
+            margin-bottom: .2em;
+            padding-left: calc(var(--wu-toc-depth, 0) * .55em);
+        }
+        .wu-toc-link {
+            display: grid; grid-template-columns: 2.2em minmax(0, 1fr);
+            gap: .35em; width: 100%; align-items: start;
+        }
+        .wu-toc-num { min-width: 0; text-align: right; line-height: 1.55; }
+        .wu-toc-text { min-width: 0; overflow-wrap: anywhere; line-height: 1.55; }
+    }
     </style>
     <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -321,8 +345,8 @@ add_action('wp_footer', function(): void {
 add_action('admin_menu', function(): void {
     add_submenu_page(
         'wu-toolbox-modular',
-        '文章優化設定',
-        '文章優化設定',
+        '文章目錄設定',
+        '文章目錄設定',
         'manage_options',
         'wu-post-optimization',
         'wu_post_optimization_settings_page'
@@ -356,7 +380,7 @@ function wu_post_optimization_settings_page(): void {
     $t_offset = (int) get_option('wu_toc_scroll_offset', 100);
     ?>
     <div class="wrap">
-        <h1>文章優化設定</h1>
+        <h1>文章目錄設定</h1>
         <form method="post">
             <?php wp_nonce_field('wu_post_optimization_settings'); ?>
             <table class="form-table" role="presentation">
