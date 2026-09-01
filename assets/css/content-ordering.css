@@ -1,0 +1,10 @@
+/* Native list-table ordering for WU Toolbox. */
+.column-wutm_content_order{width:42px;text-align:center}
+.wutm-native-order-handle{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;margin:0;padding:0;border:1px solid #c3c4c7;border-radius:4px;background:#fff;color:#50575e;cursor:grab;touch-action:none}
+.wutm-native-order-handle:hover,.wutm-native-order-handle:focus{border-color:#2271b1;color:#135e96;background:#f6f7f7}
+.wutm-native-order-handle:active{cursor:grabbing}
+.wutm-native-order-placeholder{height:42px;background:#2271b10d!important;outline:1px dashed #2271b1}
+#wutm-content-ordering-notice{margin:12px 0}
+#wutm-content-ordering-notice .notice{margin:0}
+.wutm-native-order-saving{opacity:.55;pointer-events:none}
+@media(max-width:782px){.column-wutm_content_order{width:36px}.wutm-native-order-handle{width:28px;height:28px}}
