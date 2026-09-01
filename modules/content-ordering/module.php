@@ -95,6 +95,60 @@ final class WUTM_Content_Ordering {
         });');
     }
 
+    private static function get_orderable_posts(string $post_type, ?string &$error): array {
+        $error = null;
+        if ($post_type === '' || !post_type_exists($post_type)) return [];
+        try {
+            $query = new WP_Query([
+                'post_type' => $post_type,
+                'post_status' => ['publish', 'draft', 'pending', 'private', 'future'],
+                'posts_per_page' => 300,
+                'orderby' => 'menu_order',
+                'order' => 'ASC',
+                'ignore_sticky_posts' => true,
+                'suppress_filters' => true,
+                'no_found_rows' => true,
+            ]);
+            return is_array($query->posts) ? $query->posts : [];
+        } catch (Throwable $exception) {
+            error_log('WU Toolbox content ordering posts: ' . $exception->getMessage());
+            $error = '讀取此內容類型時發生問題，請確認 WooCommerce 與相關外掛版本相容。';
+            return [];
+        }
+    }
+
+    private static function get_orderable_terms(string $taxonomy, ?string &$error): array {
+        $error = null;
+        if ($taxonomy === '' || !taxonomy_exists($taxonomy)) return [];
+        try {
+            $terms = get_terms([
+                'taxonomy' => $taxonomy,
+                'hide_empty' => false,
+                'number' => 300,
+                'orderby' => 'name',
+                'order' => 'ASC',
+                'wutm_ignore_order' => true,
+            ]);
+            if (is_wp_error($terms)) {
+                $error = '讀取此分類法時發生問題：' . $terms->get_error_message();
+                return [];
+            }
+            if (!is_array($terms)) return [];
+            usort($terms, static function($left, $right): int {
+                $left_order = get_term_meta($left->term_id, self::TERM_META, true);
+                $right_order = get_term_meta($right->term_id, self::TERM_META, true);
+                $left_order = $left_order === '' ? PHP_INT_MAX : (int) $left_order;
+                $right_order = $right_order === '' ? PHP_INT_MAX : (int) $right_order;
+                return $left_order === $right_order ? strcasecmp($left->name, $right->name) : ($left_order <=> $right_order);
+            });
+            return $terms;
+        } catch (Throwable $exception) {
+            error_log('WU Toolbox content ordering terms: ' . $exception->getMessage());
+            $error = '讀取此分類法時發生問題，請確認相關外掛版本相容。';
+            return [];
+        }
+    }
+
     public static function page(): void {
         if (!current_user_can('manage_options')) wp_die('權限不足');
 
@@ -108,33 +162,10 @@ final class WUTM_Content_Ordering {
         $taxonomy = sanitize_key(wp_unslash($_GET['taxonomy'] ?? self::default_key($taxonomies)));
         if (!isset($taxonomies[$taxonomy])) $taxonomy = self::default_key($taxonomies);
 
-        $posts = $post_type ? get_posts([
-            'post_type' => $post_type,
-            'post_status' => ['publish', 'draft', 'pending', 'private', 'future'],
-            'posts_per_page' => 300,
-            'orderby' => 'menu_order',
-            'order' => 'ASC',
-            'suppress_filters' => true,
-        ]) : [];
-
-        $terms = $taxonomy ? get_terms([
-            'taxonomy' => $taxonomy,
-            'hide_empty' => false,
-            'number' => 300,
-            'orderby' => 'name',
-            'order' => 'ASC',
-            'wutm_ignore_order' => true,
-        ]) : [];
-
-        if (is_array($terms)) {
-            usort($terms, static function($left, $right): int {
-                $left_order = get_term_meta($left->term_id, self::TERM_META, true);
-                $right_order = get_term_meta($right->term_id, self::TERM_META, true);
-                $left_order = $left_order === '' ? PHP_INT_MAX : (int) $left_order;
-                $right_order = $right_order === '' ? PHP_INT_MAX : (int) $right_order;
-                return $left_order === $right_order ? strcasecmp($left->name, $right->name) : ($left_order <=> $right_order);
-            });
-        }
+        $post_error = null;
+        $term_error = null;
+        $posts = self::get_orderable_posts($post_type, $post_error);
+        $terms = self::get_orderable_terms($taxonomy, $term_error);
         ?>
         <div class="wrap wutm-module-wrap">
             <h1>文章及分類排序</h1>
@@ -161,6 +192,7 @@ final class WUTM_Content_Ordering {
                         <input type="hidden" name="page" value="<?php echo esc_attr(self::SLUG); ?>">
                         <label>內容類型 <select name="post_type" onchange="this.form.submit()"><?php foreach ($post_types as $key => $object): ?><option value="<?php echo esc_attr($key); ?>" <?php selected($post_type, $key); ?>><?php echo esc_html($key === 'product' ? '商品（WooCommerce）' : $object->labels->name); ?></option><?php endforeach; ?></select></label>
                     </form>
+                    <?php if ($post_error): ?><div class="notice notice-error inline"><p><?php echo esc_html($post_error); ?></p></div><?php endif; ?>
                     <?php if (!$posts): ?><p>此內容類型目前沒有可排序資料。</p><?php else: ?>
                     <ol class="wutm-order-list" data-kind="posts" data-post-type="<?php echo esc_attr($post_type); ?>"><?php foreach ($posts as $post): ?>
                         <li data-id="<?php echo (int) $post->ID; ?>"><span class="wutm-order-handle" aria-label="拖曳排序">☰</span><span><?php echo esc_html(get_the_title($post) ?: '（無標題）'); ?></span><small><?php echo esc_html($post->post_status); ?></small><a href="<?php echo esc_url(get_edit_post_link($post->ID)); ?>">編輯</a></li>
@@ -175,7 +207,8 @@ final class WUTM_Content_Ordering {
                         <input type="hidden" name="post_type" value="<?php echo esc_attr($post_type); ?>">
                         <label>分類法 <select name="taxonomy" onchange="this.form.submit()"><?php foreach ($taxonomies as $key => $object): ?><option value="<?php echo esc_attr($key); ?>" <?php selected($taxonomy, $key); ?>><?php echo esc_html($key === 'product_cat' ? '商品分類（WooCommerce）' : $object->labels->name); ?></option><?php endforeach; ?></select></label>
                     </form>
-                    <?php if (is_wp_error($terms) || !$terms): ?><p>此分類法目前沒有可排序項目。</p><?php else: ?>
+                    <?php if ($term_error): ?><div class="notice notice-error inline"><p><?php echo esc_html($term_error); ?></p></div><?php endif; ?>
+                    <?php if (!$terms): ?><p>此分類法目前沒有可排序項目。</p><?php else: ?>
                     <ol class="wutm-order-list" data-kind="terms" data-taxonomy="<?php echo esc_attr($taxonomy); ?>"><?php foreach ($terms as $term): ?>
                         <li data-id="<?php echo (int) $term->term_id; ?>"><span class="wutm-order-handle" aria-label="拖曳排序">☰</span><span><?php echo esc_html($term->name); ?></span><small><?php echo number_format_i18n($term->count); ?> 項</small><a href="<?php echo esc_url(get_edit_term_link($term)); ?>">編輯</a></li>
                     <?php endforeach; ?></ol><?php endif; ?>
