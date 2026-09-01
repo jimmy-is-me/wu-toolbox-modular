@@ -215,7 +215,7 @@ final class WUTM_Content_Ordering {
         $post_type = $query->get('post_type') ?: 'post';
         if (is_admin()) {
             global $pagenow;
-            if ($pagenow !== 'edit.php' || !$query->is_main_query() || !isset(self::post_types()[$post_type])) return;
+            if ($pagenow !== 'edit.php' || !$query->is_main_query() || is_array($post_type) || !isset(self::post_types()[$post_type])) return;
             if (!empty($_GET['orderby']) || !empty($_GET['s'])) return;
             $query->set('orderby', 'menu_order');
             $query->set('order', 'ASC');
