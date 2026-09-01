@@ -151,6 +151,15 @@ final class WUTM_Content_Ordering {
 
     public static function page(): void {
         if (!current_user_can('manage_options')) wp_die('權限不足');
+        try {
+            self::render_page();
+        } catch (Throwable $exception) {
+            error_log('WU Toolbox content ordering page: ' . $exception->getMessage());
+            echo '<div class="wrap wutm-module-wrap"><h1>文章及分類排序</h1><div class="notice notice-error"><p>排序頁面暫時無法讀取部分資料。請確認 WooCommerce 與相關外掛均為最新版本後再試一次。</p></div></div>';
+        }
+    }
+
+    private static function render_page(): void {
 
         $post_types = self::post_types();
         $taxonomies = self::taxonomies();
