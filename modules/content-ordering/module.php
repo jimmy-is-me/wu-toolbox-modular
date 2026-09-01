@@ -21,6 +21,10 @@ final class WUTM_Content_Ordering {
         add_action('pre_get_terms', [__CLASS__, 'apply_term_order']);
         add_filter('get_terms_orderby', [__CLASS__, 'term_orderby'], 20, 3);
 
+        add_action('init', [__CLASS__, 'register_native_columns'], 99);
+    }
+
+    public static function register_native_columns(): void {
         foreach (self::post_types() as $post_type => $object) {
             add_filter("manage_{$post_type}_posts_columns", [__CLASS__, 'add_order_column']);
             add_action("manage_{$post_type}_posts_custom_column", [__CLASS__, 'render_post_column'], 10, 2);
@@ -117,7 +121,9 @@ final class WUTM_Content_Ordering {
             list.sortable({
                 items: "> tr[id]",
                 handle: ".wutm-native-order-handle",
+                cancel: "input,textarea,select,option,a",
                 axis: "y",
+                tolerance: "pointer",
                 helper: function(event, row) {
                     var helper = row.clone();
                     helper.children().each(function(index) { $(this).width(row.children().eq(index).outerWidth()); });
