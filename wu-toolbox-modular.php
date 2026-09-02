@@ -1,9 +1,11 @@
 <?php
 /**
  * Plugin Name: WU Toolbox Modular
+ * Plugin URI: https://wumetax.com/
  * Description: WU Toolbox 的按需載入模組化版本。每項功能獨立，只有啟用後才會載入。
- * Version: 1.6.0
- * Author: Wumetax
+ * Version: 1.6.1
+ * Author: WUMETAX
+ * Author URI: https://wumetax.com/
  * License: GPL-2.0-or-later
  * Text Domain: wu-toolbox-modular
  * Update URI: https://github.com/jimmy-is-me/wu-toolbox-modular
@@ -12,13 +14,48 @@
 defined('ABSPATH') || exit;
 
 define('WUTM_FILE', __FILE__);
-define('WUTM_VERSION', '1.6.0');
+define('WUTM_VERSION', '1.6.1');
 define('WUTM_PATH', plugin_dir_path(__FILE__));
 define('WUTM_URL', plugin_dir_url(__FILE__));
 
 defined('WUMETAX_VERSION') || define('WUMETAX_VERSION', WUTM_VERSION);
 defined('WUMETAX_PATH') || define('WUMETAX_PATH', WUTM_PATH);
 defined('WUMETAX_URL') || define('WUMETAX_URL', WUTM_URL);
+
+
+add_filter('plugin_action_links_' . plugin_basename(WUTM_FILE), function (array $links): array {
+    if (current_user_can('manage_options')) {
+        array_unshift(
+            $links,
+            '<a href="' . esc_url(admin_url('admin.php?page=wu-toolbox-modular')) . '">' .
+            esc_html__('設定', 'wu-toolbox-modular') .
+            '</a>'
+        );
+    }
+    return $links;
+});
+
+add_filter('plugin_row_meta', function (array $links, string $file): array {
+    if ($file !== plugin_basename(WUTM_FILE)) return $links;
+
+    $details_url = add_query_arg([
+        'tab' => 'plugin-information',
+        'plugin' => 'wu-toolbox-modular',
+        'TB_iframe' => 'true',
+        'width' => '772',
+        'height' => '620',
+    ], network_admin_url('plugin-install.php'));
+
+    $links[] = '<a href="' . esc_url($details_url) . '" class="thickbox open-plugin-details-modal" aria-label="' .
+        esc_attr__('檢視 WU Toolbox Modular 詳細資料', 'wu-toolbox-modular') . '">' .
+        esc_html__('檢視詳細資料', 'wu-toolbox-modular') .
+        '</a>';
+    $links[] = '<a href="https://wumetax.com/" target="_blank" rel="noopener noreferrer">' .
+        esc_html__('造訪外掛網站', 'wu-toolbox-modular') .
+        '</a>';
+
+    return $links;
+}, 10, 2);
 
 require_once WUTM_PATH . 'core/module-registry.php';
 // License manager is intentionally kept in core/ for future use, but is disabled for now.
