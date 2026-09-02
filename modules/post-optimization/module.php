@@ -308,17 +308,20 @@ add_action('wp_footer', function(): void {
         .wu-toc-nav {
             font-size: clamp(14px, 3.8vw, 16px);
             line-height: 1.55;
+            text-align: left;
         }
         .wu-toc-item {
             margin-bottom: .2em;
-            padding-left: calc(var(--wu-toc-depth, 0) * .55em);
+            padding-left: 0;
+            text-align: left;
         }
         .wu-toc-link {
-            display: grid; grid-template-columns: 2.2em minmax(0, 1fr);
-            gap: .35em; width: 100%; align-items: start;
+            display: grid; grid-template-columns: 1.65em minmax(0, 1fr);
+            gap: .3em; width: 100%; align-items: start;
+            justify-items: start; text-align: left;
         }
-        .wu-toc-num { min-width: 0; text-align: right; line-height: 1.55; }
-        .wu-toc-text { min-width: 0; overflow-wrap: anywhere; line-height: 1.55; }
+        .wu-toc-num { min-width: 0; width: 100%; text-align: left; line-height: 1.55; }
+        .wu-toc-text { min-width: 0; text-align: left; overflow-wrap: anywhere; line-height: 1.55; }
     }
     </style>
     <script>
