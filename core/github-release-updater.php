@@ -48,6 +48,13 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.6.4</h4>
+            <ul>
+                <li>完全隔離 WordPress 與 WooCommerce 新增分類使用的 AJAX 流程，不再註冊排序 SQL 或自訂欄位回呼。</li>
+                <li>放寬動態分類欄位與排序 filter 的參數型別，避免與 WooCommerce／第三方分類欄位產生 PHP TypeError。</li>
+                <li>保留一般列表頁的文章、商品與分類拖曳排序功能。</li>
+                <li>Release 工作流程新增所有 PHP 檔案的語法檢查，通過後才建立 ZIP。</li>
+            </ul>
             <h4>1.6.3</h4>
             <ul>
                 <li>修正新增文章分類、商品分類及自訂分類法時可能發生的 AJAX 500 錯誤。</li>
