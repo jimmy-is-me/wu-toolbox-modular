@@ -17,8 +17,6 @@ class WU_Admin_Bar_Cleaner {
     private const CHECKBOX_OPTIONS = [
         'wu_remove_wp_logo',
         'wu_remove_new_content',
-        'wu_hide_login_logo',
-        'wu_disable_login_language_switcher',
         'wu_disable_all_dashboard_widgets',
         'wu_remove_admin_footer_text',
         'wu_hide_tools_menu',
@@ -86,7 +84,6 @@ class WU_Admin_Bar_Cleaner {
         register_setting( 'wu_admin_bar_settings', 'wu_disabled_user_roles' );
 
         add_settings_section( 'wu_admin_bar_section',  '後台設定',               [ $this, 'settings_section_callback' ],   'wu_admin_bar_settings' );
-        add_settings_section( 'wu_login_section',      'WordPress 登入頁面設定', [ $this, 'login_section_callback' ],      'wu_admin_bar_settings' );
         add_settings_section( 'wu_dashboard_section',  '儀表板設定',             [ $this, 'dashboard_section_callback' ],  'wu_admin_bar_settings' );
         add_settings_section( 'wu_backend_section',    '後台隱藏設定',           [ $this, 'backend_section_callback' ],    'wu_admin_bar_settings' );
         add_settings_section( 'wu_frontend_section',   '前台設定',               [ $this, 'frontend_section_callback' ],   'wu_admin_bar_settings' );
@@ -95,8 +92,6 @@ class WU_Admin_Bar_Cleaner {
         $fields = [
             [ 'wu_remove_wp_logo',                 '移除 WordPress 標誌',              'remove_wp_logo_callback',                  'wu_admin_bar_section'  ],
             [ 'wu_remove_new_content',              '移除管理列新增項目',               'remove_new_content_callback',              'wu_admin_bar_section'  ],
-            [ 'wu_hide_login_logo',                 '隱藏登入頁面 WordPress 標誌',      'hide_login_logo_callback',                 'wu_login_section'      ],
-            [ 'wu_disable_login_language_switcher', '停用登入語言切換器',               'disable_login_language_switcher_callback', 'wu_login_section'      ],
             [ 'wu_disable_all_dashboard_widgets',   '儀表板小工具一鍵管理',             'dashboard_widgets_settings_callback',      'wu_dashboard_section'  ],
             [ 'wu_remove_admin_footer_text',        '移除管理頁尾文本',                 'remove_admin_footer_text_callback',        'wu_dashboard_section'  ],
             [ 'wu_custom_admin_footer_text',        '自訂管理頁尾文本',                 'custom_admin_footer_text_callback',        'wu_dashboard_section'  ],
@@ -121,9 +116,6 @@ class WU_Admin_Bar_Cleaner {
 
     public function settings_section_callback(): void {
         echo '<p>後台設定功能可以幫助您移除不必要的 WordPress 預設項目，讓管理界面更加簡潔。</p>';
-    }
-    public function login_section_callback(): void {
-        echo '<p>自訂登入頁面的外觀和功能，提供更專業的使用者體驗。</p>';
     }
     public function dashboard_section_callback(): void {
         echo '<p>管理 WordPress 儀表板的小工具和介面元素，簡化管理體驗。</p>';
@@ -159,12 +151,6 @@ class WU_Admin_Bar_Cleaner {
     }
     public function remove_new_content_callback(): void {
         $this->checkbox_field( 'wu_remove_new_content', '移除管理列中的新增項目（+ 新增）' );
-    }
-    public function hide_login_logo_callback(): void {
-        $this->checkbox_field( 'wu_hide_login_logo', '隱藏登入頁面的 WordPress 標誌' );
-    }
-    public function disable_login_language_switcher_callback(): void {
-        $this->checkbox_field( 'wu_disable_login_language_switcher', '停用 WordPress 登入語言切換器' );
     }
     public function remove_admin_footer_text_callback(): void {
         $this->checkbox_field( 'wu_remove_admin_footer_text', '移除預設管理頁尾文本' );
@@ -344,8 +330,6 @@ class WU_Admin_Bar_Cleaner {
                     $status_rows = [
                         [ '管理列 WordPress 標誌',   $opts['wu_remove_wp_logo'],                   '已隱藏',              '顯示中'               ],
                         [ '管理列新增項目',           $opts['wu_remove_new_content'],               '已隱藏',              '顯示中'               ],
-                        [ '登入頁面標誌',             $opts['wu_hide_login_logo'],                  '已隱藏',              '顯示中'               ],
-                        [ '登入語言切換器',           $opts['wu_disable_login_language_switcher'],  '已停用',              '已啟用'               ],
                         [ '儀表板小工具',             $opts['wu_disable_all_dashboard_widgets'],    '已全部停用',          '已啟用'               ],
                         [ '後台 Tools 選單',          $opts['wu_hide_tools_menu'],                  '已隱藏',              '顯示中'               ],
                         [ '後台更新通知',             $opts['wu_hide_admin_updates'],               '已隱藏（僅 UI）',     '顯示中'               ],
@@ -443,12 +427,6 @@ class WU_Admin_Bar_Cleaner {
         if ( get_option( 'wu_remove_new_content', false ) ) {
             add_action( 'admin_bar_menu', [ $this, 'remove_new_content_from_admin_bar' ], 999 );
         }
-        if ( get_option( 'wu_hide_login_logo', false ) ) {
-            add_action( 'login_enqueue_scripts', [ $this, 'hide_login_logo' ] );
-        }
-        if ( get_option( 'wu_disable_login_language_switcher', false ) ) {
-            add_filter( 'login_display_language_dropdown', '__return_false' );
-        }
         if ( ! is_admin() ) {
             if ( ! empty( get_option( 'wu_custom_frontend_footer_text', '' ) ) ) {
                 add_action( 'wp_footer', [ $this, 'custom_frontend_footer_text' ] );
@@ -501,10 +479,6 @@ class WU_Admin_Bar_Cleaner {
     }
 
     // ===== 功能實作 =====
-
-    public function hide_login_logo(): void {
-        echo '<style>.login h1 a { display:none !important; }</style>';
-    }
 
     public function disable_dashboard_widgets(): void {
         global $wp_meta_boxes;
