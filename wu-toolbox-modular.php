@@ -50,9 +50,18 @@ add_filter('plugin_row_meta', function (array $links, string $file): array {
         esc_attr__('檢視 WU Toolbox Modular 詳細資料', 'wu-toolbox-modular') . '">' .
         esc_html__('檢視詳細資料', 'wu-toolbox-modular') .
         '</a>';
-    $links[] = '<a href="https://wumetax.com/" target="_blank" rel="noopener noreferrer">' .
-        esc_html__('造訪外掛網站', 'wu-toolbox-modular') .
-        '</a>';
+    $has_website_link = false;
+    foreach ($links as $link) {
+        if (strpos($link, 'wumetax.com') !== false) {
+            $has_website_link = true;
+            break;
+        }
+    }
+    if (!$has_website_link) {
+        $links[] = '<a href="https://wumetax.com/" target="_blank" rel="noopener noreferrer">' .
+            esc_html__('造訪外掛網站', 'wu-toolbox-modular') .
+            '</a>';
+    }
 
     return $links;
 }, 10, 2);
