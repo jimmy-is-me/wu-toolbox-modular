@@ -3,7 +3,7 @@
  * Plugin Name: WU Toolbox Modular
  * Plugin URI: https://wumetax.com/
  * Description: WU Toolbox 的按需載入模組化版本。每項功能獨立，只有啟用後才會載入。
- * Version: 1.6.1
+ * Version: 1.6.2
  * Author: WUMETAX
  * Author URI: https://wumetax.com/
  * License: GPL-2.0-or-later
@@ -14,7 +14,7 @@
 defined('ABSPATH') || exit;
 
 define('WUTM_FILE', __FILE__);
-define('WUTM_VERSION', '1.6.1');
+define('WUTM_VERSION', '1.6.2');
 define('WUTM_PATH', plugin_dir_path(__FILE__));
 define('WUTM_URL', plugin_dir_url(__FILE__));
 
@@ -46,16 +46,27 @@ add_filter('plugin_row_meta', function (array $links, string $file): array {
         'height' => '620',
     ], network_admin_url('plugin-install.php'));
 
-    $links[] = '<a href="' . esc_url($details_url) . '" class="thickbox open-plugin-details-modal" aria-label="' .
-        esc_attr__('檢視 WU Toolbox Modular 詳細資料', 'wu-toolbox-modular') . '">' .
-        esc_html__('檢視詳細資料', 'wu-toolbox-modular') .
-        '</a>';
+    $has_details_link = false;
     $has_website_link = false;
     foreach ($links as $link) {
+        $plain_text = wp_strip_all_tags($link);
+        if (
+            strpos($link, 'open-plugin-details-modal') !== false
+            || strpos($link, 'plugin-information') !== false
+            || strpos($plain_text, '檢視詳細資料') !== false
+        ) {
+            $has_details_link = true;
+        }
         if (strpos($link, 'wumetax.com') !== false) {
             $has_website_link = true;
-            break;
         }
+    }
+
+    if (!$has_details_link) {
+        $links[] = '<a href="' . esc_url($details_url) . '" class="thickbox open-plugin-details-modal" aria-label="' .
+            esc_attr__('檢視 WU Toolbox Modular 詳細資料', 'wu-toolbox-modular') . '">' .
+            esc_html__('檢視詳細資料', 'wu-toolbox-modular') .
+            '</a>';
     }
     if (!$has_website_link) {
         $links[] = '<a href="https://wumetax.com/" target="_blank" rel="noopener noreferrer">' .
