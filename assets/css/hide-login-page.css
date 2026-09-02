@@ -22,3 +22,25 @@
 .wutm-hide-login-info h2{margin-top:0}.wutm-hide-login-info li{margin-bottom:8px}
 .wutm-hide-login-active{display:grid;gap:6px;margin-top:18px;padding:15px 17px;border-left:4px solid #00a32a;border-radius:6px;background:#edfaef}
 .wutm-hide-login-active a{overflow-wrap:anywhere}.wutm-hide-login-active span{color:#50575e;font-size:12px}
+
+.wutm-hide-login-page .form-table input[type=number]{
+  color:#1d2327!important;
+  background:#fff!important;
+  border:1px solid #8c8f94!important;
+  border-radius:4px!important;
+  box-shadow:none!important;
+}
+.wutm-hide-login-page .form-table input[type=number]:focus{
+  border-color:#2271b1!important;
+  box-shadow:0 0 0 1px #2271b1!important;
+}
+.wutm-hide-login-page .form-table input[type=color]{
+  width:72px;
+  height:38px;
+  padding:3px;
+  vertical-align:middle;
+  background:#fff;
+  border:1px solid #8c8f94;
+  border-radius:4px;
+}
+.wutm-hide-login-page .form-table input[type=color] + code{margin-left:8px}
