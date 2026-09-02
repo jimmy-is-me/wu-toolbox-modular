@@ -17,14 +17,24 @@ final class WUTM_Content_Ordering {
         add_action('admin_post_wutm_content_ordering_save', [__CLASS__, 'save_settings']);
         add_action('wp_ajax_wutm_content_ordering_posts', [__CLASS__, 'save_posts']);
         add_action('wp_ajax_wutm_content_ordering_terms', [__CLASS__, 'save_terms']);
-        add_action('pre_get_posts', [__CLASS__, 'apply_post_order']);
-        add_action('pre_get_terms', [__CLASS__, 'apply_term_order']);
-        add_filter('get_terms_orderby', [__CLASS__, 'term_orderby'], 20, 3);
 
-        add_action('init', [__CLASS__, 'register_native_columns'], 99);
+        /*
+         * WordPress creates terms through admin-ajax.php and then renders the
+         * new list-table row in the same request. Do not register any ordering
+         * query or custom-column callbacks there; WooCommerce and other
+         * taxonomy plugins may register their own dynamic columns.
+         */
+        if (!self::is_ajax_request()) {
+            add_action('pre_get_posts', [__CLASS__, 'apply_post_order']);
+            add_action('pre_get_terms', [__CLASS__, 'apply_term_order']);
+            add_filter('get_terms_orderby', [__CLASS__, 'term_orderby'], 20, 3);
+            add_action('init', [__CLASS__, 'register_native_columns'], 99);
+        }
     }
 
     public static function register_native_columns(): void {
+        if (!is_admin() || self::is_ajax_request()) return;
+
         foreach (self::post_types() as $post_type => $object) {
             add_filter("manage_{$post_type}_posts_columns", [__CLASS__, 'add_order_column']);
             add_action("manage_{$post_type}_posts_custom_column", [__CLASS__, 'render_post_column'], 10, 2);
@@ -81,7 +91,8 @@ final class WUTM_Content_Ordering {
         echo '<button type="button" class="wutm-native-order-handle" aria-label="拖曳排序"><span class="dashicons dashicons-menu"></span></button>';
     }
 
-    public static function render_term_column(string $output, string $column, int $term_id): string {
+    public static function render_term_column($output, $column, $term_id): string {
+        $output = is_string($output) ? $output : '';
         if ($column !== 'wutm_content_order') return $output;
         return '<button type="button" class="wutm-native-order-handle" aria-label="拖曳排序"><span class="dashicons dashicons-menu"></span></button>';
     }
@@ -275,11 +286,18 @@ final class WUTM_Content_Ordering {
         $query->query_vars['wutm_content_ordering'] = true;
     }
 
-    public static function term_orderby(string $orderby, array $args, array $taxonomies): string {
+    public static function term_orderby($orderby, $args, $taxonomies): string {
+        $orderby = is_string($orderby) ? $orderby : '';
+        $args = is_array($args) ? $args : [];
         if (empty($args['wutm_content_ordering'])) return $orderby;
         global $wpdb;
         $meta_key = esc_sql(self::TERM_META);
         return "COALESCE((SELECT CAST(wutm_order_meta.meta_value AS UNSIGNED) FROM {$wpdb->termmeta} AS wutm_order_meta WHERE wutm_order_meta.term_id = t.term_id AND wutm_order_meta.meta_key = '{$meta_key}' LIMIT 1), 2147483647), t.name";
+    }
+
+    private static function is_ajax_request(): bool {
+        return (function_exists('wp_doing_ajax') && wp_doing_ajax())
+            || (defined('DOING_AJAX') && DOING_AJAX);
     }
 }
 WUTM_Content_Ordering::boot();
