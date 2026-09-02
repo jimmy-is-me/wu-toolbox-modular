@@ -1,0 +1,24 @@
+/* Hide login settings: readable white fields and shared WordPress styling. */
+.wutm-hide-login-page .form-table input[type=text],
+.wutm-hide-login-page .form-table input[type=url],
+.wutm-hide-login-page .form-table select{
+  color:#1d2327!important;
+  background:#fff!important;
+  border:1px solid #8c8f94!important;
+  box-shadow:none!important;
+}
+.wutm-hide-login-page .form-table input[type=text]:focus,
+.wutm-hide-login-page .form-table input[type=url]:focus,
+.wutm-hide-login-page .form-table select:focus{
+  color:#1d2327!important;
+  background:#fff!important;
+  border-color:#2271b1!important;
+  box-shadow:0 0 0 1px #2271b1!important;
+}
+.wutm-login-redirect-options{display:grid;gap:10px;max-width:560px}
+.wutm-login-custom-toggle{display:flex;align-items:center;gap:7px}
+.wutm-login-custom-url[hidden]{display:none!important}
+.wutm-hide-login-info{box-sizing:border-box;max-width:850px;margin-top:24px;padding:22px 24px;border:1px solid var(--wutm-wp-border);border-radius:8px;background:#fff;box-shadow:0 1px 3px #00000018}
+.wutm-hide-login-info h2{margin-top:0}.wutm-hide-login-info li{margin-bottom:8px}
+.wutm-hide-login-active{display:grid;gap:6px;margin-top:18px;padding:15px 17px;border-left:4px solid #00a32a;border-radius:6px;background:#edfaef}
+.wutm-hide-login-active a{overflow-wrap:anywhere}.wutm-hide-login-active span{color:#50575e;font-size:12px}
