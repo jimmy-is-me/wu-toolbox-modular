@@ -13,6 +13,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Validate PHP syntax
+        shell: bash
+        run: |
+          set -euo pipefail
+          find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
       - name: Validate tag and plugin version
         shell: bash
         run: |
