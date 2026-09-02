@@ -41,16 +41,80 @@ final class WUTM_GitHub_Release_Updater {
 
     public function plugin_information($result, $action, $args) {
         if ($action !== 'plugin_information' || empty($args->slug) || $args->slug !== 'wu-toolbox-modular') return $result;
+
         $release = $this->get_release();
-        if (!$release) return $result;
+        $version = $release['version'] ?? WUTM_VERSION;
+        $download = $release['browser_url'] ?? ($release['asset_api_url'] ?? '');
+        $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
+
+        $changelog = '
+            <h4>1.6.1</h4>
+            <ul>
+                <li>在外掛列表加入「設定」快捷按鈕。</li>
+                <li>補齊外掛詳細資料、作者、外掛首頁與官方網站連結。</li>
+                <li>更新 WordPress 詳細資料視窗的功能說明與變更紀錄。</li>
+            </ul>
+            <h4>1.6.0</h4>
+            <ul>
+                <li>重新設計白色科技感維護頁與即時預覽。</li>
+                <li>修正隱藏登入頁面的欄位可讀性、網址規則與系統請求相容性。</li>
+            </ul>
+            <h4>1.5.9</h4>
+            <ul>
+                <li>新增網站優化模組與 WooCommerce 預設商品分類後台修復。</li>
+            </ul>
+            <h4>1.5.8</h4>
+            <ul>
+                <li>改善手機文章目錄的靠左對齊、字級與縮排。</li>
+            </ul>
+            <h4>1.5.7</h4>
+            <ul>
+                <li>修正文章、頁面、商品、分類及自訂內容類型的原生列表拖曳排序。</li>
+                <li>文章優化模組更名為「文章瀏覽及目錄」。</li>
+            </ul>';
+        if ($release_notes !== '') {
+            $changelog .= '<hr><h4>GitHub Release 說明</h4>' . $release_notes;
+        }
+
         return (object) [
             'name' => 'WU Toolbox Modular',
             'slug' => 'wu-toolbox-modular',
-            'version' => $release['version'],
-            'author' => '<a href="https://github.com/jimmy-is-me">Wumetax</a>',
-            'homepage' => 'https://github.com/' . self::REPOSITORY,
-            'download_link' => $release['asset_api_url'],
-            'sections' => ['description' => 'WU Toolbox 的按需載入模組化版本。', 'changelog' => wp_kses_post($release['body'] ?: '請參閱 GitHub Release 說明。')],
+            'version' => $version,
+            'author' => '<a href="https://wumetax.com/" target="_blank" rel="noopener noreferrer">WUMETAX</a>',
+            'author_profile' => 'https://wumetax.com/',
+            'homepage' => 'https://wumetax.com/',
+            'short_description' => '依需求開啟獨立功能的 WordPress 模組化工具箱。',
+            'requires' => '5.8',
+            'tested' => get_bloginfo('version'),
+            'requires_php' => '7.4',
+            'download_link' => $download,
+            'external' => true,
+            'sections' => [
+                'description' => '
+                    <h3>模組化 WordPress 工具箱</h3>
+                    <p>WU Toolbox Modular 將常用的內容管理、安全性、效能優化、後台介面、監控及 WooCommerce 工具集中在同一個外掛中。</p>
+                    <p>每個模組皆可獨立開啟或關閉；未啟用的模組不會載入功能程式，避免不必要的網站負擔。</p>
+                    <h4>主要特色</h4>
+                    <ul>
+                        <li>從 WU Toolbox 主畫面集中管理所有模組。</li>
+                        <li>統一的 WordPress 後台介面與繁體中文說明。</li>
+                        <li>支援內容管理、安全防護、監控、匯入匯出與 WooCommerce 工具。</li>
+                        <li>透過 GitHub Release 安全取得新版 ZIP 更新。</li>
+                    </ul>
+                    <p><a href="https://wumetax.com/" target="_blank" rel="noopener noreferrer">造訪 WUMETAX 外掛網站</a></p>',
+                'installation' => '
+                    <ol>
+                        <li>安裝並啟用 WU Toolbox Modular。</li>
+                        <li>前往 WordPress 後台的「WU Toolbox」。</li>
+                        <li>只開啟網站需要的模組，再點選各卡片的「設定」。</li>
+                    </ol>',
+                'changelog' => $changelog,
+                'faq' => '
+                    <h4>關閉的模組會影響網站效能嗎？</h4>
+                    <p>不會。未啟用的模組不會載入其功能檔案。</p>
+                    <h4>如何檢查更新？</h4>
+                    <p>可在 WordPress 外掛列表或「控制台 → 更新」執行檢查；新版由 GitHub Release 提供。</p>',
+            ],
         ];
     }
 
