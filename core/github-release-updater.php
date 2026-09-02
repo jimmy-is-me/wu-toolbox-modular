@@ -48,6 +48,12 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.6.3</h4>
+            <ul>
+                <li>修正新增文章分類、商品分類及自訂分類法時可能發生的 AJAX 500 錯誤。</li>
+                <li>分類排序不再介入新增／編輯分類的 AJAX、POST 與其他後台內部查詢。</li>
+                <li>保留原生分類列表拖曳排序與選用的前台分類排序功能。</li>
+            </ul>
             <h4>1.6.2</h4>
             <ul>
                 <li>將登入頁面標誌與語言切換器設定集中到「隱藏登入頁」模組。</li>
