@@ -203,7 +203,6 @@ final class WU_Hide_Login_Page {
 
     public function register_login_route() {
         if (empty($this->options['enabled'])) return;
-        add_rewrite_tag('%wutm_hidden_login%', '1');
         add_rewrite_rule(
             '^' . preg_quote($this->slug(), '/') . '/?$',
             'index.php?wutm_hidden_login=1',
