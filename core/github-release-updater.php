@@ -48,6 +48,13 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.6.2</h4>
+            <ul>
+                <li>將登入頁面標誌與語言切換器設定集中到「隱藏登入頁」模組。</li>
+                <li>新增登入頁背景色、背景圖片與登入框圓角設定，圓角預設為 15px。</li>
+                <li>修正外掛列表重複顯示「檢視詳細資料」連結。</li>
+                <li>詳細資料視窗會附加最新 GitHub Release 說明，讓變更紀錄與發行內容同步。</li>
+            </ul>
             <h4>1.6.1</h4>
             <ul>
                 <li>在外掛列表加入「設定」快捷按鈕。</li>
