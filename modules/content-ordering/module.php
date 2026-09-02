@@ -241,13 +241,35 @@ final class WUTM_Content_Ordering {
     }
 
     public static function apply_term_order(WP_Term_Query $query): void {
+        if (!empty($query->query_vars['wutm_content_ordering_ignore'])) return;
+
+        /*
+         * Never alter term lookups used while WordPress creates or edits a term.
+         * The add-category screen submits to admin-ajax.php; adding our custom
+         * ORDER BY to that internal existence check can turn a valid insert into
+         * a 500 response.
+         */
+        if ((function_exists('wp_doing_ajax') && wp_doing_ajax())
+            || (defined('DOING_AJAX') && DOING_AJAX)) {
+            return;
+        }
+
+        $is_admin = is_admin();
+        $is_native_list = $is_admin && ($GLOBALS['pagenow'] ?? '') === 'edit-tags.php';
+        if ($is_admin) {
+            $method = isset($_SERVER['REQUEST_METHOD']) ? strtoupper((string) $_SERVER['REQUEST_METHOD']) : 'GET';
+            if (!$is_native_list || $method !== 'GET') return;
+        }
+
         $taxonomies = (array) ($query->query_vars['taxonomy'] ?? []);
         if (!$taxonomies) return;
-        foreach ($taxonomies as $taxonomy) if (!isset(self::taxonomies()[$taxonomy])) return;
+        foreach ($taxonomies as $taxonomy) {
+            if (!isset(self::taxonomies()[$taxonomy])) return;
+        }
 
-        $is_native_list = is_admin() && ($GLOBALS['pagenow'] ?? '') === 'edit-tags.php';
         $settings = self::settings();
-        if ((!$is_native_list && empty($settings['auto_terms'])) || !empty($query->query_vars['wutm_content_ordering_ignore'])) return;
+        if (!$is_native_list && empty($settings['auto_terms'])) return;
+
         $orderby = $query->query_vars['orderby'] ?? '';
         if ($orderby && !in_array($orderby, ['name', 'none'], true)) return;
         $query->query_vars['wutm_content_ordering'] = true;
