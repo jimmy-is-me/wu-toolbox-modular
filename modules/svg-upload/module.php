@@ -7,6 +7,43 @@
  */
 defined('ABSPATH') || exit;
 
+if (!class_exists('WUTM_SVG_Image_Editor', false)) {
+    if (!class_exists('WP_Image_Editor')) {
+        require_once ABSPATH . WPINC . '/class-wp-image-editor.php';
+    }
+
+    final class WUTM_SVG_Image_Editor extends WP_Image_Editor {
+        public static function test($args = []): bool {
+            $file = is_array($args) ? ($args['path'] ?? '') : $args;
+            return is_string($file) && strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'svg';
+        }
+
+        public static function supports_mime_type($mime_type): bool {
+            return $mime_type === 'image/svg+xml';
+        }
+
+        public function load() {
+            if (!is_readable($this->file)) {
+                return new WP_Error('wutm_svg_unreadable', 'SVG 檔案無法讀取。');
+            }
+            $this->size = ['width' => 0, 'height' => 0];
+            $this->mime_type = 'image/svg+xml';
+            return true;
+        }
+
+        public function save($destfilename = null, $mime_type = null) {
+            return new WP_Error('wutm_svg_no_raster_save', 'SVG 不需要建立點陣縮圖。');
+        }
+
+        public function resize($max_w, $max_h, $crop = false) { return true; }
+        public function multi_resize($sizes) { return []; }
+        public function crop($src_x, $src_y, $src_w, $src_h, $dst_w, $dst_h, $src_abs = false) { return true; }
+        public function rotate($angle) { return true; }
+        public function flip($horz, $vert) { return true; }
+        public function stream($mime_type = null) { return new WP_Error('wutm_svg_no_stream', 'SVG 不需要輸出點陣圖片。'); }
+    }
+}
+
 final class WUTM_SVG_Upload {
     private const SLUG = 'wu-svg-upload';
     private const OPTION = 'wutm_svg_upload_settings';
@@ -86,43 +123,6 @@ final class WUTM_SVG_Upload {
     }
 
     public static function svg_image_editors(array $editors): array {
-        if (!class_exists('WUTM_SVG_Image_Editor', false)) {
-            if (!class_exists('WP_Image_Editor')) {
-                require_once ABSPATH . WPINC . '/class-wp-image-editor.php';
-            }
-
-            final class WUTM_SVG_Image_Editor extends WP_Image_Editor {
-                public static function test($args = []): bool {
-                    $file = is_array($args) ? ($args['path'] ?? '') : $args;
-                    return is_string($file) && strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'svg';
-                }
-
-                public static function supports_mime_type($mime_type): bool {
-                    return $mime_type === 'image/svg+xml';
-                }
-
-                public function load() {
-                    if (!is_readable($this->file)) {
-                        return new WP_Error('wutm_svg_unreadable', 'SVG 檔案無法讀取。');
-                    }
-                    $this->size = ['width' => 0, 'height' => 0];
-                    $this->mime_type = 'image/svg+xml';
-                    return true;
-                }
-
-                public function save($destfilename = null, $mime_type = null) {
-                    return new WP_Error('wutm_svg_no_raster_save', 'SVG 不需要建立點陣縮圖。');
-                }
-
-                public function resize($max_w, $max_h, $crop = false) { return true; }
-                public function multi_resize($sizes) { return []; }
-                public function crop($src_x, $src_y, $src_w, $src_h, $dst_w, $dst_h, $src_abs = false) { return true; }
-                public function rotate($angle) { return true; }
-                public function flip($horz, $vert) { return true; }
-                public function stream($mime_type = null) { return new WP_Error('wutm_svg_no_stream', 'SVG 不需要輸出點陣圖片。'); }
-            }
-        }
-
         array_unshift($editors, 'WUTM_SVG_Image_Editor');
         return array_values(array_unique($editors));
     }
