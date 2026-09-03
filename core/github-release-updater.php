@@ -48,6 +48,11 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.7.2</h4>
+            <ul>
+                <li>修正 SVG 相容影像處理器的 WordPress 核心方法宣告，避免啟用模組時發生致命錯誤。</li>
+                <li>SVG 上傳仍會略過不支援的點陣縮圖建立，並保留既有的安全檢查。</li>
+            </ul>
             <h4>1.7.1</h4>
             <ul>
                 <li>媒體庫管理可直接在 WordPress 原生媒體庫格狀檢視，將媒體拖曳到資料夾完成分類。</li>
