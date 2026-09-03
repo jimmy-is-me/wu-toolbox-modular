@@ -64,8 +64,29 @@ final class WUTM_Notice_Center {
         exit;
     }
 
+    private static function can_collect_notices(): bool {
+        if (wp_doing_ajax() || !function_exists('get_current_screen')) {
+            return false;
+        }
+
+        $screen = get_current_screen();
+        if (!$screen) {
+            return false;
+        }
+
+        // 區塊編輯器、網站編輯器與本模組的設定頁會使用動態通知/連線狀態；
+        // 不觸碰其 DOM，避免干擾儲存、Heartbeat 或 REST API 狀態。
+        if ((method_exists($screen, 'is_block_editor') && $screen->is_block_editor())
+            || in_array($screen->base, ['site-editor', 'widgets'], true)
+            || strpos((string) $screen->id, self::SLUG) !== false) {
+            return false;
+        }
+
+        return true;
+    }
+
     public static function assets(): void {
-        if (wp_doing_ajax()) {
+        if (!self::can_collect_notices()) {
             return;
         }
 
@@ -85,11 +106,11 @@ final class WUTM_Notice_Center {
 
         wp_register_script('wutm-notice-center', false, [], WUTM_VERSION, true);
         wp_enqueue_script('wutm-notice-center');
-        wp_add_inline_script('wutm-notice-center', 'document.addEventListener("DOMContentLoaded",function(){var panel=document.getElementById("wutm-notice-center");if(!panel)return;var items=panel.querySelector(".wutm-notice-items"),details=panel.querySelector("details"),count=panel.querySelector(".wutm-notice-count"),important=panel.querySelector(".wutm-notice-important"),openForImportant=' . (!empty($settings['open_for_important']) ? 'true' : 'false') . ';var selector="#wpbody-content > .notice:not(#wutm-notice-center),#wpbody-content > .updated,#wpbody-content > .error,#wpbody-content > .update-nag,#wpbody-content > .wrap > .notice:not(#wutm-notice-center),#wpbody-content > .wrap > .updated,#wpbody-content > .wrap > .error,#wpbody-content > .wrap > .update-nag";function collect(){var found=Array.prototype.slice.call(document.querySelectorAll(selector)).filter(function(node){return !panel.contains(node)&&!node.classList.contains("wutm-notice-center");});found.forEach(function(node){items.appendChild(node);});var all=Array.prototype.slice.call(items.children),total=String(all.length),errors=all.filter(function(node){return node.classList.contains("notice-error")||node.classList.contains("error");}).length,message=errors?"包含 "+errors+" 則重要通知":"";if(count.textContent!==total){count.textContent=total;}if(important.textContent!==message){important.textContent=message;}if(errors&&openForImportant){details.open=true;}panel.classList.toggle("is-visible",all.length>0);}collect();new MutationObserver(function(){window.requestAnimationFrame(collect);}).observe(document.getElementById("wpbody-content"),{childList:true,subtree:true});});');
+        wp_add_inline_script('wutm-notice-center', 'document.addEventListener("DOMContentLoaded",function(){var panel=document.getElementById("wutm-notice-center");if(!panel)return;var items=panel.querySelector(".wutm-notice-items"),details=panel.querySelector("details"),count=panel.querySelector(".wutm-notice-count"),important=panel.querySelector(".wutm-notice-important"),openForImportant=' . (!empty($settings['open_for_important']) ? 'true' : 'false') . ';var selector="#wpbody-content > .notice:not(.inline):not(#wutm-notice-center),#wpbody-content > .updated,#wpbody-content > .error,#wpbody-content > .update-nag";var found=Array.prototype.slice.call(document.querySelectorAll(selector)).filter(function(node){return !panel.contains(node)&&!node.classList.contains("wutm-notice-center");});found.forEach(function(node){items.appendChild(node);});var all=Array.prototype.slice.call(items.children),total=String(all.length),errors=all.filter(function(node){return node.classList.contains("notice-error")||node.classList.contains("error");}).length,message=errors?"包含 "+errors+" 則重要通知":"";count.textContent=total;important.textContent=message;if(errors&&openForImportant){details.open=true;}panel.classList.toggle("is-visible",all.length>0);});');
     }
 
     public static function panel(): void {
-        if (wp_doing_ajax()) {
+        if (!self::can_collect_notices()) {
             return;
         }
         ?>
