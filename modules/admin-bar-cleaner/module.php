@@ -15,8 +15,6 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 class WU_Admin_Bar_Cleaner {
 
     private const CHECKBOX_OPTIONS = [
-        'wu_remove_wp_logo',
-        'wu_remove_new_content',
         'wu_disable_all_dashboard_widgets',
         'wu_remove_admin_footer_text',
         'wu_hide_tools_menu',
@@ -83,15 +81,12 @@ class WU_Admin_Bar_Cleaner {
         }
         register_setting( 'wu_admin_bar_settings', 'wu_disabled_user_roles' );
 
-        add_settings_section( 'wu_admin_bar_section',  '後台設定',               [ $this, 'settings_section_callback' ],   'wu_admin_bar_settings' );
         add_settings_section( 'wu_dashboard_section',  '儀表板設定',             [ $this, 'dashboard_section_callback' ],  'wu_admin_bar_settings' );
         add_settings_section( 'wu_backend_section',    '後台隱藏設定',           [ $this, 'backend_section_callback' ],    'wu_admin_bar_settings' );
         add_settings_section( 'wu_frontend_section',   '前台設定',               [ $this, 'frontend_section_callback' ],   'wu_admin_bar_settings' );
         add_settings_section( 'wu_user_roles_section', '使用者角色管理',         [ $this, 'user_roles_section_callback' ], 'wu_admin_bar_settings' );
 
         $fields = [
-            [ 'wu_remove_wp_logo',                 '移除 WordPress 標誌',              'remove_wp_logo_callback',                  'wu_admin_bar_section'  ],
-            [ 'wu_remove_new_content',              '移除管理列新增項目',               'remove_new_content_callback',              'wu_admin_bar_section'  ],
             [ 'wu_disable_all_dashboard_widgets',   '儀表板小工具一鍵管理',             'dashboard_widgets_settings_callback',      'wu_dashboard_section'  ],
             [ 'wu_remove_admin_footer_text',        '移除管理頁尾文本',                 'remove_admin_footer_text_callback',        'wu_dashboard_section'  ],
             [ 'wu_custom_admin_footer_text',        '自訂管理頁尾文本',                 'custom_admin_footer_text_callback',        'wu_dashboard_section'  ],
@@ -114,9 +109,6 @@ class WU_Admin_Bar_Cleaner {
 
     // ===== Section 說明 =====
 
-    public function settings_section_callback(): void {
-        echo '<p>後台設定功能可以幫助您移除不必要的 WordPress 預設項目，讓管理界面更加簡潔。</p>';
-    }
     public function dashboard_section_callback(): void {
         echo '<p>管理 WordPress 儀表板的小工具和介面元素，簡化管理體驗。</p>';
     }
@@ -146,12 +138,6 @@ class WU_Admin_Bar_Cleaner {
         }
     }
 
-    public function remove_wp_logo_callback(): void {
-        $this->checkbox_field( 'wu_remove_wp_logo', '移除管理列中的 WordPress 標誌（W 圖示）' );
-    }
-    public function remove_new_content_callback(): void {
-        $this->checkbox_field( 'wu_remove_new_content', '移除管理列中的新增項目（+ 新增）' );
-    }
     public function remove_admin_footer_text_callback(): void {
         $this->checkbox_field( 'wu_remove_admin_footer_text', '移除預設管理頁尾文本' );
     }
@@ -328,8 +314,6 @@ class WU_Admin_Bar_Cleaner {
                     <tbody>
                     <?php
                     $status_rows = [
-                        [ '管理列 WordPress 標誌',   $opts['wu_remove_wp_logo'],                   '已隱藏',              '顯示中'               ],
-                        [ '管理列新增項目',           $opts['wu_remove_new_content'],               '已隱藏',              '顯示中'               ],
                         [ '儀表板小工具',             $opts['wu_disable_all_dashboard_widgets'],    '已全部停用',          '已啟用'               ],
                         [ '後台 Tools 選單',          $opts['wu_hide_tools_menu'],                  '已隱藏',              '顯示中'               ],
                         [ '後台更新通知',             $opts['wu_hide_admin_updates'],               '已隱藏（僅 UI）',     '顯示中'               ],
@@ -421,12 +405,6 @@ class WU_Admin_Bar_Cleaner {
     // ===== 功能掛載 =====
 
     private function register_frontend_features(): void {
-        if ( get_option( 'wu_remove_wp_logo', false ) ) {
-            add_action( 'admin_bar_menu', [ $this, 'remove_wp_logo_from_admin_bar' ], 999 );
-        }
-        if ( get_option( 'wu_remove_new_content', false ) ) {
-            add_action( 'admin_bar_menu', [ $this, 'remove_new_content_from_admin_bar' ], 999 );
-        }
         if ( ! is_admin() ) {
             if ( ! empty( get_option( 'wu_custom_frontend_footer_text', '' ) ) ) {
                 add_action( 'wp_footer', [ $this, 'custom_frontend_footer_text' ] );
@@ -660,17 +638,6 @@ class WU_Admin_Bar_Cleaner {
         }
     }
 
-    public function remove_wp_logo_from_admin_bar( WP_Admin_Bar $wp_admin_bar ): void {
-        foreach ( [ 'wp-logo', 'wp-logo-external', 'about', 'wporg', 'documentation', 'support-forums', 'feedback' ] as $node ) {
-            $wp_admin_bar->remove_node( $node );
-        }
-    }
-
-    public function remove_new_content_from_admin_bar( WP_Admin_Bar $wp_admin_bar ): void {
-        foreach ( [ 'new-content', 'new-post', 'new-media', 'new-page', 'new-user' ] as $node ) {
-            $wp_admin_bar->remove_node( $node );
-        }
-    }
 }
 
 new WU_Admin_Bar_Cleaner();
