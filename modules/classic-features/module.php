@@ -60,6 +60,7 @@ final class WUTM_Classic_Features {
     private static function enable_advanced_editor_tools(): void {
         add_filter('mce_buttons', [__CLASS__, 'advanced_editor_first_row'], 999, 2);
         add_filter('mce_buttons_2', [__CLASS__, 'advanced_editor_second_row'], 999, 2);
+        add_filter('mce_external_plugins', [__CLASS__, 'advanced_editor_plugins'], 999);
         add_filter('tiny_mce_before_init', [__CLASS__, 'advanced_editor_settings'], 20, 2);
     }
 
@@ -85,9 +86,38 @@ final class WUTM_Classic_Features {
             'removeformat',
             'outdent',
             'indent',
+            'table',
+            'searchreplace',
+            'code',
+            'anchor',
+            'insertdatetime',
+            'nonbreaking',
+            'visualblocks',
+            'visualchars',
         ];
 
         return array_values(array_unique(array_merge($buttons, $extra)));
+    }
+
+    public static function advanced_editor_plugins($plugins): array {
+        $plugins = is_array($plugins) ? $plugins : [];
+        $base_url = WUTM_URL . 'modules/classic-features/vendor/tinymce/';
+
+        foreach ([
+            'advlist',
+            'anchor',
+            'code',
+            'insertdatetime',
+            'nonbreaking',
+            'searchreplace',
+            'table',
+            'visualblocks',
+            'visualchars',
+        ] as $plugin) {
+            $plugins[$plugin] = $base_url . $plugin . '/plugin.min.js';
+        }
+
+        return $plugins;
     }
 
     public static function advanced_editor_settings($settings, $editor_id = ''): array {
@@ -207,7 +237,7 @@ final class WUTM_Classic_Features {
                                     啟用進階 TinyMCE 工具列
                                 </label>
                                 <p class="description">
-                                    增加字型、字級、文字與背景色、底線、左右縮排、上下標、水平線、特殊字元、格式清除及左右對齊等工具。
+                                    增加字型、字級、文字與背景色、底線、縮排、上下標、表格、搜尋取代、原始碼、錨點及格式檢視等工具。
                                 </p>
                             </td>
                         </tr>
