@@ -44,7 +44,7 @@ class WU_Content_Duplicator {
     ];
 
     public function __construct() {
-        $this->settings = get_option($this->option_name, $this->get_default_settings());
+        $this->settings = wp_parse_args((array) get_option($this->option_name, []), $this->get_default_settings());
 
         if (is_admin()) {
             add_action('admin_menu',            [$this, 'add_admin_menu'], 35);
@@ -56,7 +56,7 @@ class WU_Content_Duplicator {
         add_action('page_row_actions',          [$this, 'add_duplicate_link'], 10, 2);
         add_action('admin_action_wu_duplicate_post', [$this, 'duplicate_post']);
         add_action('wp_ajax_wu_duplicate_post', [$this, 'ajax_duplicate_post']);
-        add_action('init',                      [$this, 'add_custom_post_type_support']);
+        add_action('init',                      [$this, 'register_list_actions']);
     }
 
     private function get_default_settings() {
@@ -305,21 +305,54 @@ class WU_Content_Duplicator {
     public function add_duplicate_link($actions, $post) {
         if (empty($this->settings['enabled'])) return $actions;
         if (in_array($post->post_type, $this->settings['excluded_post_types'] ?? [], true)) return $actions;
-        if (!current_user_can('edit_posts')) return $actions;
+        if (!current_user_can('edit_post', $post->ID)) return $actions;
 
         $url = wp_nonce_url(
             admin_url('admin.php?action=wu_duplicate_post&post=' . $post->ID),
             'wu_duplicate_post_' . $post->ID
         );
-        $actions['duplicate'] = '<a href="' . esc_url($url) . '" title="複製這個項目">複製</a>';
+        $draft_url = wp_nonce_url(
+            admin_url('admin.php?action=wu_duplicate_post&post=' . $post->ID . '&status=draft'),
+            'wu_duplicate_post_' . $post->ID
+        );
+        $actions['duplicate'] = '<a href="' . esc_url($url) . '" title="依目前設定複製這個項目">複製</a>';
+        $actions['duplicate_draft'] = '<a href="' . esc_url($draft_url) . '" title="立即建立草稿副本">複製為草稿</a>';
         return $actions;
     }
 
-    public function add_custom_post_type_support() {
-        foreach (get_post_types(['public' => true], 'names') as $post_type) {
-            if (!in_array($post_type, $this->settings['excluded_post_types'] ?? [], true)) {
-                add_filter("{$post_type}_row_actions", [$this, 'add_duplicate_link'], 10, 2);
+    public function register_list_actions() {
+        foreach (get_post_types(['show_ui' => true], 'names') as $post_type) {
+            if (in_array($post_type, $this->settings['excluded_post_types'] ?? [], true)) continue;
+            add_filter("{$post_type}_row_actions", [$this, 'add_duplicate_link'], 10, 2);
+            add_filter("bulk_actions-edit-{$post_type}", [$this, 'add_bulk_duplicate_action']);
+            add_filter("handle_bulk_actions-edit-{$post_type}", [$this, 'handle_bulk_duplicate_action'], 10, 3);
+        }
+        add_action('admin_notices', [$this, 'bulk_duplicate_notice']);
+    }
+
+    public function add_bulk_duplicate_action(array $actions): array {
+        if (!empty($this->settings['enabled']) && current_user_can('edit_posts')) {
+            $actions['wu_duplicate_draft'] = '複製為草稿';
+        }
+        return $actions;
+    }
+
+    public function handle_bulk_duplicate_action(string $redirect, string $action, array $post_ids): string {
+        if ($action !== 'wu_duplicate_draft') return $redirect;
+        $count = 0;
+        foreach ($post_ids as $post_id) {
+            if (current_user_can('edit_post', $post_id) && $this->create_duplicate((int) $post_id, 'draft')) {
+                $count++;
             }
+        }
+        return add_query_arg('wu_duplicated', $count, $redirect);
+    }
+
+    public function bulk_duplicate_notice(): void {
+        if (!isset($_GET['wu_duplicated'])) return;
+        $count = absint($_GET['wu_duplicated']);
+        if ($count) {
+            echo '<div class="notice notice-success is-dismissible"><p>' . esc_html(sprintf('已建立 %d 個草稿副本。', $count)) . '</p></div>';
         }
     }
 
@@ -328,9 +361,10 @@ class WU_Content_Duplicator {
         if (!$post_id || !isset($_GET['_wpnonce']) || !wp_verify_nonce($_GET['_wpnonce'], 'wu_duplicate_post_' . $post_id)) {
             wp_die('安全驗證失敗');
         }
-        if (!current_user_can('edit_posts')) wp_die('權限不足');
+        if (!current_user_can('edit_post', $post_id)) wp_die('權限不足');
 
-        $new_id = $this->create_duplicate($post_id);
+        $status = isset($_GET['status']) ? sanitize_key(wp_unslash($_GET['status'])) : '';
+        $new_id = $this->create_duplicate($post_id, $status);
         if ($new_id) {
             wp_redirect(admin_url('post.php?action=edit&post=' . $new_id));
             exit;
@@ -342,9 +376,8 @@ class WU_Content_Duplicator {
         if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'wu_duplicate_post')) {
             wp_send_json_error('安全驗證失敗');
         }
-        if (!current_user_can('edit_posts')) wp_send_json_error('權限不足');
-
         $post_id = intval($_POST['post_id'] ?? 0);
+        if (!current_user_can('edit_post', $post_id)) wp_send_json_error('權限不足');
         $new_id  = $this->create_duplicate($post_id);
 
         if ($new_id) {
@@ -357,29 +390,36 @@ class WU_Content_Duplicator {
         wp_send_json_error('複製失敗');
     }
 
-    private function create_duplicate($post_id) {
+    private function create_duplicate($post_id, $status_override = '') {
         $post = get_post($post_id);
-        if (!$post) return false;
+        if (!$post || !current_user_can('edit_post', $post_id)) return false;
+        if (in_array($post->post_type, $this->settings['excluded_post_types'] ?? [], true)) return false;
+
+        $requested_status = in_array($status_override, ['draft', 'pending', 'private', 'same'], true)
+            ? $status_override
+            : ($this->settings['status_after_duplicate'] ?? 'draft');
+        $new_status = $requested_status === 'same' ? $post->post_status : $requested_status;
+        if (!get_post_status_object($new_status)) $new_status = 'draft';
 
         $new_slug = wp_unique_post_slug(
-            $post->post_name . $this->settings['slug_suffix'],
-            0, $post->post_status, $post->post_type, $post->post_parent
+            $post->post_name . ($this->settings['slug_suffix'] ?? '-copy'),
+            0, $new_status, $post->post_type, $post->post_parent
         );
 
-        $new_id = wp_insert_post([
+        $new_id = wp_insert_post(wp_slash([
             'post_title'     => $this->settings['title_prefix'] . $post->post_title,
             'post_name'      => $new_slug,
             'post_content'   => $post->post_content,
             'post_excerpt'   => $post->post_excerpt,
             'post_type'      => $post->post_type,
-            'post_status'    => $this->settings['status_after_duplicate'] === 'same' ? $post->post_status : $this->settings['status_after_duplicate'],
+            'post_status'    => $new_status,
             'post_author'    => get_current_user_id(),
             'post_parent'    => $post->post_parent,
             'menu_order'     => $post->menu_order,
             'comment_status' => $post->comment_status,
             'ping_status'    => $post->ping_status,
             'post_password'  => $post->post_password,
-        ]);
+        ]), true);
 
         if (is_wp_error($new_id)) return false;
 
