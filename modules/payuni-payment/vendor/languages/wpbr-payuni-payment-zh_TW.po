@@ -1,0 +1,951 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: PAYUNi Payment for WooCommerce\n"
+"Report-Msgid-Bugs-To: \n"
+"Last-Translator: \n"
+"Language-Team: 繁體中文\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2025-07-23 15:16+0800\n"
+"PO-Revision-Date: 2025-07-23 15:56+0800\n"
+"Language: zh_TW\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Poedit 3.6\n"
+"X-Poedit-Basepath: ..\n"
+"X-Poedit-Flags-xgettext: --add-comments=translators:\n"
+"X-Poedit-WPHeader: wpbr-payuni-payment.php\n"
+"X-Poedit-SourceCharset: UTF-8\n"
+"X-Poedit-KeywordsList: __;_e;_n:1,2;_x:1,2c;_ex:1,2c;_nx:4c,1,2;esc_attr__;esc_attr_e;esc_attr_x:1,2c;esc_html__;esc_html_e;esc_html_x:1,2c;_n_noop:1,2;_nx_noop:3c,1,2;__ngettext_noop:1,2\n"
+"X-Loco-Version: 2.6.11; wp-6.6.2\n"
+"X-Poedit-SearchPath-0: .\n"
+"X-Poedit-SearchPathExcluded-0: *.min.js\n"
+
+#: includes/settings/AfteeSetting.php:16
+#: includes/settings/ApplePaySetting.php:16
+#: includes/settings/AtmSetting.php:16
+#: includes/settings/CreditInstallmentSetting.php:16
+#: includes/settings/CreditSetting.php:16
+#: includes/settings/CreditUnionPay.php:16
+#: includes/settings/CvsSetting.php:16
+#: includes/settings/GooglePaySetting.php:16
+#: includes/settings/LinePaySetting.php:16
+#: includes/settings/SamsungPaySetting.php:16
+msgid "Enable/Disable"
+msgstr "啟用/關閉"
+
+#: includes/settings/AfteeSetting.php:18
+#: includes/settings/ApplePaySetting.php:18
+#: includes/settings/AtmSetting.php:18
+#: includes/settings/CreditInstallmentSetting.php:18
+#: includes/settings/CreditSetting.php:18
+#: includes/settings/CreditUnionPay.php:18
+#: includes/settings/CvsSetting.php:18
+#: includes/settings/GooglePaySetting.php:18
+#: includes/settings/LinePaySetting.php:18
+#: includes/settings/SamsungPaySetting.php:18
+#: src/Admin/OrderMetaBoxes.php:175
+msgid "Enable"
+msgstr "啟用"
+
+#: includes/settings/AfteeSetting.php:22
+#: includes/settings/ApplePaySetting.php:22
+#: includes/settings/AtmSetting.php:22
+#: includes/settings/CreditInstallmentSetting.php:22
+#: includes/settings/CreditSetting.php:22
+#: includes/settings/CreditUnionPay.php:22
+#: includes/settings/CvsSetting.php:22
+#: includes/settings/GooglePaySetting.php:22
+#: includes/settings/LinePaySetting.php:22
+#: includes/settings/SamsungPaySetting.php:22
+msgid "Title"
+msgstr "付款方式名稱"
+
+#: includes/settings/AfteeSetting.php:24
+#: includes/settings/ApplePaySetting.php:24
+#: includes/settings/AtmSetting.php:24
+#: includes/settings/CreditInstallmentSetting.php:24
+#: includes/settings/CreditSetting.php:24
+#: includes/settings/CreditUnionPay.php:24
+#: includes/settings/CvsSetting.php:24
+#: includes/settings/GooglePaySetting.php:24
+#: includes/settings/LinePaySetting.php:24
+#: includes/settings/SamsungPaySetting.php:24
+msgid "This controls the title which the user sees during checkout."
+msgstr "控制使用者在結帳時所看到的標題."
+
+#: includes/settings/AfteeSetting.php:25
+#: src/Gateways/Aftee.php:36
+#: src/Gateways/Aftee.php:37
+msgid "PAYUNi AFTEE Payment"
+msgstr "PAYUNi AFTEE 付款"
+
+#: includes/settings/AfteeSetting.php:29
+#: includes/settings/ApplePaySetting.php:29
+#: includes/settings/AtmSetting.php:29
+#: includes/settings/CreditInstallmentSetting.php:29
+#: includes/settings/CreditSetting.php:29
+#: includes/settings/CreditUnionPay.php:29
+#: includes/settings/CvsSetting.php:29
+#: includes/settings/GooglePaySetting.php:29
+#: includes/settings/LinePaySetting.php:29
+#: includes/settings/SamsungPaySetting.php:29
+msgid "Description"
+msgstr "說明"
+
+#: includes/settings/AfteeSetting.php:31
+#: includes/settings/ApplePaySetting.php:31
+#: includes/settings/AtmSetting.php:31
+#: includes/settings/CreditInstallmentSetting.php:31
+#: includes/settings/CreditSetting.php:31
+#: includes/settings/CreditUnionPay.php:31
+#: includes/settings/CvsSetting.php:31
+#: includes/settings/GooglePaySetting.php:31
+#: includes/settings/LinePaySetting.php:31
+#: includes/settings/SamsungPaySetting.php:31
+msgid "This controls the description which the user sees during checkout."
+msgstr "這是使用者結帳時看到的付款方式說明。"
+
+#: includes/settings/AfteeSetting.php:35
+#: includes/settings/CreditInstallmentSetting.php:35
+msgid "Minimum Amount"
+msgstr "最低付款金額"
+
+#: includes/settings/AfteeSetting.php:37
+#: includes/settings/CreditInstallmentSetting.php:37
+msgid "Minimum amount to use this payment gateway."
+msgstr "使用分期付款的最低訂單金額。"
+
+#: includes/settings/AfteeSetting.php:40
+#: includes/settings/ApplePaySetting.php:35
+#: includes/settings/AtmSetting.php:47
+#: includes/settings/CreditInstallmentSetting.php:40
+#: includes/settings/CreditSetting.php:35
+#: includes/settings/CreditUnionPay.php:35
+#: includes/settings/CvsSetting.php:47
+#: includes/settings/GooglePaySetting.php:35
+#: includes/settings/LinePaySetting.php:35
+#: includes/settings/SamsungPaySetting.php:35
+msgid "Incomplete Payment Message"
+msgstr "付款未完成提示訊息"
+
+#: includes/settings/AfteeSetting.php:42
+#: includes/settings/ApplePaySetting.php:37
+#: includes/settings/AtmSetting.php:49
+#: includes/settings/CreditInstallmentSetting.php:42
+#: includes/settings/CreditSetting.php:37
+#: includes/settings/CreditUnionPay.php:37
+#: includes/settings/CvsSetting.php:49
+#: includes/settings/GooglePaySetting.php:37
+#: includes/settings/LinePaySetting.php:37
+#: includes/settings/SamsungPaySetting.php:37
+msgid "This controls the message displayed on thank you page when the payment is incomplated."
+msgstr "當付款未完成或付款失敗時在訂單感謝頁面上顯示的訊息。"
+
+#: includes/settings/ApplePaySetting.php:25
+#: src/Gateways/ApplePay.php:37
+#: src/Gateways/ApplePay.php:38
+msgid "PAYUNi Apple Pay Payment"
+msgstr "PAYUNi Apple Pay"
+
+#: includes/settings/AtmSetting.php:25
+#: src/Gateways/Atm.php:36
+#: src/Gateways/Atm.php:37
+msgid "PAYUNi ATM Payment"
+msgstr "PAYUNi 虛擬帳號 (ATM) 付款"
+
+#: includes/settings/AtmSetting.php:35
+#: includes/settings/CvsSetting.php:35
+#: src/Gateways/Atm.php:87
+#: src/Gateways/Cvs.php:88
+msgid "Expire Date"
+msgstr "付款到期日"
+
+#: includes/settings/AtmSetting.php:37
+#: includes/settings/CvsSetting.php:37
+msgid "This controls the expire date of the payment."
+msgstr "付款到期天數(對小值為0，最大值為7)"
+
+#: includes/settings/CreditInstallmentSetting.php:25
+msgid "PAYUNi Installment Payment"
+msgstr "PAYUNi Installment Payment"
+
+#: includes/settings/CreditSetting.php:25
+#: src/Gateways/Credit.php:30
+#: src/Gateways/Credit.php:31
+msgid "PAYUNi Credit Card Payment"
+msgstr "PAYUNi 信用卡付款"
+
+#: includes/settings/CreditUnionPay.php:25
+#: src/Gateways/CreditUnionPay.php:30
+#: src/Gateways/CreditUnionPay.php:31
+msgid "PAYUNi UnionPay"
+msgstr "PAYUNi 銀聯卡"
+
+#: includes/settings/CvsSetting.php:25
+#: src/Gateways/Cvs.php:36
+#: src/Gateways/Cvs.php:37
+msgid "PAYUNi CVS Payment"
+msgstr "PAYUNi 超商代碼付款"
+
+#: includes/settings/GooglePaySetting.php:25
+#: src/Gateways/GooglePay.php:37
+#: src/Gateways/GooglePay.php:38
+msgid "PAYUNi Google Pay Payment"
+msgstr "PAYUNi Google Pay"
+
+#: includes/settings/LinePaySetting.php:25
+msgid "PAYUNi LINE Pay Payment"
+msgstr "PAYUNi LINE Pay"
+
+#: includes/settings/SamsungPaySetting.php:25
+msgid "PAYUNi  Samsung Pay Payment"
+msgstr "PAYUNi Samsung Pay"
+
+#: src/Admin/OrderList.php:38
+msgid "Invoice No"
+msgstr "發票編號"
+
+#: src/Admin/OrderList.php:50
+msgid "Unissue"
+msgstr "未開立"
+
+#: src/Admin/OrderMetaBoxes.php:66
+#: src/Gateways/GatewayBase.php:123
+msgid "PAYUNi Payment Detail"
+msgstr "PAYUNi 付款資訊"
+
+#: src/Admin/OrderMetaBoxes.php:98
+msgid "Order No"
+msgstr "訂單編號"
+
+#: src/Admin/OrderMetaBoxes.php:123
+#: src/Gateways/GatewayBase.php:161
+msgid "E-Invoice No"
+msgstr "發票編號"
+
+#: src/Admin/OrderMetaBoxes.php:124
+#: src/Gateways/GatewayBase.php:162
+msgid "E-Invoice Amount"
+msgstr "發票金額"
+
+#: src/Admin/OrderMetaBoxes.php:125
+#: src/Gateways/GatewayBase.php:163
+msgid "E-Invoice Time"
+msgstr "開立時間"
+
+#: src/Admin/OrderMetaBoxes.php:129
+#: src/Gateways/GatewayBase.php:167
+msgctxt "Issue Type"
+msgid "Issue"
+msgstr "開立發票"
+
+#: src/Admin/OrderMetaBoxes.php:131
+#: src/Gateways/GatewayBase.php:169
+msgctxt "Issue Type"
+msgid "Void"
+msgstr "作廢發票"
+
+#: src/Admin/OrderMetaBoxes.php:133
+#: src/Gateways/GatewayBase.php:171
+msgctxt "Issue Type"
+msgid "Unknown Issue Type"
+msgstr "未知的發票類別"
+
+#: src/Admin/OrderMetaBoxes.php:135
+#: src/Gateways/GatewayBase.php:173
+msgid "E-Invoice Type"
+msgstr "發票類別"
+
+#: src/Admin/OrderMetaBoxes.php:139
+#: src/Gateways/GatewayBase.php:177
+msgid "Mobile Code"
+msgstr "手機條碼"
+
+#: src/Admin/OrderMetaBoxes.php:141
+#: src/Gateways/GatewayBase.php:179
+msgid "CDC Code"
+msgstr "自然人憑證"
+
+#: src/Admin/OrderMetaBoxes.php:143
+#: src/Gateways/GatewayBase.php:181
+msgid "Amego Member"
+msgstr "光貿會員載具"
+
+#: src/Admin/OrderMetaBoxes.php:145
+#: src/Gateways/GatewayBase.php:183
+msgid "Donation"
+msgstr "捐贈"
+
+#: src/Admin/OrderMetaBoxes.php:147
+#: src/Gateways/GatewayBase.php:185
+msgid "Company"
+msgstr "公司發票"
+
+#: src/Admin/OrderMetaBoxes.php:149
+#: src/Gateways/GatewayBase.php:187
+msgid "Unknown Issue Info"
+msgstr "未知的開立方式"
+
+#: src/Admin/OrderMetaBoxes.php:151
+#: src/Gateways/GatewayBase.php:189
+msgid "Issue Info"
+msgstr "開立方式"
+
+#: src/Admin/OrderMetaBoxes.php:155
+#: src/Gateways/GatewayBase.php:193
+msgid "Issued"
+msgstr "已開立"
+
+#: src/Admin/OrderMetaBoxes.php:157
+#: src/Gateways/GatewayBase.php:195
+msgid "Failed"
+msgstr "失敗"
+
+#: src/Admin/OrderMetaBoxes.php:159
+#: src/Gateways/GatewayBase.php:197
+msgid "Voided"
+msgstr "已作廢"
+
+#: src/Admin/OrderMetaBoxes.php:161
+#: src/Gateways/GatewayBase.php:199
+msgid "Unknown Issue Status"
+msgstr "未知的開立狀態"
+
+#: src/Admin/OrderMetaBoxes.php:163
+#: src/Gateways/GatewayBase.php:201
+msgid "Issue Status"
+msgstr "開立狀態"
+
+#: src/Api/PaymentRequest.php:92
+msgid "Redirecting..."
+msgstr "重新導向中..."
+
+#. translators:  %s is the order id
+#: src/Api/PaymentRequest.php:128
+#, php-format
+msgid "Unable to find order #%s"
+msgstr "找不到訂單編號 #%s"
+
+#. translators:  %s is the order id
+#: src/Api/PaymentRequest.php:143
+#, php-format
+msgid "The refund amount for order #%s should be the same as the order total for installment payment."
+msgstr "訂單#%s的退款金額應與分期付款的訂單總額相同。"
+
+#. translators:  %s is the order id
+#: src/Api/PaymentRequest.php:159
+#, php-format
+msgid "Unable to find transaction id for order #%s"
+msgstr "找不到訂單交易編號 #%s"
+
+#. translators:  %s is the order id
+#: src/Api/PaymentRequest.php:172
+msgid "Unable to Query Order status before refund"
+msgstr "無法於退款前執行訂單交易狀態查詢"
+
+#: src/Api/PaymentRequest.php:198
+#, php-format
+msgid "CloseStatus is not refundable. CloseStatus: %s"
+msgstr "請款狀態 (CloseStatrus) 非可退款狀態，當日付款訂單請於隔日再執行退款。 請款狀態：%s"
+
+#. translators:  %s is the TradeStatus of the order
+#: src/Api/PaymentRequest.php:202
+#, php-format
+msgid "Unable to Refund this Order. TradeStatus: %1$s, CloseStatus: %2$s"
+msgstr "訂單退款失敗。交易狀態：%1$s，請款狀態：%2$s"
+
+#. translators:  %s is the TradeStatus of the order
+#: src/Api/PaymentRequest.php:215
+#, php-format
+msgid "Unable to Refund this Order. TradeStatus:%s"
+msgstr "退款失敗。交易狀態：%s"
+
+#. translators: %1$s is the status, %2$s is the message, %3$s is the refund amount
+#: src/Api/PaymentRequest.php:253
+#, php-format
+msgid "PAYUNi payment refund success. Status: %1$s, Message: %2$s, Refund Amount: %3$s"
+msgstr "退款成功。狀態：%1$s，訊息：%2$s，退款金額：%3$s"
+
+#: src/Api/PaymentRequest.php:325
+msgid "PAYUNi query returned SUCCESS but no order result found."
+msgstr "PAYUNi 查詢返回 SUCCESS，但沒有訂單結果。"
+
+#. translators:  %s is the decrypted result
+#: src/Api/PaymentRequest.php:366
+#, php-format
+msgid "PAYUNi query succeed. Query result: %s"
+msgstr "PAYUNi 查詢成功. 查詢結果: %s"
+
+#. translators:  %s is the decrypted result
+#: src/Api/PaymentRequest.php:373
+#, php-format
+msgid "PAYUNi query failed. Query result: %s"
+msgstr "PAYUNi 查詢失敗。 查詢結果: %s"
+
+#: src/Api/PaymentResponse.php:71
+msgid "PAYUNi Notify"
+msgstr "PAYUNi Notify"
+
+#: src/Api/PaymentResponse.php:72
+#: src/Api/PaymentResponse.php:133
+msgid "Status code:"
+msgstr "狀態代碼:"
+
+#: src/Api/PaymentResponse.php:73
+#: src/Api/PaymentResponse.php:134
+msgid "Transaction message:"
+msgstr "狀態訊息:"
+
+#: src/Api/PaymentResponse.php:74
+#: src/Api/PaymentResponse.php:135
+msgid "MerTradeNo:"
+msgstr "商店訂單編號:"
+
+#: src/Api/PaymentResponse.php:75
+#: src/Api/PaymentResponse.php:136
+msgid "UNi number:"
+msgstr "UNi 序號:"
+
+#: src/Api/PaymentResponse.php:76
+#: src/Api/PaymentResponse.php:137
+msgid "Payment type:"
+msgstr "付款方式:"
+
+#: src/Api/PaymentResponse.php:132
+msgid "PAYUNi Return"
+msgstr "PAYUNi Return"
+
+#: src/Gateways/Aftee.php:87
+msgctxt "AFTEE"
+msgid "Pay No"
+msgstr "交易 ID"
+
+#: src/Gateways/Aftee.php:88
+#: src/Gateways/Atm.php:88
+#: src/Gateways/Cvs.php:89
+msgid "Pay Time"
+msgstr "付款時間"
+
+#: src/Gateways/ApplePay.php:108
+#: src/Gateways/Credit.php:101
+#: src/Gateways/CreditUnionPay.php:102
+#: src/Gateways/GooglePay.php:108
+#: src/Gateways/SamsungPay.php:108
+#: src/Gateways/TraitCreditInstallment.php:136
+msgid "Auth Type"
+msgstr "授權類型"
+
+#: src/Gateways/ApplePay.php:109
+#: src/Gateways/Credit.php:102
+#: src/Gateways/CreditUnionPay.php:103
+#: src/Gateways/GooglePay.php:109
+#: src/Gateways/SamsungPay.php:109
+#: src/Gateways/TraitCreditInstallment.php:141
+msgid "Auth Date"
+msgstr "授權日期"
+
+#: src/Gateways/ApplePay.php:110
+#: src/Gateways/Credit.php:103
+#: src/Gateways/CreditUnionPay.php:104
+#: src/Gateways/GooglePay.php:110
+#: src/Gateways/SamsungPay.php:110
+#: src/Gateways/TraitCreditInstallment.php:142
+msgid "Auth Time"
+msgstr "授權時間"
+
+#: src/Gateways/Atm.php:85
+msgctxt "ATM"
+msgid "Pay No"
+msgstr "付款帳號"
+
+#: src/Gateways/Atm.php:86
+msgid "Bank Code"
+msgstr "銀行代碼"
+
+#: src/Gateways/Atm.php:89
+msgid "Account 5 No"
+msgstr "帳號後5碼"
+
+#: src/Gateways/CreditInstallment12.php:29
+#: src/Gateways/CreditInstallment12.php:30
+msgid "PAYUNi Installment Payment (12 Installments)"
+msgstr "PAYUNi 分期付款 (12期)"
+
+#: src/Gateways/CreditInstallment18.php:29
+#: src/Gateways/CreditInstallment18.php:30
+msgid "PAYUNi Installment Payment (18 Installments)"
+msgstr "PAYUNi 分期付款 (18期)"
+
+#: src/Gateways/CreditInstallment24.php:29
+#: src/Gateways/CreditInstallment24.php:30
+msgid "PAYUNi Installment Payment (24 Installments)"
+msgstr "PAYUNi 分期付款 (24期)"
+
+#: src/Gateways/CreditInstallment3.php:29
+#: src/Gateways/CreditInstallment3.php:30
+msgid "PAYUNi Installment Payment (3 Installments)"
+msgstr "PAYUNi 分期付款 (3期)"
+
+#: src/Gateways/CreditInstallment30.php:29
+#: src/Gateways/CreditInstallment30.php:30
+msgid "PAYUNi Installment Payment (30 Installments)"
+msgstr "PAYUNi 分期付款 (30期)"
+
+#: src/Gateways/CreditInstallment6.php:29
+#: src/Gateways/CreditInstallment6.php:30
+msgid "PAYUNi Installment Payment (6 Installments)"
+msgstr "PAYUNi 分期付款 (6期)"
+
+#: src/Gateways/CreditInstallment9.php:29
+#: src/Gateways/CreditInstallment9.php:30
+msgid "PAYUNi Installment Payment (9 Installments)"
+msgstr "PAYUNi 分期付款 (9期)"
+
+#: src/Gateways/Cvs.php:86
+msgctxt "CVS"
+msgid "Pay No"
+msgstr "超商代碼"
+
+#: src/Gateways/Cvs.php:87
+msgid "CVS Store"
+msgstr "付款超商"
+
+#: src/Gateways/GatewayBase.php:93
+msgid "Proceed to PAYUNi"
+msgstr "前往統一金流付款"
+
+#: src/Gateways/GatewayBase.php:127
+msgid "If the payment detail is not displayed. Please wait for a moment and reload the page."
+msgstr "如果未顯示付款詳細資訊。請稍等片刻，再重新載入頁面。"
+
+#: src/Gateways/GatewayBase.php:159
+msgid "E-Invoice Detail"
+msgstr "電子發票資訊"
+
+#. translators: 1: Payment method title 2: PAYUNi URL
+#: src/Gateways/GatewayBase.php:216
+#, php-format
+msgid "%1$s is a payment gateway provided by %2$s"
+msgstr "%1$s 是由 %2$s 所提供的付款方式"
+
+#: src/Gateways/GatewayBase.php:221
+#: src/Settings/SettingsTab.php:31
+msgid "PAYUNi"
+msgstr "PAYUNi"
+
+#: src/Gateways/GatewayBase.php:285
+msgid "We have received your order, but the payment is incompleted."
+msgstr "我們已經收到您的訂單，但是付款尚未完成，請儘速付款，若有問題請聯繫商店管理員。"
+
+#: src/Gateways/LinePay.php:37
+#: src/Gateways/LinePay.php:38
+msgid "PAYUNi LINE Pay"
+msgstr "PAYUNi LINE Pay"
+
+#: src/Gateways/LinePay.php:107
+msgctxt "LINE Pay"
+msgid "Pay No"
+msgstr "LINE Pay 交易編號"
+
+#: src/Gateways/SamsungPay.php:37
+#: src/Gateways/SamsungPay.php:38
+msgid "PAYUNi Samsung Pay"
+msgstr "PAYUNi Samsung Pay"
+
+#. translators: %s: number of installments
+#: src/Gateways/TraitCreditInstallment.php:72
+#, php-format
+msgid "PAYUNi Installment Payment (%s Installments)"
+msgstr "PAYUNi 分期付款 (%s期)"
+
+#: src/Gateways/TraitCreditInstallment.php:137
+msgid "Card Last 4 No"
+msgstr "信用卡後4碼"
+
+#: src/Gateways/TraitCreditInstallment.php:138
+msgid "Installments"
+msgstr "分期付款期數"
+
+#: src/Gateways/TraitCreditInstallment.php:139
+msgid "First Amount"
+msgstr "第一期金額"
+
+#: src/Gateways/TraitCreditInstallment.php:140
+msgid "Each Amount"
+msgstr "每期"
+
+#: src/PayuniPayment.php:186
+msgid "Trade No"
+msgstr "UNi序號"
+
+#: src/PayuniPayment.php:187
+msgid "Trade Amount"
+msgstr "訂單金額"
+
+#: src/PayuniPayment.php:188
+msgid "Trade Status"
+msgstr "訂單狀態"
+
+#: src/PayuniPayment.php:189
+msgid "Message"
+msgstr "訊息"
+
+#: src/PayuniPayment.php:216
+msgid "General Settings"
+msgstr "一般設定"
+
+#: src/PayuniPayment.php:217
+#: src/Settings/SettingsTab.php:53
+#: src/Settings/SettingsTab.php:73
+msgid "Payment Settings"
+msgstr "付款方式設定"
+
+#: src/PayuniPayment.php:269
+#: src/PayuniPayment.php:625
+msgid "Unsecure AJAX call"
+msgstr "不安全的 AJAX 呼叫"
+
+#: src/PayuniPayment.php:280
+#: src/PayuniPayment.php:646
+msgid "No such order id"
+msgstr "沒有這個訂單編號"
+
+#: src/PayuniPayment.php:292
+msgid "PAYUNi Query Successfully"
+msgstr "PAYUNi 查詢成功"
+
+#: src/PayuniPayment.php:299
+msgid "PAYUNi query failed. Please check the order notes for details."
+msgstr "PAYUNi 查詢失敗。請查看訂單備註了解詳情。"
+
+#: src/PayuniPayment.php:305
+msgid "PAYUNi Query Failed!"
+msgstr "PAYUNi 查詢失敗！"
+
+#: src/Settings/SettingsTab.php:78
+msgid "Debug Log"
+msgstr "除錯紀錄"
+
+#: src/Settings/SettingsTab.php:81
+msgid "Log PAYUNi payment message"
+msgstr "記錄 PAYUNi 交易資訊"
+
+#. translators:  %s is the WooCommerce log page url
+#: src/Settings/SettingsTab.php:83
+#, php-format
+msgid "You Can find logs with source name <strong>wpbr-payuni-payment</strong> at <strong>WooCommerce -> Status -> Logs</strong>. %s"
+msgstr "你可以在 <strong>WooCommerce -> 狀態 -> 日誌紀錄</strong> 中找到來源名稱為 <strong>wpbr-payuni-payment</strong> 的日誌紀錄。 %s"
+
+#: src/Settings/SettingsTab.php:87
+msgid "Number of Payments"
+msgstr "欲啟用的分期付款期數"
+
+#. translators:  %s is the WooCommerce payment setting page url
+#: src/Settings/SettingsTab.php:101
+#, php-format
+msgid "The number of payments display on Payments section, after setting you still need to eanble each payment in Payments section. %s"
+msgstr "顯示在後台付款方式設定中的分期付款期數，設定完成仍需至付款方式設定中個別啟用指定期數的付款方式。%s"
+
+#: src/Settings/SettingsTab.php:105
+msgid "Language"
+msgstr "語系"
+
+#: src/Settings/SettingsTab.php:109
+msgid "Traditional Chinese"
+msgstr "繁體中文"
+
+#: src/Settings/SettingsTab.php:110
+msgid "English"
+msgstr "英文"
+
+#: src/Settings/SettingsTab.php:113
+msgid "The language of the PAYUNi checkout page."
+msgstr "統一金流支付頁的語系設定。"
+
+#: src/Settings/SettingsTab.php:117
+msgid "E-Invoice"
+msgstr "電子發票"
+
+#: src/Settings/SettingsTab.php:120
+msgid "Enable E-Invoice"
+msgstr "啟用電子發票功能"
+
+#: src/Settings/SettingsTab.php:121
+msgid "You need to register Amego e-invoice and enable e-invoice feature at PAYUNi website."
+msgstr "需於統一金流後台註冊光貿電子發票並啟用電子發票功能。"
+
+#: src/Settings/SettingsTab.php:149
+msgid "API Settings"
+msgstr "API 設定"
+
+#: src/Settings/SettingsTab.php:151
+msgid "Enter your PAYUNi API credentials"
+msgstr "請輸入 PAYUNi 串接資料"
+
+#: src/Settings/SettingsTab.php:155
+msgid "Test Mode"
+msgstr "測試模式"
+
+#: src/Settings/SettingsTab.php:158
+msgid "When enabled, you need to use the test-only data below."
+msgstr "當啟用測試模式時，請填入測試環境的串接資料。"
+
+#: src/Settings/SettingsTab.php:162
+msgid "Test MerchantID"
+msgstr "測試商店代號 (MerID)"
+
+#: src/Settings/SettingsTab.php:164
+msgid "This is the test MerchantID when you apply PAYUNi API"
+msgstr "PAYUNi 測試環境的商店代號"
+
+#: src/Settings/SettingsTab.php:169
+msgid "Test Hash Key"
+msgstr "測試 Hash Key"
+
+#: src/Settings/SettingsTab.php:171
+msgid "This is the test Hash Key when you apply PAYUNi API"
+msgstr "PAYUNi 測試環境的 Hash Key"
+
+#: src/Settings/SettingsTab.php:176
+msgid "Test Hash IV"
+msgstr "測試 Hash IV"
+
+#: src/Settings/SettingsTab.php:178
+msgid "This is the test Hash IV when you apply PAYUNi API"
+msgstr "PAYUNi 測試環境的 Hash IV"
+
+#: src/Settings/SettingsTab.php:183
+msgid "MerchantID"
+msgstr "商店代號 (MerID)"
+
+#: src/Settings/SettingsTab.php:185
+msgid "This is the MerchantID when you apply PAYUNi API"
+msgstr "這是您申請 PAYUNi 時的商店代號"
+
+#: src/Settings/SettingsTab.php:190
+msgid "Hash Key"
+msgstr "Hash Key"
+
+#: src/Settings/SettingsTab.php:192
+msgid "This is the Hash Key when you apply PAYUNi API"
+msgstr "這是PAYUNi 提供的商店專屬 Hash Key"
+
+#: src/Settings/SettingsTab.php:197
+msgid "Hash IV"
+msgstr "Hash IV"
+
+#: src/Settings/SettingsTab.php:199
+msgid "This is the Hash IV when you apply PAYUNi API"
+msgstr "這是 PAYUNi 提供的商店專屬 HashIV"
+
+#: src/Settings/SettingsTab.php:276
+msgid "View logs"
+msgstr "檢視除錯紀錄"
+
+#: src/Settings/SettingsTab.php:283
+msgid "Go to Payment Settings"
+msgstr "設定付款方式"
+
+#: src/Utils/BankType.php:14
+msgid "Taiwan Bank"
+msgstr "臺灣銀行"
+
+#: src/Utils/BankType.php:16
+msgid "CTBC Bank"
+msgstr "中國信託"
+
+#: src/Utils/BankType.php:18
+msgid "Cathay Bank"
+msgstr "國泰世華"
+
+#: src/Utils/BankType.php:20
+msgid "Unknown Bank"
+msgstr "未知的銀行"
+
+#: src/Utils/PayType.php:22
+msgid "Credit Card"
+msgstr "信用卡"
+
+#: src/Utils/PayType.php:24
+msgid "ATM"
+msgstr "ATM 轉帳"
+
+#: src/Utils/PayType.php:26
+msgid "CVS Code"
+msgstr "超商代碼"
+
+#: src/Utils/PayType.php:28
+msgid "C2C"
+msgstr "超商取貨付款"
+
+#: src/Utils/PayType.php:30
+msgid "ICash"
+msgstr "ICash"
+
+#: src/Utils/PayType.php:32
+msgid "AFTEE"
+msgstr "AFTEE"
+
+#: src/Utils/PayType.php:34
+msgid "LINE Pay"
+msgstr "LINE Pay"
+
+#: src/Utils/PayType.php:36
+msgid "Delivery"
+msgstr "宅配到付"
+
+#: src/Utils/PayType.php:38
+msgid "Unknown Payment Type"
+msgstr "未知的付款方式"
+
+#: src/Utils/TradeStatus.php:36
+msgctxt "Trade Status"
+msgid "Payment Number Taken"
+msgstr "取號成功"
+
+#: src/Utils/TradeStatus.php:38
+msgctxt "Trade Status"
+msgid "Credit Valid"
+msgstr "信用審查成功"
+
+#: src/Utils/TradeStatus.php:40
+msgctxt "Trade Status"
+msgid "Credit Valid or Get Number Success"
+msgstr "信用審查成功或取號成功"
+
+#: src/Utils/TradeStatus.php:43
+msgctxt "Trade Status"
+msgid "Paid"
+msgstr "已付款"
+
+#: src/Utils/TradeStatus.php:45
+msgctxt "Trade Status"
+msgid "Payment Fail"
+msgstr "付款失敗"
+
+#: src/Utils/TradeStatus.php:47
+msgctxt "Trade Status"
+msgid "Payment Cancel"
+msgstr "付款取消"
+
+#: src/Utils/TradeStatus.php:49
+msgctxt "Trade Status"
+msgid "Transaction Expired"
+msgstr "交易過期"
+
+#: src/Utils/TradeStatus.php:51
+msgctxt "Trade Status"
+msgid "To be Confirmed"
+msgstr "待確認"
+
+#: src/Utils/TradeStatus.php:53
+msgctxt "Trade Status"
+msgid "Unpaid"
+msgstr "未付款"
+
+#: src/Utils/TradeStatus.php:55
+msgctxt "Trade Status"
+msgid "Unknown Trade Status"
+msgstr "未知的交易狀態"
+
+#: wpbr-payuni-payment.php:42
+msgid "PAYUNi Payment needs WooCommerce, please intall and activate WooCommerce first!"
+msgstr "PAYUNi 統一金流需要 WooCommerce 才能正常使用，請先安裝 WooCommerce!"
+
+#. Plugin Name of the plugin
+#: wpbr-payuni-payment.php
+msgid "Pay with PAYUNi"
+msgstr "Pay with PAYUNi"
+
+#. Plugin URI of the plugin
+#: wpbr-payuni-payment.php
+msgid "https://wpbrewer.com/product/wpbr-payuni-payment"
+msgstr "https://wpbrewer.com/product/wpbr-payuni-payment"
+
+#. Description of the plugin
+#: wpbr-payuni-payment.php
+msgid "Provides PAYUNi UPP(UNiPaypage) Payment for WooCommerce."
+msgstr "使用PAYUNi 統一金流提供的整合式收款頁 (UNiPaypage/UPP) 為你的 WooCommerce 商店提供多元的付款方式。"
+
+#. Author of the plugin
+#: wpbr-payuni-payment.php
+msgid "WPBrewer"
+msgstr "WPBrewer"
+
+#. Author URI of the plugin
+#: wpbr-payuni-payment.php
+msgid "https://wpbrewer.com/"
+msgstr "https://wpbrewer.com/"
+
+#: src/Admin/OrderMetaBoxes.php:169
+msgid "Auto Cancel"
+msgstr "自動取消"
+
+#: src/PayuniPayment.php:540
+#: src/PayuniPayment.php:609
+msgid "Auto-cancellation schedule removed."
+msgstr "已移除自動取消排程。"
+
+#: src/PayuniPayment.php:580
+#: src/PayuniPayment.php:705
+msgid "Scheduled auto-cancellation at %s if payment is not completed."
+msgstr "自動取消排程已建立於 %s，若屆時尚未付款將自動取消訂單。"
+
+#: src/PayuniPayment.php:634
+msgid "Auto-cancel feature is not enabled."
+msgstr "自動取消功能未啟用。"
+
+#: src/PayuniPayment.php:656
+msgid "This order does not support auto-cancellation."
+msgstr "此訂單不支援自動取消。"
+
+#: src/PayuniPayment.php:673
+msgid "No expire date found for this order."
+msgstr "此訂單沒有付款到期日。"
+
+#: src/PayuniPayment.php:688
+msgid "Failed to parse expire date: %s"
+msgstr "無法解析付款到期日：%s"
+
+#: src/PayuniPayment.php:711
+msgid "Auto-cancellation scheduled at %s."
+msgstr "自動取消排程已建立於 %s。"
+
+#: src/Settings/SettingsTab.php:125
+msgid "Auto Cancel Expired ATM/CVS Orders"
+msgstr "自動取消逾期的ATM/超商代碼訂單"
+
+#: src/Settings/SettingsTab.php:128
+msgid "Enable auto-cancellation for expired ATM/CVS orders"
+msgstr "啟用自動取消"
+
+#: src/Settings/SettingsTab.php:129
+msgid "Automatically cancel ATM and CVS orders when the payment deadline has passed."
+msgstr "當超過付款期限，系統會自動取消 ATM 和超商代碼訂單。"
+
+#: src/Settings/SettingsTab.php:133
+msgid "Auto Cancel Delay (minutes)"
+msgstr "自動取消延遲時間（分鐘）"
+
+#: src/Settings/SettingsTab.php:136
+msgid "Delay in minutes after the payment deadline before auto-cancelling the order."
+msgstr "超過付款期限後，延遲多少分鐘再自動取消訂單。"
+
+#: src/PayuniPayment.php:803
+msgid "Auto-cancel aborted: failed to query PAYUNi transaction status. Please check manually."
+msgstr "自動取消中止：無法查詢 PAYUNi 交易狀態，請至統一激流後台確認交易狀態。"
+
+#. translators: %s is the PAYUNi trade status code
+#: src/PayuniPayment.php:814
+msgid "Auto-cancel aborted: PAYUNi query confirmed payment received. Order marked as paid. (TradeStatus: %s)"
+msgstr "自動取消中止：PAYUNi 查詢確認交易已付款，訂單已標記為已付款。（TradeStatus: %s）"
+
+#: src/PayuniPayment.php:819
+msgid "Auto-cancel aborted: PAYUNi query error: %s. Please check manually."
+msgstr "自動取消中止：PAYUNi 查詢錯誤：%s，請自行至統一金流後台確認交易狀態。"
+
+#. translators: %s is the PAYUNi trade status code
+#: src/PayuniPayment.php:825
+msgid "Order auto-cancelled: payment has expired. (TradeStatus: %s)"
+msgstr "訂單已自動取消：付款已逾期。（TradeStatus: %s）"

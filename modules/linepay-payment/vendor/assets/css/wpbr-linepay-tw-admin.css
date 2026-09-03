@@ -1,0 +1,7 @@
+#woocommerce-linepay-meta-boxes.postbox .inside {
+	padding: 0 5px 5px;
+}
+
+#woocommerce-linepay-meta-boxes.postbox .inside th {
+	text-align: left;
+}

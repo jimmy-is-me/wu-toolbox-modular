@@ -1,0 +1,41 @@
+#payuni-order-meta-boxes .inside {
+	padding: 0px;
+	margin: 0px;
+}
+
+
+#payuni-order-meta-boxes .inside table {
+	width: 100%;
+}
+
+
+#payuni-order-meta-boxes th, #payuni-order-meta-boxes td {
+	text-align: left;
+	padding: 3px;
+}
+
+#payuni-order-meta-boxes tr:nth-child(odd):not(#payuni-action) {
+	background-color: #ccc;
+}
+
+#payuni-order-meta-boxes #payuni-action th, #payuni-order-meta-boxes #payuni-action td {
+	border-top: solid 1px #ccc;
+	padding: 8px 3px;
+}
+
+#payuni-order-meta-boxes tr td:first-child {
+	width: 80px;
+}
+
+#payuni-order-meta-boxes #payuni-action button {
+	margin: 3px 2px;
+}
+
+.payuni-trade-status-1 {
+    background: #28a745;
+    color: #fff;
+    padding: 3px;
+    border-radius: 5px;
+    vertical-align: middle;
+    font-size: 12px;
+}

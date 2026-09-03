@@ -48,6 +48,13 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.6.7</h4>
+            <ul>
+                <li>新增「電商工具」分類，以及 PAYUNi 付款工具與 LINE Pay 付款工具兩個獨立模組卡片。</li>
+                <li>PAYUNi 模組支援整合式支付頁、多種付款方式、退款、訂單通知與 HPOS。</li>
+                <li>LINE Pay 模組支援台灣 LINE Pay、部分退款、HPOS 與 WooCommerce 區塊結帳。</li>
+                <li>付款模組加入 WooCommerce／PHP 版本、OpenSSL 與獨立外掛重複載入防護。</li>
+            </ul>
             <h4>1.6.6</h4>
             <ul>
                 <li>「經典功能」新增進階編輯器工具，可擴充 TinyMCE 字型、字級、色彩、縮排、上下標及格式工具。</li>

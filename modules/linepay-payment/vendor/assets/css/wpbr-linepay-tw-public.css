@@ -1,0 +1,9 @@
+.linepay-order-onhold {
+	color: #842029;
+	background: #f8d7da;
+	border: solid 1px #f5c2c7;
+	padding: 15px;
+	border-radius: 10px;
+	margin: 10px 0;
+	display: block;
+}

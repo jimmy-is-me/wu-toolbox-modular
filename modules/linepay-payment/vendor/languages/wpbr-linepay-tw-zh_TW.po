@@ -1,0 +1,315 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: Pay with LINE Pay\n"
+"POT-Creation-Date: 2024-02-20 00:52+0800\n"
+"PO-Revision-Date: 2024-02-20 00:52+0800\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Poedit 3.4.2\n"
+"X-Poedit-Basepath: ..\n"
+"X-Poedit-Flags-xgettext: --add-comments=translators:\n"
+"X-Poedit-WPHeader: wpbr-linepay-tw.php\n"
+"X-Poedit-SourceCharset: UTF-8\n"
+"X-Poedit-KeywordsList: __;_e;_n:1,2;_x:1,2c;_ex:1,2c;_nx:4c,1,2;esc_attr__;"
+"esc_attr_e;esc_attr_x:1,2c;esc_html__;esc_html_e;esc_html_x:1,2c;"
+"_n_noop:1,2;_nx_noop:3c,1,2;__ngettext_noop:1,2\n"
+"X-Poedit-SearchPath-0: .\n"
+"X-Poedit-SearchPathExcluded-0: *.min.js\n"
+
+#: includes/admin/meta-boxes/class-linepay-tw-order-meta-boxes.php:61
+msgid "LINE Pay Details"
+msgstr "LINE Pay 付款資訊"
+
+#: includes/admin/meta-boxes/class-linepay-tw-order-meta-boxes.php:87
+msgid "Transaction ID"
+msgstr "交易編號"
+
+#: includes/admin/meta-boxes/class-linepay-tw-order-meta-boxes.php:88
+msgid "Payment Status"
+msgstr "付款狀態"
+
+#: includes/admin/meta-boxes/class-linepay-tw-order-meta-boxes.php:91
+msgid "Payment Action"
+msgstr "付款動作"
+
+#: includes/admin/meta-boxes/class-linepay-tw-order-meta-boxes.php:91
+msgid "Confirm Payment"
+msgstr "付款確認"
+
+#: includes/class-wpbr-linepay-tw.php:157
+msgid "Unsecure AJAX call"
+msgstr "不安全的 AJAX 呼叫"
+
+#: includes/class-wpbr-linepay-tw.php:168
+msgid "No such order id"
+msgstr "沒有這個訂單編號"
+
+#: includes/class-wpbr-linepay-tw.php:179
+msgid "LINE Pay Confirm Succeed!"
+msgstr "LINE Pay 付款確認成功！"
+
+#: includes/class-wpbr-linepay-tw.php:182
+msgid "Confirm succeed"
+msgstr "付款確認成功"
+
+#: includes/class-wpbr-linepay-tw.php:188
+msgid "LINE Pay Confirm Failed!"
+msgstr "LINE Pay 付款確認失敗！"
+
+#: includes/class-wpbr-linepay-tw.php:259
+msgid "General Settings"
+msgstr "一般設定"
+
+#: includes/class-wpbr-linepay-tw.php:265
+#: includes/settings/class-linepay-tw-settings-tab.php:37
+msgid "Payment Settings"
+msgstr "付款方式設定"
+
+#. Plugin Name of the plugin/theme
+#: includes/gateways/class-linepay-tw-payment.php:32
+#: includes/gateways/class-linepay-tw-payment.php:34
+msgid "Pay with LINE Pay"
+msgstr "使用 LINE Pay 付款"
+
+#: includes/gateways/class-linepay-tw-payment.php:33
+msgid "LINE Pay - General"
+msgstr "LINE Pay - 一般付款"
+
+#: includes/gateways/class-linepay-tw-payment.php:76
+msgid "LINE Pay Taiwan"
+msgstr "LINE Pay Taiwan"
+
+#: includes/gateways/class-linepay-tw-payment.php:183
+#: includes/gateways/class-linepay-tw-payment.php:209
+msgid ""
+"We have received your order, but the payment status need to be confirmed. "
+"Please contact the support."
+msgstr "我們已收到您的訂單，但付款狀態需要確認。請聯繫客服人員。"
+
+#: includes/gateways/class-linepay-tw-payment.php:187
+#: includes/gateways/class-linepay-tw-payment.php:213
+msgid ""
+"We have received your order, but the order is awaiting payment. Please pay "
+"again."
+msgstr "我們已收到您的訂單，但訂單尚未付款。請再次付款。"
+
+#: includes/gateways/class-linepay-tw-request.php:135
+msgid ""
+"[LINE Pay] Order Received but unable to process payment request. Please try "
+"to pay again."
+msgstr "[LINE Pay] 已收到您的訂單，但付款失敗。請重新再付款一次。"
+
+#: includes/gateways/class-linepay-tw-request.php:276
+msgid "Order payment is authed, but need to be confirmed。"
+msgstr "訂單交易已授權(Auth)，但需要進行交易確認(Confirm)。"
+
+#: includes/gateways/class-linepay-tw-request.php:283
+msgid "Payment is cancelled or expired。"
+msgstr "付款已取消或過期。"
+
+#: includes/gateways/class-linepay-tw-request.php:290
+msgid "LINE Pay Transaction failed。"
+msgstr "LINE Pay 付款交易失敗。"
+
+#: includes/gateways/class-linepay-tw-request.php:294
+#, php-format
+msgid "Awaiting Payment, Status Code: %s。"
+msgstr "等待付款中，狀態碼：%s。"
+
+#: includes/gateways/class-linepay-tw-request.php:350
+#, php-format
+msgid "Unable to find order #%s"
+msgstr "找不到訂單編號 #%s"
+
+#: includes/gateways/class-linepay-tw-request.php:383
+msgid "no transaction_id is found"
+msgstr "找不到交易編號"
+
+#: includes/gateways/class-linepay-tw-request.php:497
+#, php-format
+msgid "Refund via LINE Pay successfully. Refund transaction id: %s"
+msgstr "通過 LINE Pay退款成功。退款交易編號：%s"
+
+#: includes/gateways/class-linepay-tw-request.php:502
+#, php-format
+msgid ""
+"Refund via LINE Pay failed. Refund transaction id: %1$s, returnCode: %2$s, "
+"returnMessage: %3$s"
+msgstr ""
+"通過LINE Pay退款失敗。退款交易編號： %1$s， 回傳代碼： %2$s， 回傳訊息： "
+"%3$s"
+
+#. translators:  %1$s is product name, %2$s is the order item count
+#: includes/gateways/class-linepay-tw-request.php:576
+#, php-format
+msgid "%1$s and total %2$s products"
+msgstr "%1$s 以及總共 %2$s 個商品"
+
+#: includes/gateways/class-linepay-tw-response.php:60
+msgid "Unable to process callback."
+msgstr "無法處理 callback 呼叫。"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:20
+msgid "LINE Pay TW"
+msgstr "LINE Pay TW"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:56
+msgid "General Payment Settings"
+msgstr "一般付款設定"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:61
+msgid "Debug Log"
+msgstr "除錯紀錄"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:64
+#, php-format
+msgid "Log LINE Pay payment message, inside <code>%s</code>"
+msgstr "在<code>%s</code>中紀錄 LINE Pay的除錯訊息"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:68
+msgid "Display Logo"
+msgstr "顯示 Logo"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:71
+msgid "Display logo on checkout page"
+msgstr "在結帳頁面顯示 LINE Pay Logo"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:75
+msgid "Fail Order Status"
+msgstr "付款失敗的訂單狀態"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:78
+msgid "The order status will be set to this status when payment failed."
+msgstr "當付款失敗時，訂單狀態會改變為此設定狀態。"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:83
+msgid "Detail Status Note in Order Note"
+msgstr "在訂單狀態中紀錄付款狀態資訊"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:87
+msgid ""
+"Check payment status and add note in order note, enable it for test purpose "
+"only."
+msgstr "檢查付款狀態並在訂單備註中紀錄，建議於測試階段啟用。"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:95
+msgid "API Settings"
+msgstr "API 參數設定"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:97
+msgid "Enter your LINE Pay API credentials"
+msgstr "請輸入您的 LINE Pay 串接資訊"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:101
+msgid "Sandbox Mode"
+msgstr "測試模式"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:103
+msgid "Enable sandbox mode."
+msgstr "啟用測試模式。"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:106
+msgid "When enabled, you need to use the test-only data below."
+msgstr "當啟用測試模式時，請填入測試環境的串接資料。"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:110
+msgid "Sandbox Channel ID"
+msgstr "測試環境 Channel ID"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:112
+#: includes/settings/class-linepay-tw-settings-tab.php:128
+msgid "Enter your Channel ID."
+msgstr "輸入您的 Channel ID。"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:118
+msgid "Sandbox Channel Secret Key"
+msgstr "測試環境 Channel Secret Key"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:120
+#: includes/settings/class-linepay-tw-settings-tab.php:136
+msgid "Enter your Channel SecretKey."
+msgstr "輸入您的 Channel SecretKey。"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:126
+msgid "Channel ID"
+msgstr "正式環境 Channel ID"
+
+#: includes/settings/class-linepay-tw-settings-tab.php:134
+msgid "Channel Secret Key"
+msgstr "正式環境 Channel Secret Key"
+
+#: includes/settings/settings-linepay-tw-payment.php:18
+msgid "Enable/Disable"
+msgstr "啟用/關閉"
+
+#: includes/settings/settings-linepay-tw-payment.php:20
+msgid "Enable"
+msgstr "啟用"
+
+#: includes/settings/settings-linepay-tw-payment.php:24
+msgid "Title"
+msgstr "付款方式名稱"
+
+#: includes/settings/settings-linepay-tw-payment.php:26
+msgid "This controls the title which the user sees during checkout."
+msgstr "這是使用者結帳時會看到的付款方式名稱。"
+
+#: includes/settings/settings-linepay-tw-payment.php:27
+msgid "LINE Pay"
+msgstr "LINE Pay"
+
+#: includes/settings/settings-linepay-tw-payment.php:31
+msgid "Description"
+msgstr "描述"
+
+#: includes/settings/settings-linepay-tw-payment.php:33
+msgid "This controls the description which the user sees during checkout."
+msgstr "這是使用者結帳時看到的說明。"
+
+#: wpbr-linepay-tw.php:47
+msgid ""
+"Pay with LINE Pay needs WooCommerce, please intall and activate WooCommerce "
+"first!"
+msgstr "Pay with LINE Pay 需要WooCommerce，請先安裝並啟動WooCommerce！"
+
+#: wpbr-linepay-tw.php:54
+msgid ""
+"We deactivate plugin LINE Pay Taiwan for WooCommerce to avoid conflict with "
+"the new version."
+msgstr "LINE Pay Taiwan for WooCommerce 已停用來避免可能的衝突。"
+
+#. Plugin URI of the plugin/theme
+msgid "https://wpbrewer.com/product/wpbr-linepay-tw/"
+msgstr "https://wpbrewer.com/product/woo-linepay-tw/"
+
+#. Description of the plugin/theme
+msgid "Provides LINE Pay for your WooCommerce store"
+msgstr "為你的商店加上 LINE Pay 付款方式"
+
+#. Author of the plugin/theme
+msgid "WPBrewer"
+msgstr "WPBrewer"
+
+#. Author URI of the plugin/theme
+msgid "https://wpbrewer.com"
+msgstr "https://wpbrewer.com"
+
+#~ msgid "Not allow partial refund"
+#~ msgstr "不允許部分退款"
+
+#~ msgid "Pay via LINE Pay"
+#~ msgstr "透過 LINE Pay 來進行付款"
+
+#~ msgid "LINE Pay Taiwan for WooCommerce"
+#~ msgstr "LINE Pay Taiwan for WooCommerce"
+
+#~ msgid "LINE Pay Gateway for Taiwan"
+#~ msgstr "提供台灣電商網站 LINE Pay 付款功能"
+
+#~ msgid "Settings"
+#~ msgstr "設定"

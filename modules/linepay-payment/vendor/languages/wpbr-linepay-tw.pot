@@ -1,0 +1,298 @@
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: Pay with LINE Pay\n"
+"POT-Creation-Date: 2024-02-20 00:52+0800\n"
+"PO-Revision-Date: 2022-06-29 15:35+0800\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+"X-Generator: Poedit 3.4.2\n"
+"X-Poedit-Basepath: ..\n"
+"X-Poedit-Flags-xgettext: --add-comments=translators:\n"
+"X-Poedit-WPHeader: wpbr-linepay-tw.php\n"
+"X-Poedit-SourceCharset: UTF-8\n"
+"X-Poedit-KeywordsList: __;_e;_n:1,2;_x:1,2c;_ex:1,2c;_nx:4c,1,2;esc_attr__;"
+"esc_attr_e;esc_attr_x:1,2c;esc_html__;esc_html_e;esc_html_x:1,2c;"
+"_n_noop:1,2;_nx_noop:3c,1,2;__ngettext_noop:1,2\n"
+"X-Poedit-SearchPath-0: .\n"
+"X-Poedit-SearchPathExcluded-0: *.min.js\n"
+
+#: includes/admin/meta-boxes/class-linepay-tw-order-meta-boxes.php:61
+msgid "LINE Pay Details"
+msgstr ""
+
+#: includes/admin/meta-boxes/class-linepay-tw-order-meta-boxes.php:87
+msgid "Transaction ID"
+msgstr ""
+
+#: includes/admin/meta-boxes/class-linepay-tw-order-meta-boxes.php:88
+msgid "Payment Status"
+msgstr ""
+
+#: includes/admin/meta-boxes/class-linepay-tw-order-meta-boxes.php:91
+msgid "Payment Action"
+msgstr ""
+
+#: includes/admin/meta-boxes/class-linepay-tw-order-meta-boxes.php:91
+msgid "Confirm Payment"
+msgstr ""
+
+#: includes/class-wpbr-linepay-tw.php:157
+msgid "Unsecure AJAX call"
+msgstr ""
+
+#: includes/class-wpbr-linepay-tw.php:168
+msgid "No such order id"
+msgstr ""
+
+#: includes/class-wpbr-linepay-tw.php:179
+msgid "LINE Pay Confirm Succeed!"
+msgstr ""
+
+#: includes/class-wpbr-linepay-tw.php:182
+msgid "Confirm succeed"
+msgstr ""
+
+#: includes/class-wpbr-linepay-tw.php:188
+msgid "LINE Pay Confirm Failed!"
+msgstr ""
+
+#: includes/class-wpbr-linepay-tw.php:259
+msgid "General Settings"
+msgstr ""
+
+#: includes/class-wpbr-linepay-tw.php:265
+#: includes/settings/class-linepay-tw-settings-tab.php:37
+msgid "Payment Settings"
+msgstr ""
+
+#. Plugin Name of the plugin/theme
+#: includes/gateways/class-linepay-tw-payment.php:32
+#: includes/gateways/class-linepay-tw-payment.php:34
+msgid "Pay with LINE Pay"
+msgstr ""
+
+#: includes/gateways/class-linepay-tw-payment.php:33
+msgid "LINE Pay - General"
+msgstr ""
+
+#: includes/gateways/class-linepay-tw-payment.php:76
+msgid "LINE Pay Taiwan"
+msgstr ""
+
+#: includes/gateways/class-linepay-tw-payment.php:183
+#: includes/gateways/class-linepay-tw-payment.php:209
+msgid ""
+"We have received your order, but the payment status need to be confirmed. "
+"Please contact the support."
+msgstr ""
+
+#: includes/gateways/class-linepay-tw-payment.php:187
+#: includes/gateways/class-linepay-tw-payment.php:213
+msgid ""
+"We have received your order, but the order is awaiting payment. Please pay "
+"again."
+msgstr ""
+
+#: includes/gateways/class-linepay-tw-request.php:135
+msgid ""
+"[LINE Pay] Order Received but unable to process payment request. Please try "
+"to pay again."
+msgstr ""
+
+#: includes/gateways/class-linepay-tw-request.php:276
+msgid "Order payment is authed, but need to be confirmed。"
+msgstr ""
+
+#: includes/gateways/class-linepay-tw-request.php:283
+msgid "Payment is cancelled or expired。"
+msgstr ""
+
+#: includes/gateways/class-linepay-tw-request.php:290
+msgid "LINE Pay Transaction failed。"
+msgstr ""
+
+#: includes/gateways/class-linepay-tw-request.php:294
+#, php-format
+msgid "Awaiting Payment, Status Code: %s。"
+msgstr ""
+
+#: includes/gateways/class-linepay-tw-request.php:350
+#, php-format
+msgid "Unable to find order #%s"
+msgstr ""
+
+#: includes/gateways/class-linepay-tw-request.php:383
+msgid "no transaction_id is found"
+msgstr ""
+
+#: includes/gateways/class-linepay-tw-request.php:497
+#, php-format
+msgid "Refund via LINE Pay successfully. Refund transaction id: %s"
+msgstr ""
+
+#: includes/gateways/class-linepay-tw-request.php:502
+#, php-format
+msgid ""
+"Refund via LINE Pay failed. Refund transaction id: %1$s, returnCode: %2$s, "
+"returnMessage: %3$s"
+msgstr ""
+
+#. translators:  %1$s is product name, %2$s is the order item count
+#: includes/gateways/class-linepay-tw-request.php:576
+#, php-format
+msgid "%1$s and total %2$s products"
+msgstr ""
+
+#: includes/gateways/class-linepay-tw-response.php:60
+msgid "Unable to process callback."
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:20
+msgid "LINE Pay TW"
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:56
+msgid "General Payment Settings"
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:61
+msgid "Debug Log"
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:64
+#, php-format
+msgid "Log LINE Pay payment message, inside <code>%s</code>"
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:68
+msgid "Display Logo"
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:71
+msgid "Display logo on checkout page"
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:75
+msgid "Fail Order Status"
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:78
+msgid "The order status will be set to this status when payment failed."
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:83
+msgid "Detail Status Note in Order Note"
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:87
+msgid ""
+"Check payment status and add note in order note, enable it for test purpose "
+"only."
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:95
+msgid "API Settings"
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:97
+msgid "Enter your LINE Pay API credentials"
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:101
+msgid "Sandbox Mode"
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:103
+msgid "Enable sandbox mode."
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:106
+msgid "When enabled, you need to use the test-only data below."
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:110
+msgid "Sandbox Channel ID"
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:112
+#: includes/settings/class-linepay-tw-settings-tab.php:128
+msgid "Enter your Channel ID."
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:118
+msgid "Sandbox Channel Secret Key"
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:120
+#: includes/settings/class-linepay-tw-settings-tab.php:136
+msgid "Enter your Channel SecretKey."
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:126
+msgid "Channel ID"
+msgstr ""
+
+#: includes/settings/class-linepay-tw-settings-tab.php:134
+msgid "Channel Secret Key"
+msgstr ""
+
+#: includes/settings/settings-linepay-tw-payment.php:18
+msgid "Enable/Disable"
+msgstr ""
+
+#: includes/settings/settings-linepay-tw-payment.php:20
+msgid "Enable"
+msgstr ""
+
+#: includes/settings/settings-linepay-tw-payment.php:24
+msgid "Title"
+msgstr ""
+
+#: includes/settings/settings-linepay-tw-payment.php:26
+msgid "This controls the title which the user sees during checkout."
+msgstr ""
+
+#: includes/settings/settings-linepay-tw-payment.php:27
+msgid "LINE Pay"
+msgstr ""
+
+#: includes/settings/settings-linepay-tw-payment.php:31
+msgid "Description"
+msgstr ""
+
+#: includes/settings/settings-linepay-tw-payment.php:33
+msgid "This controls the description which the user sees during checkout."
+msgstr ""
+
+#: wpbr-linepay-tw.php:47
+msgid ""
+"Pay with LINE Pay needs WooCommerce, please intall and activate WooCommerce "
+"first!"
+msgstr ""
+
+#: wpbr-linepay-tw.php:54
+msgid ""
+"We deactivate plugin LINE Pay Taiwan for WooCommerce to avoid conflict with "
+"the new version."
+msgstr ""
+
+#. Plugin URI of the plugin/theme
+msgid "https://wpbrewer.com/product/wpbr-linepay-tw/"
+msgstr ""
+
+#. Description of the plugin/theme
+msgid "Provides LINE Pay for your WooCommerce store"
+msgstr ""
+
+#. Author of the plugin/theme
+msgid "WPBrewer"
+msgstr ""
+
+#. Author URI of the plugin/theme
+msgid "https://wpbrewer.com"
+msgstr ""
