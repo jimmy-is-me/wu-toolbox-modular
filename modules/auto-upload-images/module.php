@@ -61,7 +61,7 @@ final class WUTM_Auto_Upload_Images {
 
         foreach ($raw_types as $post_type) {
             $post_type = sanitize_key($post_type);
-            if (isset($available_types[$post_type])) {
+            if (in_array($post_type, $available_types, true)) {
                 $exclude_types[] = $post_type;
             }
         }
@@ -171,7 +171,14 @@ final class WUTM_Auto_Upload_Images {
 
         $quote = $source_match[1];
         $replacement = 'src=' . $quote . esc_url($uploaded['url']) . $quote;
-        $updated_tag = preg_replace('/\bsrc\s*=\s*(["\']).*?\1/is', $replacement, $tag, 1);
+        $updated_tag = preg_replace_callback(
+            '/\bsrc\s*=\s*(["\']).*?\1/is',
+            static function () use ($replacement): string {
+                return $replacement;
+            },
+            $tag,
+            1
+        );
 
         if (!is_string($updated_tag)) {
             return $tag;
