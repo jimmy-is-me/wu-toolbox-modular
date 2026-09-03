@@ -48,6 +48,13 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.6.5</h4>
+            <ul>
+                <li>新增「經典功能」模組，可分別啟用經典編輯器與經典小工具。</li>
+                <li>經典編輯器支援文章、頁面、商品與使用編輯器的自訂內容類型，並相容 Gutenberg 外掛。</li>
+                <li>經典小工具恢復「外觀 → 小工具」與自訂器的傳統管理介面。</li>
+                <li>從後台介面管理移除「移除 WordPress 標誌」及「移除管理列新增項目」設定與執行程式。</li>
+            </ul>
             <h4>1.6.4</h4>
             <ul>
                 <li>完全隔離 WordPress 與 WooCommerce 新增分類使用的 AJAX 流程，不再註冊排序 SQL 或自訂欄位回呼。</li>
