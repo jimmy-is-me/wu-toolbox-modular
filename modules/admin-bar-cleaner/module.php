@@ -23,7 +23,6 @@ class WU_Admin_Bar_Cleaner {
         'wu_hide_writing_settings',
         'wu_hide_privacy_settings',
         'wu_hide_wumetax_toolkit',
-        'wu_hide_admin_updates',
         'wu_enable_copy_protection',
     ];
 
@@ -95,7 +94,6 @@ class WU_Admin_Bar_Cleaner {
             [ 'wu_hide_site_address',               '隱藏 Site Address (URL)',           'hide_site_address_callback',               'wu_backend_section'    ],
             [ 'wu_hide_writing_settings',           '隱藏 Writing Settings',             'hide_writing_settings_callback',           'wu_backend_section'    ],
             [ 'wu_hide_privacy_settings',           '隱藏 Privacy 設定',                'hide_privacy_settings_callback',           'wu_backend_section'    ],
-            [ 'wu_hide_admin_updates',              '隱藏後台更新通知',                 'hide_admin_updates_callback',              'wu_backend_section'    ],
             [ 'wu_hide_wumetax_toolkit',            '向其他管理員隱藏 WumetaxToolkit',  'hide_wumetax_toolkit_callback',            'wu_backend_section'    ],
             [ 'wu_custom_frontend_footer_text',     '自訂前台頁尾文本',                 'custom_frontend_footer_text_callback',     'wu_frontend_section'   ],
             [ 'wu_enable_copy_protection',          '內容複製保護',                     'copy_protection_callback',                 'wu_frontend_section'   ],
@@ -155,9 +153,6 @@ class WU_Admin_Bar_Cleaner {
     }
     public function hide_privacy_settings_callback(): void {
         $this->checkbox_field( 'wu_hide_privacy_settings', '隱藏 Privacy 設定選單項目' );
-    }
-    public function hide_admin_updates_callback(): void {
-        $this->checkbox_field( 'wu_hide_admin_updates', '隱藏後台更新通知（僅隱藏 UI 提示，不阻止更新檢查）' );
     }
 
     public function dashboard_widgets_settings_callback(): void {
@@ -316,7 +311,6 @@ class WU_Admin_Bar_Cleaner {
                     $status_rows = [
                         [ '儀表板小工具',             $opts['wu_disable_all_dashboard_widgets'],    '已全部停用',          '已啟用'               ],
                         [ '後台 Tools 選單',          $opts['wu_hide_tools_menu'],                  '已隱藏',              '顯示中'               ],
-                        [ '後台更新通知',             $opts['wu_hide_admin_updates'],               '已隱藏（僅 UI）',     '顯示中'               ],
                         [ '內容複製保護',             $opts['wu_enable_copy_protection'],           '已啟用',              '已停用'               ],
                         [ 'WumetaxToolkit 選單隱藏',  $opts['wu_hide_wumetax_toolkit'],             '已啟用（限定管理員）', '停用（所有管理員可見）' ],
                     ];
@@ -446,13 +440,6 @@ class WU_Admin_Bar_Cleaner {
             add_action( 'admin_menu', [ $this, 'hide_wumetax_toolkit_menu' ], 999 );
         }
 
-        if ( get_option( 'wu_hide_admin_updates', false ) ) {
-            add_action( 'admin_notices',              [ $this, 'remove_update_nag_hook' ] );
-            add_action( 'network_admin_notices',      [ $this, 'remove_update_nag_hook' ] );
-            add_action( 'wp_before_admin_bar_render', [ $this, 'remove_updates_admin_bar_node' ] );
-            add_action( 'admin_head',                 [ $this, 'hide_update_notices_css' ] );
-        }
-
         $this->apply_user_role_restrictions();
     }
 
@@ -476,26 +463,6 @@ class WU_Admin_Bar_Cleaner {
             }
         }
         remove_action( 'admin_notices', 'wp_dashboard_php_nag_notice' );
-    }
-
-    public function remove_update_nag_hook(): void {
-        remove_action( 'admin_notices',         'update_nag', 3 );
-        remove_action( 'network_admin_notices', 'update_nag', 3 );
-    }
-
-    public function remove_updates_admin_bar_node(): void {
-        global $wp_admin_bar;
-        if ( $wp_admin_bar ) {
-            $wp_admin_bar->remove_menu( 'updates' );
-        }
-    }
-
-    public function hide_update_notices_css(): void {
-        echo '<style>
-        .update-nag, #update-nag, .update-message,
-        .notice.notice-warning.notice-alt.inline.update-message,
-        #wp-admin-bar-updates { display:none !important; }
-        </style>';
     }
 
     public function output_copy_protection_head(): void {
