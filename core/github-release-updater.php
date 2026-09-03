@@ -48,6 +48,12 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.7.1</h4>
+            <ul>
+                <li>媒體庫管理可直接在 WordPress 原生媒體庫格狀檢視，將媒體拖曳到資料夾完成分類。</li>
+                <li>SVG 上傳加入相容的影像處理器與略過縮圖設定，避免上傳時出現伺服器無法處理圖片。</li>
+                <li>修正內容複製器儲存設定時，排除欄位傳入陣列會造成致命錯誤的問題。</li>
+            </ul>
             <h4>1.7.0</h4>
             <ul>
                 <li>新增「SVG 上傳」模組，支援安全檢查後上傳 SVG 圖檔，拒絕腳本、事件程式碼、外部引用與危險樣式。</li>
