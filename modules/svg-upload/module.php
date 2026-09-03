@@ -37,7 +37,7 @@ if (!class_exists('WUTM_SVG_Image_Editor', false)) {
 
         public function resize($max_w, $max_h, $crop = false) { return true; }
         public function multi_resize($sizes) { return []; }
-        public function crop($src_x, $src_y, $src_w, $src_h, $dst_w, $dst_h, $src_abs = false) { return true; }
+        public function crop($src_x, $src_y, $src_w, $src_h, $dst_w = null, $dst_h = null, $src_abs = false) { return true; }
         public function rotate($angle) { return true; }
         public function flip($horz, $vert) { return true; }
         public function stream($mime_type = null) { return new WP_Error('wutm_svg_no_stream', 'SVG 不需要輸出點陣圖片。'); }
