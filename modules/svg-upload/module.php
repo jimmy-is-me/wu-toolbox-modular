@@ -2,47 +2,10 @@
 /**
  * Module: svg-upload
  *
- * Enables SVG uploads for permitted users after conservative server-side
- * validation. Unsafe or externally referenced SVG files are rejected.
+ * Allows SVG uploads only after conservative server-side validation and adds
+ * WordPress media metadata/preview fallbacks without rasterising the SVG.
  */
 defined('ABSPATH') || exit;
-
-if (!class_exists('WUTM_SVG_Image_Editor', false)) {
-    if (!class_exists('WP_Image_Editor')) {
-        require_once ABSPATH . WPINC . '/class-wp-image-editor.php';
-    }
-
-    final class WUTM_SVG_Image_Editor extends WP_Image_Editor {
-        public static function test($args = []): bool {
-            $file = is_array($args) ? ($args['path'] ?? '') : $args;
-            return is_string($file) && strtolower(pathinfo($file, PATHINFO_EXTENSION)) === 'svg';
-        }
-
-        public static function supports_mime_type($mime_type): bool {
-            return $mime_type === 'image/svg+xml';
-        }
-
-        public function load() {
-            if (!is_readable($this->file)) {
-                return new WP_Error('wutm_svg_unreadable', 'SVG 檔案無法讀取。');
-            }
-            $this->size = ['width' => 0, 'height' => 0];
-            $this->mime_type = 'image/svg+xml';
-            return true;
-        }
-
-        public function save($destfilename = null, $mime_type = null) {
-            return new WP_Error('wutm_svg_no_raster_save', 'SVG 不需要建立點陣縮圖。');
-        }
-
-        public function resize($max_w, $max_h, $crop = false) { return true; }
-        public function multi_resize($sizes) { return []; }
-        public function crop($src_x, $src_y, $src_w, $src_h, $dst_w = null, $dst_h = null, $src_abs = false) { return true; }
-        public function rotate($angle) { return true; }
-        public function flip($horz, $vert) { return true; }
-        public function stream($mime_type = null) { return new WP_Error('wutm_svg_no_stream', 'SVG 不需要輸出點陣圖片。'); }
-    }
-}
 
 final class WUTM_SVG_Upload {
     private const SLUG = 'wu-svg-upload';
@@ -60,19 +23,18 @@ final class WUTM_SVG_Upload {
         add_filter('upload_mimes', [__CLASS__, 'allow_mime']);
         add_filter('wp_check_filetype_and_ext', [__CLASS__, 'correct_filetype'], 10, 5);
         add_filter('wp_handle_upload_prefilter', [__CLASS__, 'validate_upload']);
-        add_filter('wp_image_editors', [__CLASS__, 'svg_image_editors']);
-        add_filter('intermediate_image_sizes_advanced', [__CLASS__, 'skip_svg_subsizes'], 10, 3);
+        add_filter('rest_pre_upload_file', [__CLASS__, 'validate_upload'], 10, 2);
+        add_filter('wp_generate_attachment_metadata', [__CLASS__, 'generate_metadata'], 20, 3);
+        add_filter('wp_prepare_attachment_for_js', [__CLASS__, 'prepare_attachment'], 20, 3);
+        add_filter('wp_get_attachment_image_src', [__CLASS__, 'image_src_fallback'], 20, 4);
     }
 
     private static function settings(): array {
-        return wp_parse_args((array) get_option(self::OPTION, []), [
-            'enabled' => true,
-        ]);
+        return wp_parse_args((array) get_option(self::OPTION, []), ['enabled' => true]);
     }
 
     private static function is_enabled(): bool {
-        $settings = self::settings();
-        return !empty($settings['enabled']);
+        return !empty(self::settings()['enabled']);
     }
 
     public static function menu(): void {
@@ -88,47 +50,28 @@ final class WUTM_SVG_Upload {
 
     public static function save(): void {
         if (!current_user_can('manage_options')) {
-            wp_die('權限不足', 403);
+            wp_die('權限不足。', 403);
         }
         check_admin_referer('wutm_svg_upload_save');
-
-        update_option(self::OPTION, [
-            'enabled' => !empty($_POST['enabled']),
-        ], false);
-
-        wp_safe_redirect(add_query_arg([
-            'page' => self::SLUG,
-            'updated' => '1',
-        ], admin_url('admin.php')));
+        update_option(self::OPTION, ['enabled' => !empty($_POST['enabled'])], false);
+        wp_safe_redirect(add_query_arg(['page' => self::SLUG, 'updated' => 1], admin_url('admin.php')));
         exit;
     }
 
     public static function allow_mime(array $mimes): array {
-        if (!current_user_can('upload_files')) {
-            return $mimes;
+        if (current_user_can('upload_files')) {
+            $mimes['svg'] = 'image/svg+xml';
         }
-
-        $mimes['svg'] = 'image/svg+xml';
         return $mimes;
     }
 
     public static function correct_filetype(array $data, string $file, string $filename, array $mimes, $real_mime = false): array {
-        $extension = strtolower((string) pathinfo($filename, PATHINFO_EXTENSION));
-        if ($extension === 'svg' && current_user_can('upload_files')) {
+        if (strtolower((string) pathinfo($filename, PATHINFO_EXTENSION)) === 'svg' && current_user_can('upload_files')) {
             $data['ext'] = 'svg';
             $data['type'] = 'image/svg+xml';
             $data['proper_filename'] = false;
         }
         return $data;
-    }
-
-    public static function svg_image_editors(array $editors): array {
-        array_unshift($editors, 'WUTM_SVG_Image_Editor');
-        return array_values(array_unique($editors));
-    }
-
-    public static function skip_svg_subsizes(array $sizes, array $image_meta, $attachment_id): array {
-        return get_post_mime_type($attachment_id) === 'image/svg+xml' ? [] : $sizes;
     }
 
     public static function validate_upload(array $file): array {
@@ -149,103 +92,162 @@ final class WUTM_SVG_Upload {
             return $file;
         }
 
-        if (!class_exists('DOMDocument')) {
-            $file['error'] = '伺服器缺少 SVG 安全檢查所需的 DOM 擴充套件，已拒絕上傳。';
+        $validation = self::validate_svg_file($temporary_file);
+        if (is_wp_error($validation)) {
+            $file['error'] = $validation->get_error_message();
             return $file;
-        }
-
-        $svg = file_get_contents($temporary_file);
-        if (!is_string($svg) || $svg === '' || preg_match('/<!DOCTYPE|<!ENTITY/i', $svg)) {
-            $file['error'] = 'SVG 包含不允許的文件宣告或實體，已拒絕上傳。';
-            return $file;
-        }
-
-        $previous = libxml_use_internal_errors(true);
-        $document = new DOMDocument();
-        $loaded = $document->loadXML($svg, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
-        libxml_clear_errors();
-        libxml_use_internal_errors($previous);
-
-        if (!$loaded || !$document->documentElement || strtolower($document->documentElement->localName) !== 'svg') {
-            $file['error'] = '這不是有效的 SVG 圖檔，已拒絕上傳。';
-            return $file;
-        }
-
-        $forbidden_elements = ['script', 'foreignobject', 'iframe', 'object', 'embed', 'audio', 'video', 'canvas'];
-        foreach ($document->getElementsByTagName('*') as $element) {
-            if (in_array(strtolower($element->localName), $forbidden_elements, true)) {
-                $file['error'] = 'SVG 包含不安全的元素，已拒絕上傳。';
-                return $file;
-            }
-
-            if (!$element->hasAttributes()) {
-                continue;
-            }
-
-            foreach ($element->attributes as $attribute) {
-                $name = strtolower($attribute->localName ?: $attribute->name);
-                $value = trim((string) $attribute->value);
-                if (strpos($name, 'on') === 0) {
-                    $file['error'] = 'SVG 包含事件程式碼，已拒絕上傳。';
-                    return $file;
-                }
-                if (in_array($name, ['href', 'src'], true) && $value !== '' && strpos($value, '#') !== 0) {
-                    $file['error'] = 'SVG 不可引用外部或資料網址，已拒絕上傳。';
-                    return $file;
-                }
-                if ($name === 'style' && preg_match('/url\s*\(|expression\s*\(|javascript\s*:/i', $value)) {
-                    $file['error'] = 'SVG 樣式包含不安全的內容，已拒絕上傳。';
-                    return $file;
-                }
-            }
         }
 
         $file['type'] = 'image/svg+xml';
         return $file;
     }
 
+    private static function validate_svg_file(string $file) {
+        if (!class_exists('DOMDocument')) {
+            return new WP_Error('wutm_svg_dom_missing', '伺服器缺少 SVG 安全檢查所需的 DOM 擴充套件，已拒絕上傳。');
+        }
+
+        $source = file_get_contents($file);
+        if ($source === false || preg_match('/<!DOCTYPE|<!ENTITY/i', $source)) {
+            return new WP_Error('wutm_svg_unsafe', 'SVG 含有不允許的文件實體或宣告。');
+        }
+
+        $dom = new DOMDocument();
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $dom->loadXML($source, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+        if (!$loaded || !$dom->documentElement || strtolower($dom->documentElement->localName) !== 'svg') {
+            return new WP_Error('wutm_svg_invalid', '檔案不是有效的 SVG。');
+        }
+
+        $forbidden = ['script', 'foreignobject', 'iframe', 'object', 'embed', 'audio', 'video', 'canvas'];
+        foreach ($dom->getElementsByTagName('*') as $element) {
+            if (in_array(strtolower($element->localName), $forbidden, true)) {
+                return new WP_Error('wutm_svg_forbidden_element', 'SVG 含有不允許的元素。');
+            }
+            if (!$element->hasAttributes()) {
+                continue;
+            }
+            foreach ($element->attributes as $attribute) {
+                $name = strtolower($attribute->localName);
+                $value = trim((string) $attribute->nodeValue);
+                if (strpos($name, 'on') === 0) {
+                    return new WP_Error('wutm_svg_event', 'SVG 含有不允許的事件程式碼。');
+                }
+                if (in_array($name, ['href', 'src'], true) && $value !== '' && strpos($value, '#') !== 0) {
+                    return new WP_Error('wutm_svg_external', 'SVG 不允許引用外部或嵌入式資源。');
+                }
+                if ($name === 'style' && preg_match('/url\s*\(|expression\s*\(|javascript\s*:/i', $value)) {
+                    return new WP_Error('wutm_svg_style', 'SVG 含有不允許的樣式內容。');
+                }
+            }
+        }
+
+        return true;
+    }
+
+    private static function dimensions(string $file): array {
+        $width = 0;
+        $height = 0;
+        if (!is_readable($file)) {
+            return ['width' => 1, 'height' => 1];
+        }
+
+        $source = (string) file_get_contents($file);
+        if (class_exists('DOMDocument') && $source !== '') {
+            $dom = new DOMDocument();
+            $previous = libxml_use_internal_errors(true);
+            $loaded = $dom->loadXML($source, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING);
+            libxml_clear_errors();
+            libxml_use_internal_errors($previous);
+            if ($loaded && $dom->documentElement) {
+                $root = $dom->documentElement;
+                $width = (int) preg_replace('/[^0-9.]/', '', (string) $root->getAttribute('width'));
+                $height = (int) preg_replace('/[^0-9.]/', '', (string) $root->getAttribute('height'));
+                if ((!$width || !$height) && $root->hasAttribute('viewBox')) {
+                    $viewbox = preg_split('/[\s,]+/', trim((string) $root->getAttribute('viewBox'))) ?: [];
+                    if (count($viewbox) === 4) {
+                        $width = $width ?: max(0, (int) round((float) $viewbox[2]));
+                        $height = $height ?: max(0, (int) round((float) $viewbox[3]));
+                    }
+                }
+            }
+        }
+        return ['width' => max(1, $width), 'height' => max(1, $height)];
+    }
+
+    public static function generate_metadata($metadata, $attachment_id, $context = 'create') {
+        if (get_post_mime_type($attachment_id) !== 'image/svg+xml') {
+            return $metadata;
+        }
+
+        $file = get_attached_file($attachment_id);
+        if (!$file || !is_readable($file)) {
+            return is_array($metadata) ? $metadata : [];
+        }
+
+        $dimensions = self::dimensions($file);
+        $uploads = wp_get_upload_dir();
+        $relative = ltrim(str_replace((string) $uploads['basedir'], '', $file), '/\\');
+        return [
+            'width' => $dimensions['width'],
+            'height' => $dimensions['height'],
+            'file' => $relative,
+            'filesize' => function_exists('wp_filesize') ? (int) wp_filesize($file) : (int) filesize($file),
+            'sizes' => [],
+        ];
+    }
+
+    public static function prepare_attachment(array $response, $attachment, $metadata): array {
+        if (($response['mime'] ?? '') !== 'image/svg+xml') {
+            return $response;
+        }
+
+        $dimensions = self::dimensions((string) get_attached_file($attachment->ID));
+        $response['sizes'] = [
+            'full' => [
+                'url' => $response['url'],
+                'width' => $dimensions['width'],
+                'height' => $dimensions['height'],
+                'orientation' => $dimensions['width'] >= $dimensions['height'] ? 'landscape' : 'portrait',
+            ],
+        ];
+        return $response;
+    }
+
+    public static function image_src_fallback($image, $attachment_id, $size, $icon) {
+        if (get_post_mime_type($attachment_id) !== 'image/svg+xml') {
+            return $image;
+        }
+
+        $dimensions = self::dimensions((string) get_attached_file($attachment_id));
+        if (!is_array($image)) {
+            return [wp_get_attachment_url($attachment_id), $dimensions['width'], $dimensions['height'], false];
+        }
+        $image[1] = max(1, (int) ($image[1] ?? $dimensions['width']));
+        $image[2] = max(1, (int) ($image[2] ?? $dimensions['height']));
+        return $image;
+    }
+
     public static function page(): void {
         if (!current_user_can('manage_options')) {
-            wp_die('權限不足', 403);
+            wp_die('權限不足。', 403);
         }
-        $settings = self::settings();
+        $enabled = self::is_enabled();
         ?>
-        <div class="wrap wutm-module-wrap wutm-svg-upload">
+        <div class="wrap wutm-module-wrap">
             <h1>SVG 上傳設定</h1>
-            <p class="wutm-module-subtitle">允許具備上傳權限的後台使用者上傳經過安全檢查的 SVG 向量圖檔。</p>
-
-            <?php if (!empty($_GET['updated'])) : ?>
-                <div class="notice notice-success is-dismissible"><p>SVG 上傳設定已儲存。</p></div>
-            <?php endif; ?>
-
-            <div class="card" style="max-width:100%;margin:20px 0;">
-                <h2 style="margin-top:0;">目前狀態</h2>
-                <p><strong><?php echo !empty($settings['enabled']) ? '運作中' : '已暫停'; ?></strong> — 只在後台上傳 SVG 時執行安全檢查，不影響前台載入速度。</p>
-            </div>
-
-            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+            <p class="wutm-module-subtitle">允許具有上傳權限的使用者上傳已通過安全檢查的 SVG，並讓媒體庫、精選圖片與圖片輸出正常取得尺寸。</p>
+            <?php if (!empty($_GET['updated'])) : ?><div class="notice notice-success is-dismissible"><p>設定已儲存。</p></div><?php endif; ?>
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="card" style="max-width:760px;padding:24px;">
                 <input type="hidden" name="action" value="wutm_svg_upload_save">
                 <?php wp_nonce_field('wutm_svg_upload_save'); ?>
-                <table class="form-table" role="presentation"><tbody>
-                    <tr>
-                        <th scope="row">啟用 SVG 上傳</th>
-                        <td>
-                            <label><input type="checkbox" name="enabled" value="1" <?php checked(!empty($settings['enabled'])); ?>> 允許上傳安全的 SVG 圖檔</label>
-                            <p class="description">僅允許有上傳媒體權限的使用者使用；每個 SVG 上傳前都會經過伺服器端檢查。</p>
-                        </td>
-                    </tr>
-                </tbody></table>
+                <h2 style="margin-top:0;">功能設定</h2>
+                <label><input type="checkbox" name="enabled" value="1" <?php checked($enabled); ?>> 啟用 SVG 上傳</label>
+                <p class="description">僅允許有效 SVG；會拒絕腳本、事件屬性、危險樣式、外部引用與文件實體。SVG 不會建立點陣縮圖，原始向量檔會直接用於顯示。</p>
                 <?php submit_button('儲存設定'); ?>
             </form>
-
-            <div class="card" style="max-width:100%;margin-top:20px;">
-                <h2 style="margin-top:0;">安全規則</h2>
-                <ul style="list-style:disc;padding-left:22px;">
-                    <li>檔案大小上限為 2 MB，並必須是有效的 SVG XML 文件。</li>
-                    <li>含有腳本、事件處理器、外部引用、資料網址或危險 CSS 的 SVG 會被拒絕。</li>
-                    <li>SVG 可能含有程式碼；請只上傳可信來源的圖檔，並定期更新網站與使用者權限。</li>
-                </ul>
-            </div>
         </div>
         <?php
     }
