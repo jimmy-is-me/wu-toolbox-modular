@@ -48,6 +48,13 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.6.8</h4>
+            <ul>
+                <li>新增「Discord 通知工具」模組，歸入「電商工具」分類，可將 WooCommerce 訂單與狀態變更通知到 Discord。</li>
+                <li>後台設定、通知標題與通知欄位全面採用繁體中文，支援 Webhook、訂單狀態、欄位選擇與拖曳排序。</li>
+                <li>支援各訂單狀態使用不同 Webhook 與顏色、商品圖片、付款開始通知、訂單備註、HPOS 及重複發送防護。</li>
+                <li>加入 WordPress、PHP、WooCommerce 版本與獨立外掛重複載入防護。</li>
+            </ul>
             <h4>1.6.7</h4>
             <ul>
                 <li>新增「電商工具」分類，以及 PAYUNi 付款工具與 LINE Pay 付款工具兩個獨立模組卡片。</li>

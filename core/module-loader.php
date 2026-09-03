@@ -3,7 +3,7 @@ defined('ABSPATH') || exit;
 
 // Payment gateways must register compatibility and callback hooks before
 // WooCommerce finishes its own plugins_loaded bootstrap.
-$wutm_early_module_keys = ['payuni-payment', 'linepay-payment'];
+$wutm_early_module_keys = ['payuni-payment', 'linepay-payment', 'discord-notifications'];
 foreach ($wutm_early_module_keys as $wutm_early_module_key) {
     if (!wutm_is_enabled($wutm_early_module_key)) continue;
 
