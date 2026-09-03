@@ -48,6 +48,12 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.7.5</h4>
+            <ul>
+                <li>修正「通知整理工具」可能搬移區塊編輯器或 WooCommerce 動態通知，導致顯示 Connection lost 的問題。</li>
+                <li>通知整理現在只處理傳統後台初始通知；模組設定頁、區塊編輯器、網站編輯器與小工具介面不會執行通知 DOM 搬移。</li>
+                <li>移除持續監看的 MutationObserver，避免干擾後台儲存、Heartbeat 與 REST API 連線狀態。</li>
+            </ul>
             <h4>1.7.4</h4>
             <ul>
                 <li>新增「媒體掃描匯入」模組，可安全掃描 uploads 資料夾並將選取的未登錄檔案匯入媒體庫。</li>
