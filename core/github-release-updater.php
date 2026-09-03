@@ -48,6 +48,14 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.7.4</h4>
+            <ul>
+                <li>新增「媒體掃描匯入」模組，可安全掃描 uploads 資料夾並將選取的未登錄檔案匯入媒體庫。</li>
+                <li>移除 SVG 上傳模組與所有相關設定入口。</li>
+                <li>重建「使用者切換」模組：使用可驗證的安全 Cookie 保留原始帳號、支援一鍵返回與 WooCommerce 會話隔離。</li>
+                <li>新增「停用所有更新」模組，可停止核心、外掛與佈景主題的更新檢查與自動更新。</li>
+                <li>從後台介面管理移除「隱藏後台更新通知」選項，避免與完整更新停用功能混淆。</li>
+            </ul>
             <h4>1.7.3</h4>
             <ul>
                 <li>內容複製器參考 Duplicate Post 改善，新增「複製為草稿」、批次複製、逐篇權限驗證與更完整的設定正規化。</li>
