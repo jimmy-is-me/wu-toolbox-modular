@@ -26,6 +26,10 @@ final class WUTM_Classic_Features {
         if (self::is_enabled('advanced_editor_tools')) {
             self::enable_advanced_editor_tools();
         }
+
+        if (self::is_enabled('disable_big_image_threshold')) {
+            self::disable_big_image_threshold();
+        }
     }
 
     private static function settings(): array {
@@ -33,6 +37,7 @@ final class WUTM_Classic_Features {
             'classic_editor' => false,
             'classic_widgets' => false,
             'advanced_editor_tools' => false,
+            'disable_big_image_threshold' => false,
         ]);
     }
 
@@ -55,6 +60,10 @@ final class WUTM_Classic_Features {
     private static function enable_classic_widgets(): void {
         add_filter('use_widgets_block_editor', '__return_false', 100);
         add_filter('gutenberg_use_widgets_block_editor', '__return_false', 100);
+    }
+
+    private static function disable_big_image_threshold(): void {
+        add_filter('big_image_size_threshold', '__return_false', 100);
     }
 
     private static function enable_advanced_editor_tools(): void {
@@ -163,6 +172,7 @@ final class WUTM_Classic_Features {
             'classic_editor' => !empty($_POST['classic_editor']),
             'classic_widgets' => !empty($_POST['classic_widgets']),
             'advanced_editor_tools' => !empty($_POST['advanced_editor_tools']),
+            'disable_big_image_threshold' => !empty($_POST['disable_big_image_threshold']),
         ], false);
 
         wp_safe_redirect(add_query_arg([
@@ -181,7 +191,8 @@ final class WUTM_Classic_Features {
         $enabled_count =
             (int) !empty($settings['classic_editor'])
             + (int) !empty($settings['classic_widgets'])
-            + (int) !empty($settings['advanced_editor_tools']);
+            + (int) !empty($settings['advanced_editor_tools'])
+            + (int) !empty($settings['disable_big_image_threshold']);
         ?>
         <div class="wrap wutm-module-wrap wutm-classic-features">
             <h1>經典功能設定</h1>
@@ -194,7 +205,7 @@ final class WUTM_Classic_Features {
             <div class="card" style="max-width:100%;margin:20px 0;">
                 <h2 style="margin-top:0;">目前狀態</h2>
                 <p>
-                    已啟用 <strong><?php echo (int) $enabled_count; ?> / 3</strong> 項經典功能。
+                    已啟用 <strong><?php echo (int) $enabled_count; ?> / 4</strong> 項經典功能。
                     儲存後重新開啟文章編輯器或「外觀 → 小工具」即可看到變更。
                 </p>
             </div>
@@ -241,6 +252,18 @@ final class WUTM_Classic_Features {
                                 </p>
                             </td>
                         </tr>
+                        <tr>
+                            <th scope="row">大型尺寸圖片限制</th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="disable_big_image_threshold" value="1" <?php checked(!empty($settings['disable_big_image_threshold'])); ?>>
+                                    停用 WordPress 的大型尺寸圖片限制
+                                </label>
+                                <p class="description">
+                                    WordPress 5.3 以上版本預設會將超過 2560px 的圖片建立為「-scaled」檔案；啟用後會保留原始尺寸。這不會停用一般縮圖或壓縮設定。
+                                </p>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
 
@@ -253,6 +276,7 @@ final class WUTM_Classic_Features {
                     <li>三項功能可分開開啟，不必同時啟用。</li>
                     <li>進階工具會套用到 WordPress 的 TinyMCE 編輯器；搭配經典編輯器使用時功能最完整。</li>
                     <li>所有功能只調整後台編輯介面，不會改寫既有文章、頁面或小工具資料。</li>
+                    <li>大型尺寸圖片限制只影響 WordPress 自動建立的「-scaled」圖片；請確認主機磁碟空間與圖片最佳化流程能負荷原始尺寸。</li>
                     <li>若網站另外安裝相同類型的經典或 TinyMCE 工具外掛，建議只保留一套啟用來源。</li>
                 </ul>
             </div>

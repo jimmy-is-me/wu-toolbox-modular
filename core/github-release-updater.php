@@ -48,6 +48,13 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.6.9</h4>
+            <ul>
+                <li>新增「通知整理工具」模組，將後台通知集中到可展開面板，保留原有通知內容與關閉操作。</li>
+                <li>通知整理工具採用繁體中文設定與提示，不包含廣告、外部請求或追蹤；發現重要錯誤時可自動展開面板。</li>
+                <li>「經典功能」新增大型尺寸圖片限制開關，可停用 WordPress 自動建立 -scaled 圖片並保留原始尺寸。</li>
+                <li>大型尺寸圖片功能不會停用一般縮圖或圖片壓縮設定。</li>
+            </ul>
             <h4>1.6.8</h4>
             <ul>
                 <li>新增「Discord 通知工具」模組，歸入「電商工具」分類，可將 WooCommerce 訂單與狀態變更通知到 Discord。</li>
