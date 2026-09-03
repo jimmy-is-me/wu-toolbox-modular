@@ -48,6 +48,14 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.7.3</h4>
+            <ul>
+                <li>內容複製器參考 Duplicate Post 改善，新增「複製為草稿」、批次複製、逐篇權限驗證與更完整的設定正規化。</li>
+                <li>SVG 上傳依 SVG Support 的媒體相容作法，補齊 SVG 尺寸、媒體庫預覽與附件 Metadata，且維持嚴格安全檢查。</li>
+                <li>新增「預設精選圖片」模組，可在未設定精選圖片時輸出媒體庫指定的備援圖片；不會修改既有文章資料。</li>
+                <li>新增「禁用表情符號」模組，移除 WordPress Emoji 資源與 DNS 預先解析；不會移除文章內容中的 Emoji 文字。</li>
+                <li>媒體庫管理卡片新增「開發中」標籤。</li>
+            </ul>
             <h4>1.7.2</h4>
             <ul>
                 <li>修正 SVG 相容影像處理器的 WordPress 核心方法宣告，避免啟用模組時發生致命錯誤。</li>
