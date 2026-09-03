@@ -2,9 +2,8 @@
 /**
  * Module: classic-features
  *
- * Restores the classic post editor and classic widget management screens.
- * The implementation follows the behavior of the official Classic Editor
- * and Classic Widgets plugins without loading their standalone settings UI.
+ * Restores the classic post editor and classic widget management screens,
+ * and optionally expands the WordPress TinyMCE toolbar.
  */
 defined('ABSPATH') || exit;
 
@@ -23,12 +22,17 @@ final class WUTM_Classic_Features {
         if (self::is_enabled('classic_widgets')) {
             self::enable_classic_widgets();
         }
+
+        if (self::is_enabled('advanced_editor_tools')) {
+            self::enable_advanced_editor_tools();
+        }
     }
 
     private static function settings(): array {
         return wp_parse_args((array) get_option(self::OPTION, []), [
             'classic_editor' => false,
             'classic_widgets' => false,
+            'advanced_editor_tools' => false,
         ]);
     }
 
@@ -38,26 +42,61 @@ final class WUTM_Classic_Features {
     }
 
     private static function enable_classic_editor(): void {
-        // WordPress core block editor.
         add_filter('use_block_editor_for_post_type', '__return_false', 100);
         add_filter('use_block_editor_for_post', '__return_false', 100);
-
-        // Compatibility with sites that also run the Gutenberg plugin.
         add_filter('gutenberg_can_edit_post_type', '__return_false', 100);
         add_filter('gutenberg_can_edit_post', '__return_false', 100);
 
-        // Remove the obsolete editor promotion panel on older WordPress releases.
         add_action('admin_init', [__CLASS__, 'remove_editor_promotion']);
-
-        // Keep the classic publish box usable on newer WordPress admin layouts.
         add_action('admin_head-post.php', [__CLASS__, 'classic_editor_compatibility_css']);
         add_action('admin_head-post-new.php', [__CLASS__, 'classic_editor_compatibility_css']);
     }
 
     private static function enable_classic_widgets(): void {
-        // WordPress core and Gutenberg plugin widget editors.
         add_filter('use_widgets_block_editor', '__return_false', 100);
         add_filter('gutenberg_use_widgets_block_editor', '__return_false', 100);
+    }
+
+    private static function enable_advanced_editor_tools(): void {
+        add_filter('mce_buttons', [__CLASS__, 'advanced_editor_first_row'], 999, 2);
+        add_filter('mce_buttons_2', [__CLASS__, 'advanced_editor_second_row'], 999, 2);
+        add_filter('tiny_mce_before_init', [__CLASS__, 'advanced_editor_settings'], 20, 2);
+    }
+
+    public static function advanced_editor_first_row($buttons, $editor_id = ''): array {
+        $buttons = is_array($buttons) ? $buttons : [];
+        $extra = ['styleselect', 'underline', 'strikethrough', 'alignjustify', 'wp_adv'];
+
+        return array_values(array_unique(array_merge($buttons, $extra)));
+    }
+
+    public static function advanced_editor_second_row($buttons, $editor_id = ''): array {
+        $buttons = is_array($buttons) ? $buttons : [];
+        $extra = [
+            'fontselect',
+            'fontsizeselect',
+            'forecolor',
+            'backcolor',
+            'subscript',
+            'superscript',
+            'hr',
+            'charmap',
+            'pastetext',
+            'removeformat',
+            'outdent',
+            'indent',
+        ];
+
+        return array_values(array_unique(array_merge($buttons, $extra)));
+    }
+
+    public static function advanced_editor_settings($settings, $editor_id = ''): array {
+        $settings = is_array($settings) ? $settings : [];
+        $settings['fontsize_formats'] = '8px 10px 12px 14px 16px 18px 20px 24px 28px 32px 36px 48px 60px 72px 96px';
+        $settings['block_formats'] = '段落=p;標題 1=h1;標題 2=h2;標題 3=h3;標題 4=h4;標題 5=h5;標題 6=h6;預先格式化=pre';
+        $settings['wordpress_adv_hidden'] = false;
+
+        return $settings;
     }
 
     public static function remove_editor_promotion(): void {
@@ -93,6 +132,7 @@ final class WUTM_Classic_Features {
         update_option(self::OPTION, [
             'classic_editor' => !empty($_POST['classic_editor']),
             'classic_widgets' => !empty($_POST['classic_widgets']),
+            'advanced_editor_tools' => !empty($_POST['advanced_editor_tools']),
         ], false);
 
         wp_safe_redirect(add_query_arg([
@@ -108,11 +148,14 @@ final class WUTM_Classic_Features {
         }
 
         $settings = self::settings();
-        $enabled_count = (int) !empty($settings['classic_editor']) + (int) !empty($settings['classic_widgets']);
+        $enabled_count =
+            (int) !empty($settings['classic_editor'])
+            + (int) !empty($settings['classic_widgets'])
+            + (int) !empty($settings['advanced_editor_tools']);
         ?>
         <div class="wrap wutm-module-wrap wutm-classic-features">
             <h1>經典功能設定</h1>
-            <p class="wutm-module-subtitle">依需求恢復 WordPress 傳統編輯體驗；未勾選的功能不會介入後台畫面。</p>
+            <p class="wutm-module-subtitle">依需求恢復並強化 WordPress 傳統編輯體驗；未勾選的功能不會介入後台畫面。</p>
 
             <?php if (!empty($_GET['updated'])) : ?>
                 <div class="notice notice-success is-dismissible"><p>經典功能設定已儲存。</p></div>
@@ -121,8 +164,8 @@ final class WUTM_Classic_Features {
             <div class="card" style="max-width:100%;margin:20px 0;">
                 <h2 style="margin-top:0;">目前狀態</h2>
                 <p>
-                    已啟用 <strong><?php echo (int) $enabled_count; ?> / 2</strong> 項經典功能。
-                    儲存設定後，重新開啟文章編輯器或「外觀 → 小工具」即可看到變更。
+                    已啟用 <strong><?php echo (int) $enabled_count; ?> / 3</strong> 項經典功能。
+                    儲存後重新開啟文章編輯器或「外觀 → 小工具」即可看到變更。
                 </p>
             </div>
 
@@ -156,6 +199,18 @@ final class WUTM_Classic_Features {
                                 </p>
                             </td>
                         </tr>
+                        <tr>
+                            <th scope="row">進階編輯器工具</th>
+                            <td>
+                                <label>
+                                    <input type="checkbox" name="advanced_editor_tools" value="1" <?php checked(!empty($settings['advanced_editor_tools'])); ?>>
+                                    啟用進階 TinyMCE 工具列
+                                </label>
+                                <p class="description">
+                                    增加字型、字級、文字與背景色、底線、左右縮排、上下標、水平線、特殊字元、格式清除及左右對齊等工具。
+                                </p>
+                            </td>
+                        </tr>
                     </tbody>
                 </table>
 
@@ -165,9 +220,10 @@ final class WUTM_Classic_Features {
             <div class="card" style="max-width:100%;margin-top:20px;">
                 <h2 style="margin-top:0;">功能說明</h2>
                 <ul style="list-style:disc;padding-left:22px;">
-                    <li>兩項功能可分開開啟，不必同時啟用。</li>
-                    <li>只調整 WordPress 後台的編輯介面，不會改寫既有文章、頁面或小工具資料。</li>
-                    <li>若網站另外安裝經典編輯器或經典小工具外掛，建議只保留一套啟用來源，方便日後維護。</li>
+                    <li>三項功能可分開開啟，不必同時啟用。</li>
+                    <li>進階工具會套用到 WordPress 的 TinyMCE 編輯器；搭配經典編輯器使用時功能最完整。</li>
+                    <li>所有功能只調整後台編輯介面，不會改寫既有文章、頁面或小工具資料。</li>
+                    <li>若網站另外安裝相同類型的經典或 TinyMCE 工具外掛，建議只保留一套啟用來源。</li>
                 </ul>
             </div>
         </div>
