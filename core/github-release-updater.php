@@ -48,6 +48,13 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.6.6</h4>
+            <ul>
+                <li>「經典功能」新增進階編輯器工具，可擴充 TinyMCE 字型、字級、色彩、縮排、上下標及格式工具。</li>
+                <li>新增「自動上傳圖片」模組，儲存內容時會將外部圖片安全匯入媒體庫並替換網址。</li>
+                <li>自動上傳圖片支援文章、頁面、商品與自訂內容類型，並可排除指定內容類型與網域。</li>
+                <li>加入安全網址、圖片 MIME、操作權限與重複處理防護；下載失敗不會中斷內容儲存。</li>
+            </ul>
             <h4>1.6.5</h4>
             <ul>
                 <li>新增「經典功能」模組，可分別啟用經典編輯器與經典小工具。</li>
