@@ -108,9 +108,15 @@ class WU_Content_Duplicator {
             ? array_map('sanitize_text_field', (array) $input['excluded_post_types'])
             : [];
 
-        // ✅ 修正：用雙引號 "\n"
         $raw_keys = $input['excluded_meta_keys'] ?? '';
-        $s['excluded_meta_keys'] = array_values(array_filter(array_map('trim', explode("\n", $raw_keys))));
+        if (is_array($raw_keys)) {
+            $raw_keys = implode("\n", array_map(static function ($value): string {
+                return is_scalar($value) ? (string) $value : '';
+            }, $raw_keys));
+        }
+        $raw_keys = is_string($raw_keys) ? $raw_keys : '';
+        $lines = preg_split('/\r\n|\r|\n/', $raw_keys) ?: [];
+        $s['excluded_meta_keys'] = array_values(array_filter(array_map('trim', $lines)));
 
         $s['title_prefix']           = sanitize_text_field($input['title_prefix'] ?? '');
         $s['slug_suffix']            = sanitize_title($input['slug_suffix'] ?? '');
