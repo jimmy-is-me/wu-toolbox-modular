@@ -48,6 +48,12 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.7.6</h4>
+            <ul>
+                <li>新增「常用外掛」分類與 Instant Images 卡片。</li>
+                <li>啟用卡片後可從 WordPress.org 一鍵安裝與啟用官方 Instant Images 外掛；WU Toolbox 不會重製或修改其圖片功能。</li>
+                <li>補足安裝、啟用、權限與伺服器寫入失敗時的繁體中文提示。</li>
+            </ul>
             <h4>1.7.5</h4>
             <ul>
                 <li>修正「通知整理工具」可能搬移區塊編輯器或 WooCommerce 動態通知，導致顯示 Connection lost 的問題。</li>
