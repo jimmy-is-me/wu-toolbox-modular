@@ -48,6 +48,13 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.7.7</h4>
+            <ul>
+                <li>新增 Rank Math SEO、FluentSMTP、UpdraftPlus 與 WPvivid 的第三方官方外掛快速安裝卡片。</li>
+                <li>新卡片會透過 WordPress 原生流程從 WordPress.org 安裝及啟用官方外掛，不會內建、重製或修改其功能。</li>
+                <li>Instant Images 改列入「媒體工具」；郵件追蹤改列入「郵件工具」；浮動聯絡按鈕與首頁彈出視窗改列入「前台介面」。</li>
+                <li>移除「常用外掛」分類與「常用外掛管理」模組。</li>
+            </ul>
             <h4>1.7.6</h4>
             <ul>
                 <li>新增「常用外掛」分類與 Instant Images 卡片。</li>
