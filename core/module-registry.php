@@ -9,6 +9,7 @@ function wutm_modules(): array {
         'advanced-tracking-manager' => ['name' => '進階追蹤管理', 'description' => '管理 GA4、GTM、Google Ads、Meta Pixel 與診斷。', 'group' => '監控追蹤', 'icon' => '🎯'],
         'auto-upload-images' => ['name' => '自動上傳圖片', 'description' => '儲存內容時將外部圖片匯入媒體庫並替換網址。', 'group' => '媒體工具', 'icon' => '🖼️'],
         'default-featured-image' => ['name' => '預設精選圖片', 'description' => '當內容未設定精選圖片時，自動顯示指定的預設圖片。', 'group' => '媒體工具', 'icon' => '🌄', 'settings_page' => 'wu-default-featured-image'],
+        'instant-images' => ['name' => 'Instant Images', 'description' => '一鍵安裝與啟用官方 Instant Images 外掛。', 'group' => '常用外掛', 'icon' => '📷', 'settings_page' => 'wu-instant-images'],
         'media-library-manager' => ['name' => '媒體庫管理', 'description' => '以虛擬資料夾建立、分類、篩選與批次整理媒體檔案。', 'group' => '媒體工具', 'icon' => '🗂️', 'settings_page' => 'wu-media-library-manager', 'development' => true],
         'media-sync' => ['name' => '媒體掃描匯入', 'description' => '掃描 uploads 中未登錄的檔案，再選擇匯入媒體庫。', 'group' => '媒體工具', 'icon' => '🔍', 'settings_page' => 'wu-media-sync'],
         'disable-wordpress-updates' => ['name' => '停用所有更新', 'description' => '停止 WordPress 核心、外掛與佈景主題的更新檢查及自動更新。', 'group' => '媒體工具', 'icon' => '⏸️', 'settings_page' => 'wu-disable-wordpress-updates'],
