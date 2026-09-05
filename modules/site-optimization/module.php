@@ -34,8 +34,8 @@ final class WUTM_Site_Optimization {
     public static function menu(): void {
         add_submenu_page(
             'wu-toolbox-modular',
-            '網站優化設定',
-            '網站優化',
+            '網站修復工具',
+            '網站修復工具',
             'manage_options',
             self::SLUG,
             [__CLASS__, 'page']
@@ -80,11 +80,11 @@ final class WUTM_Site_Optimization {
         $woocommerce_available = class_exists('WooCommerce') || defined('WC_VERSION');
         ?>
         <div class="wrap wutm-module-wrap wutm-site-optimization">
-            <h1>網站優化設定</h1>
+            <h1>網站修復工具</h1>
             <p class="wutm-module-subtitle">依需要開啟個別修復功能；未啟用的功能不會執行。</p>
 
             <?php if (!empty($_GET['updated'])) : ?>
-                <div class="notice notice-success is-dismissible"><p>網站優化設定已儲存。</p></div>
+                <div class="notice notice-success is-dismissible"><p>網站修復工具已儲存。</p></div>
             <?php endif; ?>
 
             <section class="wutm-so-summary" aria-label="功能狀態">
