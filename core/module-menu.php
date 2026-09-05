@@ -58,7 +58,7 @@ add_action('admin_menu', function (): void {
             $needle = 'wu-' . $key;
             foreach ($entries as $index => $entry) {
                 $slug = (string) ($entry[2] ?? '');
-                if (isset($used[$index]) || ($slug !== $needle && strpos($slug, $needle) === false)) continue;
+                if (isset($used[$index]) || ($slug !== $needle)) continue;
                 $entry[0] = $module['name'];
                 $ordered[] = $entry;
                 $used[$index] = true;
@@ -73,3 +73,15 @@ add_action('admin_menu', function (): void {
     }
     $submenu[$parent] = $ordered;
 }, 999);
+
+/** Hide installer shortcuts without removing registered page access or native plugin menus. */
+add_action('admin_head', function (): void {
+    if (!function_exists('wutm_modules')) return;
+    $selectors = [];
+    foreach (wutm_modules() as $key => $module) {
+        if (($module['tag'] ?? '') !== '第三方外掛') continue;
+        $slug = 'wu-' . sanitize_key($key);
+        $selectors[] = '#adminmenu .wp-submenu li:has(>a[href="admin.php?page=' . $slug . '"])';
+    }
+    if ($selectors) echo '<style>' . implode(',', $selectors) . '{display:none!important}</style>';
+});
