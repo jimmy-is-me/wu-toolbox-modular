@@ -48,6 +48,14 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.7.8</h4>
+            <ul>
+                <li>修正頁面及階層式內容清單重複顯示拖曳排序按鈕。</li>
+                <li>修正通知整理漏收 wrap 內通知與 WordPress 搬移通知的時序問題；保留隱藏連線警告與行內提示，關閉通知後同步數量。</li>
+                <li>新增 WP Downgrade（特殊工具）與 Wordfence（安全性）第三方官方外掛快速安裝卡片。</li>
+                <li>停用所有更新、增強下載器移至後台介面分類。</li>
+                <li>更新媒體編碼器卡片說明：上傳時可先等比例縮小圖片，再轉換為 WebP。</li>
+            </ul>
             <h4>1.7.7</h4>
             <ul>
                 <li>新增 Rank Math SEO、FluentSMTP、UpdraftPlus 與 WPvivid 的第三方官方外掛快速安裝卡片。</li>
