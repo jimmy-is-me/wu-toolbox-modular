@@ -54,7 +54,8 @@ class WU_WooCommerce_Optimizer {
             }
             $slug = $item[2];
             $query = array();
-            parse_str(str_replace('&amp;', '&', strpos($slug, '?') !== false ? substr($slug, strpos($slug, '?') + 1) : $slug), $query);
+            $query_string = strpos($slug, '?') !== false ? substr($slug, strpos($slug, '?') + 1) : 'page=' . $slug;
+            parse_str(str_replace('&amp;', '&', $query_string), $query);
             $page = isset($query['page']) ? $query['page'] : $slug;
             $path = isset($query['path']) ? $query['path'] : '';
             if (
