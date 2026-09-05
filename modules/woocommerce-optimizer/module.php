@@ -21,7 +21,8 @@ class WU_WooCommerce_Optimizer {
         
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'admin_init'));
-        add_action('admin_menu', array($this, 'hide_admin_menus'), PHP_INT_MAX);
+        add_action('admin_head', array($this, 'admin_visibility_styles'));
+        add_filter('admin_footer_text', array($this, 'footer_text'), PHP_INT_MAX);
         add_filter('woocommerce_settings_tabs_array', array($this, 'hide_settings_tabs'), PHP_INT_MAX);
         $this->load_optimizations();
     }
@@ -33,39 +34,62 @@ class WU_WooCommerce_Optimizer {
             'wu_woo_hide_extensions' => '隱藏擴充功能',
             'wu_woo_hide_status' => '隱藏狀態',
             'wu_woo_hide_pos' => '隱藏銷售時點情報系統',
-            'wu_woo_hide_advanced' => '隱藏進階'
+            'wu_woo_hide_advanced' => '隱藏進階',
+            'wu_woo_hide_marketing' => '隱藏行銷概觀',
+            'wu_woo_hide_integration' => '隱藏整合',
+            'wu_woo_hide_embedded_primary' => '隱藏 WooCommerce 嵌入式推廣區塊',
+            'wu_woo_hide_more_payments' => '隱藏更多付款選項',
+            'wu_woo_hide_official_payments' => '隱藏官方付款推薦（不會停用已啟用金流）',
+            'wu_woo_hide_payments_menu' => '隱藏主選單付款',
+            'wu_woo_hide_reports' => '隱藏報表',
+            'wu_woo_custom_footer' => '頁尾顯示 Woocommerce X Wumetax（預設開啟）'
         );
     }
 
     public function visibility_field($args) {
         $option = $args['option'];
         echo '<input type="hidden" name="' . esc_attr($option) . '" value="0">';
-        echo '<label><input type="checkbox" name="' . esc_attr($option) . '" value="1" ' . checked(1, get_option($option, false), false) . '> ' . esc_html($args['label']) . '</label>';
+        echo '<label><input type="checkbox" name="' . esc_attr($option) . '" value="1" ' . checked(1, get_option($option, $option === 'wu_woo_custom_footer'), false) . '> ' . esc_html($args['label']) . '</label>';
     }
 
-    public function hide_admin_menus() {
-        global $submenu;
-        if (empty($submenu['woocommerce'])) {
-            return;
+    // CSS-only: leave menu registrations intact for WordPress page access checks.
+    public function visibility_css() {
+        $rules = array(
+            'wu_woo_hide_home' => '#adminmenu .wp-submenu li:has(>a[href="admin.php?page=wc-admin"]),#adminmenu .wp-submenu li:has(>a[href="admin.php?page=wc-admin&path=%2F"])',
+            'wu_woo_hide_extensions' => '#adminmenu .wp-submenu li:has(>a[href*="path=%2Fextensions"]),#adminmenu .wp-submenu li:has(>a[href*="path=/extensions"]),#adminmenu .wp-submenu li:has(>a[href="admin.php?page=wc-addons"])',
+            'wu_woo_hide_status' => '#adminmenu .wp-submenu li:has(>a[href="admin.php?page=wc-status"])',
+            'wu_woo_hide_reports' => '#adminmenu .wp-submenu li:has(>a[href="admin.php?page=wc-reports"])',
+            'wu_woo_hide_marketing' => '#adminmenu .wp-submenu li:has(>a[href*="path=%2Fmarketing"]),#adminmenu .wp-submenu li:has(>a[href*="path=/marketing"])',
+            'wu_woo_hide_payments_menu' => '#adminmenu>li:has(>a[href*="page=wc-admin&task=payments"]),#adminmenu>li:has(>a[href*="page=wc-admin&task=woocommerce-payments"]),#adminmenu>li:has(>a[href*="page=wc-settings&tab=checkout"]),#adminmenu>li:has(>a[href="admin.php?page=wc-admin&path=%2Fpayments"])'
+        );
+        $css = '';
+        foreach ($rules as $option => $selector) {
+            if (get_option($option, false)) $css .= $selector . '{display:none!important;}';
         }
-        foreach ($submenu['woocommerce'] as $item) {
-            if (!isset($item[2])) {
-                continue;
-            }
-            $slug = $item[2];
-            $query = array();
-            $query_string = strpos($slug, '?') !== false ? substr($slug, strpos($slug, '?') + 1) : 'page=' . $slug;
-            parse_str(str_replace('&amp;', '&', $query_string), $query);
-            $page = isset($query['page']) ? $query['page'] : $slug;
-            $path = isset($query['path']) ? $query['path'] : '';
-            if (
-                (get_option('wu_woo_hide_home', false) && $page === 'wc-admin' && ($path === '' || $path === '/')) ||
-                (get_option('wu_woo_hide_extensions', false) && ($page === 'wc-addons' || ($page === 'wc-admin' && $path === '/extensions'))) ||
-                (get_option('wu_woo_hide_status', false) && $page === 'wc-status')
-            ) {
-                remove_submenu_page('woocommerce', $slug);
-            }
+        if ($this->is_wc_screen()) {
+            if (get_option('wu_woo_hide_embedded_primary', false)) $css .= '.woocommerce-embedded-layout__primary{display:none!important;}';
+            if (get_option('wu_woo_hide_more_payments', false)) $css .= '.more-payment-options{display:none!important;}';
+            if (get_option('wu_woo_hide_official_payments', false)) $css .= '.settings-payment-gateways__list .sortable-item:has([id^="_wc_pes_"]){display:none!important;}';
         }
+        return $css;
+    }
+
+    public function admin_visibility_styles() {
+        $css = $this->visibility_css();
+        if ($css !== '') echo '<style id="wutm-wc-visibility">' . $css . '</style>';
+    }
+
+    private function is_wc_screen() {
+        $screen = get_current_screen();
+        if (!$screen) return false;
+        return strpos($screen->id, 'woocommerce') !== false ||
+            strpos($screen->id, 'wc-') !== false ||
+            in_array($screen->post_type, array('product', 'shop_order', 'shop_coupon'), true);
+    }
+
+    public function footer_text($text) {
+        return $this->is_wc_screen() && get_option('wu_woo_custom_footer', true)
+            ? 'Woocommerce X Wumetax' : $text;
     }
 
     public function hide_settings_tabs($tabs) {
@@ -75,6 +99,7 @@ class WU_WooCommerce_Optimizer {
         if (get_option('wu_woo_hide_advanced', false)) {
             unset($tabs['advanced']);
         }
+        if (get_option('wu_woo_hide_integration', false)) unset($tabs['integration']);
         return $tabs;
     }
 
@@ -91,7 +116,7 @@ class WU_WooCommerce_Optimizer {
     
     public function admin_init() {
         foreach ($this->admin_visibility_options() as $option => $label) {
-            register_setting('wu_woocommerce_settings', $option, array('type' => 'boolean', 'sanitize_callback' => 'rest_sanitize_boolean', 'default' => false));
+            register_setting('wu_woocommerce_settings', $option, array('type' => 'boolean', 'sanitize_callback' => 'rest_sanitize_boolean', 'default' => $option === 'wu_woo_custom_footer'));
             add_settings_field($option, $label, array($this, 'visibility_field'), 'wu_woocommerce_settings', 'wu_woocommerce_section', array('option' => $option, 'label' => $label));
         }
         $settings = array(
