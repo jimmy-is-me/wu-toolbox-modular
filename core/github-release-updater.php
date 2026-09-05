@@ -48,6 +48,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.8.1</h4><ul><li>WooCommerce 選單改為僅隱藏，保留 wc-admin 頁面註冊及存取。</li><li>新增隱藏行銷概觀、整合、嵌入式推廣區、更多付款選項、官方付款推薦、主選單付款與報表。</li><li>WooCommerce 頁尾預設顯示 Woocommerce X Wumetax，可取消。</li><li>第三方安裝卡片不再顯示 WU Toolbox 子選單；修正 WooCommerce 與優化器名稱配對。</li></ul>
             <h4>1.8.0</h4>
             <ul><li>第三方外掛標籤統一採用開發中標籤的圓角樣式。</li><li>WooCommerce 優化器移至電商工具。</li><li>新增獨立隱藏 WC 首頁、擴充功能、狀態、銷售時點情報系統與進階設定分頁的選項，預設關閉，僅整理後台介面。</li></ul>
             <h4>1.7.9</h4>
