@@ -104,9 +104,7 @@ final class WUTM_Notice_Center {
             #wutm-notice-center .wutm-notice-items>.notice,#wutm-notice-center .wutm-notice-items>.updated,#wutm-notice-center .wutm-notice-items>.error,#wutm-notice-center .wutm-notice-items>.update-nag{display:block;margin:10px 12px 0;}
         ');
 
-        wp_register_script('wutm-notice-center', false, [], WUTM_VERSION, true);
-        wp_enqueue_script('wutm-notice-center');
-        wp_add_inline_script('wutm-notice-center', 'document.addEventListener("DOMContentLoaded",function(){var panel=document.getElementById("wutm-notice-center");if(!panel)return;var items=panel.querySelector(".wutm-notice-items"),details=panel.querySelector("details"),count=panel.querySelector(".wutm-notice-count"),important=panel.querySelector(".wutm-notice-important"),openForImportant=' . (!empty($settings['open_for_important']) ? 'true' : 'false') . ';var selector="#wpbody-content > .notice:not(.inline):not(#wutm-notice-center),#wpbody-content > .updated,#wpbody-content > .error,#wpbody-content > .update-nag";var found=Array.prototype.slice.call(document.querySelectorAll(selector)).filter(function(node){return !panel.contains(node)&&!node.classList.contains("wutm-notice-center");});found.forEach(function(node){items.appendChild(node);});var all=Array.prototype.slice.call(items.children),total=String(all.length),errors=all.filter(function(node){return node.classList.contains("notice-error")||node.classList.contains("error");}).length,message=errors?"包含 "+errors+" 則重要通知":"";count.textContent=total;important.textContent=message;if(errors&&openForImportant){details.open=true;}panel.classList.toggle("is-visible",all.length>0);});');
+        wp_enqueue_script('wutm-notice-center', WUTM_URL . 'assets/js/notice-center.js', ['jquery', 'common'], WUTM_VERSION, true);
     }
 
     public static function panel(): void {
@@ -114,7 +112,7 @@ final class WUTM_Notice_Center {
             return;
         }
         ?>
-        <section id="wutm-notice-center" class="wutm-notice-center" aria-live="polite">
+        <section id="wutm-notice-center" class="wutm-notice-center" data-open-important="<?php echo !empty(self::settings()['open_for_important']) ? '1' : '0'; ?>" aria-live="polite">
             <details>
                 <summary>
                     <span>通知整理</span>
