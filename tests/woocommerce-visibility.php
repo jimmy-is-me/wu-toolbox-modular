@@ -6,8 +6,9 @@ $options = array();
 $screen = (object) array('id'=>'woocommerce_page_wc-settings', 'post_type'=>'');
 function get_option($key, $default = false) { global $options; return $options[$key] ?? $default; }
 function get_current_screen() { global $screen; return $screen; }
-function add_action(...$args) {}
-function add_filter(...$args) {}
+$hooks = array();
+function add_action(...$args) { global $hooks; $hooks[] = $args[0]; }
+function add_filter(...$args) { global $hooks; $hooks[] = $args[0]; }
 function remove_submenu_page(...$args) { throw new RuntimeException('Must not remove page/menu registration'); }
 require dirname(__DIR__) . '/modules/woocommerce-optimizer/module.php';
 function verify($condition, $message) { if (!$condition) throw new RuntimeException($message); }
@@ -35,3 +36,19 @@ verify($optimizer->hide_settings_tabs($tabs) === $tabs, 'Restore tabs');
 $source = file_get_contents(dirname(__DIR__).'/modules/woocommerce-optimizer/module.php');
 verify(strpos($source, 'remove_submenu_page(') === false, 'Keep WordPress page access registrations intact');
 echo "WooCommerce visibility regression tests passed.\n";
+
+$options = array('wu_woo_taiwan_address'=>1,'wu_woo_enable_711_shipping'=>1,'wu_woo_enable_einvoice'=>1);
+$hooks = array();
+new WU_WooCommerce_Optimizer(false);
+verify(!in_array('init', $hooks), 'Hide module must not load commerce features');
+$hooks = array();
+new WU_WooCommerce_Optimizer(true);
+verify(count(array_filter($hooks, function($hook){return $hook === 'init';})) === 3, 'Commerce module loads its features');
+verify(!in_array('admin_footer_text', $hooks), 'Commerce module does not change admin footer');
+$hide = new WU_WooCommerce_Optimizer(false);
+$commerce = new WU_WooCommerce_Optimizer(true);
+$method = new ReflectionMethod(WU_WooCommerce_Optimizer::class, 'fields');
+$method->setAccessible(true);
+verify(count($method->invoke($commerce)) === 5, 'Five moved fields');
+verify(!array_intersect_key($method->invoke($hide), $method->invoke($commerce)), 'Separate saved field scopes');
+echo "Module split tests passed.\n";
