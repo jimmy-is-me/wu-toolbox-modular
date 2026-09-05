@@ -48,6 +48,8 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.8.0</h4>
+            <ul><li>第三方外掛標籤統一採用開發中標籤的圓角樣式。</li><li>WooCommerce 優化器移至電商工具。</li><li>新增獨立隱藏 WC 首頁、擴充功能、狀態、銷售時點情報系統與進階設定分頁的選項，預設關閉，僅整理後台介面。</li></ul>
             <h4>1.7.9</h4>
             <ul>
                 <li>新增 WooCommerce、WPCode、TranslatePress、GTranslate、Loco Translate 第三方官方外掛快速安裝卡片。</li>
