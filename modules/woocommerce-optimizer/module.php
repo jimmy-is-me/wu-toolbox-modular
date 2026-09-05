@@ -21,9 +21,62 @@ class WU_WooCommerce_Optimizer {
         
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'admin_init'));
+        add_action('admin_menu', array($this, 'hide_admin_menus'), PHP_INT_MAX);
+        add_filter('woocommerce_settings_tabs_array', array($this, 'hide_settings_tabs'), PHP_INT_MAX);
         $this->load_optimizations();
     }
     
+
+    private function admin_visibility_options() {
+        return array(
+            'wu_woo_hide_home' => '隱藏 WC 首頁',
+            'wu_woo_hide_extensions' => '隱藏擴充功能',
+            'wu_woo_hide_status' => '隱藏狀態',
+            'wu_woo_hide_pos' => '隱藏銷售時點情報系統',
+            'wu_woo_hide_advanced' => '隱藏進階'
+        );
+    }
+
+    public function visibility_field($args) {
+        $option = $args['option'];
+        echo '<input type="hidden" name="' . esc_attr($option) . '" value="0">';
+        echo '<label><input type="checkbox" name="' . esc_attr($option) . '" value="1" ' . checked(1, get_option($option, false), false) . '> ' . esc_html($args['label']) . '</label>';
+    }
+
+    public function hide_admin_menus() {
+        global $submenu;
+        if (empty($submenu['woocommerce'])) {
+            return;
+        }
+        foreach ($submenu['woocommerce'] as $item) {
+            if (!isset($item[2])) {
+                continue;
+            }
+            $slug = $item[2];
+            $query = array();
+            parse_str(str_replace('&amp;', '&', strpos($slug, '?') !== false ? substr($slug, strpos($slug, '?') + 1) : $slug), $query);
+            $page = isset($query['page']) ? $query['page'] : $slug;
+            $path = isset($query['path']) ? $query['path'] : '';
+            if (
+                (get_option('wu_woo_hide_home', false) && $page === 'wc-admin' && ($path === '' || $path === '/')) ||
+                (get_option('wu_woo_hide_extensions', false) && ($page === 'wc-addons' || ($page === 'wc-admin' && $path === '/extensions'))) ||
+                (get_option('wu_woo_hide_status', false) && $page === 'wc-status')
+            ) {
+                remove_submenu_page('woocommerce', $slug);
+            }
+        }
+    }
+
+    public function hide_settings_tabs($tabs) {
+        if (get_option('wu_woo_hide_pos', false)) {
+            unset($tabs['point-of-sale']);
+        }
+        if (get_option('wu_woo_hide_advanced', false)) {
+            unset($tabs['advanced']);
+        }
+        return $tabs;
+    }
+
     public function add_admin_menu() {
         add_submenu_page(
             'wu-toolbox-modular',
@@ -36,6 +89,10 @@ class WU_WooCommerce_Optimizer {
     }
     
     public function admin_init() {
+        foreach ($this->admin_visibility_options() as $option => $label) {
+            register_setting('wu_woocommerce_settings', $option, array('type' => 'boolean', 'sanitize_callback' => 'rest_sanitize_boolean', 'default' => false));
+            add_settings_field($option, $label, array($this, 'visibility_field'), 'wu_woocommerce_settings', 'wu_woocommerce_section', array('option' => $option, 'label' => $label));
+        }
         $settings = array(
             'wu_woo_disable_notifications',
             'wu_woo_show_sales_with_offset',
@@ -117,7 +174,7 @@ class WU_WooCommerce_Optimizer {
     }
     
     public function settings_section_callback() {
-        echo '<p>配置 WooCommerce 優化選項。所有功能均需手動啟用。</p>';
+        echo '<p>配置 WooCommerce 優化選項。所有功能均需手動啟用。隱藏選項僅整理後台選單或設定分頁，不停用相關功能、不改變權限，也不影響前台購物與結帳；取消勾選並儲存即可恢復。</p>';
     }
     
     public function disable_notifications_callback() {
@@ -1252,6 +1309,9 @@ jQuery(document).ready(function($) {
     }
     
     public function admin_page() {
+        if (!current_user_can('manage_options')) {
+            wp_die('您沒有管理此設定的權限。');
+        }
         if (!class_exists('WooCommerce')) {
             echo '<div class="wrap"><h1>WooCommerce 優化器</h1><div class="notice notice-error"><p>未檢測到 WooCommerce</p></div></div>';
             return;
@@ -1271,6 +1331,10 @@ jQuery(document).ready(function($) {
                 update_option('wu_woo_711_free_shipping_threshold', intval($_POST['wu_woo_711_free_shipping_threshold']));
             }
             
+            foreach ($this->admin_visibility_options() as $option => $label) {
+                update_option($option, isset($_POST[$option]) && $_POST[$option] === '1' ? 1 : 0);
+            }
+
             WC_Cache_Helper::get_transient_version('shipping', true);
             
             echo '<div class="notice notice-success"><p>設定已儲存,運送快取已清除</p></div>';
