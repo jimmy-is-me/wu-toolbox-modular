@@ -14,3 +14,5 @@ jobs:
         run: find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
       - name: Missing image repair regression tests
         run: php tests/missing-product-images.php
+      - name: Validate WooCommerce visibility
+        run: php tests/woocommerce-visibility.php
