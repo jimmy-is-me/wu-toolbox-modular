@@ -60,7 +60,7 @@ function wutm_modules(): array {
         'spam-cleaner' => ['name' => '垃圾帳號清除', 'description' => '依使用者名稱關鍵字預覽並清理垃圾機器人帳號。', 'group' => '安全性', 'icon' => '🧹'],
         'transients-manager' => ['name' => 'Transients 管理', 'description' => '查看與清理暫存資料。', 'group' => '效能優化', 'icon' => '🧹'],
         'user-switcher' => ['name' => '使用者切換', 'description' => '切換帳號進行測試。', 'group' => '後台介面', 'icon' => '🔄'],
-        'woocommerce-optimizer' => ['name' => 'WooCommerce 優化器', 'description' => '只在 WooCommerce 存在時載入。', 'group' => '效能優化', 'icon' => '🛒', 'requires' => 'woocommerce'],
+        'woocommerce-optimizer' => ['name' => 'WooCommerce 優化器', 'description' => '只在 WooCommerce 存在時載入。', 'group' => '電商工具', 'icon' => '🛒', 'requires' => 'woocommerce'],
     ];
 }
 function wutm_get_module(string $key): ?array { $all = wutm_modules(); return $all[$key] ?? null; }
