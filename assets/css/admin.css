@@ -211,9 +211,8 @@ input:focus,textarea:focus,select:focus{border-color:var(--wutm-wp-blue)!importa
 
 
 /* 開發中標籤：保留原有卡片布局與切換操作。 */
-.wutm-development-badge{display:inline-block;margin-left:6px;padding:2px 7px;border:1px solid #dba617;border-radius:999px;background:#fff8d8;color:#7a4b00;font-size:11px;font-weight:700;line-height:1.35;vertical-align:middle;white-space:nowrap}
+.wutm-development-badge,.wutm-card-badge{display:inline-block;margin-left:6px;padding:2px 7px;border:1px solid #dba617;border-radius:999px;background:#fff8d8;color:#7a4b00;font-size:11px;font-weight:700;line-height:1.35;vertical-align:middle;white-space:nowrap}
 
 
 /* 第三方外掛標籤與快速安裝入口。 */
-.wutm-card-badge{display:inline-block;margin-left:6px;padding:2px 7px;border:1px solid #72aee6;border-radius:999px;background:#f0f6fc;color:#135e96;font-size:11px;font-weight:700;line-height:1.35;vertical-align:middle;white-space:nowrap}
 .wutm-third-party-installer{max-width:780px;padding:24px!important}.wutm-third-party-installer h2{margin-top:0}.wutm-status-success{color:#008a20}.wutm-status-warning{color:#b26200}
