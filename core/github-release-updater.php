@@ -48,6 +48,14 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.7.9</h4>
+            <ul>
+                <li>新增 WooCommerce、WPCode、TranslatePress、GTranslate、Loco Translate 第三方官方外掛快速安裝卡片。</li>
+                <li>WooCommerce 排在電商工具首位；網站翻譯依序為 TranslatePress、多語言管理、GTranslate、Loco Translate。</li>
+                <li>新增遺失商品圖片修復：掃描商品完整／簡短描述，從 A 來源站補回本站 uploads 同路徑缺檔，支援僅掃描、修復、停止與選擇登錄媒體庫。</li>
+                <li>圖片修復加入安全下載、實際 MIME 與路徑驗證、單圖分批處理、不覆蓋既有檔案及結果紀錄。</li>
+                <li>全站文字取代、資料匯入／匯出、網站修復工具移至特殊工具；網站優化設定更名為網站修復工具。</li>
+            </ul>
             <h4>1.7.8</h4>
             <ul>
                 <li>修正頁面及階層式內容清單重複顯示拖曳排序按鈕。</li>
