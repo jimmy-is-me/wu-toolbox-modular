@@ -37,10 +37,11 @@ final class WUTM_Content_Ordering {
 
         foreach (self::post_types() as $post_type => $object) {
             add_filter("manage_{$post_type}_posts_columns", [__CLASS__, 'add_order_column']);
+            // Hierarchical types fire both the legacy pages hook and the
+            // type-specific hook. Use only the latter to render once.
             add_action("manage_{$post_type}_posts_custom_column", [__CLASS__, 'render_post_column'], 10, 2);
         }
         add_filter('manage_pages_columns', [__CLASS__, 'add_order_column']);
-        add_action('manage_pages_custom_column', [__CLASS__, 'render_post_column'], 10, 2);
 
         foreach (self::taxonomies() as $taxonomy => $object) {
             add_filter("manage_edit-{$taxonomy}_columns", [__CLASS__, 'add_order_column']);
