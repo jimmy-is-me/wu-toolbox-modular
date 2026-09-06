@@ -1,7 +1,5 @@
-# Third-party source notices
+# 綠界來源與授權說明
 
-ECPay payment/shipping and invoice implementation is adapted from the user-supplied Woomp 3.5.17 source archive (https://github.com/zenbuapps/woomp), GPL-2.0-or-later. Original copyright and license files are retained in vendor. wp-metabox is MIT licensed.
+本模組使用使用者提供的 ECPay WooCommerce 官方整合來源，保留其原始授權、版權宣告與 ECPay PHP SDK。WU Toolbox 僅提供模組開關與後台入口，不會將金流密鑰寫入公開檔案。
 
-Integration changes: selective ECPay bootstrap (not the Woomp all-provider bootstrap), WU dashboard/settings entry, separate invoice settings, and capability/nonce guard for invoice mutations. Existing provider identifiers and callback verification are retained. Other provider implementations bundled in the RY source are not initialized by this module.
-
-Do not enable together with Woomp/RY WooCommerce Tools or another ECPay integration. Merchant sandbox/end-to-end tests and checkout-block compatibility have not been verified. Test all payment callbacks, logistics creation/status notifications, invoice issue and void operations before production use.
+金流、物流與電子發票需各自填入正確的 MerchantID、HashKey、HashIV，並在啟用正式服務前使用綠界測試環境完成背景通知、CheckMacValue、出貨及發票流程確認。

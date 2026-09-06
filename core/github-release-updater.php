@@ -48,6 +48,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.8.4</h4><ul><li>綠界工具改為採用官方 WooCommerce 綠界整合來源，提供付款、物流、電子發票及區塊結帳相容能力。</li><li>新增訂單狀態管理，可檢視所有現有狀態並同步調整後台訂單、我的帳號與顧客訂單通知標題的顯示名稱。</li><li>修正結帳頁「需寄送到其他收件地址」文字被顯示為 HTML，並將 billing_first_name 明確標示為帳單姓名。</li></ul>
             <h4>1.8.3</h4><ul><li>新增電商工具卡片：綠界金流/物流/電子發票工具，整合付款、超商與宅配物流及電子發票設定。</li><li>新增電商工具卡片：玉山銀行金流工具，支援信用卡一次付清及分期付款。</li><li>模組按需載入並保留來源授權。付款、物流與發票尚未實際交易測試，正式使用前請先以測試環境驗證。</li></ul>
             <h4>1.8.2</h4><ul><li>啟用隱藏行銷概觀時，行銷主選單改連至折價券。</li><li>WooCommerce 優化器更名為隱藏WC工具。</li><li>新增電商工具卡片 WC優化工具，獨立管理台灣地址、離島運送、7-11 取貨、訂單備註與電子發票，沿用原設定。</li></ul><h4>1.8.1</h4><ul><li>WooCommerce 選單改為僅隱藏，保留 wc-admin 頁面註冊及存取。</li><li>新增隱藏行銷概觀、整合、嵌入式推廣區、更多付款選項、官方付款推薦、主選單付款與報表。</li><li>WooCommerce 頁尾預設顯示 Woocommerce X Wumetax，可取消。</li><li>第三方安裝卡片不再顯示 WU Toolbox 子選單；修正 WooCommerce 與優化器名稱配對。</li></ul>
             <h4>1.8.0</h4>

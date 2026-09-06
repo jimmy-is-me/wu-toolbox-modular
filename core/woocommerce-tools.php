@@ -897,7 +897,7 @@ class WU_WooCommerce_Optimizer {
     
     public function change_ship_to_different_text($translated_text, $text, $domain) {
         if ($domain === 'woocommerce' && $text === 'Ship to a different address?') {
-            return '<span class="wu-ship-text">寄送到其他收件地址</span>';
+            return '需寄送到其他收件地址';
         }
         return $translated_text;
     }
@@ -911,7 +911,7 @@ class WU_WooCommerce_Optimizer {
         unset($fields['billing']['billing_country']);
         
         if (isset($fields['billing']['billing_first_name'])) {
-            $fields['billing']['billing_first_name']['label'] = '姓名';
+            $fields['billing']['billing_first_name']['label'] = '帳單姓名';
             $fields['billing']['billing_first_name']['class'] = array('form-row-wide');
             $fields['billing']['billing_first_name']['priority'] = 10;
         }
