@@ -76,7 +76,7 @@ class WU_WooCommerce_Optimizer {
             if (get_option('wu_woo_hide_embedded_primary', false)) $css .= '.woocommerce-embedded-layout__primary{display:none!important;}';
             if (get_option('wu_woo_hide_more_payments', false)) $css .= '.more-payment-options{display:none!important;}';
             if (get_option('wu_woo_hide_official_payments', false)) $css .= '.settings-payment-gateways__list .sortable-item:has([id^="_wc_pes_"]){display:none!important;}';
-            if (get_option('wu_woo_hide_sales_channel_filter', false)) $css .= 'select[name="sales_channel"],.woocommerce-orders-filter [data-filter="sales_channel"],.woocommerce-orders-filter .woocommerce-select-control:has(option[value="sales_channel"]){display:none!important;}';
+            if (get_option('wu_woo_hide_sales_channel_filter', false)) $css .= 'select[name="sales_channel"],select#filter-by-created-via,select[name="created_via"],.woocommerce-orders-filter [data-filter="sales_channel"],.woocommerce-orders-filter .woocommerce-select-control:has(option[value="sales_channel"]){display:none!important;}';
         }
         return $css;
     }
