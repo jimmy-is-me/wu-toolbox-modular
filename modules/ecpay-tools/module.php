@@ -24,7 +24,7 @@ add_action('admin_menu', static function (): void {
         'wu-ecpay-tools',
         static function (): void {
             if (!current_user_can('manage_woocommerce')) return;
-            $settings_url = admin_url('admin.php?page=wc-settings&tab=wooecpay');
+            $settings_url = admin_url('admin.php?page=wc-settings&tab=wooecpay_setting&section=ecpay_main');
             echo '<div class="wrap"><h1>綠界金流／物流／電子發票工具</h1><div class="card">';
             echo '<p>此模組提供綠界付款、超商／宅配物流與電子發票的 WooCommerce 整合。</p>';
             echo '<p>請分別填入金流、物流及電子發票的 MerchantID、HashKey 與 HashIV；各服務的商店資料不可混用。</p>';

@@ -47,6 +47,7 @@ class WU_WooCommerce_Optimizer {
             'wu_woo_hide_official_payments' => '隱藏官方付款推薦（不會停用已啟用金流）',
             'wu_woo_hide_payments_menu' => '隱藏主選單付款',
             'wu_woo_hide_reports' => '隱藏報表',
+            'wu_woo_hide_sales_channel_filter' => '隱藏銷售通路篩選',
             'wu_woo_custom_footer' => '頁尾顯示 Woocommerce X Wumetax（預設開啟）'
         );
     }
@@ -75,6 +76,7 @@ class WU_WooCommerce_Optimizer {
             if (get_option('wu_woo_hide_embedded_primary', false)) $css .= '.woocommerce-embedded-layout__primary{display:none!important;}';
             if (get_option('wu_woo_hide_more_payments', false)) $css .= '.more-payment-options{display:none!important;}';
             if (get_option('wu_woo_hide_official_payments', false)) $css .= '.settings-payment-gateways__list .sortable-item:has([id^="_wc_pes_"]){display:none!important;}';
+            if (get_option('wu_woo_hide_sales_channel_filter', false)) $css .= 'select[name="sales_channel"],.woocommerce-orders-filter [data-filter="sales_channel"],.woocommerce-orders-filter .woocommerce-select-control:has(option[value="sales_channel"]){display:none!important;}';
         }
         return $css;
     }
@@ -891,8 +893,9 @@ class WU_WooCommerce_Optimizer {
     public function register_taiwan_address() {
         add_filter('woocommerce_checkout_fields', array($this, 'customize_taiwan_address_fields'), 999);
         add_filter('woocommerce_ship_to_different_address_checked', '__return_false');
-        add_filter('gettext', array($this, 'change_ship_to_different_text'), 20, 3);
+        add_filter('gettext', array($this, 'change_ship_to_different_text'), 999, 3);
         add_action('wp_enqueue_scripts', array($this, 'enqueue_taiwan_address_assets'), 999);
+        add_action('wp_footer', array($this, 'fix_ship_to_different_markup'), 999);
     }
     
     public function change_ship_to_different_text($translated_text, $text, $domain) {
@@ -900,6 +903,19 @@ class WU_WooCommerce_Optimizer {
             return '需寄送到其他收件地址';
         }
         return $translated_text;
+    }
+
+    public function fix_ship_to_different_markup() {
+        if (!function_exists('is_checkout') || !is_checkout() || is_order_received_page()) return;
+        ?>
+        <script id="wutm-ship-to-different-label">
+        (function () {
+            document.querySelectorAll('#ship-to-different-address .wu-ship-text').forEach(function (node) {
+                node.textContent = '需寄送到其他收件地址';
+            });
+        }());
+        </script>
+        <?php
     }
     
     public function customize_taiwan_address_fields($fields) {
