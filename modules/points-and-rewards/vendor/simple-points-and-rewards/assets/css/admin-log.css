@@ -1,0 +1,210 @@
+/**
+ * Admin Log Page Styles
+ * Simple Points and Rewards Plugin
+ */
+
+/* Filter form styling */
+.spar-log-filters {
+    background: #fff;
+    border: 1px solid #ccd0d4;
+    padding: 15px;
+    margin: 20px 0;
+    border-radius: 4px;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.04);
+}
+
+.spar-log-filters h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #23282d;
+}
+
+.spar-log-filters label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 5px;
+    color: #23282d;
+}
+
+.spar-log-filters input[type="text"],
+.spar-log-filters input[type="date"],
+.spar-log-filters input[type="number"],
+.spar-log-filters select {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+.spar-log-filters input[type="text"]:focus,
+.spar-log-filters input[type="date"]:focus,
+.spar-log-filters input[type="number"]:focus,
+.spar-log-filters select:focus {
+    border-color: #007cba;
+    box-shadow: 0 0 0 1px #007cba;
+    outline: none;
+}
+
+/* Filter form grid layout */
+.spar-log-filters .filter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 15px;
+}
+
+@media (max-width: 1200px) {
+    .spar-log-filters .filter-grid {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+}
+
+@media (max-width: 768px) {
+    .spar-log-filters .filter-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+}
+
+/* Filter actions */
+.spar-log-filters .filter-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.spar-log-filters .filter-actions .active-filters {
+    color: #135e96;
+    font-weight: 600;
+}
+
+/* Quick filter buttons */
+.spar-log-filters .quick-filters {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #ddd;
+}
+
+.spar-log-filters .quick-filters strong {
+    margin-right: 10px;
+}
+
+.spar-quick-filter {
+    margin-right: 5px;
+    margin-bottom: 5px;
+}
+
+.spar-quick-filter:hover {
+    background-color: #f6f7f7;
+    border-color: #0073aa;
+}
+
+/* Points styling in table */
+.spar-positive {
+    color: #46b450;
+    font-weight: 600;
+}
+
+.spar-negative {
+    color: #dc3232;
+    font-weight: 600;
+}
+
+.spar-pending {
+    color: #f0a500;
+    font-weight: 600;
+}
+
+/* Table enhancements */
+.wp-list-table .column-points {
+    text-align: left;
+}
+
+.wp-list-table .column-row_actions {
+    white-space: nowrap;
+}
+
+.spar-action-delete {
+    color: #a00 !important;
+    border-color: #a00 !important;
+}
+
+.spar-action-delete:hover {
+    background: #a00 !important;
+    color: #fff !important;
+}
+
+.wp-list-table .column-type {
+    text-align: left;
+    text-transform: capitalize;
+}
+
+.wp-list-table .column-date {
+    width: 150px;
+}
+
+.wp-list-table tbody tr:hover {
+    background-color: #f6f7f7;
+}
+
+/* Loading states */
+.spar-log-filters.loading {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.spar-log-filters.loading::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 20px;
+    height: 20px;
+    margin: -10px 0 0 -10px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #007cba;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 782px) {
+    .spar-log-filters {
+        padding: 10px;
+    }
+    
+    .spar-log-filters .filter-actions {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .spar-log-filters .filter-actions > * {
+        margin-bottom: 5px;
+    }
+}
+
+/* Accessibility improvements */
+.spar-log-filters input:focus,
+.spar-log-filters select:focus,
+.spar-log-filters button:focus {
+    outline: 2px solid #007cba;
+    outline-offset: 2px;
+}
+
+.screen-reader-text {
+    position: absolute !important;
+    clip: rect(1px, 1px, 1px, 1px);
+    -webkit-clip-path: inset(50%);
+    clip-path: inset(50%);
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}

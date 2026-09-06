@@ -1,0 +1,81 @@
+table.spar-points-log.widefat td,
+table.spar-points-log.widefat th{
+  vertical-align:middle;
+}
+
+.spar-copy-voucher{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  font-size:1em;
+  font-family:inherit;
+  font-weight:600;
+  line-height:1.2;
+  color:#1f2937;
+  background:#f3f4f6;
+  border:1px dashed #9ca3af;
+  border-radius:6px;
+  padding:6px 10px;
+  cursor:pointer;
+  transition:background .15s ease,border-color .15s ease,color .15s ease;
+}
+.spar-copy-voucher:hover{
+  background:#e8eefc;
+  border-color:#007cba;
+  color:#005a87;
+}
+.spar-copy-voucher:focus-visible{
+  outline:2px solid #007cba;
+  outline-offset:2px;
+}
+.spar-copy-voucher-code{
+  letter-spacing:.02em;
+}
+.spar-copy-voucher-icon{
+  display:inline-flex;
+  align-items:center;
+  color:#6b7280;
+}
+.spar-copy-voucher:hover .spar-copy-voucher-icon{
+  color:#007cba;
+}
+.spar-copy-voucher.spar-copied{
+  background:#e6f4ea;
+  border-color:#28a745;
+  border-style:solid;
+  color:#1e7e34;
+}
+.spar-copy-voucher.spar-copied .spar-copy-voucher-icon{
+  color:#28a745;
+}
+
+.spar-apply-to-cart-btn{
+  background:#007cba;
+  color:#fff;
+  border:none;
+  border-radius:4px;
+  padding:6px 10px;
+  cursor:pointer;
+  float:right;
+  font-size:1em;
+  font-family:inherit;
+}
+.spar-apply-to-cart-btn[disabled]{
+  opacity:.7;
+  cursor:not-allowed
+}
+.spar-apply-to-cart-btn.spar-apply-success{
+  background:#28a745
+}
+
+/* Constrain the Amount column so long product/bundle names wrap instead of
+   pushing the Status column out of alignment. */
+.spar-points-log .spar-voucher-amount-col{
+  max-width:260px;
+  width:260px;
+  overflow-wrap:break-word;
+  word-wrap:break-word;
+  word-break:break-word;
+  white-space:normal;
+  vertical-align:top;
+}

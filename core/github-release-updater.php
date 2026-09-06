@@ -48,6 +48,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.8.7</h4><ul><li>修正預設精選圖片設定頁未載入媒體庫選擇器的問題。</li><li>修正樹狀頁面視圖設定入口，並補齊首次啟用的頁面選單及拖曳權限初始化。</li><li>新增電商工具「紅利點數」模組，整合 Simple Points and Rewards 2.1.0 的購物累積、兌換及會員紀錄功能。</li></ul>
             <h4>1.8.6</h4><ul><li>隱藏 WC 工具的「隱藏銷售通路篩選」現在會同步隱藏訂單列表的「建立來源」篩選器（filter-by-created-via）。</li><li>玉山銀行金流工具新增簽約提醒：本模組僅提供程式串接整合，商家仍須自行與玉山銀行簽約。</li><li>第三方外掛卡片會偵測已啟用的官方外掛並自動標示「已開啟」，不再要求重複啟用 WU 安裝入口。</li><li>新增 Cloudflare Turnstile 模組，支援 WordPress、WooCommerce 與相容表單的驗證設定。</li><li>新增樹狀頁面視圖模組，可於頁面管理中以樹狀結構檢視、編輯及拖曳排序頁面。</li></ul>
             <h4>1.8.5</h4><ul><li>修正綠界工具設定按鈕，直接開啟綠界主要設定頁。</li><li>修正結帳頁寄送到其他地址的舊 HTML 標籤殘留；現在一律顯示「需寄送到其他收件地址」。</li><li>訂單狀態管理新增停用狀態，並同步移除後台訂單篩選與傳統／HPOS 批次操作中的對應項目。</li><li>隱藏 WC 工具新增「隱藏銷售通路篩選」。</li></ul>
             <h4>1.8.4</h4><ul><li>綠界工具改為採用官方 WooCommerce 綠界整合來源，提供付款、物流、電子發票及區塊結帳相容能力。</li><li>新增訂單狀態管理，可檢視所有現有狀態並同步調整後台訂單、我的帳號與顧客訂單通知標題的顯示名稱。</li><li>修正結帳頁「需寄送到其他收件地址」文字被顯示為 HTML，並將 billing_first_name 明確標示為帳單姓名。</li></ul>

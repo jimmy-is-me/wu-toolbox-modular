@@ -1,0 +1,12 @@
+/* Admin Redeem Post Type Styles */
+#spar_product_id {
+	width: 300px;
+}
+
+.spar-product-search-container {
+	position: relative;
+}
+
+.select2-container {
+	width: 100% !important;
+}

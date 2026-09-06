@@ -1,0 +1,1493 @@
+/* Account tab variant of compact redemption UI */
+.spar-redeem-compact--account {
+	margin-top: 12px;
+	background: #f8fafc;
+	border: 1px solid #e5e7eb;
+	border-radius: 10px;
+	padding: 12px;
+}
+.spar-cart-rewards-box .spar-redeem-compact--account {
+	background: transparent;
+	border: none;
+}
+.spar-redeem-compact--account .spar-redeem-header {
+	margin: 0 0 8px 0;
+	font-size: 14px;
+	font-weight: 600;
+	color: #111827;
+}
+.spar-redeem-compact--account .spar-panel-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+.spar-cart-rewards-box .spar-redeem-compact--account .spar-panel-row {
+	flex-wrap: nowrap;
+	justify-content: space-between;
+}
+.spar-redeem-compact--account .spar-redeem-slider {
+	flex: 1 1 auto;
+	min-width: 120px;
+}
+.spar-cart-rewards-box .spar-redeem-compact--account .spar-redeem-slider {
+	flex: 1 1 50%;
+	max-width: 50%;
+	min-width: 0;
+}
+.spar-redeem-compact--account .spar-panel-right {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+.spar-cart-rewards-box .spar-redeem-compact--account .spar-panel-right {
+	flex: 1 1 50%;
+	max-width: 50%;
+	min-width: 0;
+	justify-content: flex-end;
+}
+.spar-cart-rewards-box .spar-redeem-compact--account .spar-panel-right > * {
+	flex: 1 1 0;
+	min-width: 0;
+}
+.spar-cart-rewards-box .spar-redeem-compact--account .spar-redeem-input {
+	width: 100%;
+	max-width: none;
+	padding: 0;
+}
+.spar-cart-rewards-box .spar-redeem-compact--account .spar-redeem-apply-btn {
+	width: 100%;
+}
+.spar-redeem-compact--account .spar-redeem-input {
+	width: 150px;
+	max-width: 35%;
+	padding: 6px 8px;
+	border: 1px solid #d1d5db;
+	border-radius: 6px;
+	font-size: 14px;
+	text-align: center;
+}
+.spar-redeem-compact--account .spar-redeem-apply-btn,
+.spar-redeem-compact--account .spar-redeem-remove-btn {
+	white-space: nowrap;
+}
+.spar-redeem-compact--account .spar-redeem-apply-btn {
+	background: var(--spar-rewards-primary);
+	color: #fff;
+	padding: 8px 12px;
+	border-radius: 6px;
+	font-size: 13px;
+	font-weight: 600;
+}
+.spar-redeem-compact--totals .spar-redeem-apply-btn {
+	background: var(--spar-rewards-primary, #667eea);
+	color: #fff;
+}
+.spar-redeem-compact--account .link-button {
+	background: transparent;
+	border: none;
+	color: #111827;
+	text-decoration: underline;
+	padding: 0 4px;
+}
+.spar-redeem-compact--account .link-button[disabled],
+.spar-redeem-compact--totals .link-button[disabled] {
+	pointer-events: none;
+	opacity: 0.6;
+}
+.spar-redeem-compact--account .spar-redeem-summary {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 8px;
+}
+.spar-redeem-compact--account .spar-redeem-value {
+	font-weight: 600;
+	color: #111827;
+}
+.spar-redeem-compact--account .spar-redeem-applied-status {
+	margin-top: 6px;
+	color: #2c7a7b;
+}
+
+/* New actions row: discount box + buttons */
+.spar-redeem-compact--account .spar-redeem-actions {
+	display: flex;
+	align-items: stretch;
+	justify-content: space-between;
+	gap: 10px;
+	margin-top: 8px;
+}
+.spar-redeem-compact--account .spar-discount-box {
+	flex: 1 1 auto;
+	background: #ecfdf5; /* light green */
+	border: 1px solid #a7f3d0; /* mint border */
+	color: #065f46; /* dark teal text */
+	border-radius: 8px;
+	padding: 8px 10px;
+	display: flex;
+	align-items: center;
+	justify-content: center; /* center label + value */
+	gap: 6px;
+    text-align: center;
+}
+.spar-redeem-compact--account .spar-redeem-value-label {
+	font-weight: 600;
+	font-size: 14px;
+}
+.spar-redeem-compact--account .spar-redeem-value {
+	font-weight: 700;
+}
+.spar-redeem-compact--account .spar-redeem-buttons {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+	.spar-redeem-compact--account .spar-panel-row {
+		flex-wrap: wrap;
+		gap: 8px 6px;
+	}
+	.spar-redeem-compact--account .spar-redeem-input {
+		width: 96px;
+	}
+	.spar-redeem-compact--account .spar-panel-right {
+		flex-wrap: wrap;
+	}
+	.spar-redeem-compact--account .spar-redeem-actions {
+		flex-direction: column;
+	}
+	.spar-redeem-compact--account .spar-redeem-buttons {
+		justify-content: space-between;
+		flex-wrap: wrap;
+	}
+}
+/* CheckoutWC */
+#cfw-after-shipping .spar-redeem-compact-row .spar-redeem-compact {
+    padding: 10px 0 40px 0 !important;
+}
+
+/* Cart/Checkout Rewards Box Styles */
+
+/* Points discount layout toggle (header width based) */
+.spar-points-discount-panel--compact {
+	display: none;
+}
+.spar-cart-rewards-box.spar-points-discount-compact .spar-points-discount-panel--compact {
+	display: block;
+}
+.spar-cart-rewards-box.spar-points-discount-compact .spar-points-discount-panel--regular {
+	display: none;
+}
+.spar-cart-rewards-box.spar-points-discount-regular .spar-points-discount-panel--compact {
+	display: none;
+}
+.spar-cart-rewards-box.spar-points-discount-regular .spar-points-discount-panel--regular {
+	display: block;
+}
+
+/* Side cart: always show compact panel */
+.spar-side-cart-discount .spar-points-discount-panel--compact {
+	display: block;
+}
+.spar-side-cart-discount .spar-points-discount-panel--regular {
+	display: none;
+}
+
+/* Compact theme adjustments */
+.spar-cart-rewards-box.spar-theme-compact .spar-cart-rewards-header {
+	padding: 8px 12px;
+}
+.spar-cart-rewards-box.spar-theme-compact .spar-cart-rewards-title {
+	display: none; /* Hide "Your Reward Points" title */
+}
+.spar-cart-rewards-box.spar-theme-compact .spar-cart-rewards-summary {
+	gap: 8px;
+}
+.spar-cart-rewards-box.spar-theme-compact .spar-cart-rewards-points {
+	padding: 8px 12px; /* reduce padding in compact theme */
+}
+.spar-cart-rewards-box.spar-theme-compact .spar-cart-rewards-points .spar-cart-points-number {
+	font-size: 16px;
+}
+.spar-cart-rewards-box.spar-theme-compact .spar-cart-rewards-points .spar-cart-points-label {
+	font-size: 12px;
+}
+.spar-cart-rewards-box.spar-theme-compact .spar-redeem-toggle-btn {
+	padding: 6px 10px;
+	font-size: 13px;
+}
+.spar-cart-rewards-box.spar-theme-compact .spar-cart-earning-message {
+	font-size: 15px;
+}
+.spar-cart-rewards-box .spar-points-summary-wrap {
+	position: relative;
+	display: inline-flex;
+	align-items: center;
+	margin-left: 0px;
+}
+.spar-cart-rewards-box .spar-points-summary-trigger {
+	background: transparent;
+	border: 0;
+	padding: 0;
+	margin: 0;
+	font-size: inherit;
+	font-weight: inherit;
+	letter-spacing: inherit;
+	color: inherit;
+	cursor: default;
+}
+.spar-cart-rewards-box .spar-points-summary-amount {
+	font-weight: 700;
+	text-decoration: underline;
+	text-decoration-thickness: 2px;
+	text-underline-offset: 2px;
+	cursor: pointer;
+	transition: color 0.15s ease;
+}
+.spar-cart-rewards-box .spar-points-summary-amount:hover,
+.spar-cart-rewards-box .spar-points-summary-amount:focus,
+.spar-cart-rewards-box .spar-points-summary-amount:focus-visible {
+	color: var(--spar-rewards-primary);
+}
+.spar-cart-rewards-box .spar-points-summary-tooltip {
+	display: none;
+	position: absolute;
+	top: calc(100% + 8px);
+	left: 0;
+	min-width: 280px;
+	max-width: 380px;
+	background: #ffffff;
+	border: 1px solid rgba(15, 23, 42, 0.08);
+	border-radius: 14px;
+	box-shadow: 0 18px 40px rgba(15, 23, 42, 0.12);
+	padding: 12px 14px;
+	color: #111827;
+	line-height: 1.45;
+	transform: translateY(6px);
+	opacity: 0;
+	transition: opacity 0.18s ease, transform 0.18s ease;
+	z-index: 99;
+}
+.spar-cart-rewards-box .spar-points-summary-amount:hover ~ .spar-points-summary-tooltip,
+.spar-cart-rewards-box .spar-points-summary-amount:focus ~ .spar-points-summary-tooltip,
+.spar-cart-rewards-box .spar-points-summary-amount:focus-visible ~ .spar-points-summary-tooltip {
+	display: block;
+	opacity: 1;
+	transform: translateY(0);
+}
+.spar-cart-rewards-box .spar-points-summary-tooltip::before,
+.spar-cart-rewards-box .spar-points-summary-tooltip::after {
+	content: '';
+	position: absolute;
+	left: 16px;
+	width: 0;
+	height: 0;
+	border-left: 8px solid transparent;
+	border-right: 8px solid transparent;
+}
+.spar-cart-rewards-box .spar-points-summary-tooltip::before {
+	top: -9px;
+	border-bottom: 9px solid rgba(15, 23, 42, 0.08);
+}
+.spar-cart-rewards-box .spar-points-summary-tooltip::after {
+	top: -8px;
+	border-bottom: 8px solid #ffffff;
+}
+.spar-cart-rewards-box .spar-points-summary-title {
+	display: block;
+	font-size: 11px;
+	font-weight: 700;
+	margin-bottom: 10px;
+	color: #6b7280;
+	text-transform: uppercase;
+	letter-spacing: 0.08em;
+	text-align: center;
+}
+.spar-cart-rewards-box .spar-points-summary-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 12px;
+	border-left: 0;
+	border-right: 0;
+	border-top: 0;
+	border-bottom: 0;
+}
+.spar-cart-rewards-box .spar-points-summary-table th,
+.spar-cart-rewards-box .spar-points-summary-table td {
+	padding: 8px 2px;
+	text-align: left;
+	vertical-align: top;
+	border-left: 0;
+	border-right: 0;
+	border-top: 0;
+}
+.spar-cart-rewards-box .spar-points-summary-table th + th,
+.spar-cart-rewards-box .spar-points-summary-table td + td {
+	border-left: 1px solid #e5e7eb;
+	padding-left: 12px;
+}
+.spar-cart-rewards-box .spar-points-summary-table th:first-child,
+.spar-cart-rewards-box .spar-points-summary-table td:first-child {
+	padding-right: 12px;
+}
+.spar-cart-rewards-box .spar-points-summary-table th {
+	color: #9ca3af;
+	font-weight: 600;
+	font-size: 11px;
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+	border-bottom: 0;
+	padding-top: 0;
+	padding-bottom: 10px;
+}
+.spar-cart-rewards-box .spar-points-summary-table tbody tr td {
+	border-bottom: 1px solid #e5e7eb;
+}
+.spar-cart-rewards-box .spar-points-summary-table tbody tr:last-child td {
+	border-bottom: 0;
+}
+.spar-cart-rewards-box .spar-points-summary-table td:last-child,
+.spar-cart-rewards-box .spar-points-summary-table th:last-child {
+	text-align: right;
+	white-space: nowrap;
+}
+.spar-cart-rewards-box .spar-points-summary-table td:first-child {
+	color: #374151;
+	font-weight: 500;
+	line-height: 1.3;
+	word-break: break-word;
+}
+.spar-cart-rewards-box .spar-points-summary-table td:last-child {
+	color: #111827;
+	font-weight: 600;
+	font-variant-numeric: tabular-nums;
+}
+.spar-cart-rewards-box .spar-points-summary-table tr.spar-points-summary-subhead td {
+	color: #9ca3af;
+	font-weight: 700;
+	font-size: 10px;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+	text-align: left;
+	white-space: normal;
+	padding-top: 12px;
+	padding-bottom: 6px;
+	padding-right: 2px;
+	border-bottom: 1px solid #e5e7eb;
+}
+@media (max-width: 520px) {
+	.spar-cart-rewards-box .spar-points-summary-tooltip {
+		left: auto;
+		right: 0;
+		min-width: 220px;
+		max-width: 90vw;
+	}
+	.spar-cart-rewards-box .spar-points-summary-tooltip::before,
+	.spar-cart-rewards-box .spar-points-summary-tooltip::after {
+		left: auto;
+		right: 18px;
+	}
+}
+.spar-cart-rewards-box.spar-theme-compact .spar-cart-earning-upsell {
+	font-size: 12px;
+}
+.spar-cart-rewards-box.spar-theme-compact .spar-cart-rewards-dropdown {
+	padding: 8px 12px;
+}
+.spar-cart-rewards-box.spar-theme-compact .spar-dropdown-tab {
+	padding: 6px 8px;
+	font-size: 13px;
+}
+.spar-cart-rewards-box.spar-theme-compact .spar-redeem-btn,
+.spar-cart-rewards-box.spar-theme-compact .spar-apply-voucher-btn {
+	padding: 6px 10px;
+	font-size: 13px;
+}
+
+/* Medium theme adjustments */
+.spar-cart-rewards-box.spar-theme-medium .spar-cart-rewards-header {
+	padding: 12px 16px;
+}
+.spar-cart-rewards-box.spar-theme-medium .spar-cart-rewards-summary {
+	gap: 12px;
+}
+.spar-cart-rewards-box.spar-theme-medium .spar-cart-rewards-points {
+	padding: 12px 16px;
+}
+.spar-cart-rewards-box.spar-theme-medium .spar-cart-rewards-points .spar-cart-points-number {
+	font-size: 17px;
+}
+.spar-cart-rewards-box.spar-theme-medium .spar-cart-rewards-points .spar-cart-points-label {
+	font-size: 13px;
+}
+.spar-cart-rewards-box.spar-theme-medium .spar-redeem-toggle-btn {
+	padding: 10px 14px;
+	font-size: 13px;
+}
+.spar-cart-rewards-box.spar-theme-medium .spar-cart-earning-message {
+	font-size: 16px;
+}
+.spar-cart-rewards-box.spar-theme-medium .spar-cart-rewards-dropdown {
+	padding: 12px 16px;
+}
+.spar-cart-rewards-box.spar-theme-medium .spar-dropdown-tab {
+	padding: 10px 14px;
+	font-size: 14px;
+}
+.spar-cart-rewards-box.spar-theme-medium .spar-redeem-btn,
+.spar-cart-rewards-box.spar-theme-medium .spar-apply-voucher-btn {
+	padding: 7px 12px;
+	font-size: 13px;
+}
+
+.spar-cart-rewards-box {
+	margin: 10px 0 45px 0;
+	border: 1px solid #e0e0e0;
+	border-radius: 12px;
+	background: #ffffff;
+	color: #333333;
+	--spar-rewards-primary: #667eea;
+	--spar-rewards-primary-hover: #5a6fd8;
+	--spar-rewards-primary-rgb: 102, 126, 234;
+	--spar-rewards-secondary: #28a745;
+	--spar-rewards-secondary-hover: #218838;
+	--spar-rewards-secondary-rgb: 40, 167, 69;
+	box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
+	position: relative;
+	overflow: visible;
+}
+
+.spar-cart-rewards-header {
+	padding: 16px 20px;
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
+	position: relative;
+	z-index: 1;
+	overflow: visible;
+}
+
+.spar-cart-rewards-header::before {
+	content: '';
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	bottom: 0;
+	background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="rgba(102,126,234,0.05)"/><circle cx="80" cy="80" r="1.5" fill="rgba(102,126,234,0.05)"/><circle cx="40" cy="60" r="1" fill="rgba(102,126,234,0.05)"/><circle cx="90" cy="30" r="1.2" fill="rgba(102,126,234,0.05)"/><circle cx="10" cy="90" r="0.8" fill="rgba(102,126,234,0.05)"/></svg>') no-repeat;
+	background-size: cover;
+	pointer-events: none;
+	z-index: -1;
+}
+
+.spar-cart-rewards-title-section {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	flex: 0 0 50%;
+}
+
+.spar-cart-rewards-title {
+	color: #2c3e50 !important;
+	margin: 0 !important;
+	font-size: 20px;
+	font-weight: 700;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	line-height: 1;
+}
+
+.spar-cart-rewards-icon {
+	font-size: 24px;
+	color: var(--spar-rewards-primary);
+}
+
+.spar-cart-earning-message {
+	align-items: center;
+	gap: 6px;
+	font-size: 17px;
+	color: var(--spar-rewards-secondary);
+	font-weight: 500;
+}
+
+.spar-cart-earning-message .spar-earning-icon {
+	font-weight: bold;
+	color: var(--spar-rewards-secondary);
+}
+
+/* Smaller upsell text beneath the main earning message */
+.spar-cart-earning-upsell {
+	font-size: 12px;
+	color: #6c757d;
+	margin-top: 2px;
+	line-height: 1.4;
+}
+
+.spar-cart-rewards-summary {
+	display: flex;
+	align-items: center;
+	gap: 20px;
+	flex-wrap: wrap;
+	flex: 0 0 50%;
+	justify-content: flex-end;
+	padding-right: 20px;
+	box-sizing: border-box;
+}
+
+.spar-cart-rewards-points {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	background: #f8f9fa;
+	border: 1px solid #e9ecef;
+	padding: 15px 20px;
+	border-radius: 25px;
+	color: #2c3e50;
+}
+
+.spar-cart-points-number {
+	font-size: 18px;
+	font-weight: 700;
+	line-height: 1;
+	color: var(--spar-rewards-primary);
+}
+
+.spar-cart-points-label {
+	font-size: 14px;
+	opacity: 0.8;
+	font-weight: 500;
+	color: #6c757d;
+}
+
+.spar-cart-rewards-actions {
+	display: flex;
+	gap: 12px;
+	align-items: center;
+}
+
+.spar-redeem-toggle-btn {
+	background: var(--spar-rewards-primary);
+	color: white;
+	border: 2px solid var(--spar-rewards-primary);
+	padding: 15px 20px;
+	border-radius: 25px;
+	font-weight: 600;
+	font-size: 14px;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	text-transform: uppercase;
+	letter-spacing: 0.5px;
+	white-space: nowrap;
+}
+
+.spar-redeem-toggle-btn:hover {
+	background: var(--spar-rewards-primary-hover);
+	border-color: var(--spar-rewards-primary-hover);
+	transform: translateY(-2px);
+	box-shadow: 0 4px 15px rgba(var(--spar-rewards-primary-rgb), 0.3);
+}
+
+.spar-redeem-toggle-btn.active {
+	background: #495057;
+	border-color: #495057;
+}
+
+.spar-cart-rewards-dropdown {
+	background: white;
+	color: #333;
+	display: none;
+	border-top: 1px solid #e9ecef;
+}
+
+.spar-cart-rewards-dropdown.active {
+	display: block;
+}
+
+.spar-dropdown-tabs {
+	display: flex;
+	background: #f8f9fa;
+	border-bottom: 1px solid #e9ecef;
+}
+
+.spar-dropdown-tab {
+	flex: 1;
+	padding: 15px 20px;
+	background: none;
+	border: none;
+	font-weight: 600;
+	color: #6c757d;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	border-bottom: 3px solid transparent;
+}
+
+.spar-dropdown-tab:hover {
+	background: #e9ecef;
+	color: #495057;
+}
+
+.spar-dropdown-tab.active {
+	color: var(--spar-rewards-primary);
+	background: white;
+	border-bottom-color: var(--spar-rewards-primary);
+}
+
+.spar-dropdown-content {
+	padding: 0;
+	max-height: 500px;
+	overflow-y: auto;
+}
+
+.spar-dropdown-tab-content {
+	display: none;
+}
+
+.spar-dropdown-tab-content.active {
+	display: block;
+}
+
+/* Rewards Grid */
+.spar-rewards-grid {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+	gap: 15px;
+	padding: 20px;
+}
+
+.spar-reward-item {
+	border: 1px solid #e9ecef;
+	border-radius: 8px;
+	padding: 15px;
+	background: white;
+	transition: all 0.3s ease;
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	min-height: 120px;
+}
+
+.spar-reward-item:hover {
+	border-color: var(--spar-rewards-primary);
+	box-shadow: 0 4px 15px rgba(var(--spar-rewards-primary-rgb), 0.15);
+	transform: translateY(-2px);
+}
+
+.spar-reward-item.can-redeem {
+	border-color: var(--spar-rewards-secondary);
+	background: #f8fff9;
+}
+
+.spar-reward-item.disabled {
+	opacity: 0.6;
+	background: #f5f5f5;
+}
+
+.spar-reward-info {
+	margin-bottom: 15px;
+}
+
+.spar-reward-name {
+	font-weight: 600;
+	color: #2c3e50;
+	font-size: 16px;
+	margin-bottom: 5px;
+}
+
+.spar-reward-cost {
+	color: var(--spar-rewards-primary);
+	font-weight: 600;
+	font-size: 14px;
+	margin-bottom: 5px;
+}
+
+.spar-reward-value {
+	color: var(--spar-rewards-secondary);
+	font-size: 14px;
+	font-weight: 500;
+}
+
+.spar-redeem-btn {
+	background: var(--spar-rewards-secondary);
+	color: white;
+	border: none;
+	padding: 8px 15px;
+	border-radius: 5px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	width: 100%;
+}
+
+.spar-redeem-btn:hover:not(:disabled) {
+	background: var(--spar-rewards-secondary-hover);
+	transform: translateY(-1px);
+}
+
+.spar-redeem-btn:disabled {
+	background: #6c757d;
+	cursor: not-allowed;
+	opacity: 0.6;
+}
+
+/* Vouchers List */
+.spar-vouchers-list {
+	display: flex;
+	flex-direction: column;
+	gap: 12px;
+	padding: 20px;
+}
+
+.spar-voucher-item {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	background: #f8f9fa;
+	border: 1px solid #e9ecef;
+	border-radius: 8px;
+	padding: 15px;
+	transition: all 0.3s ease;
+}
+
+.spar-voucher-item.applied {
+	background: #d4edda;
+	border-color: #c3e6cb;
+}
+
+.spar-voucher-item:hover {
+	border-color: var(--spar-rewards-primary);
+	box-shadow: 0 2px 8px rgba(var(--spar-rewards-primary-rgb), 0.15);
+}
+
+.spar-voucher-info {
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.spar-voucher-value {
+	font-weight: 600;
+	color: #2c3e50;
+	font-size: 16px;
+}
+
+.spar-voucher-code {
+	font-family: monospace;
+	background: white;
+	padding: 2px 6px;
+	border-radius: 3px;
+	border: 1px solid #dee2e6;
+	font-size: 12px;
+	color: #495057;
+	display: inline-block;
+	width: fit-content;
+}
+
+.spar-voucher-expiry {
+	font-size: 11px;
+	color: #6c757d;
+}
+
+.spar-voucher-limitations {
+	font-size: 11px;
+	color: #e67e22;
+	line-height: 1.4;
+}
+
+@keyframes sparVoucherHighlight {
+	0%   { background: rgba(102, 126, 234, 0.18); box-shadow: 0 0 0 2px var(--spar-rewards-primary, #667eea); border-color: var(--spar-rewards-primary, #667eea); }
+	70%  { background: rgba(102, 126, 234, 0.08); box-shadow: 0 0 0 2px var(--spar-rewards-primary, #667eea); border-color: var(--spar-rewards-primary, #667eea); }
+	100% { background: #f8f9fa; box-shadow: none; border-color: #e9ecef; }
+}
+
+.spar-voucher-item.spar-voucher-new-highlight {
+	animation: sparVoucherHighlight 10s ease forwards;
+}
+
+.spar-cart-rewards-dropdown .spar-apply-voucher-btn {
+	background: var(--spar-rewards-primary, #667eea);
+	color: white;
+	border: 1px solid var(--spar-rewards-primary, #667eea);
+	padding: 8px 15px;
+	border-radius: 5px;
+	font-weight: 600;
+	cursor: pointer;
+	transition: all 0.3s ease;
+	font-size: 12px;
+}
+
+.spar-apply-voucher-btn:hover:not(:disabled) {
+	background: var(--spar-rewards-primary-hover, #5a6fd8);
+	border-color: var(--spar-rewards-primary-hover, #5a6fd8);
+	transform: translateY(-1px);
+}
+
+.spar-apply-voucher-btn:disabled {
+	background: #6c757d;
+	cursor: not-allowed;
+	opacity: 0.6;
+	border-color: #6c757d;
+}
+
+.spar-voucher-applied {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	color: var(--spar-rewards-secondary);
+	font-weight: 600;
+	font-size: 12px;
+}
+
+/* Empty States */
+.spar-cart-empty-state {
+	text-align: center;
+	padding: 2px 20px;
+	color: #6c757d;
+}
+
+.spar-cart-empty-icon {
+	font-size: 48px;
+	margin-bottom: 0px;
+	opacity: 0.5;
+}
+
+.spar-cart-empty-title {
+	font-size: 14px;
+	font-weight: 600;
+	margin-bottom: 15px;
+	color: #495057;
+}
+
+/* Loading States */
+.spar-loading {
+	opacity: 0.6;
+	pointer-events: none;
+}
+
+.spar-loading::after {
+	content: '';
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 20px;
+	height: 20px;
+	margin: -10px 0 0 -10px;
+	border: 2px solid var(--spar-rewards-primary);
+	border-top: 2px solid transparent;
+	border-radius: 50%;
+	animation: spar-spin 1s linear infinite;
+}
+
+@keyframes spar-spin {
+	0% { transform: rotate(0deg); }
+	100% { transform: rotate(360deg); }
+}
+
+/* Success/Error Messages */
+.spar-cart-message {
+	padding: 10px 15px;
+	border-radius: 5px;
+	margin-bottom: 15px;
+	font-size: 14px;
+	font-weight: 500;
+}
+
+.spar-cart-message.success {
+	background: #d4edda;
+	color: #155724;
+	border: 1px solid #c3e6cb;
+}
+
+.spar-cart-message.error {
+	background: #f8d7da;
+	color: #721c24;
+	border: 1px solid #f5c6cb;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+	.spar-cart-rewards-box {
+		margin: 15px 0;
+	}
+	
+	.spar-cart-rewards-header {
+		padding: 16px;
+		flex-direction: column;
+		align-items: stretch;
+		gap: 16px;
+	}
+	
+	.spar-cart-rewards-title {
+		font-size: 18px;
+	}
+	
+	.spar-cart-rewards-summary {
+		justify-content: space-between;
+		align-items: center;
+	}
+	
+	.spar-cart-rewards-points {
+		justify-content: center;
+	}
+	
+	.spar-cart-rewards-actions {
+		justify-content: center;
+	}
+	
+	.spar-rewards-grid {
+		grid-template-columns: 1fr;
+		padding: 15px;
+	}
+	
+	.spar-dropdown-tabs {
+		flex-direction: column;
+	}
+	
+	.spar-dropdown-tab {
+		text-align: center;
+		padding: 12px 16px;
+	}
+	
+	.spar-voucher-item {
+		flex-direction: column;
+		gap: 10px;
+		align-items: stretch;
+	}
+	
+	.spar-vouchers-list {
+		padding: 15px;
+	}
+}
+
+@media (max-width: 480px) {
+	.spar-cart-rewards-box {
+		margin: 10px 0;
+		border-radius: 8px;
+	}
+	
+	.spar-cart-rewards-header {
+		padding: 12px;
+	}
+	
+	.spar-cart-rewards-title {
+		font-size: 16px;
+	}
+	
+	.spar-cart-points-number {
+		font-size: 20px;
+	}
+	
+	.spar-redeem-toggle-btn {
+		padding: 8px 16px;
+		font-size: 12px;
+	}
+	
+	.spar-rewards-grid,
+	.spar-vouchers-list {
+		padding: 10px;
+	}
+}
+
+/* --- Compact totals (Blocks) modern UI --- */
+.spar-redeem-compact--totals,
+.spar-redeem-compact--shortcode {
+	--spar-rewards-primary: #667eea;
+	border: 0;
+	border-radius: 0;
+	padding: 0;
+	background: transparent;
+	margin-top: 8px;
+}
+.spar-cart-rewards-box .spar-redeem-compact--totals {
+	padding: 0 10px 10px 10px;
+}
+.spar-redeem-compact-row--shortcode {
+	margin: 8px 0;
+}
+.spar-redeem-compact--totals .spar-compact-row,
+.spar-redeem-compact--shortcode .spar-compact-row {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0px;
+	padding: 0 15px;
+}
+.ct-woocommerce-checkout .ct-order-review .spar-redeem-compact--totals .spar-compact-row {
+	padding: 0;
+}
+.spar-redeem-compact--totals .spar-compact-left,
+.spar-redeem-compact--shortcode .spar-compact-left,
+.spar-redeem-compact--account .spar-compact-left {
+	flex: 0 0 50%;
+	color: var(--spar-redeem-text-color, #111827); /* match Blocks text color */
+	font-weight: 600;
+	font-size: 14px;
+}
+body .button.spar-compact-toggle-btn {
+	flex: 0 0 50%;
+	justify-content: flex-end;
+	text-align: right;
+}
+body .button.spar-compact-toggle-btn {
+	color: var(--spar-rewards-primary, #667eea) !important; /* primary theme color */
+	background-color: transparent; /* transparent background per design */
+	border: 0px;
+	padding: 6px 10px;
+	font-weight: 600;
+	font-size: 13px;
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	cursor: pointer;
+}
+.spar-redeem-compact--totals .spar-compact-row .spar-compact-toggle-btn,
+.spar-redeem-compact--shortcode .spar-compact-row .spar-compact-toggle-btn {
+	justify-content: flex-end;
+	text-align: right;
+	box-sizing: border-box;
+	padding-right: 15px;
+}
+.wfacp-section .spar-redeem-compact--totals .spar-compact-row {
+	padding: 0;
+}
+.wfacp-section .button.spar-compact-toggle-btn {
+	text-align: right !important;
+}
+.wfacp-section .spar-caret {
+	margin-left: 2px;
+}
+body .button.spar-compact-toggle-btn .spar-caret {
+	display: inline-block;
+	border-top-color: var(--spar-rewards-primary, #667eea); /* caret uses primary theme color */
+}
+body .button.spar-compact-toggle-btn:hover {
+	color: var(--spar-rewards-primary-hover, #5a6fd8);
+	border-color: var(--spar-rewards-primary-hover, #5a6fd8);
+}
+.spar-compact-toggle-btn .spar-caret {
+	width: 0; height: 0;
+	border-left: 5px solid transparent;
+	border-right: 5px solid transparent;
+	border-top: 6px solid var(--spar-rewards-primary, #667eea); /* caret uses primary theme color */
+	margin-top: 4px;
+	transition: transform .2s ease;
+}
+.spar-compact-toggle-btn.is-open .spar-caret {
+	transform: rotate(180deg);
+}
+.spar-redeem-compact--totals .spar-redeem-panel,
+.spar-redeem-compact--shortcode .spar-redeem-panel {
+	margin-top: 10px;
+	display: grid;
+	grid-template-columns: 1fr auto;
+	gap: 12px;
+	align-items: center;
+}
+.spar-redeem-compact--totals .spar-panel-row,
+.spar-redeem-compact--shortcode .spar-panel-row {
+	display: contents;
+}
+.spar-redeem-compact--totals .spar-redeem-slider,
+.spar-redeem-compact--shortcode .spar-redeem-slider {
+	width: 100%;
+	grid-column: 1;
+}
+.spar-redeem-compact--totals .spar-panel-right,
+.spar-redeem-compact--shortcode .spar-panel-right {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	grid-column: 2;
+	justify-self: stretch;
+	width: 100%;
+}
+.spar-redeem-compact--totals .spar-redeem-input,
+.spar-redeem-compact--shortcode .spar-redeem-input {
+	width: 100%;
+	min-width: 0;
+	padding: 6px 8px !important;
+	border: 1px solid #d1d5db;
+	border-radius: 6px;
+	font-size: 14px;
+	text-align: center;
+}
+.spar-redeem-compact--totals .spar-redeem-apply-btn,
+.spar-redeem-compact--shortcode .spar-redeem-apply-btn {
+	padding: 8px 12px;
+	border-radius: 6px;
+	font-size: 13px;
+	width: 100%;
+	text-align: center;
+}
+.spar-redeem-compact--totals .spar-redeem-summary,
+.spar-redeem-compact--shortcode .spar-redeem-summary {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 8px;
+	color: #374151;
+	font-size: 12px;
+	grid-column: 1 / -1;
+}
+.spar-redeem-compact--totals .spar-redeem-applied-status,
+.spar-redeem-compact--shortcode .spar-redeem-applied-status {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	margin-top: 8px;
+	color: #374151;
+	font-size: 12px;
+	grid-column: 1 / -1;
+}
+.spar-redeem-compact--totals .link-button,
+.spar-redeem-compact--shortcode .link-button {
+	background: transparent;
+	border: none;
+	color: #111827;
+	text-decoration: underline;
+	padding: 0 4px;
+}
+.spar-redeem-compact--totals .link-button[disabled],
+.spar-redeem-compact--shortcode .link-button[disabled] {
+	pointer-events: none;
+	opacity: 0.6;
+}
+
+/* New actions row for totals compact: discount box + buttons */
+.spar-redeem-compact--totals .spar-redeem-actions,
+.spar-redeem-compact--shortcode .spar-redeem-actions {
+	display: contents;
+}
+.spar-redeem-compact--totals .spar-discount-box,
+.spar-redeem-compact--shortcode .spar-discount-box {
+	background: #ecfdf5;
+	border: 1px solid #a7f3d0;
+	color: #065f46;
+	border-radius: 8px;
+	padding: 8px 10px;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 6px;
+    text-align: center;
+	grid-column: 1;
+}
+.spar-redeem-compact--totals .spar-redeem-value-label,
+.spar-redeem-compact--shortcode .spar-redeem-value-label {
+	font-weight: 600;
+	font-size: 14px;
+}
+.spar-redeem-compact--totals .spar-redeem-value,
+.spar-redeem-compact--shortcode .spar-redeem-value {
+	font-weight: 700;
+}
+.spar-redeem-compact--totals .spar-redeem-buttons,
+.spar-redeem-compact--shortcode .spar-redeem-buttons {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	grid-column: 2;
+	justify-self: stretch;
+	width: 100%;
+}
+
+/* FunnelKit side cart injection container */
+.spar-side-cart-discount {
+	margin: 0;
+	padding: 12px;
+	box-sizing: border-box;
+}
+.spar-side-cart-discount .spar-side-cart-note {
+	margin-top: 1px;
+	font-size: 10px;
+	color: #a9b0bd;
+}
+
+@media (max-width: 480px) {
+	.spar-redeem-compact--totals .spar-redeem-panel {
+		grid-template-columns: 1fr;
+	}
+	.spar-redeem-compact--totals .spar-panel-right {
+		justify-content: flex-start;
+		flex-wrap: wrap;
+		grid-column: 1;
+		justify-self: stretch;
+	}
+	.spar-redeem-compact--totals .spar-redeem-input,
+	.spar-redeem-compact--totals .spar-redeem-apply-btn {
+		width: 100%;
+		min-width: 0;
+	}
+	.spar-redeem-compact--totals .spar-discount-box,
+	.spar-redeem-compact--totals .spar-redeem-buttons {
+		grid-column: 1;
+		justify-self: stretch;
+	}
+}
+
+/* Plain link style inside WC Blocks totals label */
+.wc-block-components-totals .link-button {
+	background: transparent;
+	border: none;
+	color: #111827;
+	text-decoration: underline;
+	padding: 0 4px;
+}
+.wc-block-components-totals .link-button[disabled] {
+	pointer-events: none;
+	opacity: 0.6;
+}
+
+/* Plain link style for classic cart/checkout totals table */
+.woocommerce .cart_totals .link-button,
+.woocommerce table.shop_table .link-button {
+	background: transparent;
+	border: none;
+	color: #111827;
+	text-decoration: underline;
+	padding: 0 4px;
+}
+
+/* ==========================================================================
+   Checkout Rewards Box — Dark Mode
+   Matches the dashboard (.spar-dashboard--dark) and widget (--dark) palette.
+   Applied via the .spar-checkout-dark-mode class on .spar-cart-rewards-box.
+   ========================================================================== */
+
+.spar-cart-rewards-box.spar-checkout-dark-mode {
+	background: #141519;
+	border-color: #2a2b30;
+	color: #e5e7eb;
+	box-shadow: 0 4px 14px rgba(0, 0, 0, 0.35);
+}
+
+/* Header */
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-cart-rewards-header {
+	background: linear-gradient(135deg, #1a1b1f 0%, #141519 100%);
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-cart-rewards-title {
+	color: #e5e7eb !important;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-cart-rewards-icon {
+	color: var(--spar-rewards-primary);
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-cart-earning-message {
+	color: var(--spar-rewards-secondary);
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-cart-earning-upsell {
+	color: #9ca3af;
+}
+
+/* Points summary pill */
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-cart-rewards-points {
+	background: rgb(60 60 60 / 35%);
+	border-color: #2a2b30;
+	color: #e5e7eb;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-cart-points-number {
+	color: var(--spar-rewards-primary);
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-cart-points-label {
+	color: #c7c9cf;
+}
+
+/* Dropdown area */
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-cart-rewards-dropdown {
+	background: #1a1b1f;
+	color: #e5e7eb;
+	border-top-color: #2a2b30;
+}
+
+/* Tabs bar */
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-dropdown-tabs {
+	background: #15161a;
+	border-bottom-color: #2a2b30;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-dropdown-tab {
+	color: #c7c9cf;
+	background: #15161a;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-dropdown-tab:hover {
+	background: #1f2024;
+	color: #e5e7eb;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-dropdown-tab.active {
+	background: #1a1b1f;
+	color: #ffffff;
+	border-bottom-color: var(--spar-rewards-primary);
+}
+
+/* Reward items grid */
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-reward-item {
+	background: #15161a;
+	border-color: #2a2b30;
+	color: #e5e7eb;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-reward-item:hover {
+	border-color: var(--spar-rewards-primary);
+	box-shadow: 0 4px 15px rgba(var(--spar-rewards-primary-rgb), 0.2);
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-reward-item.can-redeem {
+	background: rgb(40 167 69 / 2%);
+	border-color: var(--spar-rewards-secondary / 50%);
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-reward-item.disabled {
+	background: #1f2024;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-reward-name {
+	color: #e5e7eb;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-reward-cost {
+	color: var(--spar-rewards-primary);
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-reward-value {
+	color: var(--spar-rewards-secondary);
+}
+
+/* Vouchers list */
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-voucher-item {
+	background: rgb(60 60 60 / 35%);
+	border-color: #2a2b30;
+	color: #e5e7eb;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-voucher-item.applied {
+	background: rgb(40 167 69 / 15%);
+	border-color: var(--spar-rewards-secondary);
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-voucher-item:hover {
+	border-color: var(--spar-rewards-primary);
+	box-shadow: 0 2px 8px rgba(var(--spar-rewards-primary-rgb), 0.2);
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-voucher-value {
+	color: #e5e7eb;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-voucher-code {
+	background: #15161a;
+	border-color: #2a2b30;
+	color: #c7c9cf;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-voucher-expiry {
+	color: #9ca3af;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-voucher-limitations {
+	color: #f0a04b;
+}
+
+@keyframes sparVoucherHighlightDark {
+	0%   { background: rgba(102, 126, 234, 0.25); box-shadow: 0 0 0 2px var(--spar-rewards-primary, #667eea); border-color: var(--spar-rewards-primary, #667eea); }
+	70%  { background: rgba(102, 126, 234, 0.12); box-shadow: 0 0 0 2px var(--spar-rewards-primary, #667eea); border-color: var(--spar-rewards-primary, #667eea); }
+	100% { background: #2a2d35; box-shadow: none; border-color: #3d4048; }
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-voucher-item.spar-voucher-new-highlight {
+	animation: sparVoucherHighlightDark 5s ease forwards;
+}
+
+/* Empty states */
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-cart-empty-state {
+	color: #9ca3af;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-cart-empty-title {
+	color: #c7c9cf;
+}
+
+/* Messages */
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-cart-message.success {
+	background: rgba(40, 167, 69, 0.15);
+	color: #6ee7b7;
+	border-color: rgba(40, 167, 69, 0.3);
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-cart-message.error {
+	background: rgba(220, 53, 69, 0.15);
+	color: #fca5a5;
+	border-color: rgba(220, 53, 69, 0.3);
+}
+
+/* Compact redeem section inside dark checkout box */
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-redeem-header {
+	color: #ffffff;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-compact-left {
+	color: #e5e7eb;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-redeem-input {
+	background: #15161a;
+	border-color: #2a2b30;
+	color: #ffffff;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-redeem-value-label,
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-redeem-value {
+	color: #e5e7eb;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-redeem-summary,
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-redeem-applied-status {
+	color: #c7c9cf;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-discount-box {
+	background: rgba(40, 167, 69, 0.12);
+	border-color: rgba(40, 167, 69, 0.3);
+	color: #6ee7b7;
+}
+
+.spar-cart-rewards-box.spar-checkout-dark-mode .link-button {
+	color: #c7c9cf;
+}
+
+/* Points summary tooltip */
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-points-summary-tooltip {
+	background: #1f2024;
+	border-color: #2a2b30;
+	color: #e5e7eb;
+}
+.spar-cart-rewards-box.spar-checkout-dark-mode .spar-points-summary-table tr.spar-points-summary-subhead td {
+	color: #9ca3af;
+	border-bottom-color: #2a2b30;
+}
+
+/* Free Product Bundle line items in cart & checkout */
+tr.spar-bundle-item,
+li.spar-bundle-item {
+	box-shadow: inset 3px 0 0 0 #667eea;
+}
+.spar-bundle-item .variation,
+.spar-bundle-item .wc-item-meta {
+	margin-top: 4px;
+	font-size: 0.85em;
+	opacity: 0.85;
+}
+.spar-bundle-item .variation dt,
+.spar-bundle-item .wc-item-meta .wc-item-meta-label {
+	font-weight: 600;
+}

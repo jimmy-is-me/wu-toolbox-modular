@@ -1,0 +1,787 @@
+/* Dashboard Dark Mode Styles */
+
+/* Dark Mode Toggle Button */
+.spar-dashboard-theme-toggle {
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: none;
+  border: none;
+  color: white;
+  font-size: 20px;
+  cursor: pointer;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+  padding: 0;
+  line-height: 1;
+}
+
+.spar-dashboard-theme-toggle:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.spar-rewards-dashboard .spar-rewards-overview {
+  position: relative;
+}
+
+/* Dark Mode Theme */
+.spar-dashboard--dark.spar-dashboard--dark-header .spar-rewards-overview {
+  background: linear-gradient(135deg, #1a1b1f 0%, #141519 100%) !important;
+}
+
+.spar-dashboard--dark .spar-rewards-stat {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark .spar-rewards-stat-number,
+.spar-dashboard--dark .spar-rewards-stat-label,
+.spar-dashboard--dark .spar-rewards-stat-sublabel {
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark .spar-rewards-stat-icon {
+  background-color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.9) !important;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.3), inset 0 0 0 1px rgba(31, 41, 55, 0.08) !important;
+}
+
+.spar-dashboard--dark .spar-rewards-stat-icon.spar-badge-icon--gradient {
+  background-image: linear-gradient(135deg, var(--spar-theme-color-1, #667eea), var(--spar-theme-color-2, #764ba2)), linear-gradient(#fff, #fff) !important;
+  background-clip: text, padding-box !important;
+  -webkit-background-clip: text, padding-box !important;
+  color: transparent !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+.spar-dashboard--dark .spar-pending-badge {
+  background: rgba(146, 64, 14, 0.25) !important;
+  border-color: rgba(245, 158, 11, 0.4) !important;
+  color: #fbbf24 !important;
+}
+
+.spar-dashboard--dark #spar-history-status-filter {
+  background: #1e1f24 !important;
+  border-color: #2a2b30 !important;
+  color: #e0e0e0 !important;
+}
+
+.spar-dashboard--dark .spar-tabs-nav {
+  border-bottom-color: #2a2b30 !important;
+}
+
+.spar-dashboard--dark .spar-tab-nav {
+  background: #15161a !important;
+  border-color: #2a2b30 !important;
+  color: #c7c9cf !important;
+}
+
+.spar-dashboard--dark .spar-tab-nav.is-active {
+  background: #1f2024 !important;
+  color: #ffffff !important;
+  border-color: #2a2b30 !important;
+}
+
+.spar-dashboard--dark .spar-tabs-content {
+  background: #1f2024 !important;
+  border-color: #2a2b30 !important;
+}
+
+.spar-dashboard--dark .spar-section {
+  background: #15161a !important;
+  border-color: #2a2b30 !important;
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark .spar-section h3 {
+  color: #e5e7eb !important;
+  border-bottom-color: #2a2b30 !important;
+}
+
+.spar-dashboard--dark .spar-box,
+.spar-dashboard--dark .spar-tier-box,
+.spar-dashboard--dark .spar-box-full {
+  background: rgb(60 60 60 / 35%) !important;
+  border-color: #2a2b30 !important;
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark .spar-box h4,
+.spar-dashboard--dark .spar-tier-box h4,
+.spar-dashboard--dark .spar-box-full h4 {
+  color: #ffffff !important;
+}
+
+.spar-dashboard--dark .spar-current-level-card {
+  background: rgb(60 60 60 / 35%) !important;
+  border-color: #2a2b30 !important;
+  color: #e5e7eb !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25) !important;
+}
+
+.spar-dashboard--dark .spar-current-level-title {
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark .spar-current-level-sub {
+  color: #9ca3af !important;
+}
+
+.spar-dashboard--dark .spar-level-chip {
+  background: #2a2b30 !important;
+  border-color: #3a3b40 !important;
+  color: #c7c9cf !important;
+}
+
+.spar-dashboard--dark .spar-current-level-desc {
+  color: #c7c9cf !important;
+}
+
+.spar-dashboard--dark .spar-progress-header,
+.spar-dashboard--dark .spar-progress-footer {
+  color: #9ca3af !important;
+}
+
+.spar-dashboard--dark .spar-level-card {
+  background: rgb(60 60 60 / 35%) !important;
+  border-color: #2a2b30 !important;
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark .spar-level-card.is-current {
+  border-color: var(--spar-theme-color-1, #667eea) !important;
+  box-shadow: 0 4px 16px rgba(102, 126, 234, 0.2) !important;
+}
+
+.spar-dashboard--dark .spar-level-card:hover:not(.is-locked) {
+  border-color: var(--spar-theme-accent-color, #2ca58d) !important;
+}
+
+.spar-dashboard--dark .spar-level-card .spar-badge-current {
+  background: var(--spar-theme-color-1, #667eea) !important;
+}
+
+.spar-dashboard--dark .spar-level-title {
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark .spar-level-title.is-current {
+  color: #93b5f1 !important;
+}
+
+.spar-dashboard--dark .spar-level-requirement {
+  color: #9ca3af !important;
+}
+
+.spar-dashboard--dark .spar-level-benefits-title {
+  color: #9ca3af !important;
+}
+
+.spar-dashboard--dark .spar-level-benefits-title.is-current {
+  color: #93b5f1 !important;
+}
+
+.spar-dashboard--dark .spar-level-benefits-list {
+  color: #c7c9cf !important;
+}
+
+.spar-dashboard--dark .spar-all-levels-title {
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark .spar-empty-levels {
+  background: #15161a !important;
+  border-color: #2a2b30 !important;
+}
+
+.spar-dashboard--dark .spar-empty-levels h4 {
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark .spar-empty-levels p {
+  color: #c7c9cf !important;
+}
+
+.spar-dashboard--dark .spar-empty-chip {
+  background: rgba(102, 126, 234, 0.15) !important;
+  border-color: rgba(102, 126, 234, 0.3) !important;
+  color: #93b5f1 !important;
+}
+
+.spar-dashboard--dark table.spar-points-log,
+.spar-dashboard--dark .spar-points-log {
+  background: #15161a !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark table.spar-points-log thead,
+.spar-dashboard--dark .spar-points-log thead {
+  background: linear-gradient(135deg, #1a1b1f 0%, #15161a 100%) !important;
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark table.spar-points-log th,
+.spar-dashboard--dark .spar-points-log th {
+  color: #e5e7eb !important;
+  border-color: #2a2b30 !important;
+}
+
+.spar-dashboard--dark table.spar-points-log th:not(:last-child)::after {
+  background: rgba(255, 255, 255, 0.08) !important;
+}
+
+.spar-dashboard--dark table.spar-points-log tbody,
+.spar-dashboard--dark .spar-points-log tbody {
+  background: transparent !important;
+}
+
+.spar-dashboard--dark table.spar-points-log tbody tr,
+.spar-dashboard--dark .spar-points-log tbody tr {
+  background: rgb(60 60 60 / 35%) !important;
+  border-color: #2a2b30 !important;
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark table.spar-points-log tbody tr:nth-child(even),
+.spar-dashboard--dark .spar-points-log tbody tr:nth-child(even) {
+  background: #15161a !important;
+}
+
+.spar-dashboard--dark table.spar-points-log tbody tr:hover,
+.spar-dashboard--dark .spar-points-log tbody tr:hover {
+  background: rgba(102, 126, 234, 0.1) !important;
+}
+
+.spar-dashboard--dark table.spar-points-log td,
+.spar-dashboard--dark .spar-points-log td {
+  color: #c7c9cf !important;
+  border-bottom-color: #2a2b30 !important;
+}
+
+.spar-dashboard--dark table.spar-points-log td a {
+  color: #93b5f1 !important;
+}
+
+.spar-dashboard--dark table.spar-points-log td a:hover {
+  color: #b8d0f7 !important;
+}
+
+.spar-dashboard--dark table.spar-points-log code {
+  background: #2a2b30 !important;
+  color: #c7c9cf !important;
+}
+
+.spar-dashboard--dark .spar-copy-voucher {
+  background: #2a2b30 !important;
+  border-color: #4b4d55 !important;
+  color: #e5e7eb !important;
+}
+.spar-dashboard--dark .spar-copy-voucher .spar-copy-voucher-icon {
+  color: #9ca3af !important;
+}
+.spar-dashboard--dark .spar-copy-voucher:hover {
+  background: #34363d !important;
+  border-color: #4aa3df !important;
+  color: #fff !important;
+}
+.spar-dashboard--dark .spar-copy-voucher:hover .spar-copy-voucher-icon {
+  color: #4aa3df !important;
+}
+.spar-dashboard--dark .spar-copy-voucher.spar-copied {
+  background: #1f3a28 !important;
+  border-color: #28a745 !important;
+  color: #7ee2a0 !important;
+}
+.spar-dashboard--dark .spar-copy-voucher.spar-copied .spar-copy-voucher-icon {
+  color: #28a745 !important;
+}
+
+.spar-dashboard--dark .spar-redeem-compact--account {
+  background: rgb(60 60 60 / 35%) !important;
+  border-color: #2a2b30 !important;
+}
+
+.spar-dashboard--dark .spar-redeem-compact--account .spar-redeem-header {
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark .spar-redeem-compact--account .spar-discount-box {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-color: rgba(16, 185, 129, 0.3) !important;
+  color: #6ee7b7 !important;
+}
+
+.spar-dashboard--dark .spar-redeem-compact--account .spar-redeem-value-label,
+.spar-dashboard--dark .spar-redeem-compact--account .spar-redeem-value {
+  color: #6ee7b7 !important;
+}
+
+.spar-dashboard--dark .spar-redeem-compact--account .spar-redeem-input {
+  background: #15161a !important;
+  border-color: #2a2b30 !important;
+  color: #ffffff !important;
+}
+
+.spar-dashboard--dark .spar-tabs-select {
+  background: #15161a !important;
+  border-color: #2a2b30 !important;
+  color: #e5e7eb !important;
+}
+
+/* Points History Row Helpers */
+.spar-dashboard--dark tr.spar-row-even,
+.spar-dashboard--dark .spar-row-even {
+  background: #15161a !important;
+}
+
+.spar-dashboard--dark tr.spar-row-odd,
+.spar-dashboard--dark .spar-row-odd {
+  background: rgb(60 60 60 / 35%) !important;
+}
+
+.spar-dashboard--dark tr.spar-row-even td,
+.spar-dashboard--dark tr.spar-row-odd td {
+  color: #c7c9cf !important;
+  border-bottom-color: #2a2b30 !important;
+}
+
+.spar-dashboard--dark .spar-date {
+  color: #9ca3af !important;
+}
+
+.spar-dashboard--dark .spar-empty td {
+  color: #9ca3af !important;
+}
+
+/* Pagination */
+.spar-dashboard--dark .spar-pagination-btn {
+  background: #15161a !important;
+  border-color: #2a2b30 !important;
+  color: #c7c9cf !important;
+}
+
+.spar-dashboard--dark .spar-pagination-btn:hover:not([disabled]) {
+  background: #2a2b30 !important;
+  border-color: #3a3b40 !important;
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark .spar-pagination-btn[disabled] {
+  background: #15161a !important;
+  color: #555 !important;
+  border-color: #2a2b30 !important;
+}
+
+.spar-dashboard--dark .spar-pagination-current {
+  background: var(--spar-theme-color-1, #667eea) !important;
+  border-color: var(--spar-theme-color-1, #667eea) !important;
+  color: #fff !important;
+}
+
+.spar-dashboard--dark .spar-pagination-info {
+  color: #9ca3af !important;
+}
+
+.spar-dashboard--dark .spar-pagination-loading {
+  color: var(--spar-theme-accent-color, #2ca58d) !important;
+}
+
+/* Referral System Container */
+.spar-dashboard--dark .spar-referral-system {
+  border-color: #2a2b30 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+.spar-dashboard--dark .spar-referral-system.connected {
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Referral Title */
+.spar-dashboard--dark .spar-referral-title {
+  color: #e5e7eb !important;
+}
+
+/* Referral Stats */
+.spar-dashboard--dark .spar-referral-stat {
+  background: rgb(60 60 60 / 35%) !important;
+  border-color: #2a2b30 !important;
+}
+
+.spar-dashboard--dark .spar-referral-stat:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+.spar-dashboard--dark .spar-stat-label {
+  color: #9ca3af !important;
+}
+
+/* How it Works */
+.spar-dashboard--dark .spar-referral-how-it-works {
+  margin: 0;
+  background: #15161a !important;
+  border-left-color: var(--spar-theme-color-1, #667eea) !important;
+}
+
+.spar-dashboard--dark .spar-referral-how-it-works h4,
+.spar-dashboard--dark .spar-referral-link-section h4,
+.spar-dashboard--dark .spar-referral-clicks-log h4,
+.spar-dashboard--dark .spar-share-buttons h5 {
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark .spar-how-it-works-list li {
+  color: #c7c9cf !important;
+}
+
+/* Referral Code Display */
+.spar-dashboard--dark .spar-referral-code-display {
+  background: rgba(102, 126, 234, 0.1) !important;
+  border-color: rgba(102, 126, 234, 0.25) !important;
+}
+
+.spar-dashboard--dark .spar-referral-code-label {
+  color: #93b5f1 !important;
+}
+
+.spar-dashboard--dark .spar-referral-code {
+  background: #15161a !important;
+  color: #7db8f5 !important;
+  border-color: rgba(102, 126, 234, 0.3) !important;
+}
+
+/* Referral Input */
+.spar-dashboard--dark .spar-referral-input {
+  background: #15161a !important;
+  border-color: #2a2b30 !important;
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark .spar-referral-input:focus {
+  border-color: var(--spar-theme-color-1, #667eea) !important;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15) !important;
+}
+
+/* Birthday Date Input */
+.spar-dashboard--dark #spar-birthday-date {
+  background: #15161a !important;
+  border-color: #2a2b30 !important;
+  color: #ffffff !important;
+}
+
+/* Copy Button */
+.spar-dashboard--dark .spar-copy-button {
+  background: var(--spar-theme-color-1, #667eea) !important;
+}
+
+/* Share Buttons */
+.spar-dashboard--dark .spar-share-btn {
+  background: rgb(60 60 60 / 35%) !important;
+  border-color: #2a2b30 !important;
+  color: #c7c9cf !important;
+}
+
+.spar-dashboard--dark .spar-share-btn:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3) !important;
+}
+
+.spar-dashboard--dark .spar-share-email .spar-share-icon i,
+.spar-dashboard--dark .spar-share-facebook .spar-share-icon i,
+.spar-dashboard--dark .spar-share-twitter .spar-share-icon i,
+.spar-dashboard--dark .spar-share-whatsapp .spar-share-icon i,
+.spar-dashboard--dark .spar-share-telegram .spar-share-icon i,
+.spar-dashboard--dark .spar-share-discord .spar-share-icon i,
+.spar-dashboard--dark .spar-share-tiktok .spar-share-icon i {
+  color: #9ca3af !important;
+}
+
+.spar-dashboard--dark .spar-share-email:hover {
+  border-color: #dc3545 !important;
+  color: #dc3545 !important;
+}
+
+.spar-dashboard--dark .spar-share-email:hover .spar-share-icon i {
+  color: #dc3545 !important;
+}
+
+.spar-dashboard--dark .spar-share-facebook:hover {
+  border-color: #1877f2 !important;
+  color: #1877f2 !important;
+}
+
+.spar-dashboard--dark .spar-share-facebook:hover .spar-share-icon i {
+  color: #1877f2 !important;
+}
+
+.spar-dashboard--dark .spar-share-twitter:hover {
+  border-color: #1da1f2 !important;
+  color: #1da1f2 !important;
+}
+
+.spar-dashboard--dark .spar-share-twitter:hover .spar-share-icon i {
+  color: #1da1f2 !important;
+}
+
+.spar-dashboard--dark .spar-share-whatsapp:hover {
+  border-color: #25d366 !important;
+  color: #25d366 !important;
+}
+
+.spar-dashboard--dark .spar-share-whatsapp:hover .spar-share-icon i {
+  color: #25d366 !important;
+}
+
+.spar-dashboard--dark .spar-share-telegram:hover {
+  border-color: #229ed9 !important;
+  color: #229ed9 !important;
+}
+
+.spar-dashboard--dark .spar-share-telegram:hover .spar-share-icon i {
+  color: #229ed9 !important;
+}
+
+.spar-dashboard--dark .spar-share-discord:hover {
+  border-color: #5865f2 !important;
+  color: #5865f2 !important;
+}
+
+.spar-dashboard--dark .spar-share-discord:hover .spar-share-icon i {
+  color: #5865f2 !important;
+}
+
+.spar-dashboard--dark .spar-share-tiktok:hover {
+  border-color: #ff0050 !important;
+  color: #ff0050 !important;
+}
+
+.spar-dashboard--dark .spar-share-tiktok:hover .spar-share-icon i {
+  color: #ff0050 !important;
+}
+
+/* Referral Clicks Log Table */
+.spar-dashboard--dark .spar-referral-clicks-log .spar-points-log {
+  background: transparent !important;
+}
+
+.spar-dashboard--dark .spar-referral-clicks-log .spar-points-log thead {
+  background: #15161a !important;
+}
+
+.spar-dashboard--dark .spar-referral-clicks-log .spar-points-log thead th {
+  color: #e5e7eb !important;
+  border-color: #2a2b30 !important;
+}
+
+.spar-dashboard--dark .spar-referral-clicks-log .spar-points-log tbody tr {
+  background: rgb(60 60 60 / 35%) !important;
+  border-color: #2a2b30 !important;
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark .spar-referral-clicks-log .spar-points-log tbody tr:nth-child(even) {
+  background: #15161a !important;
+}
+
+.spar-dashboard--dark .spar-referral-clicks-log .spar-points-log td {
+  color: #c7c9cf !important;
+  border-color: #2a2b30 !important;
+}
+
+/* Referral Coupon Section */
+.spar-dashboard--dark .spar-referral-coupon-section {
+  border-top-color: #2a2b30 !important;
+}
+
+.spar-dashboard--dark .spar-referral-coupon-title {
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark .spar-referral-coupon-input-group input {
+  background-color: #15161a !important;
+  border-color: var(--spar-theme-color-1, #667eea) !important;
+  color: #7db8f5 !important;
+}
+
+.spar-dashboard--dark .spar-referral-coupon-help {
+  color: #9ca3af !important;
+}
+
+/* Widget Coupon Styles (within dashboard) */
+.spar-dashboard--dark .spar-refer-coupon-section {
+  border-top-color: #2a2b30 !important;
+}
+
+.spar-dashboard--dark .spar-refer-coupon-label {
+  color: #c7c9cf !important;
+}
+
+.spar-dashboard--dark .spar-refer-coupon-input {
+  background-color: #15161a !important;
+  border-color: var(--spar-theme-color-1, #667eea) !important;
+  color: #7db8f5 !important;
+}
+
+.spar-dashboard--dark .spar-refer-coupon-note {
+  color: #9ca3af !important;
+}
+
+/* Table Scroll Container */
+.spar-dashboard--dark .spar-table-scroll {
+  border-color: #2a2b30 !important;
+}
+
+/* Level Progress Bar */
+.spar-dashboard--dark .spar-level-progress-bar {
+  background: #2a2b30 !important;
+}
+
+.spar-dashboard--dark .spar-level-next {
+  color: #9ca3af !important;
+}
+
+.spar-dashboard--dark .spar-level-max {
+  color: var(--spar-theme-accent-color, #2ca58d) !important;
+}
+
+/* Inactivity Notice */
+.spar-dashboard--dark .spar-inactivity-notice {
+  background: #1e1b0e !important;
+  border-color: rgba(251, 191, 36, 0.3) !important;
+  border-left: 3px solid rgba(251, 191, 36, 0.65) !important;
+  color: #fbbf24 !important;
+}
+
+.spar-dashboard--dark .spar-inactivity-notice .spar-inactivity-icon {
+  color: #fbbf24 !important;
+  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.4));
+}
+
+.spar-dashboard--dark .spar-inactivity-notice p {
+  color: #d4c9b0 !important;
+}
+
+/* Voucher Success Notice */
+.spar-dashboard--dark .spar-voucher-success-notice {
+  background: rgba(82, 196, 26, 0.1) !important;
+  border-color: rgba(82, 196, 26, 0.3) !important;
+}
+
+.spar-dashboard--dark .spar-voucher-content h3 {
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark .spar-voucher-code {
+  background: #15161a !important;
+  border-color: rgba(82, 196, 26, 0.5) !important;
+  color: #95de64 !important;
+}
+
+.spar-dashboard--dark .spar-voucher-already-applied {
+  color: #95de64 !important;
+}
+
+/* Points History Timeline */
+.spar-dashboard--dark .spar-history-timeline::before {
+  background: #2a2b30 !important;
+}
+
+.spar-dashboard--dark .spar-tl-date-sep span {
+  color: #6b7280 !important;
+  background: #15161a !important;
+}
+
+.spar-dashboard--dark .spar-tl-dot {
+  box-shadow: 0 0 0 3px #15161a !important;
+  background: #2a2b30 !important;
+}
+
+.spar-dashboard--dark .spar-tl-green  { background: rgba(16, 185, 129, 0.2) !important; }
+.spar-dashboard--dark .spar-tl-purple { background: rgba(139, 92, 246, 0.2) !important; }
+.spar-dashboard--dark .spar-tl-red    { background: rgba(239, 68, 68, 0.2) !important; }
+.spar-dashboard--dark .spar-tl-blue   { background: rgba(59, 130, 246, 0.2) !important; }
+.spar-dashboard--dark .spar-tl-amber  { background: rgba(245, 158, 11, 0.2) !important; }
+.spar-dashboard--dark .spar-tl-indigo { background: rgba(102, 126, 234, 0.2) !important; }
+.spar-dashboard--dark .spar-tl-gray   { background: #2a2b30 !important; }
+.spar-dashboard--dark .spar-tl-pink   { background: rgba(236, 72, 153, 0.2) !important; }
+.spar-dashboard--dark .spar-tl-teal   { background: rgba(20, 184, 166, 0.2) !important; }
+
+.spar-dashboard--dark .spar-tl-card {
+  background: rgb(60 60 60 / 35%) !important;
+  border-color: #2a2b30 !important;
+}
+
+.spar-dashboard--dark .spar-tl-title {
+  color: #e5e7eb !important;
+}
+
+.spar-dashboard--dark .spar-tl-time {
+  color: #6b7280 !important;
+}
+
+.spar-dashboard--dark .spar-tl-badge--add {
+  background: rgba(16, 185, 129, 0.2) !important;
+  color: #6ee7b7 !important;
+}
+
+.spar-dashboard--dark .spar-tl-badge--remove {
+  background: rgba(239, 68, 68, 0.2) !important;
+  color: #fca5a5 !important;
+}
+
+.spar-dashboard--dark .spar-tl-badge--pending {
+  background: rgba(245, 158, 11, 0.2) !important;
+  color: #fbbf24 !important;
+}
+
+.spar-dashboard--dark .spar-tl-available {
+  background: rgba(245, 158, 11, 0.15) !important;
+  border-color: rgba(245, 158, 11, 0.3) !important;
+  color: #fbbf24 !important;
+}
+
+.spar-dashboard--dark .spar-tl-stat {
+  color: #9ca3af !important;
+}
+
+.spar-dashboard--dark .spar-tl-stat-value {
+  color: #c7c9cf !important;
+}
+
+.spar-dashboard--dark .spar-tl-stat--discount .spar-tl-stat-value {
+  color: #f87171 !important;
+}
+
+.spar-dashboard--dark .spar-tl-stat--total .spar-tl-stat-value {
+  color: #6ee7b7 !important;
+}
+
+.spar-dashboard--dark .spar-tl-empty-text {
+  color: #9ca3af !important;
+}
+
+@media (max-width: 768px) {
+  .spar-dashboard--dark table.spar-points-log tbody tr,
+  .spar-dashboard--dark .spar-points-log tbody tr {
+    background: rgb(60 60 60 / 35%) !important;
+  }
+
+  .spar-dashboard--dark table.spar-points-log td,
+  .spar-dashboard--dark .spar-points-log td {
+    color: #c7c9cf !important;
+  }
+  
+  .spar-dashboard-theme-toggle {
+    top: 15px;
+    right: 15px;
+    font-size: 18px;
+    width: 32px;
+    height: 32px;
+  }
+}

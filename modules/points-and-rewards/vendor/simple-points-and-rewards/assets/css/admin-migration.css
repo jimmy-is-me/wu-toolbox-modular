@@ -1,0 +1,38 @@
+.spar-migration-page .spar-migration-log {
+	margin-top: 2rem;
+}
+
+.spar-migration-log__entries {
+	max-height: 22rem;
+	overflow-y: auto;
+	background: #ffffff;
+	border: 1px solid #ccd0d4;
+	padding: 1rem;
+	font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+	font-size: 13px;
+	line-height: 1.5;
+}
+
+.spar-migration-log__entry {
+	margin: 0 0 0.75rem;
+}
+
+.spar-migration-log__entry:last-child {
+	margin-bottom: 0;
+}
+
+.spar-migration-log__entry--success {
+	color: #017c3a;
+}
+
+.spar-migration-log__entry--error {
+	color: #b52727;
+}
+
+.spar-migration-log__entry--warning {
+	color: #8a6d3b;
+}
+
+.spar-migration-log__entry--info {
+	color: #1b5eab;
+}

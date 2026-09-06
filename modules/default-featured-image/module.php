@@ -41,7 +41,8 @@ final class WUTM_Default_Featured_Image {
     }
 
     public static function assets(string $hook): void {
-        if ($hook !== 'wu-toolbox-modular_page_' . self::SLUG || !current_user_can('manage_options')) {
+        $page = isset($_GET['page']) && is_string($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
+        if ($page !== self::SLUG || !current_user_can('manage_options')) {
             return;
         }
 
@@ -61,7 +62,7 @@ jQuery(function($) {
         frame.on('select', function() {
             var attachment = frame.state().get('selection').first().toJSON();
             $('#wutm-default-featured-image-id').val(attachment.id);
-            $('#wutm-default-featured-image-preview').html('<img alt="" src="' + attachment.url + '" style="max-width:220px;height:auto;">');
+            $('#wutm-default-featured-image-preview').empty().append($('<img>', { alt: '', src: attachment.url }).css({ maxWidth: '220px', height: 'auto' }));
             $('.wutm-default-image-remove').prop('disabled', false);
         });
         frame.open();
