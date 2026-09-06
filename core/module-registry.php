@@ -62,6 +62,8 @@ function wutm_modules(): array {
         'user-switcher' => ['name' => '使用者切換', 'description' => '切換帳號進行測試。', 'group' => '後台介面', 'icon' => '🔄'],
         'wc-optimization-tools' => ['name' => 'WC優化工具', 'description' => '台灣地址、離島運送、7-11 取貨、訂單備註與電子發票設定。', 'group' => '電商工具', 'icon' => '🛠️', 'requires' => 'woocommerce'],
         'woocommerce-optimizer' => ['name' => '隱藏WC工具', 'description' => '整理 WooCommerce 後台選單、推廣區與頁尾。', 'group' => '電商工具', 'icon' => '🛒', 'requires' => 'woocommerce'],
+        'ecpay-tools' => ['name' => '綠界金流/物流/電子發票工具', 'description' => '整合綠界付款、超商與宅配物流及電子發票。需設定商店資料並完成測試。', 'group' => '電商工具', 'icon' => '💳', 'requires' => 'woocommerce'],
+        'esun-payment' => ['name' => '玉山銀行金流工具', 'description' => '玉山信用卡一次付清與分期付款，沿用銀行交易驗證流程。', 'group' => '電商工具', 'icon' => '🏦', 'requires' => 'woocommerce'],
     ];
 }
 function wutm_get_module(string $key): ?array { $all = wutm_modules(); return $all[$key] ?? null; }

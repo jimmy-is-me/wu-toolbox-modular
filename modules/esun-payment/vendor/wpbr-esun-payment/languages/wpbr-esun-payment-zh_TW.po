@@ -1,0 +1,522 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: ESUN Payment for WooCommerce\n"
+"POT-Creation-Date: 2025-03-28 11:55+0800\n"
+"PO-Revision-Date: 2025-03-28 11:57+0800\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"Language: zh_TW\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+"X-Generator: Poedit 3.5\n"
+"X-Poedit-Basepath: ..\n"
+"X-Poedit-Flags-xgettext: --add-comments=translators:\n"
+"X-Poedit-WPHeader: woo-esun-payment.php\n"
+"X-Poedit-SourceCharset: UTF-8\n"
+"X-Poedit-KeywordsList: __;_e;_n:1,2;_x:1,2c;_ex:1,2c;_nx:4c,1,2;esc_attr__;"
+"esc_attr_e;esc_attr_x:1,2c;esc_html__;esc_html_e;esc_html_x:1,2c;_n_noop:1,2;"
+"_nx_noop:3c,1,2;__ngettext_noop:1,2\n"
+"X-Poedit-SearchPath-0: .\n"
+"X-Poedit-SearchPathExcluded-0: *.min.js\n"
+
+#: includes/settings/settings-esun-credit-installment.php:13
+#: includes/settings/settings-esun-credit.php:13
+msgid "Enable/Disable"
+msgstr "啟用/關閉"
+
+#: includes/settings/settings-esun-credit-installment.php:15
+#: includes/settings/settings-esun-credit.php:15
+msgid "Enable"
+msgstr "啟用"
+
+#: includes/settings/settings-esun-credit-installment.php:19
+#: includes/settings/settings-esun-credit.php:19
+msgid "Title"
+msgstr "名稱"
+
+#: includes/settings/settings-esun-credit-installment.php:21
+#: includes/settings/settings-esun-credit.php:21
+msgid "This controls the title which the user sees during checkout."
+msgstr "這是使用者結帳時會看到的付款方式名稱。"
+
+#: includes/settings/settings-esun-credit-installment.php:22
+#: includes/settings/settings-esun-credit.php:22
+#: src/Gateways/ESunPaymentCredit.php:43
+msgid "ESUN Credit Card Payment Gateway"
+msgstr "玉山信用卡付款"
+
+#: includes/settings/settings-esun-credit-installment.php:26
+#: includes/settings/settings-esun-credit.php:26
+msgid "Description"
+msgstr "描述"
+
+#: includes/settings/settings-esun-credit-installment.php:28
+#: includes/settings/settings-esun-credit.php:28
+msgid "This controls the description which the user sees during checkout."
+msgstr "此項目控制使用者在結帳時會看到的說明。"
+
+#: includes/settings/settings-esun-credit-installment.php:32
+#: includes/settings/settings-esun-credit.php:32
+msgid "Order Button Text"
+msgstr "結帳頁付款按鈕文字"
+
+#: includes/settings/settings-esun-credit-installment.php:34
+#: includes/settings/settings-esun-credit.php:34
+#: src/Gateways/AbstractESunPaymentGateway.php:57
+msgid "Proceed to ESUN"
+msgstr "使用信用卡付款"
+
+#: includes/views/installment-edit.php:26
+#, php-format
+msgid "Edit %d Month Installment"
+msgstr "編輯分期付款 (%d期)"
+
+#: includes/views/installment-edit.php:36
+msgid "Status"
+msgstr "啟用狀態"
+
+#: includes/views/installment-edit.php:50
+msgid "Enable/Disable this installment"
+msgstr "啟用或停用此分期付款期數"
+
+#: includes/views/installment-edit.php:56
+msgid "Minimum Order Amount"
+msgstr "最低訂單金額"
+
+#: includes/views/installment-edit.php:69
+msgid "Minimum order amount required for this installment"
+msgstr "可使用此分期付款期數的最低訂單金額"
+
+#: includes/views/installment-edit.php:77
+msgid "Save changes"
+msgstr "儲存變更"
+
+#: includes/views/installment-edit.php:79
+msgid "Back"
+msgstr "上一頁"
+
+#: src/Admin/OrderMetaBoxes.php:57
+msgid "ESUN Payment Details"
+msgstr "玉山付款資訊"
+
+#: src/Admin/OrderMetaBoxes.php:85
+msgid "Credit Card RRN"
+msgstr "簽帳單序號"
+
+#: src/Admin/OrderMetaBoxes.php:86 src/Gateways/ESunPaymentCredit.php:86
+#: src/Gateways/ESunPaymentInstallment.php:155
+msgid "Auth Code"
+msgstr "授權碼"
+
+#: src/Admin/OrderMetaBoxes.php:87
+msgid "Credit Card No"
+msgstr "信用卡卡號"
+
+#: src/Admin/OrderMetaBoxes.php:88 src/Gateways/ESunPaymentCredit.php:89
+#: src/Gateways/ESunPaymentInstallment.php:170
+msgid "Transaction Date"
+msgstr "交易日期"
+
+#: src/Admin/OrderMetaBoxes.php:89 src/Gateways/ESunPaymentCredit.php:92
+#: src/Gateways/ESunPaymentInstallment.php:173
+msgid "Transaction Time"
+msgstr "交易時間"
+
+#: src/Admin/OrderMetaBoxes.php:90 src/Gateways/ESunPaymentCredit.php:83
+#: src/Gateways/ESunPaymentInstallment.php:152
+msgid "Transaction Status"
+msgstr "交易狀態"
+
+#: src/Admin/OrderMetaBoxes.php:93 src/Gateways/ESunPaymentInstallment.php:158
+msgid "Installment Number"
+msgstr "分期期數"
+
+#: src/Admin/OrderMetaBoxes.php:94 src/Gateways/ESunPaymentInstallment.php:161
+msgid "Installment Amount"
+msgstr "分期總金額"
+
+#: src/Admin/OrderMetaBoxes.php:95 src/Gateways/ESunPaymentInstallment.php:164
+msgid "Installment Each Amount"
+msgstr "每期金額"
+
+#: src/Admin/OrderMetaBoxes.php:96 src/Gateways/ESunPaymentInstallment.php:167
+msgid "Installment First Amount"
+msgstr "首期金額"
+
+#: src/Admin/OrderMetaBoxes.php:101 src/Gateways/ESunPaymentCredit.php:97
+#: src/Gateways/ESunPaymentInstallment.php:178
+msgid "Error Code"
+msgstr "錯誤代碼"
+
+#: src/Admin/OrderMetaBoxes.php:102 src/Gateways/ESunPaymentCredit.php:100
+#: src/Gateways/ESunPaymentInstallment.php:181
+msgid "Error Description"
+msgstr "錯誤訊息"
+
+#: src/Api/ESunPaymentRequest.php:59
+msgid "Redirecting..."
+msgstr "重新導向中..."
+
+#: src/Api/ESunPaymentResponse.php:81
+msgid "No Such Order ID"
+msgstr "沒有這個訂單編號"
+
+#: src/Api/ESunPaymentResponse.php:100
+msgid "Success"
+msgstr "成功"
+
+#: src/Api/ESunPaymentResponse.php:109
+msgid "Fail"
+msgstr "失敗"
+
+#: src/ESunPayment.php:104
+#, php-format
+msgid " (%d installments)"
+msgstr "(%d 期)"
+
+#: src/ESunPayment.php:166
+msgid "Settings"
+msgstr "設定"
+
+#. translators: 1: Payment method title 2: ESUN URL
+#: src/Gateways/AbstractESunPaymentGateway.php:75
+#: src/Gateways/ESunPaymentInstallment.php:54
+#, php-format
+msgid "%1$s is a payment gateway provided by %2$s"
+msgstr "%1$s 是由 %2$s 所提供的付款方式"
+
+#: src/Gateways/AbstractESunPaymentGateway.php:80
+#: src/Gateways/ESunPaymentInstallment.php:59
+msgid "E.SUN Bank"
+msgstr "玉山銀行"
+
+#: src/Gateways/ESunPaymentCredit.php:42
+msgid "ESUN Credit Card"
+msgstr "玉山信用卡付款"
+
+#: src/Gateways/ESunPaymentCredit.php:81
+#: src/Gateways/ESunPaymentInstallment.php:150
+msgid "ESUN Payment Detail"
+msgstr "玉山付款資訊"
+
+#: src/Gateways/ESunPaymentInstallment.php:23
+#: src/Gateways/ESunPaymentInstallment.php:24
+msgid "ESUN Payment Installments"
+msgstr "玉山分期付款"
+
+#: src/Gateways/ESunPaymentInstallment.php:62
+#, php-format
+msgid "To active/deactive each installment plans, please go to the %s page."
+msgstr "要設定各期分期付款，請至「%s」頁面。"
+
+#: src/Gateways/ESunPaymentInstallment.php:62
+#: src/Settings/ESunPaymentSettingTab.php:43
+#: src/Settings/ESunPaymentSettingTab.php:116
+msgid "Installment Settings"
+msgstr "分期付款設定"
+
+#: src/Gateways/ESunPaymentInstallment.php:101
+msgid "Select Installment"
+msgstr "選擇期數"
+
+#: src/Gateways/ESunPaymentInstallment.php:110
+#, php-format
+msgid "%d installments"
+msgstr "%d 期"
+
+#: src/Settings/ESunPaymentSettingTab.php:25
+msgid "ESUN Payment"
+msgstr "玉山銀行"
+
+#: src/Settings/ESunPaymentSettingTab.php:42
+msgid "Payment Settings"
+msgstr "付款方式設定"
+
+#: src/Settings/ESunPaymentSettingTab.php:63
+msgid "General Payment Settings"
+msgstr "一般設定"
+
+#: src/Settings/ESunPaymentSettingTab.php:68
+msgid "Debug Log"
+msgstr "除錯紀錄"
+
+#: src/Settings/ESunPaymentSettingTab.php:71
+#, php-format
+msgid ""
+"Log ESUN Payment info. You Can find logs at WooCommerce -> Status -> Logs "
+"with source name \"wpbr-esun-payment\". %s"
+msgstr ""
+"記錄玉山銀行交易資訊。你可以在<strong> WooCommerce->狀態->日誌紀錄</strong> "
+"中找到來源名稱為<strong>「wpbr-esun-payment」</strong>的除錯紀錄。%s"
+
+#: src/Settings/ESunPaymentSettingTab.php:79
+msgid "API Settings"
+msgstr "API 參數設定"
+
+#: src/Settings/ESunPaymentSettingTab.php:81
+msgid "Enter your ESUN API credentials"
+msgstr "請輸入玉山銀行提供的 API 串接資訊"
+
+#: src/Settings/ESunPaymentSettingTab.php:85
+msgid "Test Mode"
+msgstr "測試模式"
+
+#: src/Settings/ESunPaymentSettingTab.php:88
+msgid "When enabled, you need to use the test-only data below."
+msgstr "當啟用測試模式時，請填入測試環境的串接資料。"
+
+#: src/Settings/ESunPaymentSettingTab.php:92
+msgid "MID"
+msgstr "特店代碼 (MID)"
+
+#: src/Settings/ESunPaymentSettingTab.php:94
+msgid "This is the MID when you apply esun API"
+msgstr "玉山銀行提供給您的特店代碼"
+
+#: src/Settings/ESunPaymentSettingTab.php:99
+msgid "MAC"
+msgstr "押碼值 (MAC)"
+
+#: src/Settings/ESunPaymentSettingTab.php:101
+msgid "This is the MAC when you apply esun API"
+msgstr "這是玉山銀行提供給您的押碼值 (MAC)"
+
+#: src/Settings/ESunPaymentSettingTab.php:172
+msgid "View logs"
+msgstr "檢視紀錄"
+
+#: src/Settings/InstallmentTable.php:42
+msgid "Installment"
+msgstr "付款期數"
+
+#: src/Settings/InstallmentTable.php:43
+msgid "Active"
+msgstr "啟用"
+
+#: src/Settings/InstallmentTable.php:44
+msgid "Min Amount"
+msgstr "最低訂單金額"
+
+#: src/Settings/InstallmentTable.php:138
+msgid "Edit"
+msgstr "編輯"
+
+#: src/Settings/InstallmentTable.php:231
+msgid "Action failed. Please refresh the page and retry."
+msgstr "操作失敗。請重新整理頁面再重試一次。"
+
+#: src/Settings/InstallmentTable.php:235
+msgid "You don't have permission to do this."
+msgstr "您沒有權限進行這項操作。"
+
+#: src/Settings/InstallmentTable.php:240
+msgid "Invalid installment number."
+msgstr "不合法的分期付款期數。"
+
+#: wpbr-esun-payment.php:48
+msgid ""
+"ESUN Payment needs WooCommerce, please intall and activate WooCommerce first!"
+msgstr "玉山銀行信用卡付款需要 WooCommerce ，請先安裝並啟用 WooCommerce !"
+
+#. Plugin Name of the plugin/theme
+#. Description of the plugin/theme
+msgid "ESUN Payment for WooCommerce"
+msgstr "玉山銀行信用卡付款"
+
+#. Plugin URI of the plugin/theme
+msgid "https://wpbrewer.com/product/wpbr-esun-payment/"
+msgstr "https://wpbrewer.com/product/wpbr-esun-payment/"
+
+#. Author of the plugin/theme
+msgid "WPBrewer"
+msgstr "WPBrewer"
+
+#. Author URI of the plugin/theme
+msgid "https://wpbrewer.com/"
+msgstr "https://wpbrewer.com/"
+
+#~ msgid "Credit Card RRN: "
+#~ msgstr "簽帳單序號： "
+
+#~ msgid "Auth Code: "
+#~ msgstr "授權碼： "
+
+#~ msgid "Credit Card No: "
+#~ msgstr "信用卡卡號： "
+
+#~ msgid "Transaction Date: "
+#~ msgstr "交易日期： "
+
+#~ msgid "Transaction Time: "
+#~ msgstr "交易時間： "
+
+#~ msgid "Transaction Status: "
+#~ msgstr "交易狀態： "
+
+#~ msgid "Error Code: "
+#~ msgstr "錯誤代碼： "
+
+#~ msgid "Error Description: "
+#~ msgstr "錯誤說明： "
+
+#~ msgid "Proceed to ESUN Credit Card Payment Gateway"
+#~ msgstr "以信用卡付款"
+
+#~ msgid "License"
+#~ msgstr "授權碼"
+
+#~ msgid "Processing"
+#~ msgstr "處理中"
+
+#, fuzzy
+#~ msgid "Done"
+#~ msgstr "完成"
+
+#~ msgid "License Manager"
+#~ msgstr "授權管理"
+
+#, fuzzy
+#~ msgid "API Settings saved"
+#~ msgstr "API  設定已儲存"
+
+#, fuzzy
+#~ msgid "Licenses"
+#~ msgstr "授權憑證"
+
+#, fuzzy
+#~ msgid "Plugins"
+#~ msgstr "外掛"
+
+#, fuzzy
+#~ msgid "Themes"
+#~ msgstr "佈景主題"
+
+#, fuzzy
+#~ msgid "API"
+#~ msgstr "API"
+
+#, fuzzy
+#~ msgid "Product Name"
+#~ msgstr "商品"
+
+#, fuzzy
+#~ msgid "License Key"
+#~ msgstr "授權碼"
+
+#~ msgid "License Expires"
+#~ msgstr "授權到期日"
+
+#, fuzzy
+#~ msgid "Deactivate"
+#~ msgstr "停用"
+
+#, fuzzy
+#~ msgid "Environment"
+#~ msgstr "環境"
+
+#, fuzzy
+#~ msgid "Action"
+#~ msgstr "動作"
+
+#~ msgid "Live"
+#~ msgstr "正式站"
+
+#~ msgid "Staging"
+#~ msgstr "測試站"
+
+#, fuzzy
+#~ msgid "Update Now"
+#~ msgstr "立即更新"
+
+#, fuzzy, php-format
+#~ msgid "Update %s now"
+#~ msgstr "立即更新 %s"
+
+#, fuzzy, php-format
+#~ msgid "More information about %s"
+#~ msgstr "關於 %s 更多資訊"
+
+#, fuzzy
+#~ msgid "More Details"
+#~ msgstr "更多資訊"
+
+#, fuzzy
+#~ msgid "Username"
+#~ msgstr "使用者名稱"
+
+#, fuzzy
+#~ msgid "Consumer Key"
+#~ msgstr "顧客金鑰"
+
+#, fuzzy
+#~ msgid "Consumer Secret"
+#~ msgstr "顧客密鑰"
+
+#, fuzzy
+#~ msgid "Disconnect"
+#~ msgstr "中斷"
+
+#, fuzzy
+#~ msgid "Not compatible"
+#~ msgstr "不相容"
+
+#, fuzzy, php-format
+#~ msgid ""
+#~ "%1$s could not be installed (%2$s). <a href=\"%3$s\">Please install it "
+#~ "manually by clicking here.</a>"
+#~ msgstr "%1$s 無法安裝 (%2$s).  <a href=\"%3$s\">請點擊此處轉為手動安裝.</a>"
+
+#~ msgid "Check for updates"
+#~ msgstr "按此檢查更新"
+
+#, php-format
+#~ msgid "%s License"
+#~ msgstr "%s 授權"
+
+#~ msgid "License Activation"
+#~ msgstr "啟用授權碼"
+
+#~ msgid "License key"
+#~ msgstr "授權碼"
+
+#~ msgid "Deactivate license"
+#~ msgstr "停用授權碼"
+
+#~ msgid "License activated."
+#~ msgstr "授權碼已啟動。"
+
+#~ msgid "Invalid License"
+#~ msgstr "無效的授權碼"
+
+#~ msgid "License Deactivated"
+#~ msgstr "授權碼已停用"
+
+#~ msgid "Valid"
+#~ msgstr "有效"
+
+#~ msgid "Deactivated"
+#~ msgstr "已停用"
+
+#~ msgid "Invalid"
+#~ msgstr "無效"
+
+#~ msgid "Inactive"
+#~ msgstr "未啟用"
+
+#~ msgid "Expired"
+#~ msgstr "已到期"
+
+#~ msgid "Looks like you made a mistake with the "
+#~ msgstr "看起來你犯了一個錯誤 "
+
+#~ msgid ""
+#~ "<a href=\"https://www.esun.com.tw/\" target=\"_blank\">ESUN</a> Credit "
+#~ "Card Payment Gateway is the payment gateway provided by ESUN bank"
+#~ msgstr ""
+#~ "<a href=\"https://www.esun.com.tw/\" target=\"_blank\">玉山</a> 信用卡付款"
+#~ "是由玉山銀行提供的支付服務"
+
+#~ msgid "fail"
+#~ msgstr "失敗"

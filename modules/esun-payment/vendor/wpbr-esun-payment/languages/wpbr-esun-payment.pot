@@ -1,0 +1,336 @@
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: ESUN Payment for WooCommerce\n"
+"POT-Creation-Date: 2025-03-28 11:55+0800\n"
+"PO-Revision-Date: 2022-04-25 16:50+0800\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+"X-Generator: Poedit 3.5\n"
+"X-Poedit-Basepath: ..\n"
+"X-Poedit-Flags-xgettext: --add-comments=translators:\n"
+"X-Poedit-WPHeader: wpbr-esun-payment.php\n"
+"X-Poedit-SourceCharset: UTF-8\n"
+"X-Poedit-KeywordsList: __;_e;_n:1,2;_x:1,2c;_ex:1,2c;_nx:4c,1,2;esc_attr__;"
+"esc_attr_e;esc_attr_x:1,2c;esc_html__;esc_html_e;esc_html_x:1,2c;_n_noop:1,2;"
+"_nx_noop:3c,1,2;__ngettext_noop:1,2\n"
+"X-Poedit-SearchPath-0: .\n"
+"X-Poedit-SearchPathExcluded-0: *.min.js\n"
+
+#: includes/settings/settings-esun-credit-installment.php:13
+#: includes/settings/settings-esun-credit.php:13
+msgid "Enable/Disable"
+msgstr ""
+
+#: includes/settings/settings-esun-credit-installment.php:15
+#: includes/settings/settings-esun-credit.php:15
+msgid "Enable"
+msgstr ""
+
+#: includes/settings/settings-esun-credit-installment.php:19
+#: includes/settings/settings-esun-credit.php:19
+msgid "Title"
+msgstr ""
+
+#: includes/settings/settings-esun-credit-installment.php:21
+#: includes/settings/settings-esun-credit.php:21
+msgid "This controls the title which the user sees during checkout."
+msgstr ""
+
+#: includes/settings/settings-esun-credit-installment.php:22
+#: includes/settings/settings-esun-credit.php:22
+#: src/Gateways/ESunPaymentCredit.php:43
+msgid "ESUN Credit Card Payment Gateway"
+msgstr ""
+
+#: includes/settings/settings-esun-credit-installment.php:26
+#: includes/settings/settings-esun-credit.php:26
+msgid "Description"
+msgstr ""
+
+#: includes/settings/settings-esun-credit-installment.php:28
+#: includes/settings/settings-esun-credit.php:28
+msgid "This controls the description which the user sees during checkout."
+msgstr ""
+
+#: includes/settings/settings-esun-credit-installment.php:32
+#: includes/settings/settings-esun-credit.php:32
+msgid "Order Button Text"
+msgstr ""
+
+#: includes/settings/settings-esun-credit-installment.php:34
+#: includes/settings/settings-esun-credit.php:34
+#: src/Gateways/AbstractESunPaymentGateway.php:57
+msgid "Proceed to ESUN"
+msgstr ""
+
+#: includes/views/installment-edit.php:26
+#, php-format
+msgid "Edit %d Month Installment"
+msgstr ""
+
+#: includes/views/installment-edit.php:36
+msgid "Status"
+msgstr ""
+
+#: includes/views/installment-edit.php:50
+msgid "Enable/Disable this installment"
+msgstr ""
+
+#: includes/views/installment-edit.php:56
+msgid "Minimum Order Amount"
+msgstr ""
+
+#: includes/views/installment-edit.php:69
+msgid "Minimum order amount required for this installment"
+msgstr ""
+
+#: includes/views/installment-edit.php:77
+msgid "Save changes"
+msgstr ""
+
+#: includes/views/installment-edit.php:79
+msgid "Back"
+msgstr ""
+
+#: src/Admin/OrderMetaBoxes.php:57
+msgid "ESUN Payment Details"
+msgstr ""
+
+#: src/Admin/OrderMetaBoxes.php:85
+msgid "Credit Card RRN"
+msgstr ""
+
+#: src/Admin/OrderMetaBoxes.php:86 src/Gateways/ESunPaymentCredit.php:86
+#: src/Gateways/ESunPaymentInstallment.php:155
+msgid "Auth Code"
+msgstr ""
+
+#: src/Admin/OrderMetaBoxes.php:87
+msgid "Credit Card No"
+msgstr ""
+
+#: src/Admin/OrderMetaBoxes.php:88 src/Gateways/ESunPaymentCredit.php:89
+#: src/Gateways/ESunPaymentInstallment.php:170
+msgid "Transaction Date"
+msgstr ""
+
+#: src/Admin/OrderMetaBoxes.php:89 src/Gateways/ESunPaymentCredit.php:92
+#: src/Gateways/ESunPaymentInstallment.php:173
+msgid "Transaction Time"
+msgstr ""
+
+#: src/Admin/OrderMetaBoxes.php:90 src/Gateways/ESunPaymentCredit.php:83
+#: src/Gateways/ESunPaymentInstallment.php:152
+msgid "Transaction Status"
+msgstr ""
+
+#: src/Admin/OrderMetaBoxes.php:93 src/Gateways/ESunPaymentInstallment.php:158
+msgid "Installment Number"
+msgstr ""
+
+#: src/Admin/OrderMetaBoxes.php:94 src/Gateways/ESunPaymentInstallment.php:161
+msgid "Installment Amount"
+msgstr ""
+
+#: src/Admin/OrderMetaBoxes.php:95 src/Gateways/ESunPaymentInstallment.php:164
+msgid "Installment Each Amount"
+msgstr ""
+
+#: src/Admin/OrderMetaBoxes.php:96 src/Gateways/ESunPaymentInstallment.php:167
+msgid "Installment First Amount"
+msgstr ""
+
+#: src/Admin/OrderMetaBoxes.php:101 src/Gateways/ESunPaymentCredit.php:97
+#: src/Gateways/ESunPaymentInstallment.php:178
+msgid "Error Code"
+msgstr ""
+
+#: src/Admin/OrderMetaBoxes.php:102 src/Gateways/ESunPaymentCredit.php:100
+#: src/Gateways/ESunPaymentInstallment.php:181
+msgid "Error Description"
+msgstr ""
+
+#: src/Api/ESunPaymentRequest.php:59
+msgid "Redirecting..."
+msgstr ""
+
+#: src/Api/ESunPaymentResponse.php:81
+msgid "No Such Order ID"
+msgstr ""
+
+#: src/Api/ESunPaymentResponse.php:100
+msgid "Success"
+msgstr ""
+
+#: src/Api/ESunPaymentResponse.php:109
+msgid "Fail"
+msgstr ""
+
+#: src/ESunPayment.php:104
+#, php-format
+msgid " (%d installments)"
+msgstr ""
+
+#: src/ESunPayment.php:166
+msgid "Settings"
+msgstr ""
+
+#. translators: 1: Payment method title 2: ESUN URL
+#: src/Gateways/AbstractESunPaymentGateway.php:75
+#: src/Gateways/ESunPaymentInstallment.php:54
+#, php-format
+msgid "%1$s is a payment gateway provided by %2$s"
+msgstr ""
+
+#: src/Gateways/AbstractESunPaymentGateway.php:80
+#: src/Gateways/ESunPaymentInstallment.php:59
+msgid "E.SUN Bank"
+msgstr ""
+
+#: src/Gateways/ESunPaymentCredit.php:42
+msgid "ESUN Credit Card"
+msgstr ""
+
+#: src/Gateways/ESunPaymentCredit.php:81
+#: src/Gateways/ESunPaymentInstallment.php:150
+msgid "ESUN Payment Detail"
+msgstr ""
+
+#: src/Gateways/ESunPaymentInstallment.php:23
+#: src/Gateways/ESunPaymentInstallment.php:24
+msgid "ESUN Payment Installments"
+msgstr ""
+
+#: src/Gateways/ESunPaymentInstallment.php:62
+#, php-format
+msgid "To active/deactive each installment plans, please go to the %s page."
+msgstr ""
+
+#: src/Gateways/ESunPaymentInstallment.php:62
+#: src/Settings/ESunPaymentSettingTab.php:43
+#: src/Settings/ESunPaymentSettingTab.php:116
+msgid "Installment Settings"
+msgstr ""
+
+#: src/Gateways/ESunPaymentInstallment.php:101
+msgid "Select Installment"
+msgstr ""
+
+#: src/Gateways/ESunPaymentInstallment.php:110
+#, php-format
+msgid "%d installments"
+msgstr ""
+
+#: src/Settings/ESunPaymentSettingTab.php:25
+msgid "ESUN Payment"
+msgstr ""
+
+#: src/Settings/ESunPaymentSettingTab.php:42
+msgid "Payment Settings"
+msgstr ""
+
+#: src/Settings/ESunPaymentSettingTab.php:63
+msgid "General Payment Settings"
+msgstr ""
+
+#: src/Settings/ESunPaymentSettingTab.php:68
+msgid "Debug Log"
+msgstr ""
+
+#: src/Settings/ESunPaymentSettingTab.php:71
+#, php-format
+msgid ""
+"Log ESUN Payment info. You Can find logs at WooCommerce -> Status -> Logs "
+"with source name \"wpbr-esun-payment\". %s"
+msgstr ""
+
+#: src/Settings/ESunPaymentSettingTab.php:79
+msgid "API Settings"
+msgstr ""
+
+#: src/Settings/ESunPaymentSettingTab.php:81
+msgid "Enter your ESUN API credentials"
+msgstr ""
+
+#: src/Settings/ESunPaymentSettingTab.php:85
+msgid "Test Mode"
+msgstr ""
+
+#: src/Settings/ESunPaymentSettingTab.php:88
+msgid "When enabled, you need to use the test-only data below."
+msgstr ""
+
+#: src/Settings/ESunPaymentSettingTab.php:92
+msgid "MID"
+msgstr ""
+
+#: src/Settings/ESunPaymentSettingTab.php:94
+msgid "This is the MID when you apply esun API"
+msgstr ""
+
+#: src/Settings/ESunPaymentSettingTab.php:99
+msgid "MAC"
+msgstr ""
+
+#: src/Settings/ESunPaymentSettingTab.php:101
+msgid "This is the MAC when you apply esun API"
+msgstr ""
+
+#: src/Settings/ESunPaymentSettingTab.php:172
+msgid "View logs"
+msgstr ""
+
+#: src/Settings/InstallmentTable.php:42
+msgid "Installment"
+msgstr ""
+
+#: src/Settings/InstallmentTable.php:43
+msgid "Active"
+msgstr ""
+
+#: src/Settings/InstallmentTable.php:44
+msgid "Min Amount"
+msgstr ""
+
+#: src/Settings/InstallmentTable.php:138
+msgid "Edit"
+msgstr ""
+
+#: src/Settings/InstallmentTable.php:231
+msgid "Action failed. Please refresh the page and retry."
+msgstr ""
+
+#: src/Settings/InstallmentTable.php:235
+msgid "You don't have permission to do this."
+msgstr ""
+
+#: src/Settings/InstallmentTable.php:240
+msgid "Invalid installment number."
+msgstr ""
+
+#: wpbr-esun-payment.php:48
+msgid ""
+"ESUN Payment needs WooCommerce, please intall and activate WooCommerce first!"
+msgstr ""
+
+#. Plugin Name of the plugin/theme
+#. Description of the plugin/theme
+msgid "ESUN Payment for WooCommerce"
+msgstr ""
+
+#. Plugin URI of the plugin/theme
+msgid "https://wpbrewer.com/product/wpbr-esun-payment/"
+msgstr ""
+
+#. Author of the plugin/theme
+msgid "WPBrewer"
+msgstr ""
+
+#. Author URI of the plugin/theme
+msgid "https://wpbrewer.com/"
+msgstr ""

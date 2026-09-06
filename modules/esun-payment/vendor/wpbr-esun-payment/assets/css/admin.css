@@ -1,0 +1,73 @@
+.esun-toggle {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+}
+
+.esun-toggle-checkbox {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.esun-toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: #ccc;
+    transition: .4s;
+    border-radius: 24px;
+}
+
+.esun-toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 16px;
+    width: 16px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+.esun-toggle-checkbox:checked + .esun-toggle-slider {
+    background-color: #2271b1;
+}
+
+.esun-toggle-checkbox:checked + .esun-toggle-slider:before {
+    transform: translateX(26px);
+} 
+
+#woocommerce-esun-meta-boxes .inside {
+	padding: 0px;
+	margin: 0px;
+}
+
+
+#woocommerce-esun-meta-boxes .inside table {
+	width: 100%;
+}
+
+
+#woocommerce-esun-meta-boxes th, #woocommerce-esun-meta-boxes td {
+	text-align: left;
+	padding: 3px;
+}
+
+#woocommerce-esun-meta-boxes tr:nth-child(odd):not(#woocommerce-esun-action) {
+	background-color: #ccc;
+}
+
+#woocommerce-esun-meta-boxes #woocommerce-esun-action th, #woocommerce-esun-meta-boxes #woocommerce-esun-action td {
+	border-top: solid 1px #ccc;
+	padding: 8px 3px;
+}
+
+#woocommerce-esun-meta-boxes tr td:first-child {
+	width: 80px;
+}
