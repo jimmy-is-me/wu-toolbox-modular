@@ -241,6 +241,7 @@ class WU_WooCommerce_Optimizer {
         }
         if (get_option('wu_woo_taiwan_address')) {
             add_action('init', array($this, 'register_taiwan_address'));
+            add_filter('woocommerce_checkout_posted_data', array($this, 'preserve_saved_billing_fields'), 5);
         }
         
         if (get_option('wu_woo_enable_711_shipping')) {
@@ -931,6 +932,12 @@ class WU_WooCommerce_Optimizer {
             $fields['billing']['billing_first_name']['class'] = array('form-row-wide');
             $fields['billing']['billing_first_name']['priority'] = 10;
         }
+
+        // Company is optional in Taiwan checkout.  Invoice company data is
+        // validated separately by the electronic-invoice fields.
+        if (isset($fields['billing']['billing_company'])) {
+            $fields['billing']['billing_company']['required'] = false;
+        }
         
         if (isset($fields['billing']['billing_email'])) {
             $fields['billing']['billing_email']['priority'] = 20;
@@ -1156,9 +1163,12 @@ jQuery(document).ready(function($) {
         });
     });
     
-    function updateCitiesByRegion(prefix) {
+    function updateCitiesByRegion(prefix, selectedCity, selectedDistrict) {
         var regionType = enableIsland ? $('#' + prefix + '_region_type').val() || 'mainland' : 'mainland';
         var \$city = $('#' + prefix + '_state');
+
+        selectedCity = selectedCity || \$city.val();
+        selectedDistrict = selectedDistrict || $('#' + prefix + '_city').val();
         
         \$city.empty();
         $('#' + prefix + '_city').empty().append('<option value=\"\">請先選擇縣市</option>');
@@ -1168,6 +1178,11 @@ jQuery(document).ready(function($) {
             $.each(addressData[regionType].cities, function(key, city) {
                 \$city.append('<option value=\"' + city + '\">' + city + '</option>');
             });
+        }
+
+        if (selectedCity) {
+            \$city.val(selectedCity);
+            updateDistricts(prefix, selectedDistrict);
         }
         
         triggerShippingUpdate(prefix);
@@ -1245,7 +1260,7 @@ jQuery(document).ready(function($) {
             if (isUpdating) return;
             isUpdating = true;
             var prefix = $(this).attr('id').replace('_region_type', '');
-            updateCitiesByRegion(prefix);
+            updateCitiesByRegion(prefix, '', '');
             isUpdating = false;
         });
     }
@@ -1293,23 +1308,39 @@ jQuery(document).ready(function($) {
         }
     });
     
-    updateCitiesByRegion('billing');
-    var initialBillingCity = $('#billing_state').val();
-    if (initialBillingCity) {
-        $('#billing_state').val(initialBillingCity);
-        updateDistricts('billing', $('#billing_city').val());
-    }
+    var initialBillingState = $('#billing_state').val();
+    var initialBillingDistrict = $('#billing_city').val();
+    updateCitiesByRegion('billing', initialBillingState, initialBillingDistrict);
     
     if ($('#ship-to-different-address-checkbox').is(':checked')) {
-        updateCitiesByRegion('shipping');
-        var initialShippingCity = $('#shipping_state').val();
-        if (initialShippingCity) {
-            $('#shipping_state').val(initialShippingCity);
-            updateDistricts('shipping', $('#shipping_city').val());
-        }
+        var initialShippingState = $('#shipping_state').val();
+        var initialShippingDistrict = $('#shipping_city').val();
+        updateCitiesByRegion('shipping', initialShippingState, initialShippingDistrict);
     }
 });
         ";
+    }
+
+    /**
+     * Keep saved account values when a checkout refresh briefly submits an
+     * empty dynamic select. This prevents false required-field errors while
+     * still requiring genuinely missing address information.
+     */
+    public function preserve_saved_billing_fields($data) {
+        if (!is_array($data) || !function_exists('WC') || !WC()->customer) {
+            return $data;
+        }
+
+        foreach (array('company', 'city') as $field) {
+            $key = 'billing_' . $field;
+            if (!empty($data[$key])) continue;
+            $getter = 'get_billing_' . $field;
+            if (!is_callable(array(WC()->customer, $getter))) continue;
+            $saved = (string) WC()->customer->{$getter}();
+            if ($saved !== '') $data[$key] = $saved;
+        }
+
+        return $data;
     }
     
 

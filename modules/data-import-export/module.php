@@ -70,6 +70,23 @@ class WUTM_Data_Import_Export {
                     </form>
                 </div>
                 <p class="description">必要欄位：<code>user_login</code>、<code>user_email</code>。可選：<code>user_pass</code>、<code>first_name</code>、<code>last_name</code>、<code>nickname</code>、<code>display_name</code>、<code>user_url</code>、<code>description</code>、<code>role</code> 與安全自訂欄位。</p>
+                <hr>
+                <h3>舊密碼雜湊還原</h3>
+                <p>此工具只供舊網站搬遷。JSON 匯出包含登入名稱、電子郵件與雜湊；在新站必須先比對，再輸入 <code>RESTORE</code> 才會寫入既有帳號。請將 JSON 視為高度敏感資料。</p>
+                <div class="wutm-csv-actions">
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <?php wp_nonce_field('wutm_die_export_password_hashes'); ?><input type="hidden" name="action" value="wutm_die_export_password_hashes">
+                        <?php submit_button('下載密碼雜湊 JSON', 'secondary', 'submit', false); ?>
+                    </form>
+                    <form method="post" enctype="multipart/form-data" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <?php wp_nonce_field('wutm_die_restore_password_hashes'); ?><input type="hidden" name="action" value="wutm_die_restore_password_hashes">
+                        <label>舊站 JSON <input type="file" name="hash_json" accept=".json,application/json" required></label>
+                        <label class="wutm-inline-choice"><input type="radio" name="mode" value="preview" checked> 預覽比對，不修改</label>
+                        <label class="wutm-inline-choice"><input type="radio" name="mode" value="restore"> 還原既有帳號雜湊</label>
+                        <label>安全確認 <input type="text" name="confirm" placeholder="正式還原時輸入 RESTORE"></label>
+                        <?php submit_button('執行密碼雜湊作業', 'secondary', 'submit', false); ?>
+                    </form>
+                </div>
             </section>
 
             <section class="wutm-csv-tools">
@@ -118,24 +135,6 @@ class WUTM_Data_Import_Export {
                 <?php endif; ?>
             </section>
 
-            <section class="wutm-csv-tools">
-                <h2>舊密碼雜湊還原</h2>
-                <p>此工具只供舊網站搬遷。JSON 匯出包含登入名稱、電子郵件與雜湊；在新站必須先比對，再輸入 <code>RESTORE</code> 才會寫入既有帳號。請將 JSON 視為高度敏感資料。</p>
-                <div class="wutm-csv-actions">
-                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                        <?php wp_nonce_field('wutm_die_export_password_hashes'); ?><input type="hidden" name="action" value="wutm_die_export_password_hashes">
-                        <?php submit_button('下載密碼雜湊 JSON', 'secondary', 'submit', false); ?>
-                    </form>
-                    <form method="post" enctype="multipart/form-data" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-                        <?php wp_nonce_field('wutm_die_restore_password_hashes'); ?><input type="hidden" name="action" value="wutm_die_restore_password_hashes">
-                        <label>舊站 JSON <input type="file" name="hash_json" accept=".json,application/json" required></label>
-                        <label class="wutm-inline-choice"><input type="radio" name="mode" value="preview" checked> 預覽比對，不修改</label>
-                        <label class="wutm-inline-choice"><input type="radio" name="mode" value="restore"> 還原既有帳號雜湊</label>
-                        <label>安全確認 <input type="text" name="confirm" placeholder="正式還原時輸入 RESTORE"></label>
-                        <?php submit_button('執行密碼雜湊作業', 'secondary', 'submit', false); ?>
-                    </form>
-                </div>
-            </section>
         </div><?php
     }
 
@@ -166,15 +165,15 @@ class WUTM_Data_Import_Export {
     }
 
     private function protected_meta(string $key): bool {
-        return str_starts_with($key, '_') || in_array($key,['capabilities','user_level','session_tokens','application_passwords','dismissed_wp_pointers'],true) || str_ends_with($key,'capabilities') || str_ends_with($key,'user_level');
+        return in_array($key,['capabilities','user_level','session_tokens','application_passwords','dismissed_wp_pointers'],true) || str_ends_with($key,'capabilities') || str_ends_with($key,'user_level');
     }
 
     public function export_users(): void {
         $this->guard('wutm_die_export_users'); $args=['fields'=>'ID','number'=>-1,'orderby'=>'ID','order'=>'ASC'];
         $role=sanitize_key(wp_unslash($_POST['role']??'')); if($role && isset(get_editable_roles()[$role])) $args['role']=$role;
-        $ids=get_users($args); $meta=[]; if(!empty($_POST['include_meta'])) { global $wpdb; $keys=$wpdb->get_col("SELECT DISTINCT meta_key FROM {$wpdb->usermeta} WHERE meta_key NOT LIKE '\\_%' ORDER BY meta_key LIMIT 40"); $meta=array_values(array_filter(array_map('sanitize_key',(array)$keys),fn($key)=>!$this->protected_meta($key))); }
-        nocache_headers(); header('Content-Type:text/csv;charset=utf-8'); header('Content-Disposition:attachment; filename="wu-users-'.wp_date('Ymd-His').'.csv"'); $out=fopen('php://output','w'); fputs($out,"\xEF\xBB\xBF"); fputcsv($out,array_merge(['user_login','user_email','first_name','last_name','nickname','display_name','user_url','description','role'],$meta));
-        foreach($ids as $id){$u=get_userdata((int)$id);if(!$u)continue;$row=[$u->user_login,$u->user_email,$u->first_name,$u->last_name,$u->nickname,$u->display_name,$u->user_url,$u->description,implode(',',(array)$u->roles)];foreach($meta as $key){$value=get_user_meta($u->ID,$key,true);$row[]=is_scalar($value)?$value:wp_json_encode($value,JSON_UNESCAPED_UNICODE);}fputcsv($out,$row);} fclose($out); exit;
+        $ids=get_users($args); $meta=[]; if(!empty($_POST['include_meta'])) { global $wpdb; $keys=$wpdb->get_col("SELECT DISTINCT meta_key FROM {$wpdb->usermeta} ORDER BY meta_key"); foreach ((array) $keys as $key) { $key=(string)$key; if ($key !== '' && !$this->protected_meta($key)) $meta[]=$key; } }
+        nocache_headers(); header('Content-Type:text/csv;charset=utf-8'); header('Content-Disposition:attachment; filename="wu-users-'.wp_date('Ymd-His').'.csv"'); $out=fopen('php://output','w'); fputs($out,"\xEF\xBB\xBF"); fputcsv($out,array_merge(['ID','user_login','user_email','user_registered','first_name','last_name','nickname','display_name','user_url','description','locale','role'],$meta));
+        foreach($ids as $id){$u=get_userdata((int)$id);if(!$u)continue;$row=[$u->ID,$u->user_login,$u->user_email,$u->user_registered,$u->first_name,$u->last_name,$u->nickname,$u->display_name,$u->user_url,$u->description,get_user_locale($u->ID),implode(',',(array)$u->roles)];foreach($meta as $key){$values=get_user_meta($u->ID,$key,false);if(count($values)===1&&is_scalar($values[0]))$row[]=$values[0];else$row[]=wp_json_encode($values,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);}fputcsv($out,$row);} fclose($out); exit;
     }
 
     public function import_users(): void {
@@ -188,7 +187,7 @@ class WUTM_Data_Import_Export {
     }
 
     private function set_role(int $id,string $value):void{$role=sanitize_key(trim(explode(',',$value)[0]??''));if($role&&isset(get_editable_roles()[$role]))(new WP_User($id))->set_role($role);}
-    private function save_user_meta(int $id,array $data,bool $enabled):void{if(!$enabled)return;$known=['user_login','user_email','user_pass','first_name','last_name','nickname','display_name','user_url','description','role'];foreach($data as $key=>$value){$key=sanitize_key($key);if($key&&!in_array($key,$known,true)&&!$this->protected_meta($key))update_user_meta($id,$key,sanitize_textarea_field($value));}}
+    private function save_user_meta(int $id,array $data,bool $enabled):void{if(!$enabled)return;$known=['id','user_login','user_email','user_pass','user_registered','first_name','last_name','nickname','display_name','user_url','description','locale','role'];foreach($data as $key=>$value){$key=sanitize_key($key);if($key&&!in_array($key,$known,true)&&!$this->protected_meta($key))update_user_meta($id,$key,sanitize_textarea_field($value));}}
 
     private function product_term_path(WP_Term $term): string {
         $names = [$term->name];
@@ -215,7 +214,8 @@ class WUTM_Data_Import_Export {
         $status = sanitize_key(wp_unslash($_POST['status'] ?? ''));
         $type = sanitize_key(wp_unslash($_POST['type'] ?? ''));
         $category = absint($_POST['category'] ?? 0);
-        $base_args = ['limit' => 100, 'paginate' => true, 'return' => 'objects', 'status' => $status ?: ['publish', 'draft', 'private']];
+        $all_statuses = function_exists('get_post_stati') ? array_values(array_diff(get_post_stati(), ['auto-draft', 'inherit', 'trash'])) : ['publish', 'draft', 'private', 'pending', 'future'];
+        $base_args = ['limit' => 100, 'paginate' => true, 'return' => 'objects', 'status' => $status ?: $all_statuses];
         if ($type) $base_args['type'] = $type;
         if ($category) $base_args['category'] = [$category];
         nocache_headers();
@@ -377,15 +377,15 @@ class WUTM_Data_Import_Export {
     }
 
     public function export_orders(): void {
-        $this->guard('wutm_die_export_orders'); if(!function_exists('wc_get_orders'))wp_die('尚未啟用 WooCommerce。');$args=['limit'=>-1,'return'=>'objects','orderby'=>'date','order'=>'ASC'];$status=sanitize_key(wp_unslash($_POST['status']??''));if($status)$args['status']=$status;$from=sanitize_text_field(wp_unslash($_POST['date_from']??''));$to=sanitize_text_field(wp_unslash($_POST['date_to']??''));if($from)$args['date_created']='>='.$from;if($to)$args['date_created']=($from?'>='.$from.'...':'<=') . $to;
-        $orders=wc_get_orders($args);nocache_headers();header('Content-Type:text/csv;charset=utf-8');header('Content-Disposition:attachment; filename="wu-orders-'.wp_date('Ymd-His').'.csv"');$out=fopen('php://output','w');fputs($out,"\xEF\xBB\xBF");fputcsv($out,['order_id','status','currency','date_created','customer_id','billing_first_name','billing_last_name','billing_email','billing_phone','billing_address_1','billing_address_2','billing_city','billing_state','billing_postcode','billing_country','shipping_first_name','shipping_last_name','shipping_address_1','shipping_address_2','shipping_city','shipping_state','shipping_postcode','shipping_country','payment_method','payment_method_title','transaction_id','customer_note','discount_total','shipping_total','total','line_items']);
-        foreach($orders as $o){$items=[];foreach($o->get_items('line_item') as $item){$items[]=['product_id'=>$item->get_product_id(),'variation_id'=>$item->get_variation_id(),'name'=>$item->get_name(),'quantity'=>$item->get_quantity(),'total'=>$item->get_total()];}$b=$o->get_address('billing');$s=$o->get_address('shipping');fputcsv($out,[$o->get_id(),$o->get_status(),$o->get_currency(),$o->get_date_created()?$o->get_date_created()->date('Y-m-d H:i:s'):'',$o->get_customer_id(),$b['first_name'],$b['last_name'],$b['email'],$b['phone'],$b['address_1'],$b['address_2'],$b['city'],$b['state'],$b['postcode'],$b['country'],$s['first_name'],$s['last_name'],$s['address_1'],$s['address_2'],$s['city'],$s['state'],$s['postcode'],$s['country'],$o->get_payment_method(),$o->get_payment_method_title(),$o->get_transaction_id(),$o->get_customer_note(),$o->get_discount_total(),$o->get_shipping_total(),$o->get_total(),wp_json_encode($items,JSON_UNESCAPED_UNICODE)]);}fclose($out);exit;
+        $this->guard('wutm_die_export_orders'); if(!function_exists('wc_get_orders'))wp_die('尚未啟用 WooCommerce。');$args=['limit'=>100,'paginate'=>true,'return'=>'objects','orderby'=>'date','order'=>'ASC'];$status=sanitize_key(wp_unslash($_POST['status']??''));if($status)$args['status']=$status;$from=sanitize_text_field(wp_unslash($_POST['date_from']??''));$to=sanitize_text_field(wp_unslash($_POST['date_to']??''));if($from&&$to)$args['date_created']=$from.'...'.$to.' 23:59:59';elseif($from)$args['date_created']='>='.$from;elseif($to)$args['date_created']='<='.$to.' 23:59:59';
+        nocache_headers();header('Content-Type:text/csv;charset=utf-8');header('Content-Disposition:attachment; filename="wu-orders-'.wp_date('Ymd-His').'.csv"');$out=fopen('php://output','w');fputs($out,"\xEF\xBB\xBF");fputcsv($out,['order_id','status','currency','date_created','date_modified','customer_id','billing_first_name','billing_last_name','billing_company','billing_email','billing_phone','billing_address_1','billing_address_2','billing_city','billing_state','billing_postcode','billing_country','shipping_first_name','shipping_last_name','shipping_company','shipping_address_1','shipping_address_2','shipping_city','shipping_state','shipping_postcode','shipping_country','payment_method','payment_method_title','transaction_id','customer_note','discount_total','discount_tax','shipping_total','shipping_tax','cart_tax','total_tax','total','line_items']);
+        $page=1;do{$result=wc_get_orders(array_merge($args,['page'=>$page]));$orders=is_object($result)?$result->orders:(array)$result;foreach($orders as $o){$items=[];foreach($o->get_items('line_item') as $item){$items[]=['product_id'=>$item->get_product_id(),'variation_id'=>$item->get_variation_id(),'sku'=>($item->get_product()?$item->get_product()->get_sku():''),'name'=>$item->get_name(),'quantity'=>$item->get_quantity(),'subtotal'=>$item->get_subtotal(),'subtotal_tax'=>$item->get_subtotal_tax(),'total'=>$item->get_total(),'total_tax'=>$item->get_total_tax(),'taxes'=>$item->get_taxes()];}$b=$o->get_address('billing');$s=$o->get_address('shipping');fputcsv($out,[$o->get_id(),$o->get_status(),$o->get_currency(),$o->get_date_created()?$o->get_date_created()->date('Y-m-d H:i:s'):'',$o->get_date_modified()?$o->get_date_modified()->date('Y-m-d H:i:s'):'',$o->get_customer_id(),$b['first_name']??'',$b['last_name']??'',$b['company']??'',$b['email']??'',$b['phone']??'',$b['address_1']??'',$b['address_2']??'',$b['city']??'',$b['state']??'',$b['postcode']??'',$b['country']??'',$s['first_name']??'',$s['last_name']??'',$s['company']??'',$s['address_1']??'',$s['address_2']??'',$s['city']??'',$s['state']??'',$s['postcode']??'',$s['country']??'',$o->get_payment_method(),$o->get_payment_method_title(),$o->get_transaction_id(),$o->get_customer_note(),$o->get_discount_total(),$o->get_discount_tax(),$o->get_shipping_total(),$o->get_shipping_tax(),$o->get_cart_tax(),$o->get_total_tax(),$o->get_total(),wp_json_encode($items,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);}$page++;}while(is_object($result)&&$page<=(int)$result->max_num_pages);fclose($out);exit;
     }
 
     public function import_orders(): void {
         $this->guard('wutm_die_import_orders');if(!function_exists('wc_create_order'))$this->redirect(['message'=>'尚未啟用 WooCommerce。','details'=>[],'error'=>true]);$rows=$this->read_csv_upload('csv');if(is_wp_error($rows))$this->redirect(['message'=>$rows->get_error_message(),'details'=>[],'error'=>true]);$headers=$this->headers(array_shift($rows));$create=0;$update=0;$skip=0;$details=[];$allow_update=!empty($_POST['update_existing']);
         foreach($rows as $n=>$row){$d=[];foreach($headers as $i=>$key)if($key!==''&&isset($row[$i]))$d[$key]=trim((string)$row[$i]);if(!array_filter($d))continue;$existing=!empty($d['order_id'])?wc_get_order((int)$d['order_id']):false;if($existing&&!$allow_update){$skip++;if(count($details)<8)$details[]='第 '.($n+2).' 列：訂單已存在。';continue;}$order=$existing?:wc_create_order(['customer_id'=>absint($d['customer_id']??0)]);if(is_wp_error($order)){$skip++;if(count($details)<8)$details[]='第 '.($n+2).' 列：'.$order->get_error_message();continue;}
-            $billing=[];$shipping=[];foreach(['first_name','last_name','email','phone','address_1','address_2','city','state','postcode','country'] as $key)if(isset($d['billing_'.$key]))$billing[$key]=sanitize_text_field($d['billing_'.$key]);foreach(['first_name','last_name','address_1','address_2','city','state','postcode','country'] as $key)if(isset($d['shipping_'.$key]))$shipping[$key]=sanitize_text_field($d['shipping_'.$key]);$order->set_address($billing,'billing');$order->set_address($shipping,'shipping');foreach(['currency','payment_method','payment_method_title','transaction_id','customer_note'] as $key)if(isset($d[$key]))$order->{'set_'.$key}(sanitize_text_field($d[$key]));$items=json_decode($d['line_items']??'[]',true);if(!$existing&&is_array($items)){foreach($items as $item){$product=wc_get_product(absint($item['variation_id']??0)?:absint($item['product_id']??0));if(!$product)continue;$item_id=$order->add_product($product,max(1,absint($item['quantity']??1)));if($item_id&&isset($item['total'])){$line=$order->get_item($item_id);$line->set_total((float)$item['total']);$line->save();}}}$order->calculate_totals(false);$order->save();if(!empty($d['status'])){$status=str_replace('wc-','',sanitize_key($d['status']));if(isset(wc_get_order_statuses()['wc-'.$status]))$order->update_status($status,'由資料匯入工具設定。',true);}if($existing)$update++;else $create++;
+            $billing=[];$shipping=[];foreach(['first_name','last_name','company','email','phone','address_1','address_2','city','state','postcode','country'] as $key)if(isset($d['billing_'.$key]))$billing[$key]=sanitize_text_field($d['billing_'.$key]);foreach(['first_name','last_name','company','address_1','address_2','city','state','postcode','country'] as $key)if(isset($d['shipping_'.$key]))$shipping[$key]=sanitize_text_field($d['shipping_'.$key]);$order->set_address($billing,'billing');$order->set_address($shipping,'shipping');foreach(['currency','payment_method','payment_method_title','transaction_id','customer_note'] as $key)if(isset($d[$key]))$order->{'set_'.$key}(sanitize_text_field($d[$key]));$items=json_decode($d['line_items']??'[]',true);if(!$existing&&is_array($items)){foreach($items as $item){$product=wc_get_product(absint($item['variation_id']??0)?:absint($item['product_id']??0));if(!$product)continue;$item_id=$order->add_product($product,max(1,absint($item['quantity']??1)));if($item_id&&isset($item['total'])){$line=$order->get_item($item_id);$line->set_total((float)$item['total']);if(isset($item['subtotal']))$line->set_subtotal((float)$item['subtotal']);$line->save();}}}$order->calculate_totals(false);$order->save();if(!empty($d['status'])){$status=str_replace('wc-','',sanitize_key($d['status']));if(isset(wc_get_order_statuses()['wc-'.$status]))$order->update_status($status,'由資料匯入工具設定。',true);}if($existing)$update++;else $create++;
         }$this->redirect(['message'=>"訂單匯入完成：新增 {$create}、更新 {$update}、略過 {$skip}。",'details'=>$details,'error'=>false]);
     }
 
@@ -394,7 +394,7 @@ class WUTM_Data_Import_Export {
     }
 
     public function restore_password_hashes(): void {
-        $this->guard('wutm_die_restore_password_hashes');$file=$_FILES['hash_json']??null;if(!is_array($file)||empty($file['tmp_name'])||!is_uploaded_file($file['tmp_name']))$this->redirect(['message'=>'請選擇有效的 JSON 檔案。','details'=>[],'error'=>true]);$data=json_decode((string)file_get_contents($file['tmp_name']),true);if(!is_array($data)||!is_array($data['users']??null))$this->redirect(['message'=>'JSON 格式不正確。','details'=>[],'error'=>true]);$restore=(($_POST['mode']??'preview')==='restore'&&($_POST['confirm']??'')==='RESTORE');$matched=0;$changed=0;$details=[];global $wpdb;foreach(array_slice($data['users'],0,5000) as $row){$email=sanitize_email(strtolower(trim((string)($row['user_email']??''))));$login=sanitize_user((string)($row['user_login']??''),true);$target=$email?get_user_by('email',$email):false;if(!$target&&$login)$target=get_user_by('login',$login);if(!$target||empty($row['user_pass']))continue;$matched++;if($restore&&!hash_equals((string)$target->user_pass,(string)$row['user_pass'])){$ok=$wpdb->update($wpdb->users,['user_pass'=>(string)$row['user_pass']],['ID'=>$target->ID],['%s'],['%d']);if($ok!==false){clean_user_cache($target->ID);$changed++;}elseif(count($details)<8)$details[]='無法更新 '.$target->user_login;}}$this->redirect(['message'=>$restore?"密碼雜湊還原完成：比對 {$matched}、更新 {$changed}。":"密碼雜湊預覽完成：可比對 {$matched} 位既有帳號；尚未修改資料。",'details'=>$details,'error'=>false]);
+        $this->guard('wutm_die_restore_password_hashes');$file=$_FILES['hash_json']??null;if(!is_array($file)||empty($file['tmp_name'])||!is_uploaded_file($file['tmp_name']))$this->redirect(['message'=>'請選擇有效的 JSON 檔案。','details'=>[],'error'=>true]);$data=json_decode((string)file_get_contents($file['tmp_name']),true);if(!is_array($data)||!is_array($data['users']??null))$this->redirect(['message'=>'JSON 格式不正確。','details'=>[],'error'=>true]);$restore=(($_POST['mode']??'preview')==='restore'&&($_POST['confirm']??'')==='RESTORE');$matched=0;$changed=0;$details=[];global $wpdb;foreach($data['users'] as $row){if(!is_array($row))continue;$email=sanitize_email(strtolower(trim((string)($row['user_email']??''))));$login=sanitize_user((string)($row['user_login']??''),true);$target=$email?get_user_by('email',$email):false;if(!$target&&$login)$target=get_user_by('login',$login);if(!$target||empty($row['user_pass']))continue;$matched++;if($restore&&!hash_equals((string)$target->user_pass,(string)$row['user_pass'])){$ok=$wpdb->update($wpdb->users,['user_pass'=>(string)$row['user_pass']],['ID'=>$target->ID],['%s'],['%d']);if($ok!==false){clean_user_cache($target->ID);$changed++;}elseif(count($details)<8)$details[]='無法更新 '.$target->user_login;}}$this->redirect(['message'=>$restore?"密碼雜湊還原完成：比對 {$matched}、更新 {$changed}。":"密碼雜湊預覽完成：可比對 {$matched} 位既有帳號；尚未修改資料。",'details'=>$details,'error'=>false]);
     }
 }
 new WUTM_Data_Import_Export();

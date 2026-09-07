@@ -407,9 +407,8 @@ class Menu {
 			add_submenu_page( $slug, $page_title, $menu_name, $post_type_object->cap->edit_posts, "cms-tpv-page-$one_post_type", 'cms_tpv_pages_page' );
 		}
 
-		$page_title = apply_filters( 'cms_tree_page_view_options_page_title', CMS_TPV_NAME );
-		$menu_title = apply_filters( 'cms_tree_page_view_options_menu_title', CMS_TPV_NAME );
-		add_submenu_page( 'wu-toolbox-modular', $page_title, $menu_title, 'manage_options', 'wu-tree-page-view', 'cms_tpv_options' );
+		// The WU wrapper owns the settings submenu so it is registered early and
+		// consistently even when this bundled plugin is loaded on demand.
 	}
 
 	/**
