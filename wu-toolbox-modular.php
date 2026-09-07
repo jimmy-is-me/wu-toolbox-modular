@@ -3,7 +3,7 @@
  * Plugin Name: WU Toolbox Modular
  * Plugin URI: https://wumetax.com/
  * Description: WU Toolbox 的按需載入模組化版本。每項功能獨立，只有啟用後才會載入。
- * Version: 1.9.1
+ * Version: 1.9.2
  * Author: WUMETAX
  * Author URI: https://wumetax.com/
  * License: GPL-2.0-or-later
@@ -14,7 +14,7 @@
 defined('ABSPATH') || exit;
 
 define('WUTM_FILE', __FILE__);
-define('WUTM_VERSION', '1.9.1');
+define('WUTM_VERSION', '1.9.2');
 define('WUTM_PATH', plugin_dir_path(__FILE__));
 define('WUTM_URL', plugin_dir_url(__FILE__));
 
@@ -83,6 +83,31 @@ require_once WUTM_PATH . 'core/module-loader.php';
 require_once WUTM_PATH . 'core/admin-page.php';
 require_once WUTM_PATH . 'core/module-menu.php';
 require_once WUTM_PATH . 'core/github-release-updater.php';
+
+/**
+ * Keep bundled modules' settings pages registered from the main plugin.
+ * This is deliberately independent of the module's own admin_menu hook so
+ * direct settings URLs always resolve after a card has been enabled.
+ */
+add_action('admin_menu', function (): void {
+    if (wutm_is_enabled('tree-page-view')) {
+        $tree_module = WUTM_PATH . 'modules/tree-page-view/module.php';
+        if (is_readable($tree_module)) require_once $tree_module;
+        if (class_exists('\\CMS_Tree_Page_View\\Settings\\Options')) {
+            add_submenu_page('wu-toolbox-modular', '樹狀頁面視圖', '樹狀頁面視圖', 'manage_options', 'wu-tree-page-view', static function (): void {
+                \CMS_Tree_Page_View\Settings\Options::render_settings_page();
+            });
+        }
+    }
+
+    if (wutm_is_enabled('cloudflare-turnstile')) {
+        $turnstile_module = WUTM_PATH . 'modules/cloudflare-turnstile/module.php';
+        if (is_readable($turnstile_module)) require_once $turnstile_module;
+        if (function_exists('cfturnstile_settings_page')) {
+            add_submenu_page('wu-toolbox-modular', 'Cloudflare Turnstile', 'Cloudflare Turnstile', 'manage_options', 'cfturnstile', 'cfturnstile_settings_page');
+        }
+    }
+}, 100);
 
 register_activation_hook(__FILE__, function () {
     add_option('wutm_activation_redirect', true, '', false);

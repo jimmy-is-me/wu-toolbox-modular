@@ -6,7 +6,7 @@ function wutm_modules(): array {
         'missing-product-images' => ['name' => '遺失商品圖片修復', 'description' => '掃描商品描述，從來源站補回本站遺失的同路徑圖片。', 'group' => '特殊工具', 'icon' => '🩹', 'requires' => 'woocommerce', 'settings_page' => 'wu-missing-product-images'],
         'wp-downgrade' => ['name' => 'WP Downgrade', 'description' => '快速安裝與啟用官方 WP Downgrade 外掛。', 'group' => '特殊工具', 'icon' => '⏪', 'tag' => '第三方外掛', 'settings_page' => 'wu-wp-downgrade'],
         'wordfence' => ['name' => 'Wordfence', 'description' => '快速安裝與啟用官方 Wordfence 外掛。', 'group' => '安全性', 'icon' => '🛡️', 'tag' => '第三方外掛', 'settings_page' => 'wu-wordfence'],
-        'cloudflare-turnstile' => ['name' => 'Cloudflare Turnstile', 'description' => '為登入、註冊、留言與支援的表單加入 Cloudflare Turnstile 驗證。', 'group' => '安全性', 'icon' => '🛡️', 'settings_url' => 'options-general.php?page=cfturnstile'],
+        'cloudflare-turnstile' => ['name' => 'Cloudflare Turnstile', 'description' => '為登入、註冊、留言與支援的表單加入 Cloudflare Turnstile 驗證。', 'group' => '安全性', 'icon' => '🛡️', 'settings_url' => 'admin.php?page=cfturnstile'],
         '404-redirector' => ['name' => '404 重新導向', 'description' => '將 404 錯誤導向首頁或指定頁面。', 'group' => '內容管理', 'icon' => '🔀'],
         'admin-bar-cleaner' => ['name' => '後台介面管理', 'description' => '管理列、頁尾、選單與角色設定。', 'group' => '後台介面', 'icon' => '🎛️'],
         'tree-page-view' => ['name' => '樹狀頁面視圖', 'description' => '以樹狀檢視新增、編輯、搜尋及拖曳排序網站頁面。', 'group' => '後台介面', 'icon' => '🌳', 'settings_page' => 'wu-tree-page-view'],

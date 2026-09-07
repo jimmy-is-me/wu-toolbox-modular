@@ -26,7 +26,7 @@ class WU_WooCommerce_Optimizer {
         if (!$this->commerce) {
         add_action('admin_footer', array($this, 'marketing_link'));
         add_action('admin_head', array($this, 'admin_visibility_styles'));
-        add_action('admin_menu', array($this, 'point_woocommerce_menu_to_orders'), 999);
+        add_action('admin_menu', array($this, 'rename_woocommerce_menu'), 999);
         add_filter('admin_footer_text', array($this, 'footer_text'), PHP_INT_MAX);
         add_filter('woocommerce_settings_tabs_array', array($this, 'hide_settings_tabs'), PHP_INT_MAX);
         }
@@ -87,13 +87,14 @@ class WU_WooCommerce_Optimizer {
         if ($css !== '') echo '<style id="wutm-wc-visibility">' . $css . '</style>';
     }
 
-    public function point_woocommerce_menu_to_orders() {
-        if (!get_option('wu_woo_hide_home', false)) return;
+    public function rename_woocommerce_menu() {
         global $menu;
         foreach ($menu as &$item) {
             if (!isset($item[0], $item[2])) continue;
             if ($item[2] === 'woocommerce' || $item[2] === 'wc-admin' || wp_strip_all_tags($item[0]) === 'WooCommerce') {
-                $item[2] = 'wc-orders';
+                // Keep the original slug intact: WooCommerce uses it as the
+                // key for all child menus. Only change the visible label.
+                $item[0] = '電商系統';
             }
         }
         unset($item);
