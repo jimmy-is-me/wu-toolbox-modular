@@ -35,10 +35,7 @@ add_action('admin_menu', function (): void {
     $parent = 'wu-toolbox-modular';
     if (empty($submenu[$parent]) || !function_exists('wutm_modules')) return;
 
-    $groups = [];
-    foreach (wutm_modules() as $key => $module) {
-        $groups[$module['group']][$key] = $module;
-    }
+    $groups = wutm_grouped_modules();
 
     $entries = $submenu[$parent];
     $ordered = [];

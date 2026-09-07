@@ -22,6 +22,8 @@ jobs:
         run: php tests/missing-product-images.php
       - name: Validate WooCommerce visibility
         run: php tests/woocommerce-visibility.php
+      - name: Validate ECPay integration
+        run: php tests/ecpay-integration.php
       - name: Validate tag and plugin version
         shell: bash
         run: |

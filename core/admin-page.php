@@ -33,8 +33,8 @@ function wutm_module_settings_url(array $module, string $key): string {
 
 function wutm_render_admin_page(): void {
     if (!current_user_can('manage_options')) return;
-    $modules = wutm_modules(); $groups = [];
-    foreach ($modules as $key => $module) $groups[$module['group']][$key] = $module;
+    $modules = wutm_modules();
+    $groups = wutm_grouped_modules();
     // License manager is retained for future use but is currently disabled.
     $licensed = true;
     $enabled = count(array_filter(array_keys($modules), 'wutm_is_enabled'));
