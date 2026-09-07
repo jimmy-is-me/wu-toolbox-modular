@@ -12,9 +12,5 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check PHP syntax
         run: find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
-      - name: Missing image repair regression tests
-        run: php tests/missing-product-images.php
-      - name: Validate WooCommerce visibility
-        run: php tests/woocommerce-visibility.php
-      - name: Validate ECPay integration
-        run: php tests/ecpay-integration.php
+      - name: Validate v1.8.9 regressions
+        run: php tests/v189-regressions.php

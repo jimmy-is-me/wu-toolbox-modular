@@ -18,12 +18,8 @@ jobs:
         run: |
           set -euo pipefail
           find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
-      - name: Validate missing image repair
-        run: php tests/missing-product-images.php
-      - name: Validate WooCommerce visibility
-        run: php tests/woocommerce-visibility.php
-      - name: Validate ECPay integration
-        run: php tests/ecpay-integration.php
+      - name: Validate v1.8.9 regressions
+        run: php tests/v189-regressions.php
       - name: Validate tag and plugin version
         shell: bash
         run: |
