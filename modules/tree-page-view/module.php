@@ -38,7 +38,7 @@ if (!defined('CMS_TPV_VERSION')) {
                     \CMS_Tree_Page_View\Settings\Options::render_settings_page();
                 }
             );
-        }, 6);
+        }, 999);
     }
     unset($wutm_tree_page_view_file);
 }

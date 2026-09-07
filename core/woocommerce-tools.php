@@ -26,6 +26,7 @@ class WU_WooCommerce_Optimizer {
         if (!$this->commerce) {
         add_action('admin_footer', array($this, 'marketing_link'));
         add_action('admin_head', array($this, 'admin_visibility_styles'));
+        add_action('admin_menu', array($this, 'point_woocommerce_menu_to_orders'), 999);
         add_filter('admin_footer_text', array($this, 'footer_text'), PHP_INT_MAX);
         add_filter('woocommerce_settings_tabs_array', array($this, 'hide_settings_tabs'), PHP_INT_MAX);
         }
@@ -86,6 +87,18 @@ class WU_WooCommerce_Optimizer {
         if ($css !== '') echo '<style id="wutm-wc-visibility">' . $css . '</style>';
     }
 
+    public function point_woocommerce_menu_to_orders() {
+        if (!get_option('wu_woo_hide_home', false)) return;
+        global $menu;
+        foreach ($menu as &$item) {
+            if (!isset($item[0], $item[2])) continue;
+            if ($item[2] === 'woocommerce' || $item[2] === 'wc-admin' || wp_strip_all_tags($item[0]) === 'WooCommerce') {
+                $item[2] = 'wc-orders';
+            }
+        }
+        unset($item);
+    }
+
     private function is_wc_screen() {
         $screen = get_current_screen();
         if (!$screen) return false;
@@ -112,15 +125,19 @@ class WU_WooCommerce_Optimizer {
 
 
     public function marketing_link() {
-        if (!get_option('wu_woo_hide_marketing', false)) return;
+        if (!get_option('wu_woo_hide_marketing', false) && !get_option('wu_woo_hide_home', false)) return;
         ?>
         <script>
         (function(){
             var coupon = <?php echo wp_json_encode(admin_url('edit.php?post_type=shop_coupon')); ?>;
+            var orders = <?php echo wp_json_encode(admin_url('admin.php?page=wc-orders')); ?>;
             document.querySelectorAll('#adminmenu > li > a').forEach(function(link){
                 var url = new URL(link.href, location.href);
                 if (url.searchParams.get('page') === 'wc-admin' && url.searchParams.get('path') === '/marketing') {
                     link.href = coupon;
+                }
+                if (<?php echo get_option('wu_woo_hide_home', false) ? 'true' : 'false'; ?> && (url.searchParams.get('page') === 'wc-admin' || url.searchParams.get('page') === 'woocommerce')) {
+                    link.href = orders;
                 }
             });
         })();
@@ -1347,12 +1364,14 @@ jQuery(document).ready(function($) {
     public function admin_page() {
         if (!current_user_can('manage_options')) wp_die('您沒有管理此設定的權限。');
         $group = $this->settings_group();
-        if (isset($_POST['submit'])) {
+        $bulk_action = isset($_POST['wutm_visibility_bulk']) ? sanitize_key(wp_unslash($_POST['wutm_visibility_bulk'])) : '';
+        if (isset($_POST['submit']) || in_array($bulk_action, array('enable', 'disable'), true)) {
             check_admin_referer($group . '-options');
             $options = array_keys($this->fields());
             if (!$this->commerce) $options = array_merge($options, array_keys($this->admin_visibility_options()));
             foreach ($options as $option) {
-                update_option($option, isset($_POST[$option]) && $_POST[$option] === '1' ? 1 : 0);
+                $value = $bulk_action === 'enable' ? 1 : ($bulk_action === 'disable' ? 0 : (isset($_POST[$option]) && $_POST[$option] === '1' ? 1 : 0));
+                update_option($option, $value);
             }
             if ($this->commerce) {
                 foreach (array('wu_woo_711_shipping_cost','wu_woo_711_free_shipping_threshold') as $option) {
@@ -1366,6 +1385,10 @@ jQuery(document).ready(function($) {
         if ($this->commerce) echo '<p>沿用原有地址、運送、訂單備註與電子發票設定，不需重新填寫。停用本卡片即可停止載入這些功能。</p>';
         echo '<form method="post">';
         wp_nonce_field($group . '-options');
+        if (!$this->commerce) {
+            echo '<p><button type="submit" class="button button-primary" name="wutm_visibility_bulk" value="enable">一鍵開啟所有設定</button> ';
+            echo '<button type="submit" class="button" name="wutm_visibility_bulk" value="disable">一鍵關閉所有設定</button></p>';
+        }
         do_settings_sections($group);
         submit_button();
         echo '</form></div>';
