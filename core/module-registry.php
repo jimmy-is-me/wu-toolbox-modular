@@ -48,7 +48,7 @@ function wutm_modules(): array {
         'hide-login-page' => ['name' => '隱藏登入頁', 'description' => '使用自訂登入 URL。', 'group' => '安全性', 'icon' => '🔒'],
         'login-limiter' => ['name' => '登入限制', 'description' => '限制失敗次數，防止暴力破解。', 'group' => '安全性', 'icon' => '🛡️'],
         'woocommerce' => ['name' => 'WooCommerce', 'description' => '快速安裝與啟用官方 WooCommerce 外掛。', 'group' => '電商工具', 'icon' => '🛒', 'tag' => '第三方外掛', 'settings_page' => 'wu-woocommerce'],
-        'atm-transfer-optimizer' => ['name' => 'ATM 轉帳優化', 'description' => '強化銀行轉帳付款資訊、顧客匯款回報、後台對帳狀態與催繳通知。', 'group' => '電商工具', 'icon' => '🏧', 'requires' => 'woocommerce', 'settings_url' => 'admin.php?page=wc-settings&tab=checkout&section=bacs'],
+        'atm-transfer-optimizer' => ['name' => 'ATM 轉帳優化', 'description' => '強化銀行轉帳付款資訊、顧客匯款回報、後台對帳狀態與催繳通知。', 'group' => '電商工具', 'icon' => '🏧', 'requires' => 'woocommerce', 'settings_url' => 'admin.php?page=wc-bacs-dashboard'],
         'payuni-payment' => ['name' => 'PAYUNi 付款工具', 'description' => '整合 PAYUNi 統一金流付款、退款與訂單通知。', 'group' => '電商工具', 'icon' => '💳', 'requires' => 'woocommerce', 'settings_page' => 'wc-settings&tab=payuni&section=payment'],
         'linepay-payment' => ['name' => 'LINE Pay 付款工具', 'description' => '整合台灣 LINE Pay 付款、退款及區塊結帳。', 'group' => '電商工具', 'icon' => '🟢', 'requires' => 'woocommerce', 'settings_page' => 'wc-settings&tab=linepay-tw'],
         'discord-notifications' => ['name' => 'Discord 通知工具', 'description' => '將 WooCommerce 訂單與狀態變更即時通知到 Discord。', 'group' => '電商工具', 'icon' => '🔔', 'requires' => 'woocommerce', 'settings_page' => 'wu-discord-notifications'],
@@ -63,7 +63,8 @@ function wutm_modules(): array {
         'spam-cleaner' => ['name' => '垃圾帳號清除', 'description' => '依使用者名稱關鍵字預覽並清理垃圾機器人帳號。', 'group' => '安全性', 'icon' => '🧹'],
         'transients-manager' => ['name' => 'Transients 管理', 'description' => '查看與清理暫存資料。', 'group' => '效能優化', 'icon' => '🧹'],
         'user-switcher' => ['name' => '使用者切換', 'description' => '切換帳號進行測試。', 'group' => '後台介面', 'icon' => '🔄'],
-        'wc-optimization-tools' => ['name' => 'WC優化工具', 'description' => '台灣地址、離島運送、7-11 取貨、訂單備註與電子發票設定。', 'group' => '電商工具', 'icon' => '🛠️', 'requires' => 'woocommerce'],
+        'wc-optimization-tools' => ['name' => 'WC優化工具', 'description' => '台灣地址下拉選單、訂單備註與電子發票資訊欄位設定。', 'group' => '電商工具', 'icon' => '🛠️', 'requires' => 'woocommerce'],
+        'shipping-optimization-tools' => ['name' => '運送優化功能', 'description' => '集中管理台灣離島運送與 7-11 超商取貨、運費及免運門檻。', 'group' => '電商工具', 'icon' => '🚚', 'requires' => 'woocommerce', 'settings_page' => 'wu-shipping-optimization-tools'],
         'woocommerce-optimizer' => ['name' => '隱藏WC工具', 'description' => '整理 WooCommerce 後台選單、推廣區與頁尾。', 'group' => '電商工具', 'icon' => '🛒', 'requires' => 'woocommerce'],
         'ecpay-tools' => ['name' => '綠界金流/物流/電子發票工具', 'description' => '整合綠界付款、超商與宅配物流及電子發票。需設定商店資料並完成測試。', 'group' => '電商工具', 'icon' => '💳', 'requires' => 'woocommerce'],
         'esun-payment' => ['name' => '玉山銀行金流工具', 'description' => '玉山信用卡一次付清與分期付款，沿用銀行交易驗證流程。', 'group' => '電商工具', 'icon' => '🏦', 'requires' => 'woocommerce'],
@@ -110,6 +111,17 @@ add_action('plugins_loaded', function (): void {
         update_option(wutm_module_option('wc-optimization-tools'), wutm_is_enabled('woocommerce-optimizer') ? 1 : 0);
     }
     update_option('wutm_wc_tools_split_182', 1);
+}, 19);
+
+// Preserve existing island/7-11 users when those settings move to the new
+// shipping card. Sites that never enabled either feature remain off.
+add_action('plugins_loaded', function (): void {
+    if (get_option('wutm_shipping_tools_split_197', false)) return;
+    if (get_option(wutm_module_option('shipping-optimization-tools'), null) === null) {
+        $had_shipping_feature = get_option('wu_woo_enable_island_shipping', false) || get_option('wu_woo_enable_711_shipping', false);
+        update_option(wutm_module_option('shipping-optimization-tools'), $had_shipping_feature ? 1 : 0, false);
+    }
+    update_option('wutm_shipping_tools_split_197', 1, false);
 }, 19);
 
 // The points module was removed in v1.8.8. Remove only its loader flags so an

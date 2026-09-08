@@ -14,16 +14,19 @@ if (!defined('ABSPATH')) exit;
 
 class WU_WooCommerce_Optimizer {
     
-    private $commerce;
-    public function __construct($commerce = false) {
-        $this->commerce = $commerce;
+    private $mode;
+    private static $taiwan_address_registered = false;
+    public function __construct($mode = 'visibility') {
+        if ($mode === true) $mode = 'commerce';
+        if ($mode === false) $mode = 'visibility';
+        $this->mode = in_array($mode, array('visibility', 'commerce', 'shipping'), true) ? $mode : 'visibility';
         if (!class_exists('WooCommerce')) {
             return;
         }
         
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'admin_init'));
-        if (!$this->commerce) {
+        if ($this->mode === 'visibility') {
         add_action('admin_footer', array($this, 'marketing_link'));
         add_action('admin_head', array($this, 'admin_visibility_styles'));
         add_action('admin_menu', array($this, 'rename_woocommerce_menu'), 999);
@@ -146,14 +149,25 @@ class WU_WooCommerce_Optimizer {
         <?php
     }
 
-    private function page_slug() { return $this->commerce ? 'wu-wc-optimization-tools' : 'wu-woocommerce-optimizer'; }
-    private function page_title() { return $this->commerce ? 'WC優化工具' : '隱藏WC工具'; }
-    private function settings_group() { return $this->commerce ? 'wu_wc_optimization_settings' : 'wu_woocommerce_settings'; }
+    private function page_slug() {
+        if ($this->mode === 'shipping') return 'wu-shipping-optimization-tools';
+        return $this->mode === 'commerce' ? 'wu-wc-optimization-tools' : 'wu-woocommerce-optimizer';
+    }
+    private function page_title() {
+        if ($this->mode === 'shipping') return '運送優化功能';
+        return $this->mode === 'commerce' ? 'WC優化工具' : '隱藏WC工具';
+    }
+    private function settings_group() {
+        if ($this->mode === 'shipping') return 'wu_shipping_optimization_settings';
+        return $this->mode === 'commerce' ? 'wu_wc_optimization_settings' : 'wu_woocommerce_settings';
+    }
     private function fields() {
-        return $this->commerce ? array(
-            'wu_woo_taiwan_address' => array('台灣地址選單優化', 'taiwan_address_callback'),
+        if ($this->mode === 'shipping') return array(
             'wu_woo_enable_island_shipping' => array('啟用台灣離島運送', 'enable_island_shipping_callback'),
-            'wu_woo_enable_711_shipping' => array('啟用 7-11 超商取貨', 'enable_711_shipping_callback'),
+            'wu_woo_enable_711_shipping' => array('啟用 7-11 超商取貨', 'enable_711_shipping_callback')
+        );
+        return $this->mode === 'commerce' ? array(
+            'wu_woo_taiwan_address' => array('台灣地址選單優化', 'taiwan_address_callback'),
             'wu_woo_enable_order_comments' => array('啟用訂單備註欄位', 'enable_order_comments_callback'),
             'wu_woo_enable_einvoice' => array('啟用電子發票功能', 'enable_einvoice_callback')
         ) : array(
@@ -170,7 +184,7 @@ class WU_WooCommerce_Optimizer {
         foreach ($this->fields() as $option => $field) {
             add_settings_field($option, $field[0], array($this, $field[1]), $group, $group);
         }
-        if (!$this->commerce) {
+        if ($this->mode === 'visibility') {
             foreach ($this->admin_visibility_options() as $option => $label) {
                 add_settings_field($option, $label, array($this, 'visibility_field'), $group, $group, array('option'=>$option,'label'=>$label));
             }
@@ -178,7 +192,8 @@ class WU_WooCommerce_Optimizer {
     }
 
     public function settings_section_callback() {
-        if ($this->commerce) { echo '<p>選擇需要啟用的結帳及運送功能。7-11 為門市自填方式；電子發票為訂單欄位紀錄，並非串接發票開立服務。</p>'; return; }
+        if ($this->mode === 'commerce') { echo '<p>選擇需要啟用的結帳欄位功能。電子發票僅收集並顯示訂單資訊，不含發票開立或任何服務串接。</p>'; return; }
+        if ($this->mode === 'shipping') { echo '<p>集中管理台灣離島與 7-11 超商取貨。7-11 為顧客自行填寫門市名稱及地址的運送方式。</p>'; return; }
         echo '<p>配置 WooCommerce 優化選項。所有功能均需手動啟用。隱藏選項僅整理後台選單或設定分頁，不停用相關功能、不改變權限，也不影響前台購物與結帳；取消勾選並儲存即可恢復。</p>';
     }
     
@@ -201,6 +216,7 @@ class WU_WooCommerce_Optimizer {
         echo '<input type="checkbox" id="wu_woo_taiwan_address" name="wu_woo_taiwan_address" value="1" ' . checked(1, $value, false) . ' />';
         echo '<label for="wu_woo_taiwan_address">啟用台灣地址下拉選單</label>';
         echo '<p class="description">縣市/鄉鎮市區/郵遞區號自動關聯。</p>';
+        echo '<div style="margin-top:10px;padding:12px 14px;background:#f6f7f7;border-left:4px solid #2271b1"><strong>啟用後的結帳欄位調整：</strong><ul style="margin:8px 0 0 18px;list-style:disc"><li>帳單姓名改為單一姓名欄位，隱藏姓氏欄位</li><li>隱藏帳單地址第二行與國家選擇（固定台灣）</li><li>隱藏收件姓氏、公司、地址第二行與國家選擇（固定台灣）</li><li>縣市、鄉鎮市區改為連動下拉選單並自動填入郵遞區號</li></ul></div>';
     }
     
     public function enable_island_shipping_callback() {
@@ -242,11 +258,11 @@ class WU_WooCommerce_Optimizer {
         $value = get_option('wu_woo_enable_einvoice', false);
         echo '<input type="checkbox" id="wu_woo_enable_einvoice" name="wu_woo_enable_einvoice" value="1" ' . checked(1, $value, false) . ' />';
         echo '<label for="wu_woo_enable_einvoice">啟用電子發票功能</label>';
-        echo '<p class="description">啟用後,結帳頁面會顯示電子發票類型選擇(個人/公司/捐贈)。</p>';
+        echo '<p class="description"><strong>僅顯示資訊，無任何發票服務串接。</strong> 啟用後只會在結帳頁收集個人、公司或捐贈資訊並儲存於訂單，不會自動開立、上傳或作廢電子發票。</p>';
     }
     
     private function load_optimizations() {
-        if (!$this->commerce) {
+        if ($this->mode === 'visibility') {
         if (get_option('wu_woo_disable_notifications')) {
             add_action('admin_init', array($this, 'disable_notifications'));
         }
@@ -257,29 +273,29 @@ class WU_WooCommerce_Optimizer {
         
         return;
         }
-        if (get_option('wu_woo_taiwan_address')) {
+        if (($this->mode === 'commerce' && get_option('wu_woo_taiwan_address')) || ($this->mode === 'shipping' && get_option('wu_woo_enable_island_shipping'))) {
             add_action('init', array($this, 'register_taiwan_address'));
             add_filter('woocommerce_checkout_posted_data', array($this, 'preserve_saved_billing_fields'), 5);
         }
         
-        if (get_option('wu_woo_enable_711_shipping')) {
+        if ($this->mode === 'shipping' && get_option('wu_woo_enable_711_shipping')) {
             add_action('init', array($this, 'register_711_shipping'));
         }
         
-        if (get_option('wu_woo_enable_einvoice')) {
+        if ($this->mode === 'commerce' && get_option('wu_woo_enable_einvoice')) {
             add_action('init', array($this, 'register_einvoice'));
         }
         
         // 訂單備註欄位控制
-        if (!get_option('wu_woo_enable_order_comments', false)) {
+        if ($this->mode === 'commerce' && !get_option('wu_woo_enable_order_comments', false)) {
             add_filter('woocommerce_enable_order_notes_field', '__return_false');
         }
         
         // 載入錯誤訊息樣式
-        add_action('wp_enqueue_scripts', array($this, 'enqueue_error_message_styles'), 999);
+        if ($this->mode === 'commerce' || $this->mode === 'shipping') add_action('wp_enqueue_scripts', array($this, 'enqueue_error_message_styles'), 999);
         
         // 修改「商品明細」標題
-        add_filter('gettext', array($this, 'change_order_review_heading'), 20, 3);
+        if ($this->mode === 'commerce') add_filter('gettext', array($this, 'change_order_review_heading'), 20, 3);
     }
     
     public function change_order_review_heading($translated_text, $text, $domain) {
@@ -910,6 +926,8 @@ class WU_WooCommerce_Optimizer {
     }
     
     public function register_taiwan_address() {
+        if (self::$taiwan_address_registered) return;
+        self::$taiwan_address_registered = true;
         add_filter('woocommerce_checkout_fields', array($this, 'customize_taiwan_address_fields'), 999);
         add_filter('woocommerce_ship_to_different_address_checked', '__return_false');
         add_filter('gettext', array($this, 'change_ship_to_different_text'), 999, 3);
@@ -1423,12 +1441,12 @@ jQuery(document).ready(function($) {
         if (isset($_POST['submit']) || in_array($bulk_action, array('enable', 'disable'), true)) {
             check_admin_referer($group . '-options');
             $options = array_keys($this->fields());
-            if (!$this->commerce) $options = array_merge($options, array_keys($this->admin_visibility_options()));
+            if ($this->mode === 'visibility') $options = array_merge($options, array_keys($this->admin_visibility_options()));
             foreach ($options as $option) {
                 $value = $bulk_action === 'enable' ? 1 : ($bulk_action === 'disable' ? 0 : (isset($_POST[$option]) && $_POST[$option] === '1' ? 1 : 0));
                 update_option($option, $value);
             }
-            if ($this->commerce) {
+            if ($this->mode === 'shipping') {
                 foreach (array('wu_woo_711_shipping_cost','wu_woo_711_free_shipping_threshold') as $option) {
                     if (isset($_POST[$option]) && is_scalar($_POST[$option])) update_option($option, max(0, intval($_POST[$option])));
                 }
@@ -1437,10 +1455,11 @@ jQuery(document).ready(function($) {
             echo '<div class="notice notice-success"><p>設定已儲存。新設定於下次載入頁面生效。</p></div>';
         }
         echo '<div class="wrap"><h1>' . esc_html($this->page_title()) . '</h1>';
-        if ($this->commerce) echo '<p>沿用原有地址、運送、訂單備註與電子發票設定，不需重新填寫。停用本卡片即可停止載入這些功能。</p>';
+        if ($this->mode === 'commerce') echo '<p>沿用原有地址、訂單備註與電子發票設定，不需重新填寫。停用本卡片即可停止載入這些功能。</p>';
+        if ($this->mode === 'shipping') echo '<p>沿用原有離島與 7-11 運費設定，不需重新填寫。停用本卡片即可停止載入這些運送功能。</p>';
         echo '<form method="post">';
         wp_nonce_field($group . '-options');
-        if (!$this->commerce) {
+        if ($this->mode === 'visibility') {
             echo '<p><button type="submit" class="button button-primary" name="wutm_visibility_bulk" value="enable">一鍵開啟所有設定</button> ';
             echo '<button type="submit" class="button" name="wutm_visibility_bulk" value="disable">一鍵關閉所有設定</button></p>';
         }
