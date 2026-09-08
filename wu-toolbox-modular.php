@@ -3,7 +3,7 @@
  * Plugin Name: WU Toolbox Modular
  * Plugin URI: https://wumetax.com/
  * Description: WU Toolbox 的按需載入模組化版本。每項功能獨立，只有啟用後才會載入。
- * Version: 1.9.4
+ * Version: 1.9.5
  * Author: WUMETAX
  * Author URI: https://wumetax.com/
  * License: GPL-2.0-or-later
@@ -14,7 +14,7 @@
 defined('ABSPATH') || exit;
 
 define('WUTM_FILE', __FILE__);
-define('WUTM_VERSION', '1.9.4');
+define('WUTM_VERSION', '1.9.5');
 define('WUTM_PATH', plugin_dir_path(__FILE__));
 define('WUTM_URL', plugin_dir_url(__FILE__));
 
@@ -109,7 +109,7 @@ function wutm_render_turnstile_settings(): void {
         check_admin_referer('wutm_turnstile_settings');
         update_option('cfturnstile_key', sanitize_text_field(wp_unslash($_POST['cfturnstile_key'] ?? '')));
         update_option('cfturnstile_secret', sanitize_text_field(wp_unslash($_POST['cfturnstile_secret'] ?? '')));
-        foreach (['cfturnstile_login', 'cfturnstile_register', 'cfturnstile_comment', 'cfturnstile_disable_button'] as $option) {
+        foreach (['cfturnstile_login', 'cfturnstile_register', 'cfturnstile_comment', 'cfturnstile_woo_checkout', 'cfturnstile_disable_button'] as $option) {
             update_option($option, isset($_POST[$option]) ? 1 : 0);
         }
         // Keys must be checked again after they are changed.
@@ -136,7 +136,7 @@ function wutm_render_turnstile_settings(): void {
     echo '<table class="form-table"><tr><th><label for="cfturnstile_key">Site Key</label></th><td><input class="regular-text" id="cfturnstile_key" name="cfturnstile_key" value="' . esc_attr((string) get_option('cfturnstile_key')) . '"></td></tr>';
     echo '<tr><th><label for="cfturnstile_secret">Secret Key</label></th><td><input class="regular-text" type="password" id="cfturnstile_secret" name="cfturnstile_secret" value="' . esc_attr((string) get_option('cfturnstile_secret')) . '" autocomplete="new-password"></td></tr>';
     echo '<tr><th>保護表單</th><td>';
-    foreach (['cfturnstile_login' => '登入', 'cfturnstile_register' => '註冊', 'cfturnstile_comment' => '留言', 'cfturnstile_disable_button' => '驗證完成前停用送出按鈕'] as $option => $label) {
+    foreach (['cfturnstile_login' => 'WordPress 登入', 'cfturnstile_register' => 'WordPress 註冊', 'cfturnstile_comment' => '文章留言', 'cfturnstile_woo_checkout' => 'WooCommerce 結帳', 'cfturnstile_disable_button' => '驗證完成前停用送出按鈕'] as $option => $label) {
         echo '<label style="display:block;margin:6px 0"><input type="checkbox" name="' . esc_attr($option) . '" value="1" ' . checked((bool) get_option($option), true, false) . '> ' . esc_html($label) . '</label>';
     }
     echo '</td></tr></table><p><button class="button button-primary" name="wutm_turnstile_save" value="1">儲存設定</button> <button class="button" name="wutm_turnstile_test" value="1">測試金鑰</button></p></form></div>';

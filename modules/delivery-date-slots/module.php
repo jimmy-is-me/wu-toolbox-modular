@@ -2,7 +2,7 @@
 /**
  * 中文交貨日期與時段模組。
  *
- * 提供 WooCommerce 經典結帳頁的日期、時段選擇、訂單儲存與通知顯示。
+ * 支援 WooCommerce 傳統與區塊結帳頁的日期、時段選擇、訂單儲存與通知顯示。
  */
 defined('ABSPATH') || exit;
 
@@ -13,6 +13,7 @@ final class WUTM_Delivery_Date_Slots {
         if (!class_exists('WooCommerce')) return;
 
         add_action('admin_menu', [$this, 'register_menu'], 20);
+        add_action('woocommerce_init', [$this, 'register_block_checkout_fields']);
         add_filter('woocommerce_checkout_fields', [$this, 'add_checkout_fields']);
         add_action('woocommerce_after_checkout_validation', [$this, 'validate_checkout'], 10, 2);
         add_action('woocommerce_checkout_create_order', [$this, 'save_order_fields'], 10, 2);
@@ -86,6 +87,45 @@ final class WUTM_Delivery_Date_Slots {
         return $date->format('Y-m-d');
     }
 
+    /** Register native Checkout Block fields (WooCommerce 8.9+). */
+    public function register_block_checkout_fields(): void {
+        if (!function_exists('woocommerce_register_additional_checkout_field')) return;
+        $settings = $this->settings();
+        if (empty($settings['enabled'])) return;
+
+        $dates = [];
+        $cursor = new DateTimeImmutable($this->first_available_date($settings), wp_timezone());
+        $last = $cursor->modify('+' . absint($settings['max_days']) . ' days');
+        $blocked = array_map('intval', (array) $settings['disabled_weekdays']);
+        while ($cursor <= $last) {
+            if (!in_array((int) $cursor->format('w'), $blocked, true)) {
+                $value = $cursor->format('Y-m-d');
+                $dates[] = ['value' => $value, 'label' => $cursor->format('Y/m/d')];
+            }
+            $cursor = $cursor->modify('+1 day');
+        }
+
+        $slots = [];
+        foreach ($this->slots($settings) as $slot) $slots[] = ['value' => $slot, 'label' => $slot];
+
+        woocommerce_register_additional_checkout_field([
+            'id' => 'wutm/delivery-date',
+            'label' => '交貨日期',
+            'location' => 'order',
+            'type' => 'select',
+            'required' => true,
+            'options' => $dates,
+        ]);
+        woocommerce_register_additional_checkout_field([
+            'id' => 'wutm/delivery-slot',
+            'label' => '交貨時段',
+            'location' => 'order',
+            'type' => 'select',
+            'required' => true,
+            'options' => $slots,
+        ]);
+    }
+
     public function add_checkout_fields(array $fields): array {
         $settings = $this->settings();
         if (empty($settings['enabled'])) return $fields;
@@ -129,18 +169,25 @@ final class WUTM_Delivery_Date_Slots {
     }
 
     public function show_in_admin(WC_Order $order): void {
-        $date = $order->get_meta('_wutm_delivery_date');
-        $slot = $order->get_meta('_wutm_delivery_slot');
+        [$date, $slot] = $this->order_values($order);
         if (!$date && !$slot) return;
         echo '<p><strong>交貨安排：</strong><br>' . esc_html($date) . ($slot ? '　' . esc_html($slot) : '') . '</p>';
     }
 
     public function show_in_emails(array $fields, bool $sent_to_admin, WC_Order $order): array {
-        $date = $order->get_meta('_wutm_delivery_date');
-        $slot = $order->get_meta('_wutm_delivery_slot');
+        [$date, $slot] = $this->order_values($order);
         if ($date) $fields['wutm_delivery_date'] = ['label' => '交貨日期', 'value' => $date];
         if ($slot) $fields['wutm_delivery_slot'] = ['label' => '交貨時段', 'value' => $slot];
         return $fields;
+    }
+
+    private function order_values(WC_Order $order): array {
+        $date = (string) $order->get_meta('_wutm_delivery_date');
+        $slot = (string) $order->get_meta('_wutm_delivery_slot');
+        // Additional Checkout Fields store order-location values with this key.
+        if (!$date) $date = (string) $order->get_meta('_wc_other/wutm/delivery-date');
+        if (!$slot) $slot = (string) $order->get_meta('_wc_other/wutm/delivery-slot');
+        return [$date, $slot];
     }
 }
 

@@ -3,7 +3,18 @@ defined('ABSPATH') || exit;
 
 // Payment gateways must register compatibility and callback hooks before
 // WooCommerce finishes its own plugins_loaded bootstrap.
-$wutm_early_module_keys = ['payuni-payment', 'linepay-payment', 'discord-notifications', 'ecpay-tools', 'esun-payment'];
+$wutm_early_module_keys = [
+    'payuni-payment',
+    'linepay-payment',
+    'discord-notifications',
+    'ecpay-tools',
+    'esun-payment',
+    // These bundled plugins register lifecycle hooks while their bootstrap file
+    // is evaluated. Loading them after plugins_loaded leaves part of the module
+    // (admin menus, REST routes and integrations) unregistered.
+    'cloudflare-turnstile',
+    'tree-page-view',
+];
 foreach ($wutm_early_module_keys as $wutm_early_module_key) {
     if (!wutm_is_enabled($wutm_early_module_key)) continue;
 
