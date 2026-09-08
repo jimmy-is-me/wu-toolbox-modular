@@ -943,7 +943,14 @@ class WU_WooCommerce_Optimizer {
         // === Billing 欄位 ===
         unset($fields['billing']['billing_last_name']);
         unset($fields['billing']['billing_address_2']);
-        unset($fields['billing']['billing_country']);
+        // WooCommerce shipping/tax validation still needs a country value even
+        // when Taiwan is the only available country. Keep it as a hidden field
+        // so AJAX checkout refreshes always submit a complete address.
+        if (isset($fields['billing']['billing_country'])) {
+            $fields['billing']['billing_country']['type'] = 'hidden';
+            $fields['billing']['billing_country']['default'] = 'TW';
+            $fields['billing']['billing_country']['required'] = true;
+        }
         
         if (isset($fields['billing']['billing_first_name'])) {
             $fields['billing']['billing_first_name']['label'] = '帳單姓名';
@@ -990,7 +997,9 @@ class WU_WooCommerce_Optimizer {
         
         if (isset($fields['billing']['billing_city'])) {
             $fields['billing']['billing_city']['type'] = 'select';
-            $fields['billing']['billing_city']['options'] = array('' => '請先選擇縣市');
+            $billing_state = $this->checkout_address_value('billing', 'state');
+            $billing_city = $this->checkout_address_value('billing', 'city');
+            $fields['billing']['billing_city']['options'] = $this->district_options($billing_state, $billing_city);
             $fields['billing']['billing_city']['class'] = array('form-row-wide', 'wu-tw-district');
             $fields['billing']['billing_city']['priority'] = 50;
             $fields['billing']['billing_city']['label'] = '鄉鎮市區';
@@ -1012,7 +1021,11 @@ class WU_WooCommerce_Optimizer {
         // === Shipping 欄位 ===
         unset($fields['shipping']['shipping_last_name']);
         unset($fields['shipping']['shipping_address_2']);
-        unset($fields['shipping']['shipping_country']);
+        if (isset($fields['shipping']['shipping_country'])) {
+            $fields['shipping']['shipping_country']['type'] = 'hidden';
+            $fields['shipping']['shipping_country']['default'] = 'TW';
+            $fields['shipping']['shipping_country']['required'] = true;
+        }
         unset($fields['shipping']['shipping_company']);
         
         if (isset($fields['shipping']['shipping_first_name'])) {
@@ -1046,7 +1059,9 @@ class WU_WooCommerce_Optimizer {
         
         if (isset($fields['shipping']['shipping_city'])) {
             $fields['shipping']['shipping_city']['type'] = 'select';
-            $fields['shipping']['shipping_city']['options'] = array('' => '請先選擇縣市');
+            $shipping_state = $this->checkout_address_value('shipping', 'state');
+            $shipping_city = $this->checkout_address_value('shipping', 'city');
+            $fields['shipping']['shipping_city']['options'] = $this->district_options($shipping_state, $shipping_city);
             $fields['shipping']['shipping_city']['class'] = array('form-row-wide', 'wu-tw-district');
             $fields['shipping']['shipping_city']['priority'] = 30;
             $fields['shipping']['shipping_city']['label'] = '鄉鎮市區';
@@ -1066,6 +1081,41 @@ class WU_WooCommerce_Optimizer {
         }
         
         return $fields;
+    }
+
+    private function checkout_address_value($prefix, $field) {
+        $key = $prefix . '_' . $field;
+        if (isset($_POST[$key]) && is_scalar($_POST[$key])) {
+            $posted = sanitize_text_field(wp_unslash($_POST[$key]));
+            if ($posted !== '') return $posted;
+        }
+        // update_order_review submits checkout fields inside post_data. Reading
+        // it here keeps the server-rendered district option in every refresh.
+        if (!empty($_POST['post_data']) && is_string($_POST['post_data'])) {
+            $checkout_data = array();
+            parse_str(wp_unslash($_POST['post_data']), $checkout_data);
+            if (!empty($checkout_data[$key]) && is_scalar($checkout_data[$key])) {
+                return sanitize_text_field($checkout_data[$key]);
+            }
+        }
+        if (function_exists('WC') && WC()->customer) {
+            $getter = 'get_' . $prefix . '_' . $field;
+            if (is_callable(array(WC()->customer, $getter))) return (string) WC()->customer->{$getter}();
+        }
+        return '';
+    }
+
+    private function district_options($state, $selected = '') {
+        $state = str_replace('臺', '台', (string) $state);
+        $data = array_merge($this->get_taiwan_mainland_data(), $this->get_taiwan_island_data());
+        $options = array('' => $state ? '請選擇鄉鎮市區' : '請先選擇縣市');
+        foreach ((array) ($data[$state] ?? array()) as $district => $postcode) {
+            $options[$district] = $district;
+        }
+        // Preserve an older/custom value so WooCommerce does not discard it
+        // during an AJAX refresh before the browser rebuilds the select.
+        if ($selected !== '' && !isset($options[$selected])) $options[$selected] = $selected;
+        return $options;
     }
     
     private function get_taiwan_mainland_cities() {
@@ -1349,13 +1399,17 @@ jQuery(document).ready(function($) {
             return $data;
         }
 
-        foreach (array('company', 'city') as $field) {
-            $key = 'billing_' . $field;
-            if (!empty($data[$key])) continue;
-            $getter = 'get_billing_' . $field;
-            if (!is_callable(array(WC()->customer, $getter))) continue;
-            $saved = (string) WC()->customer->{$getter}();
-            if ($saved !== '') $data[$key] = $saved;
+        foreach (array('billing', 'shipping') as $prefix) {
+            foreach (array('state', 'city', 'postcode', 'address_1') as $field) {
+                $key = $prefix . '_' . $field;
+                if (!empty($data[$key])) continue;
+                $getter = 'get_' . $prefix . '_' . $field;
+                if (!is_callable(array(WC()->customer, $getter))) continue;
+                $saved = (string) WC()->customer->{$getter}();
+                if ($saved !== '') $data[$key] = $saved;
+            }
+            $country_key = $prefix . '_country';
+            if (empty($data[$country_key])) $data[$country_key] = 'TW';
         }
 
         return $data;
