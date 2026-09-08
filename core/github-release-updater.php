@@ -48,6 +48,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.9.8</h4><ul><li>修正自訂登入頁載入 WordPress 核心登入程式時，PHP 8.x 出現未定義 $error 與 $user_login 變數警告。</li><li>保留登入、登出、忘記密碼與密碼重設網址的完整改寫，並限制只替換真正的 wp-login.php 路徑。</li><li>加入登入入口重新導向防循環及子目錄安裝路徑相容處理。</li></ul>
             <h4>1.9.7</h4><ul><li>ATM 轉帳優化新增美化前台匯款卡片與銀行轉帳對帳中心。</li><li>新增獨立「運送優化功能」模組，接管台灣離島與 7-11 超商取貨設定。</li><li>WC 優化工具列出地址欄位調整內容，並清楚標示電子發票僅顯示資訊、無服務串接。</li></ul>
             <h4>1.9.6</h4><ul><li>新增「顯示網站所有欄位」與「ATM 轉帳優化」模組。</li><li>修正台灣地址下拉選單回填後仍被判定為空值或無效地址的問題。</li><li>移除 Cloudflare Turnstile、樹狀頁面視圖及交貨日期和時段模組。</li></ul>
             <h4>1.9.5</h4><ul><li>交貨日期和時段新增 WooCommerce 區塊結帳支援，傳統與新版結帳皆可使用。</li><li>修正 Cloudflare Turnstile 與樹狀頁面視圖的模組載入時機，完整啟用表單驗證、設定頁、樹狀選單與拖曳功能。</li></ul>

@@ -350,10 +350,15 @@ final class WU_Hide_Login_Page {
         $path = $this->request_path();
         if ($path === $this->custom_login_path()) return;
 
-        $core_login = untrailingslashit((string) wp_parse_url(home_url('/wp-login.php'), PHP_URL_PATH));
+        // Read the unfiltered WordPress installation URL. Calling site_url() here
+        // would run our own site_url filter and turn the comparison target into
+        // the custom login path.
+        $site_url = rtrim((string) get_option('siteurl'), '/');
+        $core_login = untrailingslashit((string) wp_parse_url($site_url . '/wp-login.php', PHP_URL_PATH));
         $admin_path = untrailingslashit((string) wp_parse_url(admin_url('/'), PHP_URL_PATH));
 
-        if ($path === $core_login || $path === $admin_path || strpos($path, $admin_path . '/') === 0) {
+        if (($core_login !== '' && $path === $core_login)
+            || ($admin_path !== '' && ($path === $admin_path || strpos($path, $admin_path . '/') === 0))) {
             wp_safe_redirect($this->redirect_url());
             exit;
         }
@@ -363,6 +368,18 @@ final class WU_Hide_Login_Page {
         if (empty($this->options['enabled'])) return;
         if ($this->request_path() !== $this->custom_login_path() && !get_query_var('wutm_hidden_login')) return;
 
+        /*
+         * wp-login.php normally runs in the global scope. Because this module
+         * includes it from a class method, explicitly import and initialise the
+         * variables that core expects to exist in that scope. This prevents the
+         * PHP 8.x undefined $user_login / $error warnings without modifying core.
+         */
+        global $action, $error, $interim_login, $user_login;
+        if (!isset($action)) $action = isset($_REQUEST['action']) ? sanitize_key(wp_unslash($_REQUEST['action'])) : 'login';
+        if (!isset($error)) $error = '';
+        if (!isset($interim_login)) $interim_login = false;
+        if (!isset($user_login)) $user_login = '';
+
         $_SERVER['SCRIPT_NAME'] = '/wp-login.php';
         $_SERVER['PHP_SELF'] = '/wp-login.php';
         $GLOBALS['pagenow'] = 'wp-login.php';
@@ -371,13 +388,13 @@ final class WU_Hide_Login_Page {
     }
 
     public function modify_login_url($url, $path = '', $scheme = null, $blog_id = null) {
-        if (empty($this->options['enabled']) || strpos($url, 'wp-login.php') === false) return $url;
-        return str_replace('wp-login.php', rawurlencode($this->slug()), $url);
+        if (empty($this->options['enabled'])) return $url;
+        return $this->replace_core_login_path($url);
     }
 
     public function modify_redirect_url($location) {
-        if (empty($this->options['enabled']) || strpos($location, 'wp-login.php') === false) return $location;
-        return str_replace('wp-login.php', rawurlencode($this->slug()), $location);
+        if (empty($this->options['enabled'])) return $location;
+        return $this->replace_core_login_path($location);
     }
 
     private function slug() {
@@ -387,7 +404,34 @@ final class WU_Hide_Login_Page {
 
     private function redirect_url() {
         $url = !empty($this->options['redirect_url']) ? $this->options['redirect_url'] : home_url('/');
-        return wp_validate_redirect($url, home_url('/'));
+        $fallback = home_url('/');
+        $validated = wp_validate_redirect($url, $fallback);
+        $path = untrailingslashit((string) wp_parse_url($validated, PHP_URL_PATH));
+        $site_url = rtrim((string) get_option('siteurl'), '/');
+        $core_login = untrailingslashit((string) wp_parse_url($site_url . '/wp-login.php', PHP_URL_PATH));
+        $admin_path = untrailingslashit((string) wp_parse_url(admin_url('/'), PHP_URL_PATH));
+
+        // Never redirect a hidden entry point back to another protected entry
+        // point, otherwise the browser can become trapped in a redirect loop.
+        if ($path === $this->custom_login_path()
+            || ($core_login !== '' && $path === $core_login)
+            || ($admin_path !== '' && ($path === $admin_path || strpos($path, $admin_path . '/') === 0))) {
+            return $fallback;
+        }
+
+        return $validated;
+    }
+
+    private function replace_core_login_path($url) {
+        $url = (string) $url;
+        $path = (string) wp_parse_url($url, PHP_URL_PATH);
+        if ($path === '' || basename($path) !== 'wp-login.php') return $url;
+
+        $path_position = strpos($url, $path);
+        if ($path_position === false) return $url;
+
+        $custom_path = substr($path, 0, -strlen('wp-login.php')) . rawurlencode($this->slug());
+        return substr_replace($url, $custom_path, $path_position, strlen($path));
     }
 
     private function request_path() {
