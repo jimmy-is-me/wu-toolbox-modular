@@ -48,6 +48,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>1.9.4</h4><ul><li>新增中文「交貨日期和時段」模組，可設定最早交貨日、可預約天數、不交貨星期與自訂時段。</li><li>交貨安排會儲存至 WooCommerce 訂單，並顯示於後台與訂單通知。</li></ul>
             <h4>1.9.3</h4><ul><li>重寫 Cloudflare Turnstile 設定頁，可直接設定金鑰、保護表單與測試連線。</li><li>重寫樹狀頁面視圖設定頁，可選擇要顯示樹狀檢視的內容類型。</li></ul>
             <h4>1.9.2</h4><ul><li>修正 Cloudflare Turnstile 與樹狀頁面視圖設定頁的核心註冊與連結網址。</li><li>WooCommerce 更名為「電商系統」，保留原始子選單並在隱藏首頁時導向訂單。</li><li>確認綠界與 PAYUNi 模組維持原有金流、物流與電子發票載入流程。</li></ul>
             <h4>1.9.1</h4><ul><li>隱藏 WC 首頁時，WooCommerce 主選單會改為直接前往訂單。</li><li>隱藏 WC 工具頁新增一鍵開啟與一鍵關閉全部設定。</li><li>修正樹狀頁面視圖與 Cloudflare Turnstile 的設定頁註冊，確保啟用後可開啟設定。</li></ul>
