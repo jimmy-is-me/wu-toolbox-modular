@@ -33,7 +33,7 @@ final class WUTM_ATM_Transfer_Optimizer {
         if (!(is_account_page() || is_wc_endpoint_url('order-received') || is_wc_endpoint_url('view-order'))) return;
         wp_register_style('wutm-atm-transfer', false, [], WUTM_VERSION);
         wp_enqueue_style('wutm-atm-transfer');
-        wp_add_inline_style('wutm-atm-transfer', '.woocommerce-order>.woocommerce-bacs-bank-details{display:none!important}.wutm-bacs-card{max-width:650px;margin:15px 0 12px;padding:14px 18px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc}.wutm-bacs-card h4,.wutm-transfer-report h4{margin:0 0 8px;font-size:.95rem;font-weight:700}.wutm-bacs-card h4{color:#334155}.wutm-bacs-account{margin-top:6px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:6px;background:#fff}.wutm-bacs-account-name{margin-bottom:4px;color:#0369a1;font-size:.9rem;font-weight:600}.wutm-bacs-row{color:#475569;font-size:.88rem;line-height:1.6}.wutm-bacs-number{color:#b91c1c;font-size:1rem;font-weight:700;letter-spacing:.5px}.wutm-transfer-report{max-width:650px;margin:0 0 20px;padding:14px 18px;border:1px solid #cbd5e1;border-radius:8px;background:#fff}.wutm-transfer-report p{margin:0 0 10px;color:#64748b;font-size:.85rem}.wutm-transfer-report.is-done{background:#f0fdf4;border-color:#bbf7d0}.wutm-transfer-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0}.wutm-transfer-form input{width:170px;padding:6px 12px;border:1px solid #cbd5e1;border-radius:6px}.wutm-transfer-button{padding:7px 16px!important;border:0!important;border-radius:6px!important;background:#2563eb!important;color:#fff!important;font-size:13.5px!important;font-weight:600!important}.woocommerce-orders-table .button.wutm-bacs-info{margin-left:5px!important;border:1px solid #cbd5e1!important;background:#f1f5f9!important;color:#334155!important}');
+        wp_add_inline_style('wutm-atm-transfer', '.woocommerce-order>.woocommerce-bacs-bank-details{display:none!important}.wutm-bacs-card{max-width:650px;margin:15px 0 12px;padding:14px 18px;border:1px solid #e2e8f0;border-radius:8px;background:#f8fafc}.wutm-bacs-card h4,.wutm-transfer-report h4{margin:0 0 8px;font-size:.95rem;font-weight:700}.wutm-bacs-card h4{color:#334155}.wutm-bacs-account{display:block;margin-top:6px;padding:10px 14px;border:1px solid #e2e8f0;border-radius:6px;background:#fff}.wutm-bacs-account.is-selected{border-color:#2563eb;box-shadow:0 0 0 1px #2563eb}.wutm-bacs-account input{width:auto;margin-right:7px}.wutm-bacs-account-name{margin-bottom:4px;color:#0369a1;font-size:.9rem;font-weight:600}.wutm-bacs-row{color:#475569;font-size:.88rem;line-height:1.6}.wutm-bacs-number{color:#b91c1c;font-size:1rem;font-weight:700;letter-spacing:.5px}.wutm-transfer-report{max-width:650px;margin:0 0 20px;padding:14px 18px;border:1px solid #cbd5e1;border-radius:8px;background:#fff}.wutm-transfer-report p{margin:0 0 10px;color:#64748b;font-size:.85rem}.wutm-transfer-report.is-done{background:#f0fdf4;border-color:#bbf7d0}.wutm-transfer-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:0}.wutm-transfer-form input{width:170px;padding:6px 12px;border:1px solid #cbd5e1;border-radius:6px}.wutm-transfer-button{padding:7px 16px!important;border:0!important;border-radius:6px!important;background:#2563eb!important;color:#fff!important;font-size:13.5px!important;font-weight:600!important}.woocommerce-orders-table .button.wutm-bacs-info{margin-left:5px!important;border:1px solid #cbd5e1!important;background:#f1f5f9!important;color:#334155!important}');
     }
 
     public function order_actions(array $actions, $order): array {
@@ -60,29 +60,36 @@ final class WUTM_ATM_Transfer_Optimizer {
         static $rendered = [];
         if (!($order instanceof WC_Order) || $order->get_payment_method() !== 'bacs' || isset($rendered[$order->get_id()])) return;
         $rendered[$order->get_id()] = true;
-        $accounts = (array) get_option('woocommerce_bacs_accounts', []);
+        $accounts = $this->accounts();
+        $reported = $this->reported($order);
+        $selected_account = $this->order_account_id($order);
+        $form_id = 'wutm-transfer-form-' . $order->get_id();
         echo '<div id="wutm-bacs-section">';
         if ($accounts) {
             echo '<div class="wutm-bacs-card"><h4>🏦 匯款／轉帳帳號資訊</h4>';
+            if (!$reported && count($accounts) > 1) echo '<p>請選擇實際匯入的收款帳戶，再提交轉帳回報。</p>';
             foreach ($accounts as $account) {
-                echo '<div class="wutm-bacs-account">';
+                $selected = $selected_account !== '' && hash_equals($selected_account, $account['_wutm_id']);
+                echo '<label class="wutm-bacs-account' . ($selected ? ' is-selected' : '') . '">';
+                if (!$reported && count($accounts) > 1) echo '<input type="radio" form="' . esc_attr($form_id) . '" name="wutm_transfer_account" value="' . esc_attr($account['_wutm_id']) . '" required ' . checked($selected, true, false) . '>';
                 if (!empty($account['account_name'])) echo '<div class="wutm-bacs-account-name">' . esc_html($account['account_name']) . '</div>';
                 echo '<div class="wutm-bacs-row">';
                 if (!empty($account['bank_name'])) echo '銀行：' . esc_html($account['bank_name']) . (!empty($account['sort_code']) ? '（' . esc_html($account['sort_code']) . '）' : '') . '&nbsp;&nbsp;|&nbsp;&nbsp;';
                 if (!empty($account['account_number'])) echo '帳號：<span class="wutm-bacs-number">' . esc_html($account['account_number']) . '</span>';
-                echo '</div></div>';
+                echo '</div></label>';
             }
             echo '</div>';
         }
-        $reported = $this->reported($order);
         if ($reported) {
             echo '<div class="wutm-transfer-report is-done"><h4>✅ 已完成轉帳回報</h4><p>回報時間：' . esc_html($this->transfer_meta($order, 'time'));
             $digits = $this->transfer_meta($order, 'digits');
             if ($digits !== '') echo '　帳號末碼：<strong>' . esc_html($digits) . '</strong>';
+            echo '<br>收款帳戶：<strong>' . esc_html($this->order_account_label($order)) . '</strong>';
             echo '<br>款項核對中，確認入帳後將為您安排後續處理。</p></div>';
         } else {
-            echo '<div class="wutm-transfer-report"><h4>📢 轉帳完成回報</h4><p>完成轉帳後，可填寫帳號末五碼協助商家對帳。</p><form method="post" class="wutm-transfer-form">';
+            echo '<div class="wutm-transfer-report"><h4>📢 轉帳完成回報</h4><p>完成轉帳後，選擇收款帳戶並填寫帳號末五碼協助商家對帳。</p><form id="' . esc_attr($form_id) . '" method="post" class="wutm-transfer-form">';
             wp_nonce_field('wutm_report_transfer_' . $order->get_id(), 'wutm_report_transfer_nonce');
+            if (count($accounts) === 1) echo '<input type="hidden" name="wutm_transfer_account" value="' . esc_attr($accounts[0]['_wutm_id']) . '">';
             echo '<input type="hidden" name="wutm_transfer_order_id" value="' . esc_attr((string) $order->get_id()) . '"><input type="hidden" name="wutm_transfer_order_key" value="' . esc_attr($order->get_order_key()) . '"><input type="text" name="wutm_transfer_digits" inputmode="numeric" pattern="[0-9]{0,8}" maxlength="8" placeholder="帳號末五碼（選填）"><button type="submit" name="wutm_submit_transfer" value="1" class="button wutm-transfer-button">回報已轉帳</button></form></div>';
         }
         echo '</div>';
@@ -99,6 +106,15 @@ final class WUTM_ATM_Transfer_Optimizer {
             ? get_current_user_id() === $order->get_user_id()
             : hash_equals($order->get_order_key(), sanitize_text_field(wp_unslash($_POST['wutm_transfer_order_key'] ?? '')));
         if (!$allowed && !current_user_can('manage_woocommerce')) return;
+        $accounts = $this->accounts();
+        $account = $this->find_account(sanitize_key(wp_unslash($_POST['wutm_transfer_account'] ?? '')));
+        $redirect = wp_get_referer() ?: $order->get_view_order_url();
+        if (count($accounts) > 1 && !$account) {
+            if (function_exists('wc_add_notice')) wc_add_notice('請選擇實際匯入的收款帳戶。', 'error');
+            wp_safe_redirect($redirect);
+            exit;
+        }
+        if (!$account && count($accounts) === 1) $account = $accounts[0];
         $digits = preg_replace('/\D+/', '', (string) wp_unslash($_POST['wutm_transfer_digits'] ?? ''));
         $digits = substr($digits, 0, 8);
         $time = current_time('Y-m-d H:i:s');
@@ -110,9 +126,9 @@ final class WUTM_ATM_Transfer_Optimizer {
         $order->update_meta_data('_customer_reported_transferred', 'yes');
         $order->update_meta_data('_customer_transferred_time', $time);
         $order->update_meta_data('_customer_transfer_account_digits', $digits);
-        $order->add_order_note('【顧客回報已轉帳】時間：' . $time . ($digits ? '，帳號末碼：' . $digits : ''));
+        if ($account) $this->save_order_account($order, $account);
+        $order->add_order_note('【顧客回報已轉帳】時間：' . $time . ($digits ? '，帳號末碼：' . $digits : '') . ($account ? '，收款帳戶：' . $this->account_label($account) : ''));
         $order->save();
-        $redirect = wp_get_referer() ?: $order->get_view_order_url();
         wp_safe_redirect(add_query_arg('transfer-reported', '1', $redirect));
         exit;
     }
@@ -158,6 +174,7 @@ final class WUTM_ATM_Transfer_Optimizer {
         if (!($order instanceof WC_Order) || $order->get_payment_method() !== 'bacs') { echo '<p>此訂單不是銀行轉帳付款。</p>'; return; }
         echo wp_kses_post($this->status_badge($order));
         if ($this->transfer_meta($order, 'time')) echo '<p>回報時間：' . esc_html($this->transfer_meta($order, 'time')) . '</p>';
+        echo '<p>收款帳戶：<strong>' . esc_html($this->order_account_label($order)) . '</strong></p>';
     }
 
     public function add_reminder_action(array $actions): array {
@@ -181,12 +198,27 @@ final class WUTM_ATM_Transfer_Optimizer {
 
     public function handle_dashboard_actions(): void {
         if (($_GET['page'] ?? '') !== 'wc-bacs-dashboard' || !current_user_can('manage_woocommerce')) return;
+        $base_url = admin_url('admin.php?page=wc-bacs-dashboard');
+        if (!empty($_POST['wutm_bacs_save_account'])) {
+            $order_id = absint($_POST['order_id'] ?? 0);
+            check_admin_referer('wutm_bacs_account_' . $order_id);
+            $order = wc_get_order($order_id);
+            $account = $this->find_account(sanitize_key(wp_unslash($_POST['account_id'] ?? '')));
+            if ($order instanceof WC_Order && $order->get_payment_method() === 'bacs' && $account) {
+                $this->save_order_account($order, $account);
+                $order->add_order_note('【銀行轉帳對帳中心】指定收款帳戶：' . $this->account_label($account));
+                $order->save();
+                wp_safe_redirect(add_query_arg('account_saved', '1', $base_url));
+                exit;
+            }
+            wp_safe_redirect(add_query_arg('account_error', '1', $base_url));
+            exit;
+        }
         $action = sanitize_key(wp_unslash($_GET['action'] ?? ''));
         $order_id = absint($_GET['order_id'] ?? 0);
         if (!$action || !$order_id) return;
         $order = wc_get_order($order_id);
         if (!($order instanceof WC_Order) || $order->get_payment_method() !== 'bacs') return;
-        $base_url = admin_url('admin.php?page=wc-bacs-dashboard');
         if ($action === 'confirm_payment') {
             check_admin_referer('wutm_bacs_confirm_' . $order_id);
             $order->payment_complete();
@@ -214,7 +246,7 @@ final class WUTM_ATM_Transfer_Optimizer {
             elseif ($this->reported($order)) { $reported_count++; $pending_amount += (float) $order->get_total(); }
             else $unreported_count++;
         }
-        $accounts = (array) get_option('woocommerce_bacs_accounts', []);
+        $accounts = $this->accounts();
         ?>
         <div class="wrap wutm-bacs-dashboard">
             <style>
@@ -223,6 +255,8 @@ final class WUTM_ATM_Transfer_Optimizer {
             <h1>🏦 銀行轉帳對帳中心</h1>
             <?php if (isset($_GET['payment_confirmed'])) : ?><div class="notice notice-success is-dismissible"><p>已確認款項入帳並更新訂單狀態。</p></div><?php endif; ?>
             <?php if (isset($_GET['reminder_sent'])) : ?><div class="notice notice-success is-dismissible"><p>付款提醒信已寄送。</p></div><?php endif; ?>
+            <?php if (isset($_GET['account_saved'])) : ?><div class="notice notice-success is-dismissible"><p>訂單收款帳戶已儲存。</p></div><?php endif; ?>
+            <?php if (isset($_GET['account_error'])) : ?><div class="notice notice-error is-dismissible"><p>無法儲存收款帳戶，請重新選擇。</p></div><?php endif; ?>
             <div class="wutm-bacs-stats">
                 <div class="wutm-bacs-stat reported"><div class="label">待核對入帳（顧客已回報）</div><div class="num" style="color:#059669"><?php echo esc_html((string) $reported_count); ?> <small>筆</small></div></div>
                 <div class="wutm-bacs-stat waiting"><div class="label">等待顧客轉帳（未回報）</div><div class="num" style="color:#d97706"><?php echo esc_html((string) $unreported_count); ?> <small>筆</small></div></div>
@@ -237,8 +271,8 @@ final class WUTM_ATM_Transfer_Optimizer {
                 </tbody></table><?php endif; ?>
             </div>
             <div class="wutm-bacs-panel"><h3>📑 轉帳訂單對帳明細</h3>
-                <table class="wutm-bacs-table"><thead><tr><th>訂單</th><th>下單日期</th><th>訂購人／Email</th><th>總計</th><th>回報狀態</th><th>回報時間</th><th>訂單狀態</th><th>快捷操作</th></tr></thead><tbody>
-                <?php if (!$orders) : ?><tr><td colspan="8" style="text-align:center">尚無銀行轉帳訂單</td></tr><?php endif; ?>
+                <table class="wutm-bacs-table"><thead><tr><th>訂單</th><th>下單日期</th><th>訂購人／Email</th><th>總計</th><th>收款帳戶</th><th>回報狀態</th><th>回報時間</th><th>訂單狀態</th><th>快捷操作</th></tr></thead><tbody>
+                <?php if (!$orders) : ?><tr><td colspan="9" style="text-align:center">尚無銀行轉帳訂單</td></tr><?php endif; ?>
                 <?php foreach ($orders as $order) :
                     $is_paid = $order->is_paid();
                     $is_reported = $this->reported($order);
@@ -251,6 +285,7 @@ final class WUTM_ATM_Transfer_Optimizer {
                     <td><?php echo esc_html($date ? $date->date_i18n('Y-m-d H:i') : '—'); ?></td>
                     <td><?php echo esc_html($order->get_formatted_billing_full_name()); ?><br><small><?php echo esc_html($order->get_billing_email()); ?></small></td>
                     <td><?php echo wp_kses_post($order->get_formatted_order_total()); ?></td>
+                    <td><form method="post" style="display:flex;gap:5px;align-items:center;min-width:210px"><?php wp_nonce_field('wutm_bacs_account_' . $order->get_id()); ?><input type="hidden" name="order_id" value="<?php echo esc_attr((string) $order->get_id()); ?>"><select name="account_id" required><option value="">未指定</option><?php foreach ($accounts as $account) : ?><option value="<?php echo esc_attr($account['_wutm_id']); ?>" <?php selected($this->order_account_id($order), $account['_wutm_id']); ?>><?php echo esc_html($this->account_label($account)); ?></option><?php endforeach; ?></select><button class="button button-small" name="wutm_bacs_save_account" value="1">儲存</button></form></td>
                     <td><?php if ($is_paid) : ?><span class="wutm-soft-badge wutm-badge-gray">款項已結清</span><?php elseif ($is_reported) : ?><span class="wutm-soft-badge wutm-badge-green">已回報<?php echo $digits ? '（末碼 ' . esc_html($digits) . '）' : ''; ?></span><?php else : ?><span class="wutm-soft-badge wutm-badge-amber">尚未回報</span><?php endif; ?></td>
                     <td><?php echo esc_html($this->transfer_meta($order, 'time') ?: '—'); ?></td>
                     <td><span class="wutm-soft-badge wutm-badge-gray"><?php echo esc_html(wc_get_order_status_name($order->get_status())); ?></span></td>
@@ -277,6 +312,53 @@ final class WUTM_ATM_Transfer_Optimizer {
             if ($value !== '') return $value;
         }
         return '';
+    }
+
+    private function accounts(): array {
+        $accounts = array();
+        foreach ((array) get_option('woocommerce_bacs_accounts', []) as $account) {
+            if (!is_array($account)) continue;
+            $identity = array_intersect_key($account, array_flip(array('account_name', 'bank_name', 'sort_code', 'account_number', 'iban', 'bic')));
+            $account['_wutm_id'] = substr(hash('sha256', wp_json_encode($identity)), 0, 20);
+            $accounts[] = $account;
+        }
+        return $accounts;
+    }
+
+    private function find_account(string $id): ?array {
+        if ($id === '') return null;
+        foreach ($this->accounts() as $account) {
+            if (hash_equals($account['_wutm_id'], $id)) return $account;
+        }
+        return null;
+    }
+
+    private function account_label(array $account): string {
+        $parts = array_filter(array((string) ($account['account_name'] ?? ''), (string) ($account['bank_name'] ?? ''), (string) ($account['account_number'] ?? '')));
+        return $parts ? implode('／', $parts) : '未命名帳戶';
+    }
+
+    private function save_order_account(WC_Order $order, array $account): void {
+        $order->update_meta_data('_wutm_bacs_account_id', (string) $account['_wutm_id']);
+        $order->update_meta_data('_wutm_bacs_account_snapshot', array(
+            'account_name' => sanitize_text_field((string) ($account['account_name'] ?? '')),
+            'bank_name' => sanitize_text_field((string) ($account['bank_name'] ?? '')),
+            'sort_code' => sanitize_text_field((string) ($account['sort_code'] ?? '')),
+            'account_number' => sanitize_text_field((string) ($account['account_number'] ?? '')),
+        ));
+    }
+
+    private function order_account_id(WC_Order $order): string {
+        return sanitize_key((string) $order->get_meta('_wutm_bacs_account_id'));
+    }
+
+    private function order_account_label(WC_Order $order): string {
+        $snapshot = $order->get_meta('_wutm_bacs_account_snapshot');
+        if (is_array($snapshot) && array_filter($snapshot)) return $this->account_label($snapshot);
+        $account = $this->find_account($this->order_account_id($order));
+        if ($account) return $this->account_label($account);
+        $accounts = $this->accounts();
+        return count($accounts) === 1 ? $this->account_label($accounts[0]) : '未指定';
     }
 
     private function accounts_email_html(): string {

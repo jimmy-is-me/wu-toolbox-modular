@@ -14,6 +14,35 @@ function wutm_disabled_order_statuses(): array {
     return is_array($statuses) ? array_values(array_filter(array_map('sanitize_key', $statuses))) : array();
 }
 
+function wutm_custom_order_statuses(): array {
+    $stored = get_option('wutm_custom_order_statuses', array());
+    if (!is_array($stored)) return array();
+    $statuses = array();
+    foreach ($stored as $status => $label) {
+        $status = sanitize_key((string) $status);
+        $label = sanitize_text_field((string) $label);
+        if (strpos($status, 'wc-') === 0 && strlen($status) <= 20 && $label !== '') $statuses[$status] = $label;
+    }
+    return $statuses;
+}
+
+add_action('init', static function (): void {
+    foreach (wutm_custom_order_statuses() as $status => $label) {
+        register_post_status($status, array(
+            'label' => $label,
+            'public' => true,
+            'exclude_from_search' => false,
+            'show_in_admin_all_list' => true,
+            'show_in_admin_status_list' => true,
+            'label_count' => _n_noop(
+                $label . ' <span class="count">(%s)</span>',
+                $label . ' <span class="count">(%s)</span>',
+                'wu-toolbox-modular'
+            ),
+        ));
+    }
+}, 9);
+
 function wutm_order_status_label(string $status, string $fallback): string {
     $labels = wutm_order_status_labels();
     return isset($labels[$status]) && $labels[$status] !== '' ? $labels[$status] : $fallback;
@@ -36,6 +65,9 @@ function wutm_all_order_statuses(): array {
 }
 
 add_filter('wc_order_statuses', static function (array $statuses): array {
+    foreach (wutm_custom_order_statuses() as $status => $label) {
+        if (!isset($statuses[$status])) $statuses[$status] = $label;
+    }
     $disabled = wutm_disabled_order_statuses();
     foreach ($statuses as $status => $label) {
         if (in_array($status, $disabled, true)) {
@@ -80,6 +112,30 @@ add_action('admin_menu', static function (): void {
     add_submenu_page('wu-toolbox-modular', '訂單狀態管理', '訂單狀態管理', 'manage_woocommerce', 'wu-order-status-manager', 'wutm_order_status_manager_page');
 });
 
+add_action('admin_init', static function (): void {
+    if (($_GET['page'] ?? '') !== 'wu-order-status-manager' || empty($_POST['wutm_create_order_status'])) return;
+    if (!current_user_can('manage_woocommerce')) wp_die('您沒有新增訂單狀態的權限。');
+    check_admin_referer('wutm_create_order_status');
+
+    $slug = sanitize_key(wp_unslash($_POST['wutm_new_status_slug'] ?? ''));
+    if (strpos($slug, 'wc-') === 0) $slug = substr($slug, 3);
+    $status = 'wc-' . trim($slug, '-_');
+    $label = sanitize_text_field(wp_unslash($_POST['wutm_new_status_label'] ?? ''));
+    $result = 'created';
+
+    if ($label === '' || $status === 'wc-') $result = 'missing';
+    elseif (!preg_match('/^wc-[a-z0-9_-]+$/', $status) || strlen($status) > 20) $result = 'invalid';
+    elseif (get_post_status_object($status) || isset(wutm_custom_order_statuses()[$status])) $result = 'exists';
+    else {
+        $custom = wutm_custom_order_statuses();
+        $custom[$status] = $label;
+        update_option('wutm_custom_order_statuses', $custom, false);
+    }
+
+    wp_safe_redirect(add_query_arg(array('page' => 'wu-order-status-manager', 'wutm_status_result' => $result), admin_url('admin.php')));
+    exit;
+});
+
 function wutm_order_status_manager_page(): void {
     if (!current_user_can('manage_woocommerce')) wp_die('您沒有管理訂單狀態的權限。');
     $statuses = wutm_all_order_statuses();
@@ -101,9 +157,21 @@ function wutm_order_status_manager_page(): void {
         echo '<div class="notice notice-success is-dismissible"><p>訂單狀態設定已儲存。</p></div>';
     }
 
+    $result = sanitize_key(wp_unslash($_GET['wutm_status_result'] ?? ''));
+    $messages = array(
+        'created' => array('success', '新的訂單狀態已建立並啟用。'),
+        'missing' => array('error', '請填寫狀態名稱與英文代碼。'),
+        'invalid' => array('error', '狀態代碼只能使用小寫英文字母、數字、連字號或底線，加上 wc- 後不可超過 20 個字元。'),
+        'exists' => array('warning', '這個訂單狀態代碼已經存在。'),
+    );
+    if (isset($messages[$result])) echo '<div class="notice notice-' . esc_attr($messages[$result][0]) . ' is-dismissible"><p>' . esc_html($messages[$result][1]) . '</p></div>';
+
     $labels = wutm_order_status_labels();
     $disabled = wutm_disabled_order_statuses();
-    echo '<div class="wrap"><h1>訂單狀態管理</h1><p>可修改現有訂單狀態的顯示名稱，或關閉不需要的狀態。關閉後將從狀態篩選、新增狀態選單及後台訂單批次操作中移除；既有訂單仍會保留原有狀態與顯示名稱。</p>';
+    echo '<div class="wrap"><h1>訂單狀態管理</h1><p>可新增訂單狀態、修改顯示名稱，或關閉不需要的狀態。關閉後將從狀態篩選、新增狀態選單及後台訂單批次操作中移除；既有訂單仍會保留原有狀態與顯示名稱。</p>';
+    echo '<div style="max-width:760px;margin:18px 0;padding:18px 20px;background:#fff;border:1px solid #c3c4c7;border-radius:6px"><h2 style="margin-top:0">新增訂單狀態</h2><form method="post" style="display:flex;align-items:end;gap:12px;flex-wrap:wrap"><label><strong>狀態名稱</strong><br><input type="text" name="wutm_new_status_label" class="regular-text" required placeholder="例如：備貨中"></label><label><strong>英文代碼</strong><br><span style="display:inline-flex;align-items:center"><code style="padding:7px">wc-</code><input type="text" name="wutm_new_status_slug" maxlength="17" pattern="[a-z0-9_-]+" required placeholder="packing"></span></label>';
+    wp_nonce_field('wutm_create_order_status');
+    echo '<button type="submit" name="wutm_create_order_status" value="1" class="button button-primary">新增狀態</button></form><p class="description">代碼建立後不可更改；名稱仍可在下方隨時調整。新增狀態不會自動寄送通知信。</p></div>';
     if (!$statuses) { echo '<div class="notice notice-warning"><p>需要啟用 WooCommerce 後才能管理訂單狀態。</p></div></div>'; return; }
     echo '<form method="post"><table class="widefat striped"><thead><tr><th>狀態代碼</th><th>目前名稱</th><th>顯示名稱</th><th>啟用</th></tr></thead><tbody>';
     foreach ($statuses as $status => $default) {
