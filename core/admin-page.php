@@ -40,8 +40,8 @@ function wutm_render_admin_page(): void {
     $enabled = count(array_filter(array_keys($modules), 'wutm_is_enabled'));
     ?>
     <div class="wrap wutm-wrap">
-      <header class="wutm-header"><div><span class="wutm-header-kicker">MODULAR ADMINISTRATION</span><h1>WU Toolbox Modular</h1><p>已啟用 <strong><?php echo esc_html((string) $enabled); ?></strong> / <?php echo esc_html((string) count($modules)); ?> 個模組 · 未啟用的模組完全不載入</p></div><span class="wutm-version">v<?php echo esc_html(WUTM_VERSION); ?></span></header>
-      <form class="wutm-module-search" role="search"><label class="screen-reader-text" for="wutm-module-search-input">搜尋功能</label><input id="wutm-module-search-input" type="search" placeholder="搜尋功能，例如：版本、通知、結帳" autocomplete="off"><button type="submit" class="button button-primary">搜尋</button><span class="wutm-search-status" aria-live="polite"></span></form>
+      <header class="wutm-header"><div><span class="wutm-header-kicker">MODULAR ADMINISTRATION</span><h1>WU Toolbox Modular</h1><p>已啟用 <strong><?php echo esc_html((string) $enabled); ?></strong> / <?php echo esc_html((string) count($modules)); ?> 個模組 · 未啟用的模組完全不載入</p></div><span class="wutm-version"><i class="wutm-running-dot" aria-hidden="true"></i>v<?php echo esc_html(WUTM_VERSION); ?></span></header>
+      <div class="wutm-search-panel"><form class="wutm-module-search" role="search"><label class="screen-reader-text" for="wutm-module-search-input">搜尋功能</label><input id="wutm-module-search-input" type="search" placeholder="搜尋功能，例如：工具、版本、通知、結帳" autocomplete="off"><button type="submit" class="button button-primary">搜尋</button></form><div class="wutm-search-results" hidden><strong class="wutm-search-status" aria-live="polite"></strong><div class="wutm-search-result-list"></div></div></div>
       <div class="wutm-notice-slot" aria-live="polite"></div>
       <?php foreach ($groups as $group => $items): ?><section><h2><?php echo esc_html($group); ?></h2><div class="wutm-grid">
         <?php foreach ($items as $key => $module):
@@ -54,8 +54,34 @@ function wutm_render_admin_page(): void {
         ?>
         <article id="wutm-module-<?php echo esc_attr($key); ?>" class="wutm-card <?php echo $on ? 'on' : ''; ?>" tabindex="-1" data-module-name="<?php echo esc_attr($module['name']); ?>" data-search="<?php echo esc_attr($module['name'] . ' ' . $module['description']); ?>" data-settings-url="<?php echo esc_url($settings_url); ?>"><div class="wutm-icon"><?php echo esc_html($module['icon']); ?></div><div class="wutm-card-body"><h3><?php echo esc_html($module['name']); ?><?php if (!empty($module['development'])) : ?> <span class="wutm-development-badge">開發中</span><?php endif; ?><?php if (!empty($module['tag'])) : ?> <span class="wutm-card-badge"><?php echo esc_html($module['tag']); ?></span><?php endif; ?><?php if ($third_party_active) : ?> <span class="wutm-card-badge">已開啟</span><?php endif; ?></h3><p><?php echo esc_html($module['description']); ?></p><?php if (!$available): ?><small>需要 <?php echo esc_html($requires === 'translatepress' ? 'TranslatePress Multilingual' : 'WooCommerce'); ?></small><?php endif; ?><?php if ($module_enabled && $available): ?><a class="wutm-settings" href="<?php echo esc_url($settings_url); ?>">設定</a><?php endif; ?></div><label class="wutm-switch"><input type="checkbox" data-module="<?php echo esc_attr($key); ?>" <?php checked($on); disabled(!$available || $third_party_active); ?>><span></span></label></article>
         <?php endforeach; ?></div></section><?php endforeach; ?>
-      <footer class="wutm-footer">由 WUMETAX 開發與維護</footer>
+      <footer class="wutm-footer">此模組由 <a href="https://wumetax.com/" target="_blank" rel="noopener noreferrer">Wumetax</a> 開發與維護 - <a href="https://wumetax.com/" target="_blank" rel="noopener noreferrer">Wumetax</a> 提供主機管理及網站開發</footer>
     </div>
-    <script>(function(){const slot=document.querySelector('.wutm-notice-slot');if(slot){document.querySelectorAll('#wpbody-content > .notice,.wutm-wrap > .notice,.wutm-header .notice').forEach(function(n){if(!slot.contains(n))slot.appendChild(n);});}const form=document.querySelector('.wutm-module-search'),input=document.getElementById('wutm-module-search-input'),status=document.querySelector('.wutm-search-status');if(form&&input){form.addEventListener('submit',function(e){e.preventDefault();const query=input.value.trim().toLocaleLowerCase();document.querySelectorAll('.wutm-card.is-search-match').forEach(function(card){card.classList.remove('is-search-match');});if(!query){status.textContent='請輸入要尋找的功能名稱。';input.focus();return;}const cards=Array.from(document.querySelectorAll('.wutm-card'));const titleMatch=cards.find(function(card){return (card.dataset.moduleName||'').toLocaleLowerCase().includes(query);});const match=titleMatch||cards.find(function(card){return (card.dataset.search||'').toLocaleLowerCase().includes(query);});if(!match){status.textContent='找不到符合「'+input.value.trim()+'」的功能。';return;}match.classList.add('is-search-match');status.textContent='已找到：'+(match.dataset.moduleName||'');match.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(function(){match.focus({preventScroll:true});},450);});}})();document.addEventListener('change',function(e){if(!e.target.matches('.wutm-switch input'))return;const i=e.target;i.disabled=true;fetch(ajaxurl,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({action:'wutm_toggle_module',module:i.dataset.module,enabled:i.checked?1:0,nonce:'<?php echo esc_js(wp_create_nonce('wutm_toggle_module')); ?>'})}).then(r=>r.json()).then(r=>{const card=i.closest('.wutm-card');if(!r.success)i.checked=!i.checked;card.classList.toggle('on',i.checked);const link=card.querySelector('.wutm-settings');if(i.checked&&!link){const a=document.createElement('a');a.className='wutm-settings';a.href=card.dataset.settingsUrl;a.textContent='設定';card.querySelector('.wutm-card-body').appendChild(a)}else if(!i.checked&&link){link.remove()}}).catch(()=>i.checked=!i.checked).finally(()=>i.disabled=false)})</script>
+    <script>
+    (function(){
+        const slot=document.querySelector('.wutm-notice-slot');
+        if(slot) document.querySelectorAll('#wpbody-content > .notice,.wutm-wrap > .notice,.wutm-header .notice').forEach(function(n){if(!slot.contains(n))slot.appendChild(n);});
+        const form=document.querySelector('.wutm-module-search'),input=document.getElementById('wutm-module-search-input'),results=document.querySelector('.wutm-search-results'),status=document.querySelector('.wutm-search-status'),list=document.querySelector('.wutm-search-result-list');
+        function clearMatches(){document.querySelectorAll('.wutm-card.is-search-match').forEach(function(card){card.classList.remove('is-search-match');});}
+        if(form&&input&&results&&status&&list){
+            form.addEventListener('submit',function(e){
+                e.preventDefault();clearMatches();list.replaceChildren();
+                const raw=input.value.trim(),query=raw.toLocaleLowerCase();
+                if(!query){results.hidden=false;status.textContent='請輸入要尋找的功能名稱。';input.focus();return;}
+                const matches=Array.from(document.querySelectorAll('.wutm-card')).filter(function(card){return (card.dataset.search||'').toLocaleLowerCase().includes(query);});
+                results.hidden=false;
+                if(!matches.length){status.textContent='找不到符合「'+raw+'」的功能。';return;}
+                status.textContent='已找到 '+matches.length+' 筆：'+matches.map(function(card){return card.dataset.moduleName||'';}).join('、');
+                matches.forEach(function(card){const button=document.createElement('button');button.type='button';button.className='wutm-search-result';button.dataset.target=card.id;button.textContent=card.dataset.moduleName||'';list.appendChild(button);});
+            });
+            list.addEventListener('click',function(e){
+                const button=e.target.closest('.wutm-search-result');if(!button)return;
+                const card=document.getElementById(button.dataset.target);if(!card)return;
+                clearMatches();card.classList.add('is-search-match');card.scrollIntoView({behavior:'smooth',block:'center'});setTimeout(function(){card.focus({preventScroll:true});},450);
+            });
+            input.addEventListener('input',function(){if(!input.value.trim()){results.hidden=true;list.replaceChildren();clearMatches();}});
+        }
+    }());
+    document.addEventListener('change',function(e){if(!e.target.matches('.wutm-switch input'))return;const i=e.target;i.disabled=true;fetch(ajaxurl,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({action:'wutm_toggle_module',module:i.dataset.module,enabled:i.checked?1:0,nonce:'<?php echo esc_js(wp_create_nonce('wutm_toggle_module')); ?>'})}).then(r=>r.json()).then(r=>{const card=i.closest('.wutm-card');if(!r.success)i.checked=!i.checked;card.classList.toggle('on',i.checked);const link=card.querySelector('.wutm-settings');if(i.checked&&!link){const a=document.createElement('a');a.className='wutm-settings';a.href=card.dataset.settingsUrl;a.textContent='設定';card.querySelector('.wutm-card-body').appendChild(a)}else if(!i.checked&&link){link.remove()}}).catch(()=>i.checked=!i.checked).finally(()=>i.disabled=false)});
+    </script>
     <?php
 }

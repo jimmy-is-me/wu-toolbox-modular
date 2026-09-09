@@ -62,7 +62,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--wutm-wp-blue)!importa
 @keyframes wutm-breathe{0%,100%{filter:brightness(1);transform:translateY(0)}50%{filter:brightness(1.03);transform:translateY(-1px)}}
 @keyframes wutm-scan{0%,35%{transform:translateX(-100%)}65%,100%{transform:translateX(100%)}}
 @media (max-width:782px){.wutm-grid{grid-template-columns:1fr}.wutm-card{min-height:112px}}
-@media (prefers-reduced-motion:reduce){.wutm-card.on,.wutm-wrap .wutm-header:after,.wrap>h1:first-child:after,.wrap:not(.wutm-wrap)>h1:first-of-type:after{animation:none}}
+@media (prefers-reduced-motion:reduce){.wutm-card.on,.wutm-wrap .wutm-header:after,.wrap>h1:first-child:after,.wrap:not(.wutm-wrap)>h1:first-of-type:after,.wutm-running-dot{animation:none}}
 
 /* v1.1.4 refinements: WPCD-inspired hero, aligned cards and branded footer. */
 .wutm-wrap .wutm-header{
@@ -74,10 +74,15 @@ input:focus,textarea:focus,select:focus{border-color:var(--wutm-wp-blue)!importa
 .wutm-wrap .wutm-header p{color:#b8d8fb!important;margin:10px 0 0;font-size:14px}
 .wutm-wrap .wutm-header .wutm-header-kicker{display:block;color:#72aee6!important;font-size:10px;font-weight:700;letter-spacing:.18em}
 .wutm-wrap .wutm-header .wutm-version{display:inline-flex;align-items:center;padding:7px 11px;border:1px solid #ffffff38;border-radius:999px;background:#ffffff12;color:#fff!important;font-size:12px;font-weight:700;white-space:nowrap}
-.wutm-module-search{display:flex;align-items:center;gap:10px;margin:18px 0 24px;padding:14px 16px;border:1px solid var(--wutm-wp-border);border-radius:10px;background:#fff;box-shadow:0 3px 12px #0000000d}
+.wutm-running-dot{display:inline-block;width:8px;height:8px;margin-right:8px;border-radius:50%;background:#37d67a;box-shadow:0 0 0 0 #37d67a80;animation:wutm-running-pulse 1.8s ease-out infinite}
+@keyframes wutm-running-pulse{0%{box-shadow:0 0 0 0 #37d67a99}70%{box-shadow:0 0 0 7px #37d67a00}100%{box-shadow:0 0 0 0 #37d67a00}}
+.wutm-search-panel{margin:18px 0 24px;border:1px solid var(--wutm-wp-border);border-radius:10px;background:#fff;box-shadow:0 3px 12px #0000000d;overflow:hidden}
+.wutm-module-search{display:flex;align-items:center;gap:10px;margin:0;padding:14px 16px}
 .wutm-module-search input[type=search]{width:min(520px,100%);min-height:38px;margin:0!important}
 .wutm-module-search .button{min-height:38px;margin:0!important}
-.wutm-search-status{color:var(--wutm-wp-muted);font-size:13px}
+.wutm-search-results{padding:13px 16px 16px;border-top:1px solid #dcdcde;background:#f8fafc}.wutm-search-results[hidden]{display:none!important}
+.wutm-search-status{display:block;margin-bottom:10px;color:var(--wutm-wp-text);font-size:13px;line-height:1.6}
+.wutm-search-result-list{display:flex;flex-wrap:wrap;gap:8px}.wutm-search-result{padding:6px 11px;border:1px solid #9ab8d5;border-radius:999px;background:#fff;color:var(--wutm-wp-blue-dark);font-size:13px;font-weight:600;cursor:pointer}.wutm-search-result:hover,.wutm-search-result:focus{border-color:var(--wutm-wp-blue);background:#eaf4ff;outline:0;box-shadow:0 0 0 1px var(--wutm-wp-blue)}
 .wutm-card{scroll-margin-top:80px}
 .wutm-card.is-search-match{outline:3px solid #ffc857!important;outline-offset:3px;animation:wutm-search-pulse 1.4s ease 2!important}
 @keyframes wutm-search-pulse{0%,100%{box-shadow:0 0 0 1px #ffc85755,0 3px 10px #00000020}50%{box-shadow:0 0 0 7px #ffc85722,0 6px 18px #00000025}}
@@ -85,7 +90,7 @@ input:focus,textarea:focus,select:focus{border-color:var(--wutm-wp-blue)!importa
 .wutm-card{height:100%}
 .wutm-card-body{display:flex;flex-direction:column}
 .wutm-settings{margin-top:auto;display:inline-block;padding-top:10px}
-.wutm-footer{margin:36px 0 12px;padding:16px 0 0;border-top:1px solid var(--wutm-wp-border);color:var(--wutm-wp-muted);font-size:12px;text-align:center}
+.wutm-footer{margin:36px 0 12px;padding:16px 0 0;border-top:1px solid var(--wutm-wp-border);color:var(--wutm-wp-muted);font-size:12px;text-align:center}.wutm-footer a{color:var(--wutm-wp-blue);font-weight:600;text-decoration:none}.wutm-footer a:hover{text-decoration:underline}
 .wrap:not(.wutm-wrap),.wutm-module-wrap{padding:24px 28px 36px!important;border-radius:8px!important}
 .wrap:not(.wutm-wrap)>h1:first-of-type{margin:-24px -28px 24px!important;border-radius:8px!important}
 @media (max-width:782px){

@@ -53,6 +53,7 @@ add_action('admin_menu', function (): void {
     foreach ($groups as $group => $items) {
         $group_entries = [];
         foreach ($items as $key => $module) {
+            if (!wutm_is_enabled($key) || (($module['tag'] ?? '') === '第三方外掛')) continue;
             $needles = ['wu-' . $key];
             if (!empty($module['settings_page'])) $needles[] = (string) $module['settings_page'];
             if (!empty($module['settings_url'])) {
@@ -96,9 +97,9 @@ add_action('admin_head', function (): void {
         $selectors[] = '#adminmenu .wp-submenu li:has(>a[href="admin.php?page=' . $slug . '"])';
     }
     if ($selectors) echo '<style>' . implode(',', $selectors) . '{display:none!important}</style>';
-    echo '<style>#adminmenu .wp-submenu a[href*="page=wutm-group-"]{pointer-events:none!important;cursor:default!important;margin:9px 10px 3px!important;padding:7px 0 4px!important;border-top:1px solid rgba(255,255,255,.16)!important;color:#72aee6!important;font-size:11px!important;font-weight:700!important;letter-spacing:.08em!important;text-transform:uppercase!important}#adminmenu .wp-submenu li:first-child a[href*="page=wutm-group-"]{margin-top:3px!important;border-top:0!important}</style>';
+    echo '<style>#adminmenu .wp-submenu a[href*="page=wutm-group-"],#adminmenu .wp-submenu a.wutm-submenu-group-link,#adminmenu .wp-submenu a:has(>.wutm-submenu-group-label){pointer-events:none!important;cursor:default!important;padding:0!important}.wutm-submenu-group-label{display:block!important;margin:10px 10px 3px!important;padding:9px 2px 5px!important;border-top:1px solid rgba(255,255,255,.2)!important;color:#72aee6!important;font-size:11px!important;font-weight:700!important;letter-spacing:.08em!important;line-height:1.2!important}</style>';
 });
 
 add_action('admin_footer', function (): void {
-    echo '<script>document.querySelectorAll("#adminmenu .wp-submenu a[href*=\\"page=wutm-group-\\"]").forEach(function(link){link.setAttribute("aria-disabled","true");link.setAttribute("tabindex","-1");link.addEventListener("click",function(event){event.preventDefault();});});</script>';
+    echo '<script>document.querySelectorAll("#adminmenu .wutm-submenu-group-label").forEach(function(label){var link=label.closest("a");if(!link)return;link.classList.add("wutm-submenu-group-link");link.setAttribute("aria-disabled","true");link.setAttribute("tabindex","-1");link.addEventListener("click",function(event){event.preventDefault();});});</script>';
 });
