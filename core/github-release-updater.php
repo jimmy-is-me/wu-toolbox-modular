@@ -4,7 +4,7 @@ defined('ABSPATH') || exit;
 final class WUTM_GitHub_Release_Updater {
     private const REPOSITORY = 'jimmy-is-me/wu-toolbox-modular';
     private const ASSET_NAME = 'wu-toolbox-modular.zip';
-    private const CACHE_KEY = 'wutm_github_release_v1';
+    private const CACHE_KEY = 'wutm_github_release_v2';
     private const CACHE_TTL = 900;
 
     private string $plugin_basename;
@@ -21,8 +21,14 @@ final class WUTM_GitHub_Release_Updater {
 
     public function inject_update($transient) {
         if (!is_object($transient) || empty($transient->checked) || !isset($transient->checked[$this->plugin_basename])) return $transient;
+        $current_version = self::normalize_version((string) $transient->checked[$this->plugin_basename]) ?: self::normalize_version(WUTM_VERSION);
+        if (isset($transient->response) && is_array($transient->response) && isset($transient->response[$this->plugin_basename])) {
+            $stale_item = $transient->response[$this->plugin_basename];
+            $stale_version = self::normalize_version((string) (is_object($stale_item) ? ($stale_item->new_version ?? '') : (is_array($stale_item) ? ($stale_item['new_version'] ?? '') : '')));
+            if ($stale_version === '' || !version_compare($stale_version, $current_version, '>')) unset($transient->response[$this->plugin_basename]);
+        }
         $release = $this->get_release();
-        if (!$release || !version_compare($release['version'], WUTM_VERSION, '>')) return $transient;
+        if (!$release || !version_compare(self::normalize_version($release['version']), $current_version, '>')) return $transient;
 
         $transient->response = isset($transient->response) && is_array($transient->response) ? $transient->response : [];
         $transient->response[$this->plugin_basename] = (object) [
@@ -48,6 +54,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>2.0.8</h4><ul><li>WU Toolbox 右下角新增「回到最上面」與「聯絡我們」，聯絡訊息由網站後端安全傳送至 Discord。</li><li>Discord Webhook 改由網站管理員首次使用時設定並儲存於資料庫，不會暴露在公開程式碼、頁面或 Release ZIP。</li><li>WU Toolbox 介面優先使用本機 Noto Sans TC 與系統中文字型，不下載外部字型、不增加前台請求。</li><li>更新檢查會正規化版本號並清除小於或等於目前版本的殘留更新項目，修正同版本仍提示更新。</li></ul>
             <h4>2.0.7</h4><ul><li>功能搜尋改為列出全部符合項目，使用者點選結果後才會定位卡片，不再自動跳到第一筆。</li><li>版本標籤新增綠色呼吸狀態燈；頁尾更新 Wumetax 主機管理與網站開發資訊及官方連結。</li><li>子選單分類分隔樣式加強，且只顯示具有已啟用子選單功能的分類。</li><li>外掛清單與更新資訊的作者名稱統一為 Wumetax。</li></ul>
             <h4>2.0.6</h4><ul><li>WU Toolbox 主頁新增功能搜尋列，支援 Enter／搜尋按鈕、名稱優先比對、平滑定位與醒目提示。</li><li>重新設計無圖示的 WU Toolbox 標題區，改善版本標籤、間距、響應式版面與視覺層次。</li><li>通知整理工具現在連錯誤等重要通知也保持收合，仍會顯示重要通知數量。</li><li>WU Toolbox 子選單依模組分類加入分隔標題，並讓銀行轉帳等自訂設定入口排列於正確分類。</li></ul>
             <h4>2.0.5</h4><ul><li>銀行轉帳對帳中心只保留於 WU Toolbox 子選單，移除電商系統下的重複入口。</li><li>完成正式模組的無限迴圈與記憶體風險靜態健檢；使用者匯出改為每批 200 筆串流處理，留言清除改為有進度與次數上限的分批處理。</li><li>ACF 巢狀欄位檢視加入安全深度上限，避免異常循環欄位結構耗盡記憶體。</li></ul>
@@ -296,7 +303,7 @@ final class WUTM_GitHub_Release_Updater {
             return null;
         }
         $data = json_decode(wp_remote_retrieve_body($response), true);
-        $tag = is_array($data) ? ltrim((string) ($data['tag_name'] ?? ''), 'vV') : '';
+        $tag = is_array($data) ? self::normalize_version((string) ($data['tag_name'] ?? '')) : '';
         $asset = null;
         foreach ((array) ($data['assets'] ?? []) as $candidate) {
             if (($candidate['name'] ?? '') === self::ASSET_NAME && !empty($candidate['url'])) {$asset = $candidate; break;}
@@ -311,5 +318,10 @@ final class WUTM_GitHub_Release_Updater {
     }
 
     private function user_agent(): string { return 'WU-Toolbox-Modular/' . WUTM_VERSION . '; ' . home_url('/'); }
+
+    private static function normalize_version(string $version): string {
+        $version = trim($version);
+        return preg_replace('/^[vV]\s*/', '', $version) ?: '';
+    }
 }
 new WUTM_GitHub_Release_Updater(WUTM_FILE);
