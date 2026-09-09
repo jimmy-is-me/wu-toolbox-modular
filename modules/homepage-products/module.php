@@ -24,11 +24,11 @@ function wutm_hp_sanitize($input): array {
     }
     return $clean;
 }
-add_action('admin_init', function (): void { register_setting('wutm_hp_group','wutm_homepage_products',['type'=>'array','sanitize_callback'=>'wutm_hp_sanitize','default'=>wutm_hp_defaults()]); });
-add_action('admin_menu', function (): void { add_submenu_page('wu-toolbox-modular','首頁商品區塊設定','首頁商品區塊設定','manage_options','wu-homepage-products','wutm_hp_admin_page'); });
-add_action('admin_enqueue_scripts', function (): void { if (sanitize_key(wp_unslash($_GET['page'] ?? '')) !== 'wu-homepage-products') return; wp_enqueue_media(); wp_enqueue_style('wp-color-picker'); wp_enqueue_script('wp-color-picker'); wp_add_inline_script('wp-color-picker','jQuery(function($){$(".wutm-hp-color").wpColorPicker();});'); });
+add_action('admin_init', function () { register_setting('wutm_hp_group','wutm_homepage_products',['type'=>'array','sanitize_callback'=>'wutm_hp_sanitize','default'=>wutm_hp_defaults()]); });
+add_action('admin_menu', function () { add_submenu_page('wu-toolbox-modular','首頁商品區塊設定','首頁商品區塊設定','manage_options','wu-homepage-products','wutm_hp_admin_page'); });
+add_action('admin_enqueue_scripts', function () { if (sanitize_key(wp_unslash($_GET['page'] ?? '')) !== 'wu-homepage-products') return; wp_enqueue_media(); wp_enqueue_style('wp-color-picker'); wp_enqueue_script('wp-color-picker'); wp_add_inline_script('wp-color-picker','jQuery(function($){$(".wutm-hp-color").wpColorPicker();});'); });
 
-function wutm_hp_admin_page(): void {
+function wutm_hp_admin_page() {
     if (!current_user_can('manage_options')) return; $o=wutm_hp_options();
     $cats=get_terms(['taxonomy'=>'product_cat','hide_empty'=>false]); if(is_wp_error($cats))$cats=[]; ?>
     <div class="wrap wutm-hp-admin"><style>.wutm-hp-admin{max-width:1080px}.wutm-hp-hero{margin:18px 0;padding:26px 30px;border-radius:16px;background:linear-gradient(135deg,#102844,#245e91);color:#fff}.wutm-hp-hero h1{margin:0 0 8px;color:#fff}.wutm-hp-code{padding:8px 12px;border:1px solid #afd2eb;border-radius:9px;background:#eff8ff;color:#155985;font:600 13px ui-monospace,monospace;cursor:pointer}.wutm-hp-panel{margin:18px 0;padding:22px 26px;border:1px solid #dae3ec;border-radius:14px;background:#fff;box-shadow:0 8px 24px rgba(20,45,75,.06)}.wutm-hp-grid{display:grid;grid-template-columns:repeat(2,minmax(240px,1fr));gap:18px 26px}.wutm-hp-grid label,.wutm-hp-field{font-weight:600}.wutm-hp-grid label>*{display:block;margin-top:7px}.wutm-hp-grid input[type=text],.wutm-hp-grid input[type=url],.wutm-hp-grid input[type=number],.wutm-hp-grid select{width:100%;min-height:40px}.wutm-hp-slide{position:relative;margin:12px 0;padding:16px;border-radius:11px;background:#f6f8fb}.wutm-hp-slide-grid{display:grid;grid-template-columns:1fr auto;gap:8px}.wutm-hp-slide-grid input{width:100%}.wutm-hp-remove{position:absolute;right:12px;top:12px;color:#b32d2e!important}.wutm-hp-admin .button-primary{border-radius:8px;padding-inline:22px}@media(max-width:720px){.wutm-hp-grid{grid-template-columns:1fr}}</style>
