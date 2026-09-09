@@ -26,7 +26,6 @@
                 }).length;
                 panel.querySelector('.wutm-notice-count').textContent = String(notices.length);
                 panel.querySelector('.wutm-notice-important').textContent = errors ? '包含 ' + errors + ' 則重要通知' : '';
-                if (errors && panel.dataset.openImportant === '1') panel.querySelector('details').open = true;
                 panel.classList.toggle('is-visible', notices.length > 0);
             }
             refresh();

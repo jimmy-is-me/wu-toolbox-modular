@@ -26,7 +26,6 @@ final class WUTM_Notice_Center {
     private static function settings(): array {
         return wp_parse_args((array) get_option(self::OPTION, []), [
             'enabled' => true,
-            'open_for_important' => true,
         ]);
     }
 
@@ -54,7 +53,6 @@ final class WUTM_Notice_Center {
         check_admin_referer('wutm_notice_center_save');
         update_option(self::OPTION, [
             'enabled' => !empty($_POST['enabled']),
-            'open_for_important' => !empty($_POST['open_for_important']),
         ], false);
 
         wp_safe_redirect(add_query_arg([
@@ -90,7 +88,6 @@ final class WUTM_Notice_Center {
             return;
         }
 
-        $settings = self::settings();
         wp_register_style('wutm-notice-center', false, [], WUTM_VERSION);
         wp_enqueue_style('wutm-notice-center');
         wp_add_inline_style('wutm-notice-center', '
@@ -112,7 +109,7 @@ final class WUTM_Notice_Center {
             return;
         }
         ?>
-        <section id="wutm-notice-center" class="wutm-notice-center" data-open-important="<?php echo !empty(self::settings()['open_for_important']) ? '1' : '0'; ?>" aria-live="polite">
+        <section id="wutm-notice-center" class="wutm-notice-center" aria-live="polite">
             <details>
                 <summary>
                     <span>通知整理</span>
@@ -153,13 +150,6 @@ final class WUTM_Notice_Center {
                         <td>
                             <label><input type="checkbox" name="enabled" value="1" <?php checked(!empty($settings['enabled'])); ?>> 將後台一般通知集中到「通知整理」面板</label>
                             <p class="description">通知仍可展開閱讀及使用原本的關閉按鈕；本工具不會攔截或刪除通知。</p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <th scope="row">重要通知</th>
-                        <td>
-                            <label><input type="checkbox" name="open_for_important" value="1" <?php checked(!empty($settings['open_for_important'])); ?>> 發現錯誤通知時自動展開面板</label>
-                            <p class="description">建議保持啟用，讓需要處理的錯誤不會被收合。</p>
                         </td>
                     </tr>
                 </tbody></table>

@@ -50,17 +50,32 @@ add_action('admin_menu', function (): void {
         }
     }
 
-    foreach ($groups as $items) {
+    foreach ($groups as $group => $items) {
+        $group_entries = [];
         foreach ($items as $key => $module) {
-            $needle = 'wu-' . $key;
+            $needles = ['wu-' . $key];
+            if (!empty($module['settings_page'])) $needles[] = (string) $module['settings_page'];
+            if (!empty($module['settings_url'])) {
+                $query = wp_parse_url((string) $module['settings_url'], PHP_URL_QUERY);
+                if (is_string($query)) {
+                    $settings_args = [];
+                    parse_str($query, $settings_args);
+                    if (!empty($settings_args['page'])) $needles[] = (string) $settings_args['page'];
+                }
+            }
             foreach ($entries as $index => $entry) {
                 $slug = (string) ($entry[2] ?? '');
-                if (isset($used[$index]) || ($slug !== $needle)) continue;
+                if (isset($used[$index]) || !in_array($slug, $needles, true)) continue;
                 $entry[0] = $module['name'];
-                $ordered[] = $entry;
+                $group_entries[] = $entry;
                 $used[$index] = true;
                 break;
             }
+        }
+        if ($group_entries) {
+            $group_slug = 'wutm-group-' . sanitize_title($group);
+            $ordered[] = ['<span class="wutm-submenu-group-label">' . esc_html($group) . '</span>', 'read', $group_slug];
+            foreach ($group_entries as $entry) $ordered[] = $entry;
         }
     }
 
@@ -81,4 +96,9 @@ add_action('admin_head', function (): void {
         $selectors[] = '#adminmenu .wp-submenu li:has(>a[href="admin.php?page=' . $slug . '"])';
     }
     if ($selectors) echo '<style>' . implode(',', $selectors) . '{display:none!important}</style>';
+    echo '<style>#adminmenu .wp-submenu a[href*="page=wutm-group-"]{pointer-events:none!important;cursor:default!important;margin:9px 10px 3px!important;padding:7px 0 4px!important;border-top:1px solid rgba(255,255,255,.16)!important;color:#72aee6!important;font-size:11px!important;font-weight:700!important;letter-spacing:.08em!important;text-transform:uppercase!important}#adminmenu .wp-submenu li:first-child a[href*="page=wutm-group-"]{margin-top:3px!important;border-top:0!important}</style>';
+});
+
+add_action('admin_footer', function (): void {
+    echo '<script>document.querySelectorAll("#adminmenu .wp-submenu a[href*=\\"page=wutm-group-\\"]").forEach(function(link){link.setAttribute("aria-disabled","true");link.setAttribute("tabindex","-1");link.addEventListener("click",function(event){event.preventDefault();});});</script>';
 });
