@@ -56,7 +56,7 @@ function wutm_render_admin_page(): void {
         <?php endforeach; ?></div></section><?php endforeach; ?>
       <footer class="wutm-footer">此模組由 <a href="https://wumetax.com/" target="_blank" rel="noopener noreferrer">Wumetax</a> 開發與維護 - <a href="https://wumetax.com/" target="_blank" rel="noopener noreferrer">Wumetax</a> 提供主機管理及網站開發</footer>
       <div class="wutm-floating-actions"><button type="button" class="wutm-float-button wutm-back-to-top">回到最上面</button><button type="button" class="wutm-float-button wutm-contact-open">聯絡我們</button></div>
-      <div class="wutm-contact-modal" hidden><div class="wutm-contact-dialog" role="dialog" aria-modal="true" aria-labelledby="wutm-contact-title"><button type="button" class="wutm-contact-close" aria-label="關閉聯絡表單">×</button><h2 id="wutm-contact-title">聯絡我們</h2><p>訊息會由網站後端安全傳送至 Wumetax 的 Discord，不會在瀏覽器公開 Webhook。</p><form class="wutm-contact-form"><label>聯絡人<input type="text" name="contact_name" maxlength="80" value="<?php echo esc_attr(wp_get_current_user()->display_name); ?>" required></label><label>電子郵件<input type="email" name="contact_email" maxlength="190" value="<?php echo esc_attr(wp_get_current_user()->user_email); ?>" required></label><label>訊息<textarea name="message" rows="6" maxlength="1500" required></textarea></label><details class="wutm-webhook-setting"><summary>Discord Webhook 設定</summary><label>Webhook 網址<input type="password" name="webhook_url" autocomplete="new-password" placeholder="<?php echo get_option('wutm_contact_discord_webhook') ? '已設定；留空即可繼續使用' : '第一次使用請貼上 Discord Webhook'; ?>"></label><small>網址只儲存在此網站資料庫，不會輸出到頁面或公開 Release。</small></details><button type="submit" class="button button-primary">傳送訊息</button><span class="wutm-contact-status" aria-live="polite"></span></form></div></div>
+      <div class="wutm-contact-modal" hidden><div class="wutm-contact-dialog" role="dialog" aria-modal="true" aria-labelledby="wutm-contact-title"><button type="button" class="wutm-contact-close" aria-label="關閉聯絡表單">×</button><h2 id="wutm-contact-title">聯絡我們</h2><p>訊息會由網站後端安全傳送至 Wumetax 的 Discord；Webhook 不會顯示在瀏覽器，也無法由管理員變更。</p><form class="wutm-contact-form"><label>聯絡人<input type="text" name="contact_name" maxlength="80" value="<?php echo esc_attr(wp_get_current_user()->display_name); ?>" required></label><label>電子郵件<input type="email" name="contact_email" maxlength="190" value="<?php echo esc_attr(wp_get_current_user()->user_email); ?>" required></label><label>訊息<textarea name="message" rows="6" maxlength="1500" required></textarea></label><button type="submit" class="button button-primary">傳送訊息</button><span class="wutm-contact-status" aria-live="polite"></span></form></div></div>
     </div>
     <script>
     (function(){
@@ -89,7 +89,7 @@ function wutm_render_admin_page(): void {
         if(topButton)topButton.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'});});
         function setModal(open){if(!modal)return;modal.hidden=!open;document.body.classList.toggle('wutm-modal-open',open);if(open){const first=modal.querySelector('input,textarea,button');if(first)first.focus();}}
         if(openButton)openButton.addEventListener('click',function(){setModal(true);});if(closeButton)closeButton.addEventListener('click',function(){setModal(false);});if(modal)modal.addEventListener('click',function(e){if(e.target===modal)setModal(false);});document.addEventListener('keydown',function(e){if(e.key==='Escape'&&modal&&!modal.hidden)setModal(false);});
-        if(form&&status)form.addEventListener('submit',function(e){e.preventDefault();const submit=form.querySelector('[type=submit]');submit.disabled=true;status.textContent='傳送中…';const data=new FormData(form);data.append('action','wutm_send_contact');data.append('nonce','<?php echo esc_js(wp_create_nonce('wutm_send_contact')); ?>');fetch(ajaxurl,{method:'POST',body:data,credentials:'same-origin'}).then(function(response){return response.json();}).then(function(response){if(!response.success)throw new Error(response.data&&response.data.message?response.data.message:'傳送失敗');status.textContent='訊息已成功送出。';form.querySelector('textarea').value='';form.querySelector('[name=webhook_url]').value='';}).catch(function(error){status.textContent=error.message||'傳送失敗，請稍後再試。';}).finally(function(){submit.disabled=false;});});
+        if(form&&status)form.addEventListener('submit',function(e){e.preventDefault();const submit=form.querySelector('[type=submit]');submit.disabled=true;status.textContent='傳送中…';const data=new FormData(form);data.append('action','wutm_send_contact');data.append('nonce','<?php echo esc_js(wp_create_nonce('wutm_send_contact')); ?>');fetch(ajaxurl,{method:'POST',body:data,credentials:'same-origin'}).then(function(response){return response.json();}).then(function(response){if(!response.success)throw new Error(response.data&&response.data.message?response.data.message:'傳送失敗');status.textContent='訊息已成功送出。';form.querySelector('textarea').value='';}).catch(function(error){status.textContent=error.message||'傳送失敗，請稍後再試。';}).finally(function(){submit.disabled=false;});});
     }());
     </script>
     <?php
@@ -103,6 +103,17 @@ function wutm_valid_discord_webhook(string $url): bool {
     return (bool) preg_match('#^/api/webhooks/[0-9]+/[A-Za-z0-9._-]+/?$#', (string) ($parts['path'] ?? ''));
 }
 
+function wutm_contact_discord_webhook(): string {
+    $webhook = defined('WUTM_CONTACT_DISCORD_WEBHOOK') ? WUTM_CONTACT_DISCORD_WEBHOOK : getenv('WUTM_CONTACT_DISCORD_WEBHOOK');
+    return is_string($webhook) ? trim($webhook) : '';
+}
+
+add_action('admin_init', function (): void {
+    if (get_option('wutm_contact_webhook_cleanup_209')) return;
+    delete_option('wutm_contact_discord_webhook');
+    update_option('wutm_contact_webhook_cleanup_209', 1, false);
+});
+
 add_action('wp_ajax_wutm_send_contact', function (): void {
     check_ajax_referer('wutm_send_contact', 'nonce');
     if (!current_user_can('manage_options')) wp_send_json_error(['message' => '權限不足。'], 403);
@@ -114,9 +125,8 @@ add_action('wp_ajax_wutm_send_contact', function (): void {
     $message = sanitize_textarea_field(wp_unslash($_POST['message'] ?? ''));
     if ($name === '' || !is_email($email) || $message === '') wp_send_json_error(['message' => '請完整填寫聯絡人、電子郵件與訊息。'], 400);
 
-    $submitted_webhook = esc_url_raw(wp_unslash($_POST['webhook_url'] ?? ''));
-    $webhook = $submitted_webhook !== '' ? $submitted_webhook : (string) get_option('wutm_contact_discord_webhook', '');
-    if (!wutm_valid_discord_webhook($webhook)) wp_send_json_error(['message' => '請先輸入有效的 Discord Webhook 網址。'], 400);
+    $webhook = wutm_contact_discord_webhook();
+    if (!wutm_valid_discord_webhook($webhook)) wp_send_json_error(['message' => '伺服器尚未設定聯絡用 Discord Webhook。'], 503);
 
     $message = function_exists('mb_substr') ? mb_substr($message, 0, 1500) : substr($message, 0, 1500);
     $safe_message = str_replace(['@everyone', '@here'], ['＠everyone', '＠here'], $message);
@@ -129,7 +139,6 @@ add_action('wp_ajax_wutm_send_contact', function (): void {
     if (is_wp_error($response) || !in_array(wp_remote_retrieve_response_code($response), [200, 204], true)) {
         wp_send_json_error(['message' => 'Discord 暫時無法接收訊息，請稍後再試。'], 502);
     }
-    if ($submitted_webhook !== '') update_option('wutm_contact_discord_webhook', $submitted_webhook, false);
     set_transient($rate_key, 1, MINUTE_IN_SECONDS);
     wp_send_json_success(['message' => '訊息已成功送出。']);
 });

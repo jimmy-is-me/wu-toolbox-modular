@@ -37,25 +37,31 @@ function wu_captcha_generate_token($code, $timestamp) {
 	return base64_encode($payload . '|' . $mac);
 }
 
+function wu_captcha_decode_token($token) {
+	$decoded = base64_decode((string) $token, true);
+	if (!$decoded) return false;
+
+	list($code, $ts, $mac) = array_pad(explode('|', $decoded, 3), 3, null);
+	if (!$code || !$ts || !$mac || !ctype_digit((string) $ts)) return false;
+	if (!preg_match('/^[A-Za-z0-9]{3,8}$/', $code)) return false;
+
+	$expected = hash_hmac('sha256', $code . '|' . $ts, wu_captcha_secret_key());
+	if (!hash_equals($expected, $mac)) return false;
+
+	return array('code' => $code, 'timestamp' => (int) $ts);
+}
+
 function wu_captcha_validate_token($token, $user_input) {
 	if (empty($token) || empty($user_input)) {
 		return new WP_Error('wu_captcha_missing', '請輸入驗證碼');
 	}
 	
-	$decoded = base64_decode($token);
-	if (!$decoded || strpos($decoded, '|') === false) {
+	$payload = wu_captcha_decode_token($token);
+	if (!$payload) {
 		return new WP_Error('wu_captcha_invalid', '驗證碼無效');
 	}
-	
-	list($code, $ts, $mac) = array_pad(explode('|', $decoded, 3), 3, null);
-	if (!$code || !$ts || !$mac) {
-		return new WP_Error('wu_captcha_invalid', '驗證碼格式錯誤');
-	}
-	
-	$expected = hash_hmac('sha256', $code . '|' . $ts, wu_captcha_secret_key());
-	if (!hash_equals($expected, $mac)) {
-		return new WP_Error('wu_captcha_invalid', '驗證碼錯誤');
-	}
+	$code = $payload['code'];
+	$ts = $payload['timestamp'];
 	
 	if (abs(time() - (int)$ts) > 600) {
 		return new WP_Error('wu_captcha_expired', '驗證碼已過期,請重新整理');
@@ -76,8 +82,8 @@ function wu_captcha_validate_token($token, $user_input) {
 }
 
 function wu_captcha_get_charset() {
-	$type = get_option('wu_captcha_type', 'alnum');
-	$case = get_option('wu_captcha_case', 'mixed');
+	$type = get_option('wu_captcha_type', 'numeric');
+	$case = get_option('wu_captcha_case', 'lower');
 	$letters = 'abcdefghijklmnopqrstuvwxyz';
 	$digits = '0123456789';
 	
@@ -94,7 +100,7 @@ function wu_captcha_get_charset() {
 	return $letters . $digits;
 }
 
-function wu_captcha_generate_code($length = 5) {
+function wu_captcha_generate_code($length = 4) {
 	$charset = wu_captcha_get_charset();
 	$len = max(3, min(8, intval(get_option('wu_captcha_length', $length))));
 	$code = '';
@@ -123,6 +129,14 @@ function wu_captcha_render_image_from_code($code) {
 	$char_count = strlen($code);
 	$width = max(200, 35 * $char_count + 40);
 	$height = 70;
+	if (!function_exists('imagecreatetruecolor')) {
+		header('Content-Type: image/svg+xml; charset=UTF-8');
+		header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
+		header('X-Robots-Tag: noindex, nofollow');
+		$safe_code = esc_html($code);
+		echo '<svg xmlns="http://www.w3.org/2000/svg" width="' . (int) $width . '" height="70" viewBox="0 0 ' . (int) $width . ' 70"><rect width="100%" height="100%" rx="10" fill="#f8fafc"/><path d="M0 18L' . (int) $width . ' 52M0 55L' . (int) $width . ' 12" stroke="#cbd5e1"/><text x="50%" y="46" text-anchor="middle" font-family="monospace" font-size="30" font-weight="700" letter-spacing="12" fill="#172033">' . $safe_code . '</text></svg>';
+		exit;
+	}
 	
 	$img = imagecreatetruecolor($width, $height);
 	$bg = imagecolorallocate($img, 255, 255, 255);
@@ -166,7 +180,6 @@ function wu_captcha_render_image_from_code($code) {
 		}
 	}
 	
-	header('Access-Control-Allow-Origin: *');
 	header('Content-Type: image/png');
 	header('Cache-Control: private, no-store, no-cache, must-revalidate, max-age=0');
 	header('Pragma: no-cache');
@@ -181,32 +194,16 @@ add_action('template_redirect', function() {
 	if (!isset($_GET['wu_captcha']) || !isset($_GET['token'])) return;
 	
 	$token = sanitize_text_field(wp_unslash($_GET['token']));
-	$decoded = base64_decode($token);
-	if (!$decoded) exit;
+	$payload = wu_captcha_decode_token($token);
+	if (!$payload || abs(time() - $payload['timestamp']) > 600) {
+		status_header(404);
+		exit;
+	}
 	
-	list($code) = array_pad(explode('|', $decoded, 2), 2, null);
-	$code = preg_replace('/[^A-Za-z0-9]/', '', (string)$code);
-	if (!$code) exit;
-	
-	wu_captcha_render_image_from_code($code);
+	wu_captcha_render_image_from_code($payload['code']);
 });
 
 // ===== Directory Security =====
-
-function wu_captcha_secure_fonts_directory() {
-	$fonts_dir = WP_CONTENT_DIR . '/plugins/wu-toolbox-main/includes/fonts';
-	
-	if (!file_exists($fonts_dir)) {
-		wp_mkdir_p($fonts_dir);
-	}
-	
-	$htaccess_file = $fonts_dir . '/.htaccess';
-	if (!file_exists($htaccess_file)) {
-		$htaccess_content = "Order Deny,Allow\nDeny from all\n";
-		file_put_contents($htaccess_file, $htaccess_content);
-	}
-}
-add_action('admin_init', 'wu_captcha_secure_fonts_directory');
 
 // ===== Render Field =====
 
@@ -218,26 +215,28 @@ function wu_captcha_render_field($context = 'default') {
 	$token = wu_captcha_generate_token($code, $ts);
 	$img_url = esc_url(add_query_arg(array('wu_captcha' => 1, 'token' => $token), home_url('/')));
 	$unique_id = 'wu_captcha_' . wp_rand(1000, 9999);
+	$numeric_mode = get_option('wu_captcha_type', 'numeric') === 'numeric';
+	$input_hint = $numeric_mode
+		? sprintf('輸入上方 %d 位數字', strlen($code))
+		: sprintf('輸入上方 %d 個字元', strlen($code));
 	
 	?>
-	<div class="wu-captcha-field" data-captcha-id="<?php echo esc_attr($unique_id); ?>" style="margin-top:16px;margin-bottom:16px;clear:both;">
-		<label for="<?php echo esc_attr($unique_id); ?>_input" style="display:block;font-weight:600;margin-bottom:10px;color:#333;">
+	<div class="wu-captcha-field" data-captcha-id="<?php echo esc_attr($unique_id); ?>">
+		<label for="<?php echo esc_attr($unique_id); ?>_input">
 			人機驗證 <span style="color:#d63638;">*</span>
 		</label>
 		
-		<div style="margin-bottom:10px;">
-			<div class="wu-captcha-wrapper" style="position:relative;display:inline-block;max-width:100%;">
+		<div class="wu-captcha-challenge">
+			<div class="wu-captcha-wrapper">
 				<img id="<?php echo esc_attr($unique_id); ?>_img" 
 				     src="<?php echo $img_url; ?>" 
-				     alt="CAPTCHA" 
-				     style="display:block;border:2px solid #ddd;padding:8px;background:#fff;max-width:100%;height:auto;border-radius:4px;">
+				     alt="人機驗證碼">
 			</div>
 			<button type="button" 
 			        class="wu-captcha-refresh-btn" 
 			        data-captcha-id="<?php echo esc_js($unique_id); ?>"
-			        style="display:inline-block;margin-top:8px;background:#0073aa;color:#fff;border:none;padding:8px 14px;cursor:pointer;border-radius:4px;font-size:13px;"
 			        title="重新整理驗證碼">
-				重新整理
+				<span aria-hidden="true">↻</span> 重新整理
 			</button>
 		</div>
 		
@@ -246,16 +245,18 @@ function wu_captcha_render_field($context = 'default') {
 			       id="<?php echo esc_attr($unique_id); ?>_input" 
 			       name="wu_captcha_input"
 			       autocomplete="off" 
-			       placeholder="請輸入驗證碼" 
-			       <?php if ($context !== 'preview'): ?>required<?php endif; ?>
-			       style="width:100%;max-width:300px;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:14px;">
+			       placeholder="<?php echo esc_attr($input_hint); ?>"
+			       inputmode="<?php echo $numeric_mode ? 'numeric' : 'text'; ?>"
+			       <?php if ($numeric_mode): ?>pattern="[0-9]*"<?php endif; ?>
+			       maxlength="8"
+			       <?php if ($context !== 'preview'): ?>required<?php endif; ?>>
 			<input type="hidden" 
 			       id="<?php echo esc_attr($unique_id); ?>_token" 
 			       name="wu_captcha_token"
 			       value="<?php echo esc_attr($token); ?>">
 		</div>
-		<small style="display:block;color:#666;margin-top:6px;font-size:12px;">
-			此驗證碼符合 GDPR 規範
+		<small>
+			本站本機產生，不會將資料傳送給第三方
 		</small>
 	</div>
 	<?php
@@ -339,8 +340,6 @@ add_action('wp_ajax_wu_captcha_refresh', 'wu_captcha_ajax_refresh');
 add_action('wp_ajax_nopriv_wu_captcha_refresh', 'wu_captcha_ajax_refresh');
 
 function wu_captcha_ajax_refresh() {
-	header('Access-Control-Allow-Origin: *');
-	
 	$code = wu_captcha_generate_code();
 	$ts = time();
 	$token = wu_captcha_generate_token($code, $ts);
@@ -366,18 +365,25 @@ add_action('wp_head', function() {
 	if (!get_option('wu_captcha_enabled', 0)) return;
 	?>
 	<style>
-	.wu-captcha-field{clear:both;margin:16px 0}
-	.wu-captcha-field label{display:block;font-weight:600;margin-bottom:10px;color:#333}
-	.wu-captcha-wrapper{position:relative;display:inline-block;max-width:100%}
-	.wu-captcha-wrapper img{display:block;max-width:100%;height:auto;border:2px solid #ddd;border-radius:4px;padding:8px;background:#fff}
-	.wu-captcha-refresh-btn{display:inline-block;margin-top:8px;background:#0073aa;color:#fff;border:none;padding:8px 14px;cursor:pointer;border-radius:4px;font-size:13px;transition:background .2s}
-	.wu-captcha-refresh-btn:hover:not(:disabled){background:#005177}
+	.wu-captcha-field{clear:both;margin:18px 0;padding:16px;border:1px solid #dbe4ef;border-radius:12px;background:linear-gradient(145deg,#fff,#f6f9fc);box-shadow:0 6px 20px rgba(15,35,60,.06);box-sizing:border-box}
+	.wu-captcha-field label{display:block;font-weight:700;margin-bottom:11px;color:#172033}
+	.wu-captcha-challenge{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+	.wu-captcha-wrapper{display:inline-block;max-width:100%;padding:5px;border:1px solid #d7e0ea;border-radius:10px;background:#fff}
+	.wu-captcha-wrapper img{display:block;max-width:100%;height:auto;border:0;border-radius:7px;background:#fff}
+	.wu-captcha-refresh-btn{display:inline-flex;align-items:center;gap:5px;min-height:42px;background:#1677b8;color:#fff;border:0;padding:9px 14px;cursor:pointer;border-radius:9px;font-size:14px;font-weight:600;transition:background .2s,transform .2s}
+	.wu-captcha-refresh-btn:hover:not(:disabled){background:#105f94;transform:translateY(-1px)}
 	.wu-captcha-refresh-btn:disabled{opacity:.6;cursor:not-allowed}
-	.wu-captcha-field input[type="text"]{width:100%;max-width:300px;padding:10px;border:1px solid #ddd;border-radius:4px;font-size:14px;box-sizing:border-box}
+	.wu-captcha-field input[type="text"]{width:100%;max-width:320px;padding:12px 14px;border:1px solid #cbd5e1;border-radius:9px;font-size:16px;letter-spacing:.08em;box-sizing:border-box;background:#fff}
+	.wu-captcha-field input[type="text"]:focus{border-color:#1677b8;box-shadow:0 0 0 3px rgba(22,119,184,.14);outline:0}
+	.wu-captcha-field small{display:block;color:#64748b;margin-top:8px;font-size:12px}
 	@media (max-width:768px){.wu-captcha-field input[type="text"]{max-width:100%}}
 	</style>
 	<?php
 }, 1);
+add_action('login_head', function() {
+	if (!get_option('wu_captcha_enabled', 0)) return;
+	echo '<style>.wu-captcha-field{clear:both;margin:18px 0;padding:14px;border:1px solid #dbe4ef;border-radius:12px;background:#f8fafc}.wu-captcha-field label{display:block;font-weight:700;margin-bottom:10px}.wu-captcha-challenge{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}.wu-captcha-wrapper{padding:4px;border:1px solid #d7e0ea;border-radius:9px;background:#fff}.wu-captcha-wrapper img{display:block;max-width:100%;height:auto;border-radius:6px}.wu-captcha-refresh-btn{min-height:40px;padding:8px 12px;border:0;border-radius:8px;background:#1677b8;color:#fff;font-weight:600;cursor:pointer}.wu-captcha-field input[type=text]{box-sizing:border-box;width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:8px;font-size:16px}.wu-captcha-field small{display:block;margin-top:7px;color:#64748b}</style>';
+}, 20);
 
 // ===== Standard Forms Integration =====
 
@@ -395,6 +401,9 @@ add_action('comment_form_logged_in_after', 'wu_captcha_render_field');
 function wu_captcha_validate_login($user) {
 	if (is_wp_error($user)) return $user;
 	if (!get_option('wu_captcha_enabled', 0)) return $user;
+	if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') return $user;
+	if (($GLOBALS['pagenow'] ?? '') !== 'wp-login.php') return $user;
+	if (isset($_POST['woocommerce-login-nonce'])) return $user;
 	
 	$token = isset($_POST['wu_captcha_token']) ? sanitize_text_field(wp_unslash($_POST['wu_captcha_token'])) : '';
 	$input = isset($_POST['wu_captcha_input']) ? sanitize_text_field(wp_unslash($_POST['wu_captcha_input'])) : '';
@@ -407,6 +416,8 @@ add_filter('authenticate', 'wu_captcha_validate_login', 30, 1);
 
 function wu_captcha_validate_registration($errors, $sanitized_user_login, $user_email) {
 	if (!get_option('wu_captcha_enabled', 0)) return $errors;
+	if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') return $errors;
+	if (isset($_POST['woocommerce-register-nonce'])) return $errors;
 	
 	$token = isset($_POST['wu_captcha_token']) ? sanitize_text_field(wp_unslash($_POST['wu_captcha_token'])) : '';
 	$input = isset($_POST['wu_captcha_input']) ? sanitize_text_field(wp_unslash($_POST['wu_captcha_input'])) : '';
@@ -421,6 +432,7 @@ add_filter('registration_errors', 'wu_captcha_validate_registration', 30, 3);
 
 function wu_captcha_validate_lostpassword($errors) {
 	if (!get_option('wu_captcha_enabled', 0)) return $errors;
+	if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') return $errors;
 	
 	$token = isset($_POST['wu_captcha_token']) ? sanitize_text_field(wp_unslash($_POST['wu_captcha_token'])) : '';
 	$input = isset($_POST['wu_captcha_input']) ? sanitize_text_field(wp_unslash($_POST['wu_captcha_input'])) : '';
@@ -435,6 +447,8 @@ add_filter('lostpassword_errors', 'wu_captcha_validate_lostpassword');
 
 add_filter('preprocess_comment', function($commentdata) {
 	if (!get_option('wu_captcha_enabled', 0)) return $commentdata;
+	if (is_admin() || (defined('REST_REQUEST') && REST_REQUEST)) return $commentdata;
+	if (strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? '')) !== 'POST') return $commentdata;
 	
 	$token = isset($_POST['wu_captcha_token']) ? sanitize_text_field(wp_unslash($_POST['wu_captcha_token'])) : '';
 	$input = isset($_POST['wu_captcha_input']) ? sanitize_text_field(wp_unslash($_POST['wu_captcha_input'])) : '';
@@ -448,6 +462,7 @@ add_filter('preprocess_comment', function($commentdata) {
 
 function wu_captcha_validate_wc_login($error, $user) {
 	if (!get_option('wu_captcha_enabled', 0)) return $error;
+	if (!isset($_POST['woocommerce-login-nonce'])) return $error;
 	
 	$token = isset($_POST['wu_captcha_token']) ? sanitize_text_field(wp_unslash($_POST['wu_captcha_token'])) : '';
 	$input = isset($_POST['wu_captcha_input']) ? sanitize_text_field(wp_unslash($_POST['wu_captcha_input'])) : '';
@@ -462,6 +477,7 @@ add_filter('woocommerce_process_login_errors', 'wu_captcha_validate_wc_login', 3
 
 function wu_captcha_validate_wc_registration($errors, $username, $password, $email) {
 	if (!get_option('wu_captcha_enabled', 0)) return $errors;
+	if (!isset($_POST['woocommerce-register-nonce'])) return $errors;
 	
 	$token = isset($_POST['wu_captcha_token']) ? sanitize_text_field(wp_unslash($_POST['wu_captcha_token'])) : '';
 	$input = isset($_POST['wu_captcha_input']) ? sanitize_text_field(wp_unslash($_POST['wu_captcha_input'])) : '';
@@ -509,10 +525,17 @@ add_action('fluentform/before_insert_submission', function($insertData, $data, $
 
 add_action('admin_init', function() {
 	add_option('wu_captcha_enabled', 0);
-	add_option('wu_captcha_type', 'alnum');
-	add_option('wu_captcha_case', 'mixed');
-	add_option('wu_captcha_length', 5);
+	add_option('wu_captcha_type', 'numeric');
+	add_option('wu_captcha_case', 'lower');
+	add_option('wu_captcha_length', 4);
 	add_option('wu_captcha_fluent_forms', 1);
+
+	if (!get_option('wu_captcha_defaults_migrated_209')) {
+		if (get_option('wu_captcha_type', 'alnum') === 'alnum') update_option('wu_captcha_type', 'numeric');
+		if (get_option('wu_captcha_case', 'mixed') === 'mixed') update_option('wu_captcha_case', 'lower');
+		if ((int) get_option('wu_captcha_length', 5) === 5) update_option('wu_captcha_length', 4);
+		update_option('wu_captcha_defaults_migrated_209', 1, false);
+	}
 });
 
 add_action('admin_menu', function() {
@@ -536,20 +559,23 @@ add_action('admin_post_wu_captcha_reset_key', function() {
 	wu_captcha_secret_key();
 	
 	wp_redirect(add_query_arg(array(
-		'page' => 'wu-captcha-settings',
+		'page' => 'wu-captcha',
 		'key_reset' => '1'
 	), admin_url('admin.php')));
 	exit;
 });
 
 function wu_captcha_settings_page() {
+	if (!current_user_can('manage_options')) wp_die('權限不足');
 	if (isset($_POST['submit'])) {
 		check_admin_referer('wu_captcha_settings');
 		update_option('wu_captcha_enabled', isset($_POST['wu_captcha_enabled']) ? 1 : 0);
 		update_option('wu_captcha_fluent_forms', isset($_POST['wu_captcha_fluent_forms']) ? 1 : 0);
-		update_option('wu_captcha_type', in_array($_POST['wu_captcha_type'] ?? 'alnum', array('alnum', 'alpha', 'numeric'), true) ? sanitize_text_field($_POST['wu_captcha_type']) : 'alnum');
-		update_option('wu_captcha_case', in_array($_POST['wu_captcha_case'] ?? 'mixed', array('upper', 'lower', 'mixed'), true) ? sanitize_text_field($_POST['wu_captcha_case']) : 'mixed');
-		$len = max(3, min(8, intval($_POST['wu_captcha_length'] ?? 5)));
+		$type = sanitize_key(wp_unslash($_POST['wu_captcha_type'] ?? 'numeric'));
+		$case = sanitize_key(wp_unslash($_POST['wu_captcha_case'] ?? 'lower'));
+		update_option('wu_captcha_type', in_array($type, array('alnum', 'alpha', 'numeric'), true) ? $type : 'numeric');
+		update_option('wu_captcha_case', in_array($case, array('upper', 'lower', 'mixed'), true) ? $case : 'lower');
+		$len = max(3, min(8, intval($_POST['wu_captcha_length'] ?? 4)));
 		update_option('wu_captcha_length', $len);
 		echo '<div class="notice notice-success is-dismissible"><p><strong>✅ 設定已儲存。</strong></p></div>';
 	}
@@ -561,7 +587,8 @@ function wu_captcha_settings_page() {
 	$fluent_active = defined('FLUENTFORM');
 	
 	?>
-	<div class="wrap">
+	<div class="wrap wu-captcha-admin">
+		<style>.wu-captcha-admin{max-width:1080px}.wu-captcha-admin>h1{padding:18px 22px;margin:18px 0;border-radius:14px;background:linear-gradient(135deg,#092542,#18558e);color:#fff}.wu-captcha-admin .notice-info{border:0;border-left:4px solid #2c8bc7;border-radius:10px;background:#eef7fd}.wu-captcha-admin form,.wu-captcha-admin>div[style*="background:#fff"]{border-color:#dbe4ef!important;border-radius:12px!important;box-shadow:0 6px 22px rgba(15,35,60,.06)}.wu-captcha-admin .form-table th{padding-left:8px}.wu-captcha-admin select,.wu-captcha-admin input[type=number]{min-height:40px;border-radius:7px}.wu-captcha-admin .button-primary{border-radius:8px;padding-inline:20px}.wu-captcha-admin hr{border:0;border-top:1px solid #dbe4ef}</style>
 		<h1>🔐 驗證碼設定</h1>
 		
 		<div class="notice notice-info" style="padding:15px;">
@@ -616,13 +643,13 @@ function wu_captcha_settings_page() {
 					<th scope="row"><label for="wu_captcha_type">驗證碼類型</label></th>
 					<td>
 						<select id="wu_captcha_type" name="wu_captcha_type" style="min-width:200px;">
-							<?php foreach (array('alnum' => '英數混合 (建議)', 'alpha' => '僅英文字母', 'numeric' => '僅數字') as $k => $label): ?>
-								<option value="<?php echo esc_attr($k); ?>" <?php selected(get_option('wu_captcha_type', 'alnum'), $k); ?>>
+							<?php foreach (array('numeric' => '僅數字（預設）', 'alpha' => '僅英文字母', 'alnum' => '英數混合') as $k => $label): ?>
+								<option value="<?php echo esc_attr($k); ?>" <?php selected(get_option('wu_captcha_type', 'numeric'), $k); ?>>
 									<?php echo esc_html($label); ?>
 								</option>
 							<?php endforeach; ?>
 						</select>
-						<p class="description">英數混合提供較高安全性</p>
+						<p class="description">預設使用容易辨識的純數字驗證碼。</p>
 					</td>
 				</tr>
 				
@@ -630,8 +657,8 @@ function wu_captcha_settings_page() {
 					<th scope="row"><label for="wu_captcha_case">大小寫設定</label></th>
 					<td>
 						<select id="wu_captcha_case" name="wu_captcha_case" style="min-width:200px;">
-							<?php foreach (array('mixed' => '大小寫混合 (建議)', 'upper' => '僅大寫', 'lower' => '僅小寫') as $k => $label): ?>
-								<option value="<?php echo esc_attr($k); ?>" <?php selected(get_option('wu_captcha_case', 'mixed'), $k); ?>>
+							<?php foreach (array('lower' => '僅小寫（預設）', 'upper' => '僅大寫', 'mixed' => '大小寫混合') as $k => $label): ?>
+								<option value="<?php echo esc_attr($k); ?>" <?php selected(get_option('wu_captcha_case', 'lower'), $k); ?>>
 									<?php echo esc_html($label); ?>
 								</option>
 							<?php endforeach; ?>
@@ -643,8 +670,8 @@ function wu_captcha_settings_page() {
 				<tr>
 					<th scope="row"><label for="wu_captcha_length">字元長度</label></th>
 					<td>
-						<input type="number" id="wu_captcha_length" name="wu_captcha_length" min="3" max="8" value="<?php echo intval(get_option('wu_captcha_length', 5)); ?>" style="width:80px;">
-						<span class="description">字元 (3-8 個,建議 5-6 個)</span>
+						<input type="number" id="wu_captcha_length" name="wu_captcha_length" min="3" max="8" value="<?php echo intval(get_option('wu_captcha_length', 4)); ?>" style="width:80px;">
+						<span class="description">字元（3–8 個，預設 4 個）</span>
 					</td>
 				</tr>
 			</table>

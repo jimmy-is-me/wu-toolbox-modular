@@ -54,7 +54,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
-            <h4>2.0.8</h4><ul><li>WU Toolbox 右下角新增「回到最上面」與「聯絡我們」，聯絡訊息由網站後端安全傳送至 Discord。</li><li>Discord Webhook 改由網站管理員首次使用時設定並儲存於資料庫，不會暴露在公開程式碼、頁面或 Release ZIP。</li><li>WU Toolbox 介面優先使用本機 Noto Sans TC 與系統中文字型，不下載外部字型、不增加前台請求。</li><li>更新檢查會正規化版本號並清除小於或等於目前版本的殘留更新項目，修正同版本仍提示更新。</li></ul>
+            <h4>2.0.9</h4><ul><li>聯絡表單移除可編輯的 Webhook 欄位，改為只讀取伺服器端常數或環境變數，並清除舊版留存的 Webhook 選項。</li><li>驗證碼預設改為 4 位純數字；英文字母模式預設僅小寫。</li><li>修正 WordPress 與 WooCommerce 登入驗證重複執行造成 token 被誤判已使用，並避免程式登入、後台留言與 REST 流程被 CAPTCHA 攔截。</li><li>強化 CAPTCHA token 圖片簽章檢查、無 GD 環境備援，以及前台與設定頁視覺。</li></ul>
             <h4>2.0.7</h4><ul><li>功能搜尋改為列出全部符合項目，使用者點選結果後才會定位卡片，不再自動跳到第一筆。</li><li>版本標籤新增綠色呼吸狀態燈；頁尾更新 Wumetax 主機管理與網站開發資訊及官方連結。</li><li>子選單分類分隔樣式加強，且只顯示具有已啟用子選單功能的分類。</li><li>外掛清單與更新資訊的作者名稱統一為 Wumetax。</li></ul>
             <h4>2.0.6</h4><ul><li>WU Toolbox 主頁新增功能搜尋列，支援 Enter／搜尋按鈕、名稱優先比對、平滑定位與醒目提示。</li><li>重新設計無圖示的 WU Toolbox 標題區，改善版本標籤、間距、響應式版面與視覺層次。</li><li>通知整理工具現在連錯誤等重要通知也保持收合，仍會顯示重要通知數量。</li><li>WU Toolbox 子選單依模組分類加入分隔標題，並讓銀行轉帳等自訂設定入口排列於正確分類。</li></ul>
             <h4>2.0.5</h4><ul><li>銀行轉帳對帳中心只保留於 WU Toolbox 子選單，移除電商系統下的重複入口。</li><li>完成正式模組的無限迴圈與記憶體風險靜態健檢；使用者匯出改為每批 200 筆串流處理，留言清除改為有進度與次數上限的分批處理。</li><li>ACF 巢狀欄位檢視加入安全深度上限，避免異常循環欄位結構耗盡記憶體。</li></ul>
