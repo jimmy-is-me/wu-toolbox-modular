@@ -47,7 +47,7 @@ function wutm_modules(): array {
         'wpcode' => ['name' => 'WPCode', 'description' => '快速安裝與啟用官方 WPCode 外掛。', 'group' => '代碼注入', 'icon' => '💻', 'tag' => '第三方外掛', 'settings_page' => 'wu-wpcode'],
         'head-footer-code' => ['name' => 'Header/Footer 代碼', 'description' => '插入自訂 HTML、JS 或 CSS。', 'group' => '代碼注入', 'icon' => '💻'],
         'homepage-products' => ['name' => '首頁商品區塊設定', 'description' => '以短代碼顯示輪播圖、中間內容與可篩選的 WooCommerce 商品網格。', 'group' => '短代碼注入', 'icon' => '🏠', 'requires' => 'woocommerce', 'settings_page' => 'wu-homepage-products'],
-        'faq-shortcode' => ['name' => 'FAQ', 'description' => '建立可展開的常見問題清單，並透過短代碼插入頁面。', 'group' => '短代碼注入', 'icon' => '❓', 'settings_page' => 'wu-faq-shortcode'],
+        'faq-shortcode' => ['name' => '常見問題設定', 'description' => '建立可展開的常見問題清單，並透過短代碼插入頁面。', 'group' => '短代碼注入', 'icon' => '❓', 'settings_page' => 'wu-faq-shortcode'],
         'refund-policy' => ['name' => '退換貨政策', 'description' => '管理退換貨條款並以美觀卡片短代碼顯示。', 'group' => '短代碼注入', 'icon' => '🔄', 'settings_page' => 'wu-refund-policy'],
         'privacy-policy' => ['name' => '隱私權政策', 'description' => '管理隱私權前言與條款，並透過短代碼插入頁面。', 'group' => '短代碼注入', 'icon' => '🔐', 'settings_page' => 'wu-privacy-policy'],
         'product-category-menu' => ['name' => '商品分類選單', 'description' => '以手風琴短代碼顯示 WooCommerce 多層商品分類。', 'group' => '短代碼注入', 'icon' => '🗂️', 'requires' => 'woocommerce', 'settings_page' => 'wu-product-category-menu'],
