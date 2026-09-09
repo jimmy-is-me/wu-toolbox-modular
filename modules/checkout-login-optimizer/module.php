@@ -13,7 +13,6 @@ final class WUTM_Checkout_Login_Optimizer {
         $this->options = wp_parse_args((array) get_option(self::OPTION, array()), array(
             'expand_login' => true,
             'login_message' => '已有會員帳號？請直接輸入帳號密碼登入',
-            'required_message' => '完成結帳前請先登入會員帳號。',
             'password_label' => '設定會員密碼',
             'password_placeholder' => '請設定您的登入密碼',
             'admin_hints' => true,
@@ -50,7 +49,6 @@ final class WUTM_Checkout_Login_Optimizer {
         return array(
             'expand_login' => !empty($input['expand_login']),
             'login_message' => sanitize_text_field(wp_unslash($input['login_message'] ?? '')),
-            'required_message' => sanitize_text_field(wp_unslash($input['required_message'] ?? '')),
             'password_label' => sanitize_text_field(wp_unslash($input['password_label'] ?? '')),
             'password_placeholder' => sanitize_text_field(wp_unslash($input['password_placeholder'] ?? '')),
             'admin_hints' => !empty($input['admin_hints']),
@@ -71,7 +69,6 @@ final class WUTM_Checkout_Login_Optimizer {
                     <table class="form-table">
                         <tr><th>展開登入表單</th><td><label><input type="checkbox" name="<?php echo esc_attr(self::OPTION); ?>[expand_login]" value="1" <?php checked(!empty($o['expand_login'])); ?>> 結帳頁直接展開 WooCommerce 原生登入表單</label><p class="description">只調整顯示方式，帳號密碼、Nonce 與登入流程仍由 WooCommerce 處理。</p></td></tr>
                         <tr><th><label for="wutm-clo-login-message">登入標題</label></th><td><input id="wutm-clo-login-message" type="text" class="large-text" name="<?php echo esc_attr(self::OPTION); ?>[login_message]" value="<?php echo esc_attr($o['login_message']); ?>"></td></tr>
-                        <tr><th><label for="wutm-clo-required-message">禁止訪客結帳提示</label></th><td><input id="wutm-clo-required-message" type="text" class="large-text" name="<?php echo esc_attr(self::OPTION); ?>[required_message]" value="<?php echo esc_attr($o['required_message']); ?>"><p class="description">不會移除必要提示，並會保留可用的登入按鈕，避免結帳頁變成空白。</p></td></tr>
                         <tr><th>建立帳號密碼欄位</th><td><label for="wutm-clo-password-label">欄位名稱</label><br><input id="wutm-clo-password-label" type="text" class="regular-text" name="<?php echo esc_attr(self::OPTION); ?>[password_label]" value="<?php echo esc_attr($o['password_label']); ?>"><br><label for="wutm-clo-password-placeholder">提示文字</label><br><input id="wutm-clo-password-placeholder" type="text" class="regular-text" name="<?php echo esc_attr(self::OPTION); ?>[password_placeholder]" value="<?php echo esc_attr($o['password_placeholder']); ?>"></td></tr>
                     </table>
                 </section>
@@ -95,12 +92,9 @@ final class WUTM_Checkout_Login_Optimizer {
     }
 
     public function must_login_message($message): string {
-        $custom = trim((string) $this->options['required_message']);
-        if ($custom === '') $custom = wp_strip_all_tags((string) $message);
-        $checkout_url = function_exists('wc_get_checkout_url') ? wc_get_checkout_url() : home_url('/');
-        $account_url = function_exists('wc_get_page_permalink') ? wc_get_page_permalink('myaccount') : wp_login_url();
-        $login_url = add_query_arg('redirect_to', $checkout_url, $account_url);
-        return '<span class="wutm-clo-required-text">' . esc_html($custom) . '</span> <a class="button wutm-clo-required-button" href="' . esc_url($login_url) . '">前往登入</a>';
+        // WooCommerce 已在此流程輸出原生登入表單；移除其下方重複提示。
+        // 僅回傳空字串，不接管登入表單、Nonce 或帳號驗證。
+        return '';
     }
 
     public function checkout_fields($fields): array {
