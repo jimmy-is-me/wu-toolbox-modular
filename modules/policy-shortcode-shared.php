@@ -5,7 +5,7 @@ if (!function_exists('wutm_policy_defaults')) {
     function wutm_policy_defaults(string $type): array {
         $sets = [
             'faq' => [
-                'title' => '常見問題', 'shortcode' => 'wutm_faq', 'primary' => '#183b63', 'accent' => '#2f80c9',
+                'title' => '常見問題', 'shortcode' => 'wutm_faq', 'primary' => '#111111', 'accent' => '#111111', 'text_color' => '#111111', 'width' => '100%',
                 'intro' => '',
                 'items' => [
                     ['title' => '出貨時間多久？', 'content' => '訂單成立後將依網站標示的工作天安排出貨。'],
@@ -13,15 +13,15 @@ if (!function_exists('wutm_policy_defaults')) {
                 ],
             ],
             'refund' => [
-                'title' => '退換貨政策', 'shortcode' => 'wutm_refund_policy', 'primary' => '#244a3d', 'accent' => '#2f9e74',
-                'intro' => '為保障雙方權益，申請退換貨前請先閱讀以下說明。',
+                'title' => '退換貨政策', 'shortcode' => 'wutm_refund_policy', 'primary' => '#111111', 'accent' => '#111111', 'text_color' => '#111111', 'width' => '100%',
+                'intro' => '',
                 'items' => [
-                    ['title' => '申請期限', 'content' => '如需退換貨，請於收到商品後七日內與客服聯繫。'],
-                    ['title' => '商品狀態', 'content' => '商品須保持完整、未使用，並保留包裝、配件及贈品。'],
+                    ['title' => '申請期限', 'intro' => '申請退換貨前請先確認期限。', 'content' => '如需退換貨，請於收到商品後七日內與客服聯繫。'],
+                    ['title' => '商品狀態', 'intro' => '寄回商品前請確認商品完整性。', 'content' => '商品須保持完整、未使用，並保留包裝、配件及贈品。'],
                 ],
             ],
             'privacy' => [
-                'title' => '隱私權政策', 'shortcode' => 'wutm_privacy_policy', 'primary' => '#3f365f', 'accent' => '#7968b3',
+                'title' => '隱私權政策', 'shortcode' => 'wutm_privacy_policy', 'primary' => '#111111', 'accent' => '#111111', 'text_color' => '#111111', 'width' => '100%',
                 'intro' => '歡迎光臨「Unhurried」（以下簡稱本網站）。為保障您使用本網站服務時的權益，特此說明本站蒐集、處理及利用個人資料之方式：',
                 'items' => [
                     ['title' => '資料蒐集範圍', 'content' => '訂購商品時，本站會蒐集收件人姓名、電話、地址與付款方式。'],
@@ -37,6 +37,7 @@ if (!function_exists('wutm_policy_defaults')) {
     }
 
     function wutm_policy_option_name(string $type): string { return 'wutm_' . $type . '_shortcode_options'; }
+    function wutm_policy_css_size($value): string { $value=trim((string)$value);return preg_match('/^\d+(?:\.\d+)?(?:px|%|vw|rem|em)$/',$value)?$value:'100%'; }
 
     function wutm_policy_options(string $type): array {
         return wp_parse_args((array) get_option(wutm_policy_option_name($type), []), wutm_policy_defaults($type));
@@ -45,16 +46,19 @@ if (!function_exists('wutm_policy_defaults')) {
     function wutm_policy_sanitize($input): array {
         $input = is_array($input) ? $input : [];
         $clean = [
-            'primary' => sanitize_hex_color($input['primary'] ?? '') ?: '#183b63',
-            'accent' => sanitize_hex_color($input['accent'] ?? '') ?: '#2f80c9',
+            'primary' => sanitize_hex_color($input['primary'] ?? '') ?: '#111111',
+            'accent' => sanitize_hex_color($input['accent'] ?? '') ?: '#111111',
+            'text_color' => sanitize_hex_color($input['text_color'] ?? '') ?: '#111111',
+            'width' => wutm_policy_css_size($input['width'] ?? ''),
             'intro' => wp_kses_post($input['intro'] ?? ''),
             'items' => [],
         ];
         foreach ((array) ($input['items'] ?? []) as $item) {
-            $title = sanitize_text_field($item['title'] ?? '');
+            $title = wp_kses_post($item['title'] ?? '');
+            $intro = wp_kses_post($item['intro'] ?? '');
             $content = wp_kses_post($item['content'] ?? '');
             if ($title === '' && trim(wp_strip_all_tags($content)) === '') continue;
-            $clean['items'][] = ['title' => $title, 'content' => $content];
+            $clean['items'][] = ['title' => $title, 'intro' => $intro, 'content' => $content];
         }
         return $clean;
     }
@@ -80,14 +84,14 @@ if (!function_exists('wutm_policy_defaults')) {
         ?>
         <div class="wrap wutm-policy-admin">
             <style>.wutm-policy-admin{max-width:1040px}.wutm-policy-hero{margin:18px 0;padding:24px 28px;border-radius:16px;background:linear-gradient(135deg,#0b2949,#24649a);color:#fff}.wutm-policy-hero h1{margin:0 0 8px;color:#fff}.wutm-policy-code{display:inline-flex;gap:8px;align-items:center;padding:8px 12px;border:1px solid #b7d5ee;border-radius:9px;background:#edf7ff;color:#124f7e;font:600 13px ui-monospace,monospace;cursor:pointer}.wutm-policy-panel{margin-top:18px;padding:22px 24px;border:1px solid #d9e2ec;border-radius:14px;background:#fff;box-shadow:0 8px 24px rgba(20,45,75,.06)}.wutm-policy-row{display:grid;grid-template-columns:minmax(180px,1fr) minmax(280px,2fr) auto;gap:12px;margin:12px 0;padding:14px;border-radius:10px;background:#f7f9fc}.wutm-policy-row input,.wutm-policy-row textarea{width:100%}.wutm-policy-remove{color:#b32d2e!important;border-color:#e6a5a5!important}.wutm-policy-colors{display:flex;gap:28px;flex-wrap:wrap}.wutm-policy-colors label{font-weight:600}.wutm-policy-colors input{display:block;margin-top:8px;width:64px;height:38px}.wutm-policy-admin textarea[name$="[intro]"]{width:100%;max-width:800px}.wutm-policy-admin .button-primary{border-radius:8px;padding-inline:22px}@media(max-width:720px){.wutm-policy-row{grid-template-columns:1fr}}</style>
-            <style>.wutm-policy-admin .wutm-policy-code{display:inline-block;margin-left:8px;padding:5px 10px;border-radius:6px}.wutm-policy-admin .wutm-policy-panel{border-color:#dcdcde;border-radius:8px;box-shadow:none}.wutm-policy-admin .wutm-policy-panel>h2{padding-bottom:10px;border-bottom:1px solid #e5e7eb}.wutm-policy-admin .wutm-policy-row{border:1px solid #e5e7eb;border-radius:8px}.wutm-policy-admin .wutm-module-subtitle{margin:0 0 22px}</style>
+            <style>.wutm-policy-admin .wutm-policy-code{display:inline-block;margin-left:8px;padding:5px 10px;border-radius:6px}.wutm-policy-admin .wutm-policy-panel{border-color:#dcdcde;border-radius:8px;box-shadow:none}.wutm-policy-admin .wutm-policy-panel>h2{padding-bottom:10px;border-bottom:1px solid #e5e7eb}.wutm-policy-admin .wutm-policy-row{grid-template-columns:1fr;border:1px solid #e5e7eb;border-radius:8px}.wutm-policy-admin .wutm-policy-row .wp-editor-wrap{margin-top:7px}.wutm-policy-admin .wutm-policy-remove{justify-self:start}.wutm-policy-admin .wutm-module-subtitle{margin:0 0 22px}</style>
             <h1><?php echo esc_html($defaults['title']); ?>設定</h1><p class="wutm-module-subtitle">編輯內容後儲存，再將短代碼放入文章、頁面或小工具。<button type="button" class="wutm-policy-code" data-copy="[<?php echo esc_attr($defaults['shortcode']); ?>]">[<?php echo esc_html($defaults['shortcode']); ?>]　點擊複製</button></p>
             <form method="post" action="options.php">
                 <?php settings_fields('wutm_' . $type . '_policy_group'); ?>
-                <section class="wutm-policy-panel"><h2>外觀設定</h2><div class="wutm-policy-colors"><label>主色<input type="color" name="<?php echo esc_attr($option_name); ?>[primary]" value="<?php echo esc_attr($options['primary']); ?>"></label><label>強調色<input type="color" name="<?php echo esc_attr($option_name); ?>[accent]" value="<?php echo esc_attr($options['accent']); ?>"></label></div></section>
-                <?php if ($type !== 'faq'): ?><section class="wutm-policy-panel"><h2>前言</h2><textarea rows="4" name="<?php echo esc_attr($option_name); ?>[intro]"><?php echo esc_textarea($options['intro']); ?></textarea></section><?php endif; ?>
-                <section class="wutm-policy-panel"><h2><?php echo $type === 'faq' ? '問題與回答' : '政策條款'; ?></h2><div class="wutm-policy-items">
-                    <?php foreach ((array) $options['items'] as $index => $item): ?><div class="wutm-policy-row"><input type="text" name="<?php echo esc_attr($option_name); ?>[items][<?php echo (int) $index; ?>][title]" value="<?php echo esc_attr($item['title']); ?>" placeholder="<?php echo $type === 'faq' ? '問題' : '條款標題'; ?>"><textarea rows="3" name="<?php echo esc_attr($option_name); ?>[items][<?php echo (int) $index; ?>][content]" placeholder="內容"><?php echo esc_textarea($item['content']); ?></textarea><button type="button" class="button wutm-policy-remove">刪除</button></div><?php endforeach; ?>
+                <section class="wutm-policy-panel"><h2>外觀設定</h2><div class="wutm-policy-colors"><label>標題文字顏色<input type="color" name="<?php echo esc_attr($option_name); ?>[primary]" value="<?php echo esc_attr($options['primary']); ?>"></label><label>互動重點顏色<input type="color" name="<?php echo esc_attr($option_name); ?>[accent]" value="<?php echo esc_attr($options['accent']); ?>"></label><label>內文文字顏色<input type="color" name="<?php echo esc_attr($option_name); ?>[text_color]" value="<?php echo esc_attr($options['text_color']); ?>"></label><label>區塊寬度<input class="regular-text" name="<?php echo esc_attr($option_name); ?>[width]" value="<?php echo esc_attr($options['width']); ?>"><small>預設 100%，跟隨網站內容區。</small></label></div></section>
+                <?php if ($type === 'privacy'): ?><section class="wutm-policy-panel"><h2>頁面開場說明</h2><?php wp_editor($options['intro'],'wutm_policy_intro_'.$type,['textarea_name'=>$option_name.'[intro]','textarea_rows'=>5,'media_buttons'=>false,'teeny'=>true]); ?></section><?php endif; ?>
+                <section class="wutm-policy-panel"><h2><?php echo $type === 'faq' ? '問題與回答' : ($type === 'refund' ? '退換貨說明區塊' : '政策內容清單'); ?></h2><div class="wutm-policy-items">
+                    <?php foreach ((array) $options['items'] as $index => $item): ?><div class="wutm-policy-row"><div><strong><?php echo $type === 'faq'?'問題':'區塊標題'; ?></strong><?php wp_editor($item['title'],'wutm_'.$type.'_title_'.$index,['textarea_name'=>$option_name.'[items]['.$index.'][title]','textarea_rows'=>2,'media_buttons'=>false,'teeny'=>true]); ?></div><?php if($type==='refund'):?><div><strong>簡短說明</strong><?php wp_editor($item['intro']??'','wutm_refund_intro_'.$index,['textarea_name'=>$option_name.'[items]['.$index.'][intro]','textarea_rows'=>3,'media_buttons'=>false,'teeny'=>true]);?></div><?php endif;?><div><strong><?php echo $type==='faq'?'回答':'詳細內容'; ?></strong><?php wp_editor($item['content'],'wutm_'.$type.'_content_'.$index,['textarea_name'=>$option_name.'[items]['.$index.'][content]','textarea_rows'=>5,'media_buttons'=>false,'teeny'=>true]); ?></div><button type="button" class="button wutm-policy-remove">刪除</button></div><?php endforeach; ?>
                 </div><button type="button" class="button wutm-policy-add">＋ 新增項目</button></section>
                 <?php submit_button('儲存設定'); ?>
             </form>
@@ -101,15 +105,16 @@ if (!function_exists('wutm_policy_defaults')) {
         $options = wutm_policy_options($type);
         $uid = wp_unique_id('wutm-policy-');
         ob_start(); ?>
-        <div id="<?php echo esc_attr($uid); ?>" class="wutm-policy wutm-policy-<?php echo esc_attr($type); ?>" style="--wutm-policy-primary:<?php echo esc_attr($options['primary']); ?>;--wutm-policy-accent:<?php echo esc_attr($options['accent']); ?>">
+        <div id="<?php echo esc_attr($uid); ?>" class="wutm-policy wutm-policy-<?php echo esc_attr($type); ?>" style="--wutm-policy-primary:<?php echo esc_attr($options['primary']); ?>;--wutm-policy-accent:<?php echo esc_attr($options['accent']); ?>;--wutm-policy-text:<?php echo esc_attr($options['text_color']); ?>;--wutm-policy-width:<?php echo esc_attr($options['width']); ?>">
             <?php if ($type !== 'faq' && trim(wp_strip_all_tags($options['intro'])) !== ''): ?><div class="wutm-policy-intro"><?php echo wpautop(wp_kses_post($options['intro'])); ?></div><?php endif; ?>
             <?php foreach ((array) $options['items'] as $index => $item): if ($type === 'faq'): ?>
-                <details class="wutm-faq-item" <?php echo $index === 0 ? 'open' : ''; ?>><summary><?php echo esc_html($item['title']); ?><span aria-hidden="true">＋</span></summary><div class="wutm-policy-content"><?php echo wpautop(wp_kses_post($item['content'])); ?></div></details>
+                <details class="wutm-faq-item" <?php echo $index === 0 ? 'open' : ''; ?>><summary><span><?php echo wp_kses_post($item['title']); ?></span><b aria-hidden="true">＋</b></summary><div class="wutm-policy-content"><?php echo wpautop(wp_kses_post($item['content'])); ?></div></details>
             <?php elseif ($type === 'privacy'): ?><?php if ($index === 0): ?><ul class="wutm-privacy-list"><?php endif; ?><li><strong><?php echo esc_html($item['title']); ?>：</strong> <?php echo wp_kses_post($item['content']); ?></li><?php if ($index === count($options['items']) - 1): ?></ul><?php endif; ?>
-            <?php else: ?><article class="wutm-policy-card"><i aria-hidden="true"></i><div><h3><?php echo esc_html($item['title']); ?></h3><?php echo wpautop(wp_kses_post($item['content'])); ?></div></article><?php endif; endforeach; ?>
+            <?php else: ?><article class="wutm-policy-card"><h3><?php echo wp_kses_post($item['title']); ?></h3><?php if(trim(wp_strip_all_tags($item['intro']??''))!==''):?><div class="wutm-policy-lead"><?php echo wpautop(wp_kses_post($item['intro']));?></div><?php endif;?><?php echo wpautop(wp_kses_post($item['content'])); ?></article><?php endif; endforeach; ?>
         </div>
         <style>#<?php echo esc_attr($uid); ?>{max-width:960px;margin:24px auto;color:#344054;font-family:inherit;line-height:1.75}#<?php echo esc_attr($uid); ?> .wutm-policy-intro{margin-bottom:20px;padding:18px 20px;border-left:4px solid var(--wutm-policy-accent);border-radius:8px;background:#f7f9fc}#<?php echo esc_attr($uid); ?> .wutm-policy-card{display:flex;gap:14px;margin:12px 0;padding:18px 20px;border:1px solid #e4e9f0;border-radius:12px;background:#fff;box-shadow:0 5px 18px rgba(20,40,70,.05)}#<?php echo esc_attr($uid); ?> .wutm-policy-card i{width:9px;height:9px;margin-top:10px;border-radius:50%;background:var(--wutm-policy-accent);flex:none}#<?php echo esc_attr($uid); ?> h3{margin:0 0 5px;color:var(--wutm-policy-primary);font-size:17px}#<?php echo esc_attr($uid); ?> p{margin:0 0 7px}#<?php echo esc_attr($uid); ?> .wutm-faq-item{margin:10px 0;border:1px solid #e2e8f0;border-radius:12px;background:#fff;overflow:hidden}#<?php echo esc_attr($uid); ?> .wutm-faq-item summary{display:flex;justify-content:space-between;gap:14px;padding:17px 20px;color:var(--wutm-policy-primary);font-weight:700;cursor:pointer;list-style:none}#<?php echo esc_attr($uid); ?> .wutm-faq-item summary::-webkit-details-marker{display:none}#<?php echo esc_attr($uid); ?> .wutm-faq-item[open]{border-color:var(--wutm-policy-accent);box-shadow:0 6px 20px rgba(20,40,70,.06)}#<?php echo esc_attr($uid); ?> .wutm-faq-item[open] summary span{transform:rotate(45deg)}#<?php echo esc_attr($uid); ?> .wutm-faq-item summary span{color:var(--wutm-policy-accent);transition:transform .2s}#<?php echo esc_attr($uid); ?> .wutm-policy-content{padding:15px 20px;border-top:1px solid #edf0f4;background:#fafbfd}</style>
         <style>#<?php echo esc_attr($uid); ?>.wutm-policy-privacy .wutm-policy-intro{padding:0;border:0;background:transparent}#<?php echo esc_attr($uid); ?> .wutm-privacy-list{margin:18px 0;padding-left:24px}#<?php echo esc_attr($uid); ?> .wutm-privacy-list li{margin:0 0 18px;padding-left:4px}</style>
+        <style>#<?php echo esc_attr($uid); ?>{width:100%;max-width:var(--wutm-policy-width)!important;color:var(--wutm-policy-text)!important}#<?php echo esc_attr($uid); ?>.wutm-policy-refund .wutm-policy-intro{padding:0;border:0;background:transparent}#<?php echo esc_attr($uid); ?>.wutm-policy-refund .wutm-policy-card{display:block;border:0;background:#f5f5f5;box-shadow:none}#<?php echo esc_attr($uid); ?>.wutm-policy-refund .wutm-policy-card i{display:none}#<?php echo esc_attr($uid); ?> .wutm-policy-lead{margin-bottom:10px;font-weight:600}</style>
         <?php return ob_get_clean();
     }
 

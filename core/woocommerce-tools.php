@@ -87,6 +87,7 @@ class WU_WooCommerce_Optimizer {
 
     public function admin_visibility_styles() {
         $css = $this->visibility_css();
+        if ($this->is_wc_screen()) $css .= '.wc-settings-marketplace-link{display:none!important;}';
         if ($css !== '') echo '<style id="wutm-wc-visibility">' . $css . '</style>';
     }
 
@@ -171,8 +172,7 @@ class WU_WooCommerce_Optimizer {
             'wu_woo_enable_order_comments' => array('啟用訂單備註欄位', 'enable_order_comments_callback'),
             'wu_woo_enable_einvoice' => array('啟用電子發票功能', 'enable_einvoice_callback')
         ) : array(
-            'wu_woo_disable_notifications' => array('停用 WooCommerce 通知欄', 'disable_notifications_callback'),
-            'wu_woo_show_sales_with_offset' => array('顯示商品購買量（含管理員調整）', 'sales_with_offset_callback')
+            'wu_woo_disable_notifications' => array('停用 WooCommerce 通知欄', 'disable_notifications_callback')
         );
     }
     public function add_admin_menu() {
@@ -202,13 +202,6 @@ class WU_WooCommerce_Optimizer {
         echo '<input type="checkbox" id="wu_woo_disable_notifications" name="wu_woo_disable_notifications" value="1" ' . checked(1, $value, false) . ' />';
         echo '<label for="wu_woo_disable_notifications">停用 WooCommerce 通知欄</label>';
         echo '<p class="description">隱藏 WooCommerce 管理介面通知標題欄。</p>';
-    }
-    
-    public function sales_with_offset_callback() {
-        $value = get_option('wu_woo_show_sales_with_offset', false);
-        echo '<input type="checkbox" id="wu_woo_show_sales_with_offset" name="wu_woo_show_sales_with_offset" value="1" ' . checked(1, $value, false) . ' />';
-        echo '<label for="wu_woo_show_sales_with_offset">在商品頁顯示購買量</label>';
-        echo '<p class="description">可透過商品自訂欄位「_wu_sales_offset」設定調整值。</p>';
     }
     
     public function taiwan_address_callback() {
@@ -267,10 +260,6 @@ class WU_WooCommerce_Optimizer {
             add_action('admin_init', array($this, 'disable_notifications'));
         }
         
-        if (get_option('wu_woo_show_sales_with_offset')) {
-            add_action('init', array($this, 'register_sales_features'));
-        }
-        
         return;
         }
         if (($this->mode === 'commerce' && get_option('wu_woo_taiwan_address')) || ($this->mode === 'shipping' && get_option('wu_woo_enable_island_shipping'))) {
@@ -309,45 +298,6 @@ class WU_WooCommerce_Optimizer {
         add_action('admin_head', function() {
             echo '<style>.woocommerce-layout__header,.woocommerce-admin-notices,.wc-admin-notice,#woocommerce-admin-notices{display:none!important}</style>';
         });
-    }
-    
-    public function register_sales_features() {
-        add_action('woocommerce_single_product_summary', function(){
-            global $product;
-            if (!$product) return;
-            $count = $this->get_product_sales_with_offset($product->get_id());
-            echo '<div class="wu-sales-count" style="opacity:.85;font-size:.9em;">已售出:' . intval($count) . '</div>';
-        }, 11);
-        
-        add_shortcode('wu_sales', function($atts){
-            $atts = shortcode_atts(array('id'=>0), $atts, 'wu_sales');
-            $id = intval($atts['id']);
-            if (!$id) return '0';
-            return intval($this->get_product_sales_with_offset($id));
-        });
-        
-        add_action('woocommerce_product_options_general_product_data', function(){
-            woocommerce_wp_text_input(array(
-                'id' => '_wu_sales_offset',
-                'label' => '購買量調整',
-                'type' => 'number',
-                'description' => '真實購買量 + 調整值'
-            ));
-        });
-        
-        add_action('woocommerce_admin_process_product_object', function($product){
-            if (isset($_POST['_wu_sales_offset'])) {
-                $product->update_meta_data('_wu_sales_offset', intval($_POST['_wu_sales_offset']));
-            }
-        });
-    }
-    
-    private function get_product_sales_with_offset($product_id) {
-        $product = wc_get_product($product_id);
-        if (!$product) return 0;
-        $real = intval($product->get_total_sales());
-        $offset = intval(get_post_meta($product_id, '_wu_sales_offset', true));
-        return max(0, $real + $offset);
     }
     
     /**

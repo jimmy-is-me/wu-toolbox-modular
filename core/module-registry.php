@@ -75,6 +75,7 @@ function wutm_modules(): array {
         'wc-optimization-tools' => ['name' => 'WC優化工具', 'description' => '台灣地址下拉選單、訂單備註與電子發票資訊欄位設定。', 'group' => '電商工具', 'icon' => '🛠️', 'requires' => 'woocommerce'],
         'shipping-optimization-tools' => ['name' => '運送優化功能', 'description' => '集中管理台灣離島運送與 7-11 超商取貨、運費及免運門檻。', 'group' => '電商工具', 'icon' => '🚚', 'requires' => 'woocommerce', 'settings_page' => 'wu-shipping-optimization-tools'],
         'woocommerce-optimizer' => ['name' => '隱藏WC工具', 'description' => '整理 WooCommerce 後台選單、推廣區與頁尾。', 'group' => '電商工具', 'icon' => '🛒', 'requires' => 'woocommerce'],
+        'product-sales-count' => ['name' => '商品購買量', 'description' => '顯示商品實際銷售量，並可由管理員設定顯示調整值。', 'group' => '電商工具', 'icon' => '📊', 'requires' => 'woocommerce', 'settings_page' => 'wu-product-sales-count'],
         'ecpay-tools' => ['name' => '綠界金流/物流/電子發票工具', 'description' => '整合綠界付款、超商與宅配物流及電子發票。需設定商店資料並完成測試。', 'group' => '電商工具', 'icon' => '💳', 'requires' => 'woocommerce'],
         'esun-payment' => ['name' => '玉山銀行金流工具', 'description' => '玉山信用卡一次付清與分期付款，沿用銀行交易驗證流程。', 'group' => '電商工具', 'icon' => '🏦', 'requires' => 'woocommerce'],
     ];
@@ -120,6 +121,13 @@ add_action('plugins_loaded', function (): void {
         update_option(wutm_module_option('wc-optimization-tools'), wutm_is_enabled('woocommerce-optimizer') ? 1 : 0);
     }
     update_option('wutm_wc_tools_split_182', 1);
+}, 19);
+
+add_action('plugins_loaded', function (): void {
+    if (get_option('wutm_product_sales_count_split_212', false)) return;
+    if (get_option(wutm_module_option('product-sales-count'), null) === null && get_option('wu_woo_show_sales_with_offset', false)) update_option(wutm_module_option('product-sales-count'), 1, false);
+    delete_option('wu_woo_show_sales_with_offset');
+    update_option('wutm_product_sales_count_split_212', 1, false);
 }, 19);
 
 // Preserve existing island/7-11 users when those settings move to the new
