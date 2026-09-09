@@ -169,11 +169,11 @@ class WUTM_Data_Import_Export {
     }
 
     public function export_users(): void {
-        $this->guard('wutm_die_export_users'); $args=['fields'=>'ID','number'=>-1,'orderby'=>'ID','order'=>'ASC'];
+        $this->guard('wutm_die_export_users'); $args=['fields'=>'ID','number'=>200,'orderby'=>'ID','order'=>'ASC','count_total'=>true];
         $role=sanitize_key(wp_unslash($_POST['role']??'')); if($role && isset(get_editable_roles()[$role])) $args['role']=$role;
-        $ids=get_users($args); $meta=[]; if(!empty($_POST['include_meta'])) { global $wpdb; $keys=$wpdb->get_col("SELECT DISTINCT meta_key FROM {$wpdb->usermeta} ORDER BY meta_key"); foreach ((array) $keys as $key) { $key=(string)$key; if ($key !== '' && !$this->protected_meta($key)) $meta[]=$key; } }
+        $meta=[]; if(!empty($_POST['include_meta'])) { global $wpdb; $keys=$wpdb->get_col("SELECT DISTINCT meta_key FROM {$wpdb->usermeta} ORDER BY meta_key"); foreach ((array) $keys as $key) { $key=(string)$key; if ($key !== '' && !$this->protected_meta($key)) $meta[]=$key; } }
         nocache_headers(); header('Content-Type:text/csv;charset=utf-8'); header('Content-Disposition:attachment; filename="wu-users-'.wp_date('Ymd-His').'.csv"'); $out=fopen('php://output','w'); fputs($out,"\xEF\xBB\xBF"); fputcsv($out,array_merge(['ID','user_login','user_email','user_registered','first_name','last_name','nickname','display_name','user_url','description','locale','role'],$meta));
-        foreach($ids as $id){$u=get_userdata((int)$id);if(!$u)continue;$row=[$u->ID,$u->user_login,$u->user_email,$u->user_registered,$u->first_name,$u->last_name,$u->nickname,$u->display_name,$u->user_url,$u->description,get_user_locale($u->ID),implode(',',(array)$u->roles)];foreach($meta as $key){$values=get_user_meta($u->ID,$key,false);if(count($values)===1&&is_scalar($values[0]))$row[]=$values[0];else$row[]=wp_json_encode($values,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);}fputcsv($out,$row);} fclose($out); exit;
+        $offset=0;$total=null;do{$args['offset']=$offset;$query=new WP_User_Query($args);$ids=(array)$query->get_results();if($total===null)$total=(int)$query->get_total();foreach($ids as $id){$u=get_userdata((int)$id);if(!$u)continue;$row=[$u->ID,$u->user_login,$u->user_email,$u->user_registered,$u->first_name,$u->last_name,$u->nickname,$u->display_name,$u->user_url,$u->description,get_user_locale($u->ID),implode(',',(array)$u->roles)];foreach($meta as $key){$values=get_user_meta($u->ID,$key,false);if(count($values)===1&&is_scalar($values[0]))$row[]=$values[0];else$row[]=wp_json_encode($values,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);}fputcsv($out,$row);clean_user_cache($u);} $offset+=200;}while($ids&&$offset<$total);fclose($out);exit;
     }
 
     public function import_users(): void {

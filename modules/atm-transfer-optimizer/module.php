@@ -193,7 +193,6 @@ final class WUTM_ATM_Transfer_Optimizer {
     }
 
     public function register_dashboard(): void {
-        add_submenu_page('woocommerce', '銀行轉帳對帳中心', '銀行轉帳對帳中心', 'manage_woocommerce', 'wc-bacs-dashboard', [$this, 'render_dashboard']);
         add_submenu_page('wu-toolbox-modular', '銀行轉帳對帳中心', '銀行轉帳對帳中心', 'manage_woocommerce', 'wc-bacs-dashboard', [$this, 'render_dashboard']);
     }
 

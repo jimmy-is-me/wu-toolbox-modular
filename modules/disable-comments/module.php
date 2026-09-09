@@ -134,10 +134,19 @@ final class WUTM_Disable_Comments {
     public static function delete_all_comments(): void {
         if (!current_user_can('manage_options')) wp_die('權限不足', 403);
         check_admin_referer('wutm_disable_comments_delete_all');
-        $comments = get_comments(['status' => 'all', 'number' => 0, 'fields' => 'ids']);
         $deleted = 0;
-        foreach ($comments as $comment_id) {
-            if (wp_delete_comment((int) $comment_id, true)) $deleted++;
+        // Keep memory bounded and stop if a batch cannot make progress.
+        for ($batch = 0; $batch < 1000; $batch++) {
+            $comments = get_comments(['status' => 'all', 'number' => 200, 'fields' => 'ids', 'orderby' => 'comment_ID', 'order' => 'ASC']);
+            if (!$comments) break;
+            $batch_deleted = 0;
+            foreach ($comments as $comment_id) {
+                if (wp_delete_comment((int) $comment_id, true)) {
+                    $deleted++;
+                    $batch_deleted++;
+                }
+            }
+            if ($batch_deleted === 0) break;
         }
         self::purge_page_caches();
         wp_safe_redirect(add_query_arg(['page' => 'wu-disable-comments', 'deleted' => $deleted], admin_url('admin.php')));

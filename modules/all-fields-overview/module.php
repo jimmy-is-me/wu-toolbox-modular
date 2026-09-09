@@ -71,6 +71,10 @@ final class WUTM_All_Fields_Overview {
     }
 
     private function render_acf_rows(array $fields, int $depth, string $layout = ''): void {
+        if ($depth > 20) {
+            echo '<tr><td colspan="4">欄位巢狀層級超過安全上限，已停止繼續展開。</td></tr>';
+            return;
+        }
         foreach ($fields as $field) {
             $label = ($layout !== '' ? $layout . ' / ' : '') . ($field['label'] ?? '');
             echo '<tr><td>' . esc_html(str_repeat('— ', $depth) . $label) . '</td><td><code>' . esc_html($field['name'] ?? '') . '</code></td><td><span class="wutm-field-type">' . esc_html($field['type'] ?? '') . '</span></td><td><code>' . esc_html($field['key'] ?? '') . '</code></td></tr>';
@@ -88,13 +92,14 @@ final class WUTM_All_Fields_Overview {
         echo '</tbody></table>';
     }
 
-    private function count_acf(array $fields): int {
+    private function count_acf(array $fields, int $depth = 0): int {
+        if ($depth > 20) return 0;
         $count = 0;
         foreach ($fields as $field) {
             $count++;
-            if (!empty($field['sub_fields'])) $count += $this->count_acf((array) $field['sub_fields']);
+            if (!empty($field['sub_fields'])) $count += $this->count_acf((array) $field['sub_fields'], $depth + 1);
             foreach ((array) ($field['layouts'] ?? []) as $layout) {
-                if (!empty($layout['sub_fields'])) $count += $this->count_acf((array) $layout['sub_fields']);
+                if (!empty($layout['sub_fields'])) $count += $this->count_acf((array) $layout['sub_fields'], $depth + 1);
             }
         }
         return $count;
