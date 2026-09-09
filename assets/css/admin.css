@@ -178,6 +178,30 @@ input:focus,textarea:focus,select:focus{border-color:var(--wutm-wp-blue)!importa
 .wrap .wu-status-table tr:last-child td{border-bottom:0!important}
 .wrap .wu-status-table .wu-status-on{color:var(--wutm-wp-green)!important;background:transparent!important;font-weight:600}
 .wrap .wu-status-table .wu-status-off{color:#d63638!important;background:transparent!important;font-weight:600}
+
+/* v2.1.1: one clean visual language for every WU Toolbox settings screen. */
+body[class*="wu-toolbox_page_"] #wpbody-content>.wrap:not(.wutm-wrap),
+body[class*="wu-toolbox_page_"] #wpbody-content>.wutm-module-wrap{
+  max-width:1180px!important;margin:20px 20px 0 0!important;padding:24px 28px 36px!important;
+  border:1px solid #c3c4c7!important;border-radius:8px!important;background:#fff!important;box-shadow:0 1px 3px #00000018!important;
+}
+body[class*="wu-toolbox_page_"] #wpbody-content>.wrap:not(.wutm-wrap)>h1:first-of-type,
+body[class*="wu-toolbox_page_"] #wpbody-content>.wutm-module-wrap>h1:first-of-type{
+  margin:-24px -28px 20px!important;padding:20px 28px!important;border:0!important;border-radius:8px 8px 0 0!important;
+  background:#1d2327!important;color:#fff!important;box-shadow:none!important;font-size:21px!important;line-height:1.35!important;
+}
+body[class*="wu-toolbox_page_"] #wpbody-content>.wrap:not(.wutm-wrap)>h1:first-of-type:after,
+body[class*="wu-toolbox_page_"] #wpbody-content>.wutm-module-wrap>h1:first-of-type:after{display:none!important;animation:none!important}
+body[class*="wu-toolbox_page_"] .form-table,
+body[class*="wu-toolbox_page_"] .card{border-color:#dcdcde!important;border-radius:8px!important;box-shadow:none!important}
+body[class*="wu-toolbox_page_"] .form-table tr>th,
+body[class*="wu-toolbox_page_"] .form-table tr>td{padding:15px 20px!important;border-bottom:1px solid #e5e7eb!important}
+body[class*="wu-toolbox_page_"] input[type=text],body[class*="wu-toolbox_page_"] input[type=email],
+body[class*="wu-toolbox_page_"] input[type=url],body[class*="wu-toolbox_page_"] input[type=number],
+body[class*="wu-toolbox_page_"] input[type=password],body[class*="wu-toolbox_page_"] select,
+body[class*="wu-toolbox_page_"] textarea{max-width:100%;border-radius:4px!important}
+body[class*="wu-toolbox_page_"] .button,body[class*="wu-toolbox_page_"] .button-primary{border-radius:4px!important}
+@media(max-width:782px){body[class*="wu-toolbox_page_"] #wpbody-content>.wrap:not(.wutm-wrap),body[class*="wu-toolbox_page_"] #wpbody-content>.wutm-module-wrap{margin:12px 10px 0 0!important;padding:18px 16px 28px!important}body[class*="wu-toolbox_page_"] #wpbody-content>.wrap:not(.wutm-wrap)>h1:first-of-type,body[class*="wu-toolbox_page_"] #wpbody-content>.wutm-module-wrap>h1:first-of-type{margin:-18px -16px 18px!important;padding:18px 16px!important}}
 .wrap .wu-status-table .wu-status-custom{color:var(--wutm-wp-blue)!important;background:transparent!important;font-weight:600}
 .wutm-atm-wrap .atm-card{border:1px solid var(--wutm-wp-border)!important;border-radius:8px!important;background:var(--wutm-wp-panel)!important;color:var(--wutm-wp-text)!important;box-shadow:0 1px 3px #00000018}
 .wutm-atm-wrap .atm-card-head{background:#f6f7f7!important;color:var(--wutm-wp-text)!important;border-bottom:1px solid var(--wutm-wp-border)!important;padding:16px 20px!important}
