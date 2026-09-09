@@ -51,6 +51,7 @@ function wutm_modules(): array {
         'woocommerce' => ['name' => 'WooCommerce', 'description' => '快速安裝與啟用官方 WooCommerce 外掛。', 'group' => '電商工具', 'icon' => '🛒', 'tag' => '第三方外掛', 'settings_page' => 'wu-woocommerce'],
         'atm-transfer-optimizer' => ['name' => 'ATM 轉帳優化', 'description' => '強化銀行轉帳付款資訊、顧客匯款回報、後台對帳狀態與催繳通知。', 'group' => '電商工具', 'icon' => '🏧', 'requires' => 'woocommerce', 'settings_url' => 'admin.php?page=wc-bacs-dashboard'],
         'order-receipt' => ['name' => '列印訂單收據', 'description' => '為管理員與顧客提供安全、美觀且適合列印的繁體中文訂單收據。', 'group' => '電商工具', 'icon' => '🧾', 'requires' => 'woocommerce', 'settings_page' => 'wu-order-receipt'],
+        'coupon-optimizer' => ['name' => '折價券優化', 'description' => '顯示可用折價券、一鍵套用、推廣連結、QR Code、使用統計與會員專區。', 'group' => '電商工具', 'icon' => '🏷️', 'requires' => 'woocommerce', 'settings_page' => 'wu-coupon-optimizer'],
         'payuni-payment' => ['name' => 'PAYUNi 付款工具', 'description' => '整合 PAYUNi 統一金流付款、退款與訂單通知。', 'group' => '電商工具', 'icon' => '💳', 'requires' => 'woocommerce', 'settings_page' => 'wc-settings&tab=payuni&section=payment'],
         'linepay-payment' => ['name' => 'LINE Pay 付款工具', 'description' => '整合台灣 LINE Pay 付款、退款及區塊結帳。', 'group' => '電商工具', 'icon' => '🟢', 'requires' => 'woocommerce', 'settings_page' => 'wc-settings&tab=linepay-tw'],
         'discord-notifications' => ['name' => 'Discord 通知工具', 'description' => '將 WooCommerce 訂單與狀態變更即時通知到 Discord。', 'group' => '電商工具', 'icon' => '🔔', 'requires' => 'woocommerce', 'settings_page' => 'wu-discord-notifications'],
