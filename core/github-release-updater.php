@@ -14,13 +14,17 @@ final class WUTM_GitHub_Release_Updater {
         add_filter('site_transient_update_plugins', [$this, 'inject_update']);
         add_filter('pre_set_site_transient_update_plugins', [$this, 'inject_update']);
         add_filter('plugins_api', [$this, 'plugin_information'], 20, 3);
-        add_filter('upgrader_pre_download', [$this, 'download_release_asset'], 20, 3);
+        add_filter('upgrader_pre_download', [$this, 'download_release_asset'], 20, 4);
         add_action('load-update-core.php', [$this, 'clear_cache_before_update']);
         add_action('load-plugins.php', [$this, 'clear_cache_before_update']);
     }
 
     public function inject_update($transient) {
         if (!is_object($transient) || empty($transient->checked) || !isset($transient->checked[$this->plugin_basename])) return $transient;
+        if (function_exists('wutm_license_can_update') && !wutm_license_can_update()) {
+            if (isset($transient->response) && is_array($transient->response)) unset($transient->response[$this->plugin_basename]);
+            return $transient;
+        }
         $current_version = self::normalize_version((string) $transient->checked[$this->plugin_basename]) ?: self::normalize_version(WUTM_VERSION);
         if (isset($transient->response) && is_array($transient->response) && isset($transient->response[$this->plugin_basename])) {
             $stale_item = $transient->response[$this->plugin_basename];
@@ -54,6 +58,8 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>2.2.1</h4><ul><li>授權伺服器改至 wpcd.wumetax.com。</li><li>驗證失敗後每 8 小時重試，最多 3 次；離線寬限調整為 24 小時。</li><li>離線、未授權或授權失效時暫停 WU Toolbox 自動更新，並精簡授權狀態介面。</li></ul>
+            <h4>2.2.0</h4><ul><li>授權設定移至 WU Toolbox 面板最下方，並移除左側子選單。</li><li>修正同一網站解除後無法重新綁定授權的問題，加入網址正規化與網站搬移保護。</li></ul>
             <h4>2.1.8</h4><ul><li>隱藏行銷概觀時，WooCommerce 行銷主選單會直接前往折價券，不再開啟行銷概觀。</li><li>新增使用者角色管理與清理模組，可檢查角色、遷移成員及刪除無人使用的自訂角色。</li><li>保護 WordPress 與 WooCommerce 核心角色，並以權限、Nonce、操作後轉址及管理員防鎖定機制保護角色異動。</li></ul>
             <h4>2.0.7</h4><ul><li>功能搜尋改為列出全部符合項目，使用者點選結果後才會定位卡片，不再自動跳到第一筆。</li><li>版本標籤新增綠色呼吸狀態燈；頁尾更新 Wumetax 主機管理與網站開發資訊及官方連結。</li><li>子選單分類分隔樣式加強，且只顯示具有已啟用子選單功能的分類。</li><li>外掛清單與更新資訊的作者名稱統一為 Wumetax。</li></ul>
             <h4>2.0.6</h4><ul><li>WU Toolbox 主頁新增功能搜尋列，支援 Enter／搜尋按鈕、名稱優先比對、平滑定位與醒目提示。</li><li>重新設計無圖示的 WU Toolbox 標題區，改善版本標籤、間距、響應式版面與視覺層次。</li><li>通知整理工具現在連錯誤等重要通知也保持收合，仍會顯示重要通知數量。</li><li>WU Toolbox 子選單依模組分類加入分隔標題，並讓銀行轉帳等自訂設定入口排列於正確分類。</li></ul>
@@ -276,7 +282,14 @@ final class WUTM_GitHub_Release_Updater {
         ];
     }
 
-    public function download_release_asset($reply, $package, $upgrader) {
+    public function download_release_asset($reply, $package, $upgrader, $hook_extra = []) {
+        $target_plugin = is_array($hook_extra) ? (string) ($hook_extra['plugin'] ?? '') : '';
+        $is_our_package = $target_plugin === $this->plugin_basename
+            || (is_string($package) && strpos($package, '/' . self::REPOSITORY . '/releases/') !== false && strpos($package, self::ASSET_NAME) !== false);
+        if (!$is_our_package) return $reply;
+        if (function_exists('wutm_license_can_update') && !wutm_license_can_update()) {
+            return new WP_Error('wutm_license_update_blocked', __('授權目前離線或無效，請完成授權驗證後再更新 WU Toolbox。', 'wu-toolbox-modular'));
+        }
         $release = $this->get_release();
         if (!$release || !in_array($package, [$release['asset_api_url'], ($release['browser_url'] ?? '')], true)) return $reply;
         $response = wp_remote_get($package, ['timeout' => 45, 'redirection' => 5, 'headers' => ['Accept' => 'application/octet-stream', 'User-Agent' => $this->user_agent()]]);
@@ -295,6 +308,7 @@ final class WUTM_GitHub_Release_Updater {
     }
 
     private function get_release(): ?array {
+        if (function_exists('wutm_license_can_update') && !wutm_license_can_update()) return null;
         $cached = get_site_transient(self::CACHE_KEY);
         if (is_array($cached)) return $cached ?: null;
         $response = wp_remote_get('https://api.github.com/repos/' . self::REPOSITORY . '/releases/latest', ['timeout' => 12, 'redirection' => 3, 'headers' => ['Accept' => 'application/vnd.github+json', 'User-Agent' => $this->user_agent()]]);

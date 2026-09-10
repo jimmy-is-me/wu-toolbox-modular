@@ -5,12 +5,12 @@ defined('ABSPATH') || exit;
  * WU Toolbox client for the Wumetax licensing service.
  *
  * Normal front-end requests never contact the server. A successful result is
- * cached locally and refreshed by WP-Cron every 72 hours, with a thirty-day
+ * cached locally and refreshed by WP-Cron every 72 hours, with a 24-hour
  * network grace period. Existing enabled modules keep running if a license
  * lapses; only new module activation is locked to avoid breaking live sites.
  */
 final class WUTM_License_Manager {
-    const API_BASE = 'https://master.wumetax.com/wp-json/wumetax-license/v1';
+    const API_BASE = 'https://wpcd.wumetax.com/wp-json/wumetax-license/v1';
     const KEY_OPTION = 'wutm_license_key';
     const TOKEN_OPTION = 'wutm_license_activation_token';
     const UUID_OPTION = 'wutm_license_site_uuid';
@@ -19,9 +19,10 @@ final class WUTM_License_Manager {
     const CRON_HOOK = 'wutm_license_background_check';
     const LEGACY_CRON_HOOK = 'wutm_license_weekly_check';
     const CHECK_INTERVAL = 72 * HOUR_IN_SECONDS;
-    const GRACE_PERIOD = 30 * DAY_IN_SECONDS;
+    const GRACE_PERIOD = 24 * HOUR_IN_SECONDS;
     const PRIVACY_URL = 'https://wumetax.com/privacy-policy/';
-    const RETRY_DELAYS = [6 * HOUR_IN_SECONDS, 12 * HOUR_IN_SECONDS, 24 * HOUR_IN_SECONDS];
+    const RETRY_INTERVAL = 8 * HOUR_IN_SECONDS;
+    const MAX_RETRIES = 3;
 
     private static $instance;
 
@@ -110,7 +111,12 @@ final class WUTM_License_Manager {
         $now = time();
         $expires = !empty($state['expires_at']) ? strtotime((string) $state['expires_at'] . ' UTC') : 0;
         if ($expires && $expires < $now) return false;
-        return ($now - $validated_at) <= self::GRACE_PERIOD;
+        return ($now - $validated_at) <= self::CHECK_INTERVAL + self::GRACE_PERIOD;
+    }
+
+    public function can_update(): bool {
+        $state = $this->state();
+        return $this->is_valid() && empty($state['transport_error_at']);
     }
 
     public function status_code(): string {
@@ -227,12 +233,14 @@ final class WUTM_License_Manager {
         ]));
         if (!empty($data['transport_error'])) {
             $state = $this->state();
-            $retry_count = min(count(self::RETRY_DELAYS), max(0, (int) ($state['retry_count'] ?? 0)) + 1);
-            $delay = self::RETRY_DELAYS[$retry_count - 1] ?? self::RETRY_DELAYS[count(self::RETRY_DELAYS) - 1];
+            $retry_count = max(0, (int) ($state['retry_count'] ?? 0)) + 1;
+            $has_retry = $retry_count <= self::MAX_RETRIES;
+            $delay = $has_retry ? self::RETRY_INTERVAL : self::CHECK_INTERVAL;
             $state['checked_at'] = time();
-            $state['retry_count'] = $retry_count;
+            $state['transport_error_at'] = time();
+            $state['retry_count'] = $has_retry ? $retry_count : 0;
             $state['next_check_at'] = time() + $delay;
-            $state['message'] = '授權伺服器暫時無法連線，將自動重試。';
+            $state['message'] = $has_retry ? sprintf('授權伺服器暫時無法連線，將於 8 小時後重試（%d／%d）。', $retry_count, self::MAX_RETRIES) : '已完成 3 次重試，將於下一個 72 小時週期再次檢查。';
             update_option(self::STATE_OPTION, $state, false);
             $this->schedule_next($delay);
             return false;
@@ -304,22 +312,29 @@ final class WUTM_License_Manager {
             'pending' => ['網站已送出，請等待 Wumetax 授權管理員核准。', 'warning'],
             'deactivated' => ['已解除授權並釋放網站名額。', 'success'],
             'deactivated_local' => ['本機授權已清除，但授權伺服器暫時無法連線；可由 Wumetax 管理端解除網站。', 'warning'],
-            'validate_failed' => ['本次即時驗證未完成；若是網路問題，系統會依排程重試，30 天寬限期內最後一次有效結果仍可使用。', 'warning'],
+            'validate_failed' => ['本次即時驗證未完成；若是網路問題，系統每 8 小時重試、最多 3 次。24 小時寬限期間會暫停外掛更新。', 'warning'],
             'already_bound' => ['此網站已有綁定；如需更換授權碼，請先解除目前授權。', 'warning'],
             'error' => [(string) get_transient('wutm_license_error_' . get_current_user_id()), 'error'],
         ];
         delete_transient('wutm_license_error_' . get_current_user_id());
+        $offline = !empty($state['transport_error_at']);
+        $can_update = $this->can_update();
+        $next_check = (int) ($state['next_check_at'] ?? 0);
+        $status_hint = $offline
+            ? '授權伺服器暫時離線；既有功能在 24 小時寬限內可使用，外掛更新已暫停。'
+            : ($this->is_valid() ? '授權與外掛更新皆可正常使用。' : '請完成授權驗證，才能啟用新模組與取得外掛更新。');
         ?>
         <section id="wutm-license" class="wutm-license-panel" aria-labelledby="wutm-license-title">
-            <div class="wutm-license-heading"><div><span class="wutm-header-kicker">LICENSE &amp; UPDATES</span><h2 id="wutm-license-title">授權與更新</h2><p>驗證結果保存在本機；一般前台瀏覽、購物及結帳不會連線授權伺服器。</p></div><strong class="wutm-license-status"><?php echo esc_html($this->status_label()); ?></strong></div>
+            <div class="wutm-license-heading"><div><span class="wutm-header-kicker">LICENSE &amp; UPDATES</span><h2 id="wutm-license-title">授權與更新</h2><p><?php echo esc_html($status_hint); ?></p></div><strong class="wutm-license-status <?php echo $offline ? 'is-warning' : ($this->is_valid() ? 'is-active' : 'is-inactive'); ?>"><?php echo esc_html($offline ? '暫時離線' : $this->status_label()); ?></strong></div>
             <?php if (isset($messages[$notice])): ?><div class="notice notice-<?php echo esc_attr($messages[$notice][1]); ?> inline"><p><?php echo esc_html($messages[$notice][0]); ?></p></div><?php endif; ?>
             <div class="wutm-license-grid">
             <div class="wutm-license-block">
                 <h3>授權狀態</h3>
-                <p><strong><?php echo esc_html($this->status_label()); ?></strong></p>
                 <p>綁定網站：<code><?php echo esc_html(home_url('/')); ?></code></p>
                 <?php if (!empty($state['expires_at'])): ?><p>有效期限：<?php echo esc_html($state['expires_at']); ?></p><?php endif; ?>
                 <?php $last_validated = (int) ($state['validated_at'] ?? ($state['checked_at'] ?? 0)); if ($last_validated): ?><p>最後成功驗證：<?php echo esc_html(wp_date('Y-m-d H:i:s', $last_validated)); ?></p><?php endif; ?>
+                <?php if ($next_check && $this->token()): ?><p>下次檢查：<?php echo esc_html(wp_date('Y-m-d H:i:s', $next_check)); ?></p><?php endif; ?>
+                <p>外掛更新：<strong><?php echo esc_html($can_update ? '可使用' : '已暫停'); ?></strong></p>
             </div>
             <?php if (!$this->token()): ?>
                 <div class="wutm-license-block">
@@ -334,13 +349,13 @@ final class WUTM_License_Manager {
                     </form>
                 </div>
             <?php else: ?>
-                <div class="wutm-license-block"><h3>授權操作</h3><p>授權伺服器：<code><?php echo esc_html(self::API_BASE); ?></code></p><div class="wutm-license-actions">
+                <div class="wutm-license-block"><h3>授權操作</h3><p class="description">需要立即確認授權時可手動驗證；更換授權碼前請先解除目前綁定。</p><div class="wutm-license-actions">
                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="wutm_license_validate"><?php wp_nonce_field('wutm_license_validate'); ?><button class="button button-primary">立即重新驗證</button></form>
                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" onsubmit="return confirm('確定解除這個網站的授權？')"><input type="hidden" name="action" value="wutm_license_deactivate"><?php wp_nonce_field('wutm_license_deactivate'); ?><button class="button">解除授權</button></form>
                 </div></div>
             <?php endif; ?>
             </div>
-            <details class="wutm-license-details"><summary>授權驗證如何運作</summary><ul><li>只有啟用、手動驗證、解除綁定及每 72 小時背景檢查時才連線。</li><li>網路失敗後依序於 6、12、24 小時後重試；不會在一般前台請求中同步等待。</li><li>最後一次成功驗證提供 30 天離線寬限期。</li><li>授權失效不會關閉已運作的模組，但不能啟用新模組。</li><li>HTTP／HTTPS、www 與尾斜線差異會視為同一網站；網站搬移或複製會建立新的網站識別。</li></ul></details>
+            <details class="wutm-license-details"><summary>授權驗證如何運作</summary><ul><li>每 72 小時在背景驗證一次，不影響一般前台請求。</li><li>網路失敗後每 8 小時重試一次，最多 3 次。</li><li>離線寬限為 24 小時；寬限期間既有功能繼續運作，但不提供外掛更新。</li><li>授權失效不會關閉已運作的模組，但不能啟用新模組或更新外掛。</li><li>HTTP／HTTPS、www 與尾斜線差異視為同一網站；搬移或複製網站會建立新的網站識別。</li></ul></details>
         </section>
         <?php
     }
@@ -350,4 +365,8 @@ WUTM_License_Manager::instance();
 
 function wutm_license_is_valid(): bool {
     return WUTM_License_Manager::instance()->is_valid();
+}
+
+function wutm_license_can_update(): bool {
+    return WUTM_License_Manager::instance()->can_update();
 }
