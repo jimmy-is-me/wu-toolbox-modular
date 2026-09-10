@@ -78,6 +78,7 @@ function wutm_modules(): array {
         'product-sales-count' => ['name' => '商品購買量', 'description' => '顯示商品實際銷售量，並可由管理員設定顯示調整值。', 'group' => '電商工具', 'icon' => '📊', 'requires' => 'woocommerce', 'settings_page' => 'wu-product-sales-count'],
         'free-shipping-notice' => ['name' => '免運門檻提示', 'description' => '為單一費率與自行取貨設定滿額免運，並顯示尚差金額或達標提示。', 'group' => '電商工具', 'icon' => '🚚', 'requires' => 'woocommerce', 'settings_page' => 'wu-free-shipping-notice'],
         'new-member-discount' => ['name' => '新會員優惠', 'description' => '新會員首次消費滿額自動折抵，並記錄使用狀態與取消解鎖。', 'group' => '電商工具', 'icon' => '🎁', 'requires' => 'woocommerce', 'settings_page' => 'wu-new-member-discount'],
+        'member-points' => ['name' => '會員點數', 'description' => '提供消費回饋、結帳折抵、點數效期、會員紀錄與後台手動調整。', 'group' => '電商工具', 'icon' => '⭐', 'requires' => 'woocommerce', 'settings_page' => 'wcmp-points'],
         'ecpay-tools' => ['name' => '綠界金流/物流/電子發票工具', 'description' => '整合綠界付款、超商與宅配物流及電子發票。需設定商店資料並完成測試。', 'group' => '電商工具', 'icon' => '💳', 'requires' => 'woocommerce'],
         'esun-payment' => ['name' => '玉山銀行金流工具', 'description' => '玉山信用卡一次付清與分期付款，沿用銀行交易驗證流程。', 'group' => '電商工具', 'icon' => '🏦', 'requires' => 'woocommerce'],
     ];
