@@ -1,40 +1,29 @@
-# WU Toolbox Modular 授權設定
+# WU Toolbox Modular 授權連線
 
-WU Toolbox Modular 1.3.0 會在 WordPress B（使用外掛的網站）第一次輸入授權碼時，向 WordPress A 的 REST API 驗證。成功後會快取結果 30 天；API 暫時無法連線時，仍提供 14 天寬限期，不會造成網站 Fatal Error。
+客戶端固定連接：
 
-## WordPress A API 回應格式
+`https://master.wumetax.com/wp-json/wumetax-license/v1`
 
-B 站會送出 POST 請求，欄位包括：
+管理員輸入授權碼並同意傳送必要的網站資訊後，客戶端呼叫 `/activate`，保存伺服器回傳的網站專用 `activation_token`。之後只使用此權杖呼叫 `/validate` 或 `/deactivate`，不會在一般前台請求中連接授權站。
 
-- license_key
-- site_url
-- plugin_slug（固定為 wu-toolbox-modular）
-- version
+## 傳送資料
 
-A 站應回傳 JSON：
+- 隨機 `site_uuid`
+- 網站網址
+- 外掛代碼與版本
+- WordPress、PHP、WooCommerce 版本
 
-```json
-{
-  "valid": true,
-  "expires_at": "2027-12-31",
-  "site_url": "https://example.com",
-  "message": "License active"
-}
-```
+不傳送管理員密碼、Cookie、會員、訂單或付款資料。
 
-失敗時回傳 {"valid":false,"message":"Invalid license"} 並使用 4xx 狀態碼。
+## 驗證頻率
 
-## 建議的 A 站實作
+- 輸入授權碼時啟用一次
+- 管理員手動重新驗證
+- WP-Cron 每 7 天背景驗證
+- 解除綁定時通知伺服器
 
-可用獨立 WordPress 外掛註冊 REST route。驗證時讀取授權碼資料表，檢查 active、到期日與網站綁定，再回傳 valid、expires_at、site_url、message。
+成功結果保存在本機。網路暫時中斷時提供 14 天寬限期。授權失效只阻止啟用新模組，不會停止已啟用模組，以免正式網站的購物、付款或結帳功能突然中斷。
 
-正式環境請將授權碼放在專用資料表、限制啟用網站數量，並加入啟用/停用端點與簽章驗證。不要把管理站的資料庫密鑰放進 B 站外掛。
+## 複製網站
 
-## B 站設定
-
-在「WU Toolbox → 授權設定」輸入：
-
-- 授權碼
-- A 站 REST API，例如 https://license.example.com/wp-json/wutm-license/v1/validate
-
-驗證成功後，所有模組才能啟用；模組仍會顯示在主畫面，但未授權時開關會鎖定。
+授權狀態會記錄綁定網址。若網站複製後網址不同，客戶端不會沿用原網站授權，必須重新向授權伺服器綁定。

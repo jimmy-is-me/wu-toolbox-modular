@@ -2,17 +2,21 @@
 defined('ABSPATH') || exit;
 
 /**
- * Central license gate for WU Toolbox Modular.
+ * WU Toolbox client for the Wumetax licensing service.
  *
- * The license is checked once when activated and then refreshed every 30 days.
- * Results are cached locally so normal WordPress requests never call the
- * licensing site. Network failures keep the last valid result for 14 days.
+ * Normal front-end requests never contact the server. A successful result is
+ * cached locally and refreshed by WP-Cron every seven days, with a fourteen-day
+ * network grace period. Existing enabled modules keep running if a license
+ * lapses; only new module activation is locked to avoid breaking live sites.
  */
 final class WUTM_License_Manager {
+    const API_BASE = 'https://master.wumetax.com/wp-json/wumetax-license/v1';
     const KEY_OPTION = 'wutm_license_key';
+    const TOKEN_OPTION = 'wutm_license_activation_token';
+    const UUID_OPTION = 'wutm_license_site_uuid';
     const STATE_OPTION = 'wutm_license_state';
-    const ENDPOINT_OPTION = 'wutm_license_endpoint';
-    const CHECK_INTERVAL = 30 * DAY_IN_SECONDS;
+    const CRON_HOOK = 'wutm_license_weekly_check';
+    const CHECK_INTERVAL = 7 * DAY_IN_SECONDS;
     const GRACE_PERIOD = 14 * DAY_IN_SECONDS;
 
     private static $instance;
@@ -24,36 +28,55 @@ final class WUTM_License_Manager {
 
     private function __construct() {
         add_action('admin_menu', [$this, 'register_page'], 20);
-        add_action('admin_init', [$this, 'maybe_refresh']);
-        add_action('wutm_license_daily_check', [$this, 'refresh']);
+        add_action('admin_post_wutm_license_activate', [$this, 'handle_activate']);
+        add_action('admin_post_wutm_license_validate', [$this, 'handle_validate']);
+        add_action('admin_post_wutm_license_deactivate', [$this, 'handle_deactivate']);
+        add_action(self::CRON_HOOK, [$this, 'refresh']);
         add_filter('cron_schedules', [$this, 'cron_schedule']);
+        add_action('admin_init', [$this, 'ensure_cron']);
     }
 
     public function cron_schedule(array $schedules): array {
-        if (!isset($schedules['wutm_daily'])) {
-            $schedules['wutm_daily'] = ['interval' => DAY_IN_SECONDS, 'display' => 'WU Toolbox daily license check'];
+        if (!isset($schedules['wutm_weekly'])) {
+            $schedules['wutm_weekly'] = [
+                'interval' => self::CHECK_INTERVAL,
+                'display' => 'WU Toolbox weekly license check',
+            ];
         }
         return $schedules;
+    }
+
+    public function ensure_cron(): void {
+        if (!$this->key() || !$this->token() || wp_next_scheduled(self::CRON_HOOK)) return;
+        wp_schedule_event(time() + HOUR_IN_SECONDS, 'wutm_weekly', self::CRON_HOOK);
     }
 
     public function register_page(): void {
         add_submenu_page(
             'wu-toolbox-modular',
-            __('授權設定', 'wu-toolbox-modular'),
-            __('授權設定', 'wu-toolbox-modular'),
+            'WU Toolbox 授權',
+            '授權設定',
             'manage_options',
             'wu-license',
             [$this, 'render_page']
         );
     }
 
-    public function endpoint(): string {
-        $saved = trim((string) get_option(self::ENDPOINT_OPTION, ''));
-        return (string) apply_filters('wutm_license_endpoint', $saved);
-    }
-
     public function key(): string {
         return trim((string) get_option(self::KEY_OPTION, ''));
+    }
+
+    public function token(): string {
+        return trim((string) get_option(self::TOKEN_OPTION, ''));
+    }
+
+    public function site_uuid(): string {
+        $uuid = trim((string) get_option(self::UUID_OPTION, ''));
+        if (!$uuid || !wp_is_uuid($uuid)) {
+            $uuid = wp_generate_uuid4();
+            update_option(self::UUID_OPTION, $uuid, false);
+        }
+        return $uuid;
     }
 
     public function state(): array {
@@ -61,114 +84,241 @@ final class WUTM_License_Manager {
         return is_array($state) ? $state : [];
     }
 
+    private function current_site_url(): string {
+        return trailingslashit(home_url('/'));
+    }
+
+    private function bound_to_current_site(array $state): bool {
+        if (empty($state['site_url'])) return true;
+        return trailingslashit((string) $state['site_url']) === $this->current_site_url();
+    }
+
     public function is_valid(): bool {
         $state = $this->state();
+        if (!$this->token()) return false;
+        if (!$this->bound_to_current_site($state)) return false;
         if (empty($state['valid']) || empty($state['checked_at'])) return false;
         $now = time();
-        $expires = !empty($state['expires_at']) ? strtotime((string) $state['expires_at']) : 0;
+        $expires = !empty($state['expires_at']) ? strtotime((string) $state['expires_at'] . ' UTC') : 0;
         if ($expires && $expires < $now) return false;
-        // A valid cached result remains usable during the short offline grace period.
         return ($now - (int) $state['checked_at']) <= self::CHECK_INTERVAL + self::GRACE_PERIOD;
     }
 
-    public function status_label(): string {
-        if ($this->is_valid()) return __('已驗證', 'wu-toolbox-modular');
-        if ($this->key() === '') return __('尚未輸入授權碼', 'wu-toolbox-modular');
-        return __('尚未驗證或已過期', 'wu-toolbox-modular');
+    public function status_code(): string {
+        $state = $this->state();
+        if (!$this->bound_to_current_site($state)) return 'site_changed';
+        if ($this->is_valid()) return 'active';
+        if (!$this->key()) return 'unlicensed';
+        return sanitize_key((string) ($state['status'] ?? 'invalid')) ?: 'invalid';
     }
 
-    public function maybe_refresh(): void {
-        if (!is_admin() || !$this->key() || !$this->endpoint()) return;
-        $state = $this->state();
-        if (empty($state['checked_at']) || time() - (int) $state['checked_at'] > self::CHECK_INTERVAL) {
-            $this->refresh();
+    public function status_label(): string {
+        $labels = [
+            'active' => '授權有效',
+            'pending' => '等待 Wumetax 核准',
+            'suspended' => '網站授權已暫停',
+            'revoked' => '授權碼已撤銷',
+            'deactivated' => '已解除綁定',
+            'expired' => '授權已過期',
+            'site_changed' => '偵測到網站網址已變更，請重新綁定',
+            'unlicensed' => '尚未輸入授權碼',
+            'invalid' => '授權無效或尚未完成驗證',
+        ];
+        $code = $this->status_code();
+        return $labels[$code] ?? '授權目前不可使用';
+    }
+
+    private function environment(): array {
+        global $wp_version;
+        return [
+            'site_uuid' => $this->site_uuid(),
+            'site_url' => home_url('/'),
+            'plugin_slug' => 'wu-toolbox-modular',
+            'version' => WUTM_VERSION,
+            'wp_version' => (string) $wp_version,
+            'php_version' => PHP_VERSION,
+            'wc_version' => defined('WC_VERSION') ? WC_VERSION : '',
+        ];
+    }
+
+    private function request(string $action, array $body): array {
+        $url = self::API_BASE . '/' . $action;
+        $response = wp_safe_remote_post($url, [
+            'timeout' => 6,
+            'redirection' => 0,
+            'headers' => ['Accept' => 'application/json'],
+            'body' => $body,
+            'user-agent' => 'WU-Toolbox-Modular/' . WUTM_VERSION . '; ' . home_url('/'),
+        ]);
+        if (is_wp_error($response)) {
+            return ['transport_error' => true, 'message' => $response->get_error_message()];
         }
+        $data = json_decode((string) wp_remote_retrieve_body($response), true);
+        if (!is_array($data)) $data = [];
+        $data['http_code'] = (int) wp_remote_retrieve_response_code($response);
+        return $data;
+    }
+
+    private function store_state(array $data, bool $valid): void {
+        $status = sanitize_key((string) ($data['status'] ?? ($valid ? 'active' : 'invalid')));
+        if (!$valid && !empty($data['code']) && in_array($data['code'], ['expired', 'revoked', 'suspended'], true)) {
+            $status = sanitize_key($data['code']);
+        }
+        update_option(self::STATE_OPTION, [
+            'valid' => $valid,
+            'status' => $status ?: 'invalid',
+            'checked_at' => time(),
+            'expires_at' => sanitize_text_field((string) ($data['expires_at'] ?? '')),
+            'site_url' => $this->current_site_url(),
+            'message' => sanitize_text_field((string) ($data['message'] ?? '')),
+        ], false);
+    }
+
+    public function activate(string $key): array {
+        $key = trim(sanitize_text_field($key));
+        if (!$key) return ['success' => false, 'message' => '請輸入授權碼。'];
+        $data = $this->request('activate', array_merge($this->environment(), ['license_key' => $key]));
+        if (!empty($data['transport_error'])) {
+            return ['success' => false, 'message' => '無法連線授權伺服器，請稍後再試。'];
+        }
+        $token = sanitize_text_field((string) ($data['activation_token'] ?? ''));
+        if (!$token) {
+            $this->store_state($data, false);
+            return ['success' => false, 'message' => sanitize_text_field((string) ($data['message'] ?? '授權碼驗證失敗。'))];
+        }
+        update_option(self::KEY_OPTION, $key, false);
+        update_option(self::TOKEN_OPTION, $token, false);
+        $valid = !empty($data['valid']) && ($data['status'] ?? '') === 'active';
+        $this->store_state($data, $valid);
+        $this->ensure_cron();
+        return [
+            'success' => $valid,
+            'pending' => ($data['status'] ?? '') === 'pending',
+            'message' => sanitize_text_field((string) ($data['message'] ?? ($valid ? '授權啟用成功。' : '授權尚未核准。'))),
+        ];
     }
 
     public function refresh(): bool {
-        $key = $this->key();
-        $endpoint = $this->endpoint();
-        if (!$key || !$endpoint || !wp_http_validate_url($endpoint)) return false;
-
-        $response = wp_safe_remote_post($endpoint, [
-            'timeout' => 8,
-            'headers' => ['Accept' => 'application/json'],
-            'body' => [
-                'license_key' => $key,
-                'site_url' => home_url('/'),
-                'plugin_slug' => 'wu-toolbox-modular',
-                'version' => WUTM_VERSION,
-            ],
-        ]);
-        if (is_wp_error($response)) return false;
-
-        $code = (int) wp_remote_retrieve_response_code($response);
-        $data = json_decode((string) wp_remote_retrieve_body($response), true);
-        if ($code < 200 || $code >= 300 || !is_array($data)) return false;
-
-        $valid = !empty($data['valid']);
-        $state = [
-            'valid' => $valid,
-            'checked_at' => time(),
-            'expires_at' => sanitize_text_field((string) ($data['expires_at'] ?? '')),
-            'site_url' => esc_url_raw((string) ($data['site_url'] ?? home_url('/'))),
-            'message' => sanitize_text_field((string) ($data['message'] ?? '')),
-        ];
-        update_option(self::STATE_OPTION, $state, false);
+        if (!$this->token() || !$this->key()) return false;
+        $state = $this->state();
+        if (!$this->bound_to_current_site($state)) return false;
+        $data = $this->request('validate', array_merge($this->environment(), [
+            'activation_token' => $this->token(),
+        ]));
+        if (!empty($data['transport_error'])) {
+            // Preserve the last successful timestamp so the offline grace rule applies.
+            return false;
+        }
+        $valid = !empty($data['valid']) && ($data['status'] ?? '') === 'active';
+        $this->store_state($data, $valid);
         return $valid;
     }
 
-    public function save(): array {
-        if (!current_user_can('manage_options')) return ['success' => false, 'message' => __('權限不足。', 'wu-toolbox-modular')];
-        check_admin_referer('wutm_license_save');
-
-        $key = sanitize_text_field(wp_unslash($_POST['wutm_license_key'] ?? ''));
-        $endpoint = esc_url_raw(trim((string) wp_unslash($_POST['wutm_license_endpoint'] ?? '')));
-        update_option(self::KEY_OPTION, $key, false);
-        update_option(self::ENDPOINT_OPTION, $endpoint, false);
+    public function deactivate(): bool {
+        $success = true;
+        $state = $this->state();
+        $bound_to_current_site = $this->bound_to_current_site($state);
+        if ($this->token() && $bound_to_current_site) {
+            $data = $this->request('deactivate', array_merge($this->environment(), [
+                'activation_token' => $this->token(),
+            ]));
+            $success = empty($data['transport_error']) && (($data['status'] ?? '') === 'deactivated');
+        }
+        delete_option(self::KEY_OPTION);
+        delete_option(self::TOKEN_OPTION);
         delete_option(self::STATE_OPTION);
+        if (!$bound_to_current_site) {
+            // A cloned/moved site must get its own identity on the next activation.
+            // Never use the copied token to release the original site's binding.
+            delete_option(self::UUID_OPTION);
+        }
+        wp_clear_scheduled_hook(self::CRON_HOOK);
+        return $success;
+    }
 
-        $valid = $this->refresh();
-        return [
-            'success' => $valid,
-            'message' => $valid ? __('授權驗證成功，所有模組已解鎖。', 'wu-toolbox-modular') : __('驗證失敗，請確認授權碼與授權伺服器網址。', 'wu-toolbox-modular'),
-        ];
+    private function redirect(string $notice): void {
+        wp_safe_redirect(add_query_arg([
+            'page' => 'wu-license',
+            'wutm_license_notice' => sanitize_key($notice),
+        ], admin_url('admin.php')));
+        exit;
+    }
+
+    public function handle_activate(): void {
+        if (!current_user_can('manage_options')) wp_die('權限不足。');
+        check_admin_referer('wutm_license_activate');
+        if (empty($_POST['wutm_license_consent'])) $this->redirect('consent_required');
+        if ($this->token()) $this->redirect('already_bound');
+        $result = $this->activate((string) wp_unslash($_POST['wutm_license_key'] ?? ''));
+        if (!empty($result['success'])) $this->redirect('activated');
+        if (!empty($result['pending'])) $this->redirect('pending');
+        set_transient('wutm_license_error_' . get_current_user_id(), $result['message'] ?? '授權失敗。', MINUTE_IN_SECONDS);
+        $this->redirect('error');
+    }
+
+    public function handle_validate(): void {
+        if (!current_user_can('manage_options')) wp_die('權限不足。');
+        check_admin_referer('wutm_license_validate');
+        $this->redirect($this->refresh() ? 'validated' : 'validate_failed');
+    }
+
+    public function handle_deactivate(): void {
+        if (!current_user_can('manage_options')) wp_die('權限不足。');
+        check_admin_referer('wutm_license_deactivate');
+        $this->redirect($this->deactivate() ? 'deactivated' : 'deactivated_local');
     }
 
     public function render_page(): void {
         if (!current_user_can('manage_options')) return;
-        $notice = null;
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['wutm_license_save'])) {
-            $notice = $this->save();
-        }
         $state = $this->state();
+        $notice = sanitize_key(wp_unslash($_GET['wutm_license_notice'] ?? ''));
+        $messages = [
+            'activated' => ['授權啟用成功，現在可以啟用模組。', 'success'],
+            'validated' => ['已完成授權重新驗證。', 'success'],
+            'pending' => ['網站已送出，請等待 Wumetax 授權管理員核准。', 'warning'],
+            'deactivated' => ['已解除授權並釋放網站名額。', 'success'],
+            'deactivated_local' => ['本機授權已清除，但授權伺服器暫時無法連線；可由 Wumetax 管理端解除網站。', 'warning'],
+            'validate_failed' => ['授權目前未通過驗證，請確認管理端狀態或稍後重試。', 'error'],
+            'consent_required' => ['請先確認並同意傳送授權所需的網站資訊。', 'error'],
+            'already_bound' => ['此網站已有綁定；如需更換授權碼，請先解除目前授權。', 'warning'],
+            'error' => [(string) get_transient('wutm_license_error_' . get_current_user_id()), 'error'],
+        ];
+        delete_transient('wutm_license_error_' . get_current_user_id());
         ?>
         <div class="wrap wutm-wrap wutm-license-page">
-            <header class="wutm-header"><div><h1><?php echo esc_html__('授權設定', 'wu-toolbox-modular'); ?></h1><p><?php echo esc_html__('輸入授權碼後即可啟用 WU Toolbox Modular 的所有功能。', 'wu-toolbox-modular'); ?></p></div><span>v<?php echo esc_html(WUTM_VERSION); ?></span></header>
-            <?php if ($notice): ?><div class="notice <?php echo $notice['success'] ? 'notice-success' : 'notice-error'; ?>"><p><?php echo esc_html($notice['message']); ?></p></div><?php endif; ?>
+            <header class="wutm-header"><div><span class="wutm-header-kicker">LICENSE CONNECTION</span><h1>WU Toolbox 授權</h1><p>連接 Wumetax 授權伺服器，驗證結果會保存在本機，不影響前台效能。</p></div><span>v<?php echo esc_html(WUTM_VERSION); ?></span></header>
+            <?php if (isset($messages[$notice])): ?><div class="notice notice-<?php echo esc_attr($messages[$notice][1]); ?>"><p><?php echo esc_html($messages[$notice][0]); ?></p></div><?php endif; ?>
             <section class="wutm-panel">
-                <h2><?php echo esc_html__('授權狀態', 'wu-toolbox-modular'); ?></h2>
-                <p class="wutm-license-status"><?php echo esc_html($this->status_label()); ?></p>
-                <?php if (!empty($state['expires_at'])): ?><p><?php echo esc_html(sprintf(__('有效期限：%s', 'wu-toolbox-modular'), $state['expires_at'])); ?></p><?php endif; ?>
+                <h2>授權狀態</h2>
+                <p><strong><?php echo esc_html($this->status_label()); ?></strong></p>
+                <p>綁定網站：<code><?php echo esc_html(home_url('/')); ?></code></p>
+                <?php if (!empty($state['expires_at'])): ?><p>有效期限：<?php echo esc_html($state['expires_at']); ?></p><?php endif; ?>
+                <?php if (!empty($state['checked_at'])): ?><p>最後驗證：<?php echo esc_html(wp_date('Y-m-d H:i:s', (int) $state['checked_at'])); ?></p><?php endif; ?>
             </section>
-            <section class="wutm-panel">
-                <h2><?php echo esc_html__('連線設定', 'wu-toolbox-modular'); ?></h2>
-                <form method="post">
-                    <?php wp_nonce_field('wutm_license_save'); ?>
-                    <input type="hidden" name="wutm_license_save" value="1">
-                    <table class="form-table" role="presentation">
-                        <tr><th><label for="wutm_license_key"><?php echo esc_html__('授權碼', 'wu-toolbox-modular'); ?></label></th><td><input class="regular-text" type="text" id="wutm_license_key" name="wutm_license_key" value="<?php echo esc_attr($this->key()); ?>" autocomplete="off"><p class="description"><?php echo esc_html__('由授權管理站產生的授權碼。', 'wu-toolbox-modular'); ?></p></td></tr>
-                        <tr><th><label for="wutm_license_endpoint"><?php echo esc_html__('授權伺服器驗證網址', 'wu-toolbox-modular'); ?></label></th><td><input class="regular-text code" type="url" id="wutm_license_endpoint" name="wutm_license_endpoint" value="<?php echo esc_attr($this->endpoint()); ?>" placeholder="https://license.example.com/wp-json/wutm-license/v1/validate"><p class="description"><?php echo esc_html__('WordPress A 提供的 REST API 驗證端點。驗證結果會快取，不會每次請求連線。', 'wu-toolbox-modular'); ?></p></td></tr>
-                    </table>
-                    <?php submit_button(__('儲存並驗證', 'wu-toolbox-modular')); ?>
-                </form>
-            </section>
+            <?php if (!$this->token()): ?>
+                <section class="wutm-panel">
+                    <h2>啟用授權</h2>
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                        <input type="hidden" name="action" value="wutm_license_activate">
+                        <?php wp_nonce_field('wutm_license_activate'); ?>
+                        <table class="form-table" role="presentation"><tr><th><label for="wutm-license-key">授權碼</label></th><td><input class="regular-text code" id="wutm-license-key" name="wutm_license_key" required autocomplete="off" placeholder="WUTM-XXXXXXXX-XXXXXXXX-XXXXXXXX-XXXXXXXX"></td></tr><tr><th>資料傳送</th><td><label><input type="checkbox" name="wutm_license_consent" value="1" required> 我同意將網站網址、隨機網站識別碼及外掛、WordPress、PHP、WooCommerce 版本傳送至 Wumetax 授權伺服器。</label><p class="description">不會傳送管理員密碼、Cookie、會員、訂單或付款資料。</p></td></tr></table>
+                        <?php submit_button('啟用授權'); ?>
+                    </form>
+                </section>
+            <?php else: ?>
+                <section class="wutm-panel"><h2>授權操作</h2><p>授權伺服器：<code><?php echo esc_html(self::API_BASE); ?></code></p><div style="display:flex;gap:10px;flex-wrap:wrap">
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="wutm_license_validate"><?php wp_nonce_field('wutm_license_validate'); ?><button class="button button-primary">立即重新驗證</button></form>
+                    <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" onsubmit="return confirm('確定解除這個網站的授權？')"><input type="hidden" name="action" value="wutm_license_deactivate"><?php wp_nonce_field('wutm_license_deactivate'); ?><button class="button">解除授權</button></form>
+                </div></section>
+            <?php endif; ?>
+            <section class="wutm-panel"><h2>運作方式</h2><ul><li>只有啟用、手動驗證、解除綁定及每 7 天背景檢查時才連線。</li><li>網路暫時中斷時，最後一次有效結果提供 14 天寬限期。</li><li>授權失效不會關閉已在運作的模組，避免購物與結帳功能突然中斷；但不能再啟用新模組。</li><li>網站複製或網址變更後必須重新綁定，不會沿用原網站權杖。</li></ul></section>
         </div>
         <?php
     }
 }
 
 WUTM_License_Manager::instance();
+
 function wutm_license_is_valid(): bool {
     return WUTM_License_Manager::instance()->is_valid();
 }

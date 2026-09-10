@@ -3,7 +3,7 @@
  * Plugin Name: WU Toolbox Modular
  * Plugin URI: https://wumetax.com/
  * Description: WU Toolbox 的按需載入模組化版本。每項功能獨立，只有啟用後才會載入。
- * Version: 2.1.8
+ * Version: 2.1.9
  * Author: Wumetax
  * Author URI: https://wumetax.com/
  * License: GPL-2.0-or-later
@@ -14,7 +14,7 @@
 defined('ABSPATH') || exit;
 
 define('WUTM_FILE', __FILE__);
-define('WUTM_VERSION', '2.1.8');
+define('WUTM_VERSION', '2.1.9');
 define('WUTM_PATH', plugin_dir_path(__FILE__));
 define('WUTM_URL', plugin_dir_url(__FILE__));
 
@@ -78,7 +78,7 @@ add_filter('plugin_row_meta', function (array $links, string $file): array {
 }, 10, 2);
 
 require_once WUTM_PATH . 'core/module-registry.php';
-// License manager is intentionally kept in core/ for future use, but is disabled for now.
+require_once WUTM_PATH . 'core/license-manager.php';
 require_once WUTM_PATH . 'core/module-loader.php';
 require_once WUTM_PATH . 'core/admin-page.php';
 require_once WUTM_PATH . 'core/module-menu.php';
@@ -117,6 +117,14 @@ add_action('wp_ajax_wutm_toggle_module', function () {
     $key = sanitize_key(wp_unslash($_POST['module'] ?? ''));
     if (!wutm_get_module($key)) wp_send_json_error(['message' => 'unknown_module'], 400);
 
-    update_option(wutm_module_option($key), !empty($_POST['enabled']) ? 1 : 0, false);
+    $enable = !empty($_POST['enabled']);
+    if ($enable && function_exists('wutm_license_is_valid') && !wutm_license_is_valid()) {
+        wp_send_json_error([
+            'message' => '請先完成 WU Toolbox 授權驗證，才能啟用新模組。',
+            'license_url' => admin_url('admin.php?page=wu-license'),
+        ], 403);
+    }
+
+    update_option(wutm_module_option($key), $enable ? 1 : 0, false);
     wp_send_json_success(['module' => $key, 'enabled' => (bool) get_option(wutm_module_option($key))]);
 });

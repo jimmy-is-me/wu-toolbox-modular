@@ -726,6 +726,8 @@ final class WC_Member_Points_Rewards {
         $settings = $this->wcmp_get_settings();
         $eligible = $this->wcmp_get_eligible_amount_from_order( $order );
         $earn = $this->wcmp_calc_earn_points( $eligible );
+        $tier_multiplier = max( 0, (float) apply_filters( 'wmt_points_multiplier', 1, $user_id ) );
+        $earn = (int) floor( $earn * $tier_multiplier );
 
         if ( $earn > 0 ) {
             $this->wcmp_add_ledger_entry(
