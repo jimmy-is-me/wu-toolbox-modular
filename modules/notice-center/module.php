@@ -21,6 +21,7 @@ final class WUTM_Notice_Center {
 
         add_action('admin_enqueue_scripts', [__CLASS__, 'assets']);
         add_action('in_admin_header', [__CLASS__, 'panel'], 999);
+        add_filter('admin_body_class', [__CLASS__, 'body_class']);
     }
 
     private static function settings(): array {
@@ -91,6 +92,20 @@ final class WUTM_Notice_Center {
         wp_register_style('wutm-notice-center', false, [], WUTM_VERSION);
         wp_enqueue_style('wutm-notice-center');
         wp_add_inline_style('wutm-notice-center', '
+            @keyframes wutm-notice-precollect-fallback{to{visibility:visible;}}
+            html.js body.wutm-notice-center-precollect #wpbody-content>.notice,
+            html.js body.wutm-notice-center-precollect #wpbody-content>.updated,
+            html.js body.wutm-notice-center-precollect #wpbody-content>.error,
+            html.js body.wutm-notice-center-precollect #wpbody-content>.update-nag,
+            html.js body.wutm-notice-center-precollect #wpbody-content>.wrap>.notice,
+            html.js body.wutm-notice-center-precollect #wpbody-content>.wrap>.updated,
+            html.js body.wutm-notice-center-precollect #wpbody-content>.wrap>.error,
+            html.js body.wutm-notice-center-precollect #wpbody-content>.wrap>.update-nag,
+            html.js body.wutm-notice-center-precollect .wutm-notice-slot>.notice,
+            html.js body.wutm-notice-center-precollect .wutm-header>.notice{
+                visibility:hidden;
+                animation:wutm-notice-precollect-fallback 0s 2s forwards;
+            }
             #wutm-notice-center{display:none;margin:16px 0 12px;max-width:100%;}
             #wutm-notice-center.is-visible{display:block;}
             #wutm-notice-center details{border:1px solid #c3c4c7;border-radius:8px;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.04);}
@@ -102,6 +117,10 @@ final class WUTM_Notice_Center {
         ');
 
         wp_enqueue_script('wutm-notice-center', WUTM_URL . 'assets/js/notice-center.js', ['jquery', 'common'], WUTM_VERSION, true);
+    }
+
+    public static function body_class(string $classes): string {
+        return self::can_collect_notices() ? $classes . ' wutm-notice-center-precollect' : $classes;
     }
 
     public static function panel(): void {

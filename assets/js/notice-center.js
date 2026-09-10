@@ -5,6 +5,10 @@
         function collect() {
             var panel = document.getElementById('wutm-notice-center');
             if (!panel) return;
+            // Remove the initial hidden state immediately before the synchronous
+            // move. Browsers do not paint between these operations, so notices
+            // never flash open in their original positions.
+            document.body.classList.remove('wutm-notice-center-precollect');
             var items = panel.querySelector('.wutm-notice-items');
             var roots = document.querySelectorAll('#wpbody-content, #wpbody-content > .wrap, #wpbody-content > .wrap > .wutm-notice-slot, #wpbody-content > .wrap > .wutm-header');
             var selector = '.notice, .updated, .error, .update-nag';
