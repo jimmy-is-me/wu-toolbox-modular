@@ -138,8 +138,16 @@ class WU_WooCommerce_Optimizer {
             var orders = <?php echo wp_json_encode(admin_url('admin.php?page=wc-orders')); ?>;
             document.querySelectorAll('#adminmenu > li > a').forEach(function(link){
                 var url = new URL(link.href, location.href);
-                if (url.searchParams.get('page') === 'wc-admin' && url.searchParams.get('path') === '/marketing') {
+                var label = (link.textContent || '').replace(/\s+/g, ' ').trim();
+                var isMarketing = url.searchParams.get('page') === 'wc-admin' && url.searchParams.get('path') === '/marketing';
+                if (!isMarketing && (label === '行銷' || label === 'Marketing')) isMarketing = true;
+                if (<?php echo get_option('wu_woo_hide_marketing', false) ? 'true' : 'false'; ?> && isMarketing) {
                     link.href = coupon;
+                    link.addEventListener('click', function(event){
+                        event.preventDefault();
+                        event.stopImmediatePropagation();
+                        window.location.assign(coupon);
+                    }, true);
                 }
                 if (<?php echo get_option('wu_woo_hide_home', false) ? 'true' : 'false'; ?> && (url.searchParams.get('page') === 'wc-admin' || url.searchParams.get('page') === 'woocommerce')) {
                     link.href = orders;
