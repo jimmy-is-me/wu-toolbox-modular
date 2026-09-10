@@ -3,7 +3,7 @@
  * Plugin Name: WU Toolbox Modular
  * Plugin URI: https://wumetax.com/
  * Description: WU Toolbox 的按需載入模組化版本。每項功能獨立，只有啟用後才會載入。
- * Version: 2.1.9
+ * Version: 2.2.0
  * Author: Wumetax
  * Author URI: https://wumetax.com/
  * License: GPL-2.0-or-later
@@ -14,7 +14,7 @@
 defined('ABSPATH') || exit;
 
 define('WUTM_FILE', __FILE__);
-define('WUTM_VERSION', '2.1.9');
+define('WUTM_VERSION', '2.2.0');
 define('WUTM_PATH', plugin_dir_path(__FILE__));
 define('WUTM_URL', plugin_dir_url(__FILE__));
 
@@ -121,7 +121,7 @@ add_action('wp_ajax_wutm_toggle_module', function () {
     if ($enable && function_exists('wutm_license_is_valid') && !wutm_license_is_valid()) {
         wp_send_json_error([
             'message' => '請先完成 WU Toolbox 授權驗證，才能啟用新模組。',
-            'license_url' => admin_url('admin.php?page=wu-license'),
+            'license_url' => admin_url('admin.php?page=wu-toolbox-modular#wutm-license'),
         ], 403);
     }
 
