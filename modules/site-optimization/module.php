@@ -18,11 +18,15 @@ final class WUTM_Site_Optimization {
         if (self::is_enabled('fix_wc_default_product_cat')) {
             add_action('admin_footer-edit-tags.php', [__CLASS__, 'fix_wc_default_product_cat_row'], 9999);
         }
+        if (self::is_enabled('fix_checkout_shipping_heading')) {
+            add_action('wp_footer', [__CLASS__, 'fix_checkout_shipping_heading'], 99);
+        }
     }
 
     private static function settings(): array {
         return wp_parse_args((array) get_option(self::OPTION, []), [
             'fix_wc_default_product_cat' => false,
+            'fix_checkout_shipping_heading' => false,
         ]);
     }
 
@@ -62,6 +66,7 @@ final class WUTM_Site_Optimization {
 
         update_option(self::OPTION, [
             'fix_wc_default_product_cat' => !empty($_POST['fix_wc_default_product_cat']),
+            'fix_checkout_shipping_heading' => !empty($_POST['fix_checkout_shipping_heading']),
         ], false);
 
         wp_safe_redirect(add_query_arg([
@@ -89,11 +94,11 @@ final class WUTM_Site_Optimization {
 
             <section class="wutm-so-summary" aria-label="功能狀態">
                 <div>
-                    <strong>目前提供 1 項修復功能</strong>
-                    <span>只會在符合條件的 WordPress 後台頁面執行。</span>
+                    <strong>目前提供 2 項修復功能</strong>
+                    <span>只會在符合條件的頁面執行。</span>
                 </div>
-                <span class="wutm-so-status <?php echo !empty($settings['fix_wc_default_product_cat']) ? 'is-on' : 'is-off'; ?>">
-                    <?php echo !empty($settings['fix_wc_default_product_cat']) ? '運作中' : '未啟用'; ?>
+                <span class="wutm-so-status <?php echo (!empty($settings['fix_wc_default_product_cat']) || !empty($settings['fix_checkout_shipping_heading'])) ? 'is-on' : 'is-off'; ?>">
+                    <?php echo (!empty($settings['fix_wc_default_product_cat']) || !empty($settings['fix_checkout_shipping_heading'])) ? '運作中' : '未啟用'; ?>
                 </span>
             </section>
 
@@ -127,6 +132,12 @@ final class WUTM_Site_Optimization {
                         <li>只在 WordPress 後台執行，不影響前台、商品頁、購物車或結帳。</li>
                         <li>只有名稱或列操作真的遺失時才修復，不覆蓋正常的 WordPress 輸出。</li>
                     </ul>
+                </section>
+
+                <section class="wutm-so-panel">
+                    <div class="wutm-so-panel-heading"><div><h2>結帳運送標題修復</h2><p>將 Blocksy 結帳區塊的 <code>ct-shipping-heading</code> 文字固定修正為「運送方式」。</p></div><span class="wutm-so-dependency <?php echo $woocommerce_available ? 'is-ready' : 'is-missing'; ?>"><?php echo $woocommerce_available ? 'WooCommerce 已就緒' : '未偵測到 WooCommerce'; ?></span></div>
+                    <label class="wutm-so-choice"><input type="checkbox" name="fix_checkout_shipping_heading" value="1" <?php checked(!empty($settings['fix_checkout_shipping_heading'])); ?> <?php disabled(!$woocommerce_available); ?>><span><strong>啟用結帳運送標題修復</strong><small>只在購物車或結帳頁執行，包含 WooCommerce AJAX 更新後的畫面。</small></span></label>
+                    <ul class="wutm-so-details"><li>不修改佈景主題或 WooCommerce 檔案。</li><li>只變更 <code>.ct-shipping-heading</code> 的顯示文字。</li><li>停用此項目後即停止套用。</li></ul>
                 </section>
 
                 <?php submit_button('儲存設定'); ?>
@@ -220,6 +231,11 @@ final class WUTM_Site_Optimization {
         })(jQuery);
         </script>
         <?php
+    }
+
+    public static function fix_checkout_shipping_heading(): void {
+        if (!function_exists('is_cart') || (!is_cart() && !is_checkout())) return;
+        ?><script>(function(){function fix(){document.querySelectorAll('.ct-shipping-heading').forEach(function(el){if(el.textContent.trim()!=='運送方式')el.textContent='運送方式';});}if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',fix);else fix();if(window.jQuery)jQuery(document.body).on('updated_checkout updated_cart_totals',fix);})();</script><?php
     }
 }
 

@@ -76,6 +76,8 @@ function wutm_modules(): array {
         'shipping-optimization-tools' => ['name' => '運送優化功能', 'description' => '集中管理台灣離島運送與 7-11 超商取貨、運費及免運門檻。', 'group' => '電商工具', 'icon' => '🚚', 'requires' => 'woocommerce', 'settings_page' => 'wu-shipping-optimization-tools'],
         'woocommerce-optimizer' => ['name' => '隱藏WC工具', 'description' => '整理 WooCommerce 後台選單、推廣區與頁尾。', 'group' => '電商工具', 'icon' => '🛒', 'requires' => 'woocommerce'],
         'product-sales-count' => ['name' => '商品購買量', 'description' => '顯示商品實際銷售量，並可由管理員設定顯示調整值。', 'group' => '電商工具', 'icon' => '📊', 'requires' => 'woocommerce', 'settings_page' => 'wu-product-sales-count'],
+        'free-shipping-notice' => ['name' => '免運門檻提示', 'description' => '為單一費率與自行取貨設定滿額免運，並顯示尚差金額或達標提示。', 'group' => '電商工具', 'icon' => '🚚', 'requires' => 'woocommerce', 'settings_page' => 'wu-free-shipping-notice'],
+        'new-member-discount' => ['name' => '新會員優惠', 'description' => '新會員首次消費滿額自動折抵，並記錄使用狀態與取消解鎖。', 'group' => '電商工具', 'icon' => '🎁', 'requires' => 'woocommerce', 'settings_page' => 'wu-new-member-discount'],
         'ecpay-tools' => ['name' => '綠界金流/物流/電子發票工具', 'description' => '整合綠界付款、超商與宅配物流及電子發票。需設定商店資料並完成測試。', 'group' => '電商工具', 'icon' => '💳', 'requires' => 'woocommerce'],
         'esun-payment' => ['name' => '玉山銀行金流工具', 'description' => '玉山信用卡一次付清與分期付款，沿用銀行交易驗證流程。', 'group' => '電商工具', 'icon' => '🏦', 'requires' => 'woocommerce'],
     ];
