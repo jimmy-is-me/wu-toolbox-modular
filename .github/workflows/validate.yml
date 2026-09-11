@@ -12,3 +12,10 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check PHP syntax
         run: find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
+      - name: Check changelog is current
+        shell: bash
+        run: |
+          set -euo pipefail
+          PLUGIN_VERSION="$(grep -E '^[[:space:]]*\* Version:' wu-toolbox-modular.php | sed -E 's/^[[:space:]]*\* Version:[[:space:]]*//')"
+          test -n "$PLUGIN_VERSION"
+          grep -Fq "<h4>${PLUGIN_VERSION}</h4>" core/github-release-updater.php

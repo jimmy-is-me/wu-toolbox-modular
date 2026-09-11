@@ -33,23 +33,42 @@ add_action('woocommerce_cart_calculate_fees',function($cart):void{
     $cart->add_fee(wutm_nmd_fee_name($o),-min($o['discount'],$cart->get_subtotal()),false);
 });
 
-add_action('woocommerce_checkout_order_created',function($order):void{
+function wutm_nmd_capture_order($order,bool $backfill=false):void{
+    if(!($order instanceof WC_Order))return;
     $uid=(int)$order->get_user_id();if(!$uid)return;
     $discount=0.0;$discount_fee=null;
     foreach($order->get_fees() as $fee){if(strpos($fee->get_name(),'新會員優惠')===0){$discount=abs((float)$fee->get_total());$discount_fee=$fee;break;}}
     if($discount<=0)return;
     $from_manual_reset=metadata_exists('user',$uid,WUTM_NMD_RESET_ALLOWED);
-    // 唯一 user meta 是訂單建立當下的原子鎖，避免同一會員同時送出兩張優惠訂單。
-    if(!add_user_meta($uid,WUTM_NMD_USED,(int)$order->get_id(),true)){
+    $locked=(int)get_user_meta($uid,WUTM_NMD_USED,true);
+    if(!$backfill&&$locked&&$locked!==(int)$order->get_id()){
         if($discount_fee){$order->remove_item($discount_fee->get_id());$order->calculate_totals();$order->save();}
         return;
     }
-    if($from_manual_reset){delete_user_meta($uid,WUTM_NMD_RESET_ALLOWED);$order->update_meta_data(WUTM_NMD_ORDER_RESET,1);}
-    $order->update_meta_data(WUTM_NMD_ORDER_DISCOUNT,$discount);$order->save_meta_data();
+    if(!$locked&&!in_array($order->get_status(),['cancelled','refunded','failed'],true)){
+        // 唯一 user meta 是訂單建立當下的原子鎖，避免同一會員同時送出兩張優惠訂單。
+        if(!add_user_meta($uid,WUTM_NMD_USED,(int)$order->get_id(),true)){
+            $locked=(int)get_user_meta($uid,WUTM_NMD_USED,true);
+            if(!$backfill&&$locked!==(int)$order->get_id()&&$discount_fee){$order->remove_item($discount_fee->get_id());$order->calculate_totals();$order->save();return;}
+        }
+    }
+    if(!$backfill&&$from_manual_reset){delete_user_meta($uid,WUTM_NMD_RESET_ALLOWED);$order->update_meta_data(WUTM_NMD_ORDER_RESET,1);}
+    if((float)$order->get_meta(WUTM_NMD_ORDER_DISCOUNT)!==$discount){$order->update_meta_data(WUTM_NMD_ORDER_DISCOUNT,$discount);$order->save_meta_data();}
     $log=wutm_nmd_log_entries(get_user_meta($uid,WUTM_NMD_LOG,true));
-    $log[]=['order_id'=>(int)$order->get_id(),'date'=>current_time('mysql'),'status'=>$order->get_status(),'total'=>(float)$order->get_total(),'discount'=>$discount];
+    foreach($log as $entry){if((int)($entry['order_id']??0)===(int)$order->get_id())return;}
+    $created=$order->get_date_created();
+    $log[]=['order_id'=>(int)$order->get_id(),'date'=>$created?$created->date('Y-m-d H:i:s'):current_time('mysql'),'status'=>$order->get_status(),'total'=>(float)$order->get_total(),'discount'=>$discount];
     update_user_meta($uid,WUTM_NMD_LOG,$log);
-});
+}
+add_action('woocommerce_checkout_order_created','wutm_nmd_capture_order',10,1);
+add_action('woocommerce_store_api_checkout_order_processed','wutm_nmd_capture_order',10,1);
+
+function wutm_nmd_backfill_records():void{
+    global $wpdb;
+    $like=$wpdb->esc_like('新會員優惠').'%';
+    $sql=$wpdb->prepare("SELECT order_id FROM {$wpdb->prefix}woocommerce_order_items WHERE order_item_type = 'fee' AND order_item_name LIKE %s ORDER BY order_item_id DESC LIMIT 1000",$like);
+    foreach(array_map('absint',(array)$wpdb->get_col($sql)) as $order_id){$order=wc_get_order($order_id);if($order)wutm_nmd_capture_order($order,true);}
+}
 
 add_action('woocommerce_order_status_changed',function($order_id,$old,$new):void{
     $order=wc_get_order($order_id);if(!$order)return;$uid=(int)$order->get_user_id();if(!$uid)return;
@@ -120,6 +139,7 @@ function wutm_nmd_reset_form(int $uid):void{?>
 }
 
 function wutm_nmd_render_records():void{
+    wutm_nmd_backfill_records();
     $locked_ids=array_map('intval',get_users(['meta_key'=>WUTM_NMD_USED,'number'=>-1,'fields'=>'ids']));
     $log_users=get_users(['meta_key'=>WUTM_NMD_LOG,'number'=>-1,'fields'=>['ID','user_login','user_email']]);$records=[];$total_discount=0.0;$excluded=['cancelled','refunded','failed'];
     $used_member_ids=[];

@@ -28,6 +28,7 @@ jobs:
           # Accept shorthand tags such as v1.2 as the equivalent of 1.2.0.
           NORMALIZED_TAG="$(printf '%s' "$TAG_VERSION" | awk -F. 'NF==2{print $0 ".0"; next}{print}')"
           test "$NORMALIZED_TAG" = "$PLUGIN_VERSION"
+          grep -Fq "<h4>${PLUGIN_VERSION}</h4>" core/github-release-updater.php
       - name: Build installable plugin ZIP
         shell: bash
         run: |

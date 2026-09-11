@@ -22,6 +22,7 @@ final class WUTM_ATM_Transfer_Optimizer {
         add_action('admin_menu', [$this, 'register_dashboard'], 60);
         add_action('admin_init', [$this, 'handle_dashboard_actions']);
         add_action('admin_post_wutm_bacs_confirm_payment', [$this, 'handle_order_confirm_payment']);
+        add_action('admin_post_wutm_bacs_revoke_payment', [$this, 'handle_order_revoke_payment']);
     }
 
     public function translate_bacs_fields($translated, $text, $domain) {
@@ -182,7 +183,22 @@ final class WUTM_ATM_Transfer_Optimizer {
                 'wutm_bacs_confirm_' . $order->get_id()
             );
             echo '<p><a class="button button-primary" href="' . esc_url($confirm_url) . '" onclick="return confirm(\'確定已收到此筆款項嗎？\')">確認入帳</a></p>';
+        } else {
+            $revoke_url = wp_nonce_url(
+                add_query_arg(['action' => 'wutm_bacs_revoke_payment', 'order_id' => $order->get_id()], admin_url('admin-post.php')),
+                'wutm_bacs_revoke_' . $order->get_id()
+            );
+            echo '<p><a class="button" href="' . esc_url($revoke_url) . '" onclick="return confirm(\'確定撤銷入帳，將訂單恢復為待付款狀態嗎？\')">撤銷入帳</a></p>';
         }
+    }
+
+    private function confirm_payment(WC_Order $order, string $note): void {
+        if ($order->is_paid()) return;
+        $order->update_meta_data('_wutm_bacs_status_before_confirmation', $order->get_status());
+        $order->update_meta_data('_wutm_bacs_manually_confirmed', 'yes');
+        $order->save_meta_data();
+        $order->payment_complete();
+        $order->add_order_note($note);
     }
 
     public function handle_order_confirm_payment(): void {
@@ -191,9 +207,26 @@ final class WUTM_ATM_Transfer_Optimizer {
         check_admin_referer('wutm_bacs_confirm_' . $order_id);
         $order = wc_get_order($order_id);
         if (!($order instanceof WC_Order) || $order->get_payment_method() !== 'bacs') wp_die(esc_html__('找不到可確認的銀行轉帳訂單。', 'wu-toolbox-modular'));
-        if (!$order->is_paid()) {
-            $order->payment_complete();
-            $order->add_order_note('【銀行轉帳對帳】管理員由訂單編輯頁確認款項已入帳。');
+        $this->confirm_payment($order, '【銀行轉帳對帳】管理員由訂單編輯頁確認款項已入帳。');
+        wp_safe_redirect($order->get_edit_order_url());
+        exit;
+    }
+
+    public function handle_order_revoke_payment(): void {
+        if (!current_user_can('manage_woocommerce')) wp_die(esc_html__('您沒有撤銷入帳的權限。', 'wu-toolbox-modular'));
+        $order_id = absint($_GET['order_id'] ?? 0);
+        check_admin_referer('wutm_bacs_revoke_' . $order_id);
+        $order = wc_get_order($order_id);
+        if (!($order instanceof WC_Order) || $order->get_payment_method() !== 'bacs') wp_die(esc_html__('找不到可撤銷的銀行轉帳訂單。', 'wu-toolbox-modular'));
+        if ($order->is_paid()) {
+            $previous = sanitize_key((string) $order->get_meta('_wutm_bacs_status_before_confirmation'));
+            if (!$previous || in_array($previous, ['processing', 'completed'], true)) $previous = 'on-hold';
+            $order->set_date_paid(null);
+            $order->set_status($previous);
+            $order->delete_meta_data('_wutm_bacs_status_before_confirmation');
+            $order->delete_meta_data('_wutm_bacs_manually_confirmed');
+            $order->add_order_note('【銀行轉帳對帳】管理員撤銷入帳確認，訂單恢復為待付款狀態。');
+            $order->save();
         }
         wp_safe_redirect($order->get_edit_order_url());
         exit;
@@ -243,8 +276,7 @@ final class WUTM_ATM_Transfer_Optimizer {
         if (!($order instanceof WC_Order) || $order->get_payment_method() !== 'bacs') return;
         if ($action === 'confirm_payment') {
             check_admin_referer('wutm_bacs_confirm_' . $order_id);
-            $order->payment_complete();
-            $order->add_order_note('【銀行轉帳對帳中心】管理員確認款項已入帳。');
+            $this->confirm_payment($order, '【銀行轉帳對帳中心】管理員確認款項已入帳。');
             wp_safe_redirect(add_query_arg('payment_confirmed', '1', $base_url));
             exit;
         }
