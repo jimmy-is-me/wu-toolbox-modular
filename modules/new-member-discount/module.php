@@ -82,7 +82,14 @@ function wutm_nmd_admin_page():void{
     <div class="wrap wutm-nmd-admin"><h1>新會員優惠</h1><p class="wutm-module-subtitle">會員首次消費達指定金額時自動折抵；取消、退款或付款失敗會自動恢復資格。</p>
     <nav class="nav-tab-wrapper"><a class="nav-tab <?php echo $tab==='settings'?'nav-tab-active':'';?>" href="<?php echo esc_url(wutm_nmd_admin_url('settings'));?>">優惠設定</a><a class="nav-tab <?php echo $tab==='records'?'nav-tab-active':'';?>" href="<?php echo esc_url(wutm_nmd_admin_url('records'));?>">使用紀錄</a></nav>
     <?php if(sanitize_key(wp_unslash($_GET['wutm_nmd_notice']??''))==='reset'):?><div class="notice notice-success is-dismissible"><p>已恢復該會員的新會員優惠資格，歷史使用紀錄仍完整保留。</p></div><?php endif;?>
-    <?php $tab==='records'?wutm_nmd_render_records():wutm_nmd_render_settings();?></div>
+    <?php
+    if ($tab === 'records') {
+        wutm_nmd_render_records();
+    } else {
+        wutm_nmd_render_settings();
+    }
+    ?>
+    </div>
     <style>.wutm-nmd-admin{max-width:1400px}.wutm-nmd-admin .nav-tab-wrapper{margin-bottom:20px}.wutm-nmd-panel{background:#fff;border:1px solid #c3c4c7;border-radius:8px;padding:22px;margin-top:20px}.wutm-nmd-panel h2{margin-top:0}.wutm-nmd-guide{border-left:4px solid #2271b1}.wutm-nmd-stats{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:16px;margin:20px 0}.wutm-nmd-stat{background:#fff;border:1px solid #c3c4c7;border-radius:8px;padding:18px;text-align:center}.wutm-nmd-stat strong{display:block;font-size:28px;color:#2271b1}.wutm-nmd-stat:nth-child(2) strong{color:#2e8b57}.wutm-nmd-stat:nth-child(3) strong{color:#d97706}.wutm-nmd-stat:nth-child(4) strong{color:#d63638}.wutm-nmd-badge{display:inline-block;padding:3px 9px;border-radius:999px;background:#f0f0f1;color:#646970}.wutm-nmd-badge-used{background:#edfaef;color:#176b35}.wutm-nmd-form-table input[type=number]{width:180px}.wutm-nmd-actions{display:flex;gap:6px}@media(max-width:782px){.wutm-nmd-stats{grid-template-columns:repeat(2,1fr)}.wutm-nmd-admin .widefat{display:block;overflow-x:auto}}@media(max-width:480px){.wutm-nmd-stats{grid-template-columns:1fr}}</style><?php
 }
 
