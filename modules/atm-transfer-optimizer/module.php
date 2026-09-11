@@ -21,6 +21,7 @@ final class WUTM_ATM_Transfer_Optimizer {
         add_action('woocommerce_order_action_wutm_send_bacs_reminder', [$this, 'send_reminder']);
         add_action('admin_menu', [$this, 'register_dashboard'], 60);
         add_action('admin_init', [$this, 'handle_dashboard_actions']);
+        add_action('admin_post_wutm_bacs_confirm_payment', [$this, 'handle_order_confirm_payment']);
     }
 
     public function translate_bacs_fields($translated, $text, $domain) {
@@ -175,6 +176,27 @@ final class WUTM_ATM_Transfer_Optimizer {
         echo wp_kses_post($this->status_badge($order));
         if ($this->transfer_meta($order, 'time')) echo '<p>回報時間：' . esc_html($this->transfer_meta($order, 'time')) . '</p>';
         echo '<p>收款帳戶：<strong>' . esc_html($this->order_account_label($order)) . '</strong></p>';
+        if (!$order->is_paid()) {
+            $confirm_url = wp_nonce_url(
+                add_query_arg(['action' => 'wutm_bacs_confirm_payment', 'order_id' => $order->get_id()], admin_url('admin-post.php')),
+                'wutm_bacs_confirm_' . $order->get_id()
+            );
+            echo '<p><a class="button button-primary" href="' . esc_url($confirm_url) . '" onclick="return confirm(\'確定已收到此筆款項嗎？\')">確認入帳</a></p>';
+        }
+    }
+
+    public function handle_order_confirm_payment(): void {
+        if (!current_user_can('manage_woocommerce')) wp_die(esc_html__('您沒有確認款項的權限。', 'wu-toolbox-modular'));
+        $order_id = absint($_GET['order_id'] ?? 0);
+        check_admin_referer('wutm_bacs_confirm_' . $order_id);
+        $order = wc_get_order($order_id);
+        if (!($order instanceof WC_Order) || $order->get_payment_method() !== 'bacs') wp_die(esc_html__('找不到可確認的銀行轉帳訂單。', 'wu-toolbox-modular'));
+        if (!$order->is_paid()) {
+            $order->payment_complete();
+            $order->add_order_note('【銀行轉帳對帳】管理員由訂單編輯頁確認款項已入帳。');
+        }
+        wp_safe_redirect($order->get_edit_order_url());
+        exit;
     }
 
     public function add_reminder_action(array $actions): array {

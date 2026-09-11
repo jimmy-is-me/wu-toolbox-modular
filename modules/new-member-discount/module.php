@@ -18,7 +18,7 @@ function wutm_nmd_eligible(int $user_id): bool {
     if(metadata_exists('user',$user_id,WUTM_NMD_RESET_ALLOWED))return true;
     return empty(wc_get_orders(['customer_id'=>$user_id,'status'=>['processing','completed'],'limit'=>1,'return'=>'ids']));
 }
-function wutm_nmd_fee_name(array $o): string { return sprintf('新會員優惠（滿 %s 折 %s）',wp_strip_all_tags(wc_price($o['minimum'])),wp_strip_all_tags(wc_price($o['discount']))); }
+function wutm_nmd_fee_name(array $o): string { return sprintf("新會員優惠\n（滿 %s 折 %s）",wp_strip_all_tags(wc_price($o['minimum'])),wp_strip_all_tags(wc_price($o['discount']))); }
 function wutm_nmd_log_entries($value):array{
     if(is_string($value)){$decoded=json_decode($value,true);if(is_array($decoded))$value=$decoded;}
     if(!is_array($value))return [];
@@ -64,6 +64,12 @@ add_action('woocommerce_order_status_changed',function($order_id,$old,$new):void
 },10,3);
 
 add_filter('woocommerce_cart_totals_fee_html',function($html,$fee){return $fee->amount<0&&strpos($fee->name,'新會員優惠')===0?'<span style="color:#18794e">'.$html.'</span>':$html;},10,2);
+add_action('wp_enqueue_scripts',function():void{
+    if(!function_exists('is_cart')||(!is_cart()&&!is_checkout()))return;
+    wp_register_style('wutm-new-member-discount',false,[],WUTM_VERSION);
+    wp_enqueue_style('wutm-new-member-discount');
+    wp_add_inline_style('wutm-new-member-discount','.woocommerce tr.fee th,.wc-block-components-totals-fees__name{white-space:pre-line}');
+});
 function wutm_nmd_notice():void{
     $o=wutm_nmd_options();if(!$o['enabled']||!$o['notice'])return;if(is_user_logged_in()&&!wutm_nmd_eligible(get_current_user_id()))return;
     echo '<div class="wutm-nmd-notice" style="margin:15px 0;padding:12px 16px;border:1px solid #d6e7dc;border-radius:7px;background:#f4faf6;color:#185c37">🎉 <strong>新會員優惠：</strong>首次下單滿 '.wp_kses_post(wc_price($o['minimum'])).'，自動折抵 '.wp_kses_post(wc_price($o['discount'])).'。'.(!is_user_logged_in()?'登入會員後即可套用。':'').'</div>';
