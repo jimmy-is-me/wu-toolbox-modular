@@ -19,6 +19,12 @@ function wutm_nmd_eligible(int $user_id): bool {
     return empty(wc_get_orders(['customer_id'=>$user_id,'status'=>['processing','completed'],'limit'=>1,'return'=>'ids']));
 }
 function wutm_nmd_fee_name(array $o): string { return sprintf('新會員優惠（滿 %s 折 %s）',wp_strip_all_tags(wc_price($o['minimum'])),wp_strip_all_tags(wc_price($o['discount']))); }
+function wutm_nmd_log_entries($value):array{
+    if(is_string($value)){$decoded=json_decode($value,true);if(is_array($decoded))$value=$decoded;}
+    if(!is_array($value))return [];
+    if(isset($value['order_id']))$value=[$value];
+    return array_values(array_filter($value,'is_array'));
+}
 
 add_action('woocommerce_cart_calculate_fees',function($cart):void{
     if((is_admin()&&!wp_doing_ajax())||!is_user_logged_in())return;
@@ -40,14 +46,14 @@ add_action('woocommerce_checkout_order_created',function($order):void{
     }
     if($from_manual_reset){delete_user_meta($uid,WUTM_NMD_RESET_ALLOWED);$order->update_meta_data(WUTM_NMD_ORDER_RESET,1);}
     $order->update_meta_data(WUTM_NMD_ORDER_DISCOUNT,$discount);$order->save_meta_data();
-    $log=(array)get_user_meta($uid,WUTM_NMD_LOG,true);
+    $log=wutm_nmd_log_entries(get_user_meta($uid,WUTM_NMD_LOG,true));
     $log[]=['order_id'=>(int)$order->get_id(),'date'=>current_time('mysql'),'status'=>$order->get_status(),'total'=>(float)$order->get_total(),'discount'=>$discount];
     update_user_meta($uid,WUTM_NMD_LOG,$log);
 });
 
 add_action('woocommerce_order_status_changed',function($order_id,$old,$new):void{
     $order=wc_get_order($order_id);if(!$order)return;$uid=(int)$order->get_user_id();if(!$uid)return;
-    $log=(array)get_user_meta($uid,WUTM_NMD_LOG,true);$found=false;
+    $log=wutm_nmd_log_entries(get_user_meta($uid,WUTM_NMD_LOG,true));$found=false;
     foreach($log as &$entry){if((int)($entry['order_id']??0)!==(int)$order_id)continue;$entry['status']=$new;$entry['total']=(float)$order->get_total();$found=true;}unset($entry);
     if($found)update_user_meta($uid,WUTM_NMD_LOG,$log);
     $locked=(int)get_user_meta($uid,WUTM_NMD_USED,true);
@@ -111,7 +117,7 @@ function wutm_nmd_render_records():void{
     $locked_ids=array_map('intval',get_users(['meta_key'=>WUTM_NMD_USED,'number'=>-1,'fields'=>'ids']));
     $log_users=get_users(['meta_key'=>WUTM_NMD_LOG,'number'=>-1,'fields'=>['ID','user_login','user_email']]);$records=[];$total_discount=0.0;$excluded=['cancelled','refunded','failed'];
     $used_member_ids=[];
-    foreach($log_users as $user){foreach((array)get_user_meta($user->ID,WUTM_NMD_LOG,true) as $entry){$entry['user_id']=(int)$user->ID;$entry['user_login']=$user->user_login;$entry['user_email']=$user->user_email;$entry['date']=(string)($entry['date']??$entry['order_date']??'');$entry['status']=(string)($entry['status']??'');$records[]=$entry;$used_member_ids[(int)$user->ID]=true;if(!in_array($entry['status'],$excluded,true))$total_discount+=(float)($entry['discount']??0);}}
+    foreach($log_users as $user){foreach(wutm_nmd_log_entries(get_user_meta($user->ID,WUTM_NMD_LOG,true)) as $entry){$entry['user_id']=(int)$user->ID;$entry['user_login']=$user->user_login;$entry['user_email']=$user->user_email;$entry['date']=(string)($entry['date']??$entry['order_date']??'');$entry['status']=(string)($entry['status']??'');$records[]=$entry;$used_member_ids[(int)$user->ID]=true;if(!in_array($entry['status'],$excluded,true))$total_discount+=(float)($entry['discount']??0);}}
     usort($records,static function(array $a,array $b):int{return strcmp((string)($b['date']??''),(string)($a['date']??''));});
     $page=max(1,absint($_GET['member_page']??1));$per_page=30;$query=new WP_User_Query(['number'=>$per_page,'offset'=>($page-1)*$per_page,'orderby'=>'registered','order'=>'DESC','fields'=>['ID','user_login','user_email','user_registered'],'count_total'=>true]);$members=$query->get_results();$total_members=(int)$query->get_total();$total_pages=max(1,(int)ceil($total_members/$per_page));?>
     <section class="wutm-nmd-panel wutm-nmd-guide"><h2>功能說明</h2><ul><li>訂單建立當下即鎖定資格，避免同一會員短時間重複使用。</li><li>訂單取消、退款或失敗時會自動恢復資格，歷史紀錄仍會保留。</li><li>「恢復資格」可供客服人工允許會員再次使用，不會刪除原有紀錄。</li><li>下方會員列表可查看所有會員目前是否仍被鎖定及歷史使用次數。</li></ul></section>
@@ -120,7 +126,7 @@ function wutm_nmd_render_records():void{
     <?php if(!$records):?><tr><td colspan="6">目前尚無使用紀錄。</td></tr><?php endif;foreach(array_slice($records,0,200) as $record):$order_id=absint($record['order_id']??0);$order=$order_id?wc_get_order($order_id):false;$order_url=$order&&method_exists($order,'get_edit_order_url')?$order->get_edit_order_url():'';$total=isset($record['total'])?(float)$record['total']:($order?(float)$order->get_total():0);?>
     <tr><td><strong><?php echo esc_html($record['user_login']);?></strong><br><?php echo esc_html($record['user_email']);?></td><td><?php if($order_url):?><a href="<?php echo esc_url($order_url);?>">#<?php echo absint($order_id);?></a><?php else:?>#<?php echo absint($order_id);?><?php endif;?></td><td><?php echo esc_html($record['date']);?></td><td><?php echo esc_html(wutm_nmd_status_label($record['status']));?></td><td><?php echo wp_kses_post(wc_price($total));?></td><td>-<?php echo wp_kses_post(wc_price((float)($record['discount']??0)));?></td></tr><?php endforeach;?></tbody></table></section>
     <section class="wutm-nmd-panel"><h2>所有會員（共 <?php echo number_format_i18n($total_members);?> 人）</h2><table class="widefat striped"><thead><tr><th>會員帳號</th><th>Email</th><th>註冊時間</th><th>目前資格</th><th>歷史使用次數</th><th>操作</th></tr></thead><tbody>
-    <?php if(!$members):?><tr><td colspan="6">目前沒有會員。</td></tr><?php endif;foreach($members as $member):$is_locked=in_array((int)$member->ID,$locked_ids,true);$is_reset=metadata_exists('user',$member->ID,WUTM_NMD_RESET_ALLOWED);$member_log=(array)get_user_meta($member->ID,WUTM_NMD_LOG,true);$qualification=$is_locked?'已使用／鎖定':($is_reset?'已人工恢復':'未鎖定');?>
+    <?php if(!$members):?><tr><td colspan="6">目前沒有會員。</td></tr><?php endif;foreach($members as $member):$is_locked=in_array((int)$member->ID,$locked_ids,true);$is_reset=metadata_exists('user',$member->ID,WUTM_NMD_RESET_ALLOWED);$member_log=wutm_nmd_log_entries(get_user_meta($member->ID,WUTM_NMD_LOG,true));$qualification=$is_locked?'已使用／鎖定':($is_reset?'已人工恢復':'未鎖定');?>
     <tr><td><strong><?php echo esc_html($member->user_login);?></strong></td><td><?php echo esc_html($member->user_email);?></td><td><?php echo esc_html(date_i18n('Y-m-d H:i',strtotime($member->user_registered)));?></td><td><span class="wutm-nmd-badge <?php echo $is_locked?'wutm-nmd-badge-used':'';?>"><?php echo esc_html($qualification);?></span></td><td><?php echo number_format_i18n(count($member_log));?></td><td><div class="wutm-nmd-actions"><?php if($is_locked)wutm_nmd_reset_form((int)$member->ID);else echo '—';?></div></td></tr><?php endforeach;?></tbody></table>
     <?php if($total_pages>1):?><div class="tablenav"><div class="tablenav-pages"><?php echo wp_kses_post(paginate_links(['base'=>add_query_arg('member_page','%#%',wutm_nmd_admin_url('records')),'format'=>'','current'=>min($page,$total_pages),'total'=>$total_pages]));?></div></div><?php endif;?></section><?php
 }

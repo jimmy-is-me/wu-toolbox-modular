@@ -66,10 +66,12 @@ function wutm_media_convert_upload($upload) {
     $s = wutm_media_settings();
     if (empty($s['webp_enabled']) || !is_array($upload) || isset($upload['error']) || !wutm_media_convertible((string) ($upload['type'] ?? ''), $s)) return $upload;
     $saved = wutm_media_to_webp((string) ($upload['file'] ?? ''), (int) $s['quality']);
-    if (is_wp_error($saved) || empty($s['replace_original'])) return $upload; // Safe sidecar conversion by default.
+    if (is_wp_error($saved)) return $upload;
     $old = $upload['file'];
-    if (file_exists($old)) wp_delete_file($old);
-    return ['file' => $saved['path'], 'url' => str_replace(wp_get_upload_dir()['basedir'], wp_get_upload_dir()['baseurl'], $saved['path']), 'type' => 'image/webp'];
+    if (!empty($s['replace_original']) && file_exists($old)) wp_delete_file($old);
+    $uploads = wp_get_upload_dir();
+    $url = str_replace(wp_normalize_path($uploads['basedir']), $uploads['baseurl'], wp_normalize_path($saved['path']));
+    return ['file' => $saved['path'], 'url' => $url, 'type' => 'image/webp'];
 }
 add_filter('wp_handle_upload', 'wutm_media_resize_upload', 10);
 add_filter('wp_handle_upload', 'wutm_media_convert_upload', 20);
@@ -116,7 +118,7 @@ add_action('admin_post_wutm_save_media_encoder', function () {
 });
 function wutm_media_settings_page(): void {
     if (!current_user_can('manage_options')) return;
-    $s = wutm_media_settings(); $sizes = wutm_media_sizes(); $can = class_exists('Imagick') || function_exists('imagewebp');
+    $s = wutm_media_settings(); $sizes = wutm_media_sizes(); $can = wp_image_editor_supports(['mime_type' => 'image/webp']);
     ?>
     <div class="wrap"><h1>媒體編碼器</h1>
     <?php if (isset($_GET['updated'])): ?><div class="notice notice-success is-dismissible"><p>設定已儲存。</p></div><?php endif; ?>
@@ -124,10 +126,10 @@ function wutm_media_settings_page(): void {
     <?php if (!$can): ?><div class="notice notice-warning"><p>此伺服器未偵測到 Imagick 或 GD WebP 支援；轉檔將被安全略過。</p></div><?php endif; ?>
     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><?php wp_nonce_field('wutm_save_media_encoder'); ?><input type="hidden" name="action" value="wutm_save_media_encoder">
       <h2>WebP 轉換</h2><table class="form-table"><tbody>
-        <tr><th>啟用自動轉換</th><td><label><input name="webp_enabled" type="checkbox" value="1" <?php checked($s['webp_enabled']); ?>> 在新圖片上傳時建立 WebP</label></td></tr>
+        <tr><th>啟用自動轉換</th><td><label><input name="webp_enabled" type="checkbox" value="1" <?php checked($s['webp_enabled']); ?>> 將新上傳圖片轉換為 WebP 並供媒體庫使用</label></td></tr>
         <tr><th>來源格式</th><td><?php foreach (['jpeg'=>'JPEG','png'=>'PNG','gif'=>'GIF'] as $key=>$label): ?><label style="margin-right:16px"><input name="formats[]" type="checkbox" value="<?php echo esc_attr($key); ?>" <?php checked(in_array($key, $s['formats'], true)); ?>> <?php echo esc_html($label); ?></label><?php endforeach; ?><p class="description">GIF 可能含動畫，通常不建議轉換。</p></td></tr>
         <tr><th>品質</th><td><input name="quality" type="number" min="1" max="100" value="<?php echo esc_attr((string) $s['quality']); ?>"> <span class="description">建議 75–90。</span></td></tr>
-        <tr><th>取代原檔</th><td><label><input name="replace_original" type="checkbox" value="1" <?php checked($s['replace_original']); ?>> 以 WebP 取代媒體庫原檔</label><p class="description">關閉時僅建立 WebP 副本，最安全；開啟前請先備份媒體庫。</p></td></tr>
+        <tr><th>原始檔處理</th><td><label><input name="replace_original" type="checkbox" value="1" <?php checked($s['replace_original']); ?>> 轉換成功後刪除原始 JPEG／PNG／GIF</label><p class="description">無論是否勾選，媒體庫都會使用 WebP；未勾選時會在上傳資料夾保留原始檔作為備份。</p></td></tr>
       </tbody></table>
       <h2>圖片尺寸</h2><table class="form-table"><tbody>
         <tr><th>上傳前縮小</th><td><label><input name="resize_enabled" type="checkbox" value="1" <?php checked($s['resize_enabled']); ?>> 超過限制時等比例縮小</label></td></tr>
