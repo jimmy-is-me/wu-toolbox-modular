@@ -190,18 +190,22 @@ function wu_captcha_render_image_from_code($code) {
 	exit;
 }
 
-add_action('template_redirect', function() {
-	if (!isset($_GET['wu_captcha']) || !isset($_GET['token'])) return;
-	
-	$token = sanitize_text_field(wp_unslash($_GET['token']));
-	$payload = wu_captcha_decode_token($token);
-	if (!$payload || abs(time() - $payload['timestamp']) > 600) {
-		status_header(404);
-		exit;
+function wu_captcha_image_response() {
+    $token = sanitize_text_field(wp_unslash($_GET['token'] ?? ''));
+    $payload = wu_captcha_decode_token($token);
+    if (!$payload || abs(time() - $payload['timestamp']) > 600) {
+        status_header(404);
+        exit;
 	}
-	
-	wu_captcha_render_image_from_code($payload['code']);
-});
+
+    wu_captcha_render_image_from_code($payload['code']);
+}
+add_action('wp_ajax_wu_captcha_image', 'wu_captcha_image_response');
+add_action('wp_ajax_nopriv_wu_captcha_image', 'wu_captcha_image_response');
+
+function wu_captcha_image_url($token) {
+    return add_query_arg(array('action' => 'wu_captcha_image', 'token' => $token), admin_url('admin-ajax.php'));
+}
 
 // ===== Directory Security =====
 
@@ -213,7 +217,7 @@ function wu_captcha_render_field($context = 'default') {
 	$code = wu_captcha_generate_code();
 	$ts = time();
 	$token = wu_captcha_generate_token($code, $ts);
-	$img_url = esc_url(add_query_arg(array('wu_captcha' => 1, 'token' => $token), home_url('/')));
+    $img_url = esc_url(wu_captcha_image_url($token));
 	$unique_id = 'wu_captcha_' . wp_rand(1000, 9999);
 	$numeric_mode = get_option('wu_captcha_type', 'numeric') === 'numeric';
 	$input_hint = $numeric_mode
@@ -280,12 +284,14 @@ function wu_captcha_print_scripts() {
 		window.wuCaptchaInitialized = true;
 		
 		document.addEventListener('click', function(e) {
-			if (!e.target || !e.target.classList.contains('wu-captcha-refresh-btn')) return;
+            if (!e.target) return;
+            var btn = e.target.closest ? e.target.closest('.wu-captcha-refresh-btn') : null;
+            if (!btn) return;
 			
 			e.preventDefault();
 			e.stopPropagation();
 			
-			var uniqueId = e.target.getAttribute('data-captcha-id');
+            var uniqueId = btn.getAttribute('data-captcha-id');
 			if (!uniqueId) return;
 			
 			var img = document.getElementById(uniqueId + '_img');
@@ -294,8 +300,7 @@ function wu_captcha_print_scripts() {
 			
 			if (!img || !tokenField || !inputField) return;
 			
-			var btn = e.target;
-			var originalText = btn.innerHTML;
+            var originalText = btn.innerHTML;
 			btn.innerHTML = '載入中...';
 			btn.disabled = true;
 			
@@ -333,6 +338,9 @@ function wu_captcha_print_scripts() {
 
 add_action('wp_footer', 'wu_captcha_print_scripts', 999);
 add_action('login_footer', 'wu_captcha_print_scripts', 999);
+add_action('admin_footer', function() {
+	if (sanitize_key(wp_unslash($_GET['page'] ?? '')) === 'wu-captcha') wu_captcha_print_scripts();
+}, 999);
 
 // ===== AJAX Handlers =====
 
@@ -343,7 +351,7 @@ function wu_captcha_ajax_refresh() {
 	$code = wu_captcha_generate_code();
 	$ts = time();
 	$token = wu_captcha_generate_token($code, $ts);
-	$img_url = add_query_arg(array('wu_captcha' => 1, 'token' => $token), home_url('/'));
+    $img_url = wu_captcha_image_url($token);
 	
 	wp_send_json_success(array(
 		'token' => $token,
@@ -588,7 +596,7 @@ function wu_captcha_settings_page() {
 	
 	?>
 	<div class="wrap wu-captcha-admin">
-		<style>.wu-captcha-admin{max-width:1080px}.wu-captcha-admin>h1{padding:18px 22px;margin:18px 0;border-radius:14px;background:linear-gradient(135deg,#092542,#18558e);color:#fff}.wu-captcha-admin .notice-info{border:0;border-left:4px solid #2c8bc7;border-radius:10px;background:#eef7fd}.wu-captcha-admin form,.wu-captcha-admin>div[style*="background:#fff"]{border-color:#dbe4ef!important;border-radius:12px!important;box-shadow:0 6px 22px rgba(15,35,60,.06)}.wu-captcha-admin .form-table th{padding-left:8px}.wu-captcha-admin select,.wu-captcha-admin input[type=number]{min-height:40px;border-radius:7px}.wu-captcha-admin .button-primary{border-radius:8px;padding-inline:20px}.wu-captcha-admin hr{border:0;border-top:1px solid #dbe4ef}</style>
+		<style>.wu-captcha-admin{max-width:1080px}.wu-captcha-admin>h1{padding:18px 22px;margin:18px 0;border-radius:14px;background:linear-gradient(135deg,#092542,#18558e);color:#fff}.wu-captcha-admin .notice-info{border:0;border-left:4px solid #2c8bc7;border-radius:10px;background:#eef7fd}.wu-captcha-admin form,.wu-captcha-admin>div[style*="background:#fff"]{border-color:#dbe4ef!important;border-radius:12px!important;box-shadow:0 6px 22px rgba(15,35,60,.06)}.wu-captcha-admin .form-table th{padding-left:8px}.wu-captcha-admin select,.wu-captcha-admin input[type=number]{min-height:40px;border-radius:7px}.wu-captcha-admin .button-primary{border-radius:8px;padding-inline:20px}.wu-captcha-admin hr{border:0;border-top:1px solid #dbe4ef}.wu-captcha-admin .wu-captcha-field{clear:both;margin:18px 0;padding:16px;border:1px solid #dbe4ef;border-radius:12px;background:linear-gradient(145deg,#fff,#f6f9fc);box-shadow:0 6px 20px rgba(15,35,60,.06);box-sizing:border-box}.wu-captcha-admin .wu-captcha-field label{display:block;font-weight:700;margin-bottom:11px;color:#172033}.wu-captcha-admin .wu-captcha-challenge{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}.wu-captcha-admin .wu-captcha-wrapper{display:inline-block;max-width:100%;padding:5px;border:1px solid #d7e0ea;border-radius:10px;background:#fff}.wu-captcha-admin .wu-captcha-wrapper img{display:block;max-width:100%;height:auto;border:0;border-radius:7px;background:#fff}.wu-captcha-admin .wu-captcha-refresh-btn{display:inline-flex;align-items:center;gap:5px;min-height:42px;background:#1677b8;color:#fff;border:0;padding:9px 14px;cursor:pointer;border-radius:9px;font-size:14px;font-weight:600}.wu-captcha-admin .wu-captcha-field input[type=text]{width:100%;max-width:320px;padding:12px 14px;border:1px solid #cbd5e1;border-radius:9px;font-size:16px;letter-spacing:.08em;box-sizing:border-box;background:#fff}.wu-captcha-admin .wu-captcha-field small{display:block;color:#64748b;margin-top:8px;font-size:12px}</style>
 		<h1>🔐 驗證碼設定</h1>
 		
 		<div class="notice notice-info" style="padding:15px;">
