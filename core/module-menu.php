@@ -72,6 +72,14 @@ add_action('admin_menu', function (): void {
                 $used[$index] = true;
                 break;
             }
+            foreach ((array) ($module['related_pages'] ?? []) as $related_slug) {
+                foreach ($entries as $index => $entry) {
+                    if (isset($used[$index]) || (string) ($entry[2] ?? '') !== (string) $related_slug) continue;
+                    $group_entries[] = $entry;
+                    $used[$index] = true;
+                    break;
+                }
+            }
         }
         if ($group_entries) {
             $group_slug = 'wutm-group-' . sanitize_title($group);
