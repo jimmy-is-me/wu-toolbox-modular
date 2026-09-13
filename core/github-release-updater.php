@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>2.3.1</h4><ul><li>已綁定的常見問題等 Shortcode 頁面會在 WordPress 頁面列表顯示用途標籤。</li><li>已綁定頁面的編輯連結改為開啟對應模組設定；解除綁定後自動恢復 WordPress 原生頁面編輯器。</li></ul>
             <h4>2.3.0</h4><ul><li>常見問題、退換貨政策、隱私權政策與首頁商品設定新增頁面綁定功能。</li><li>管理員可直接從各模組設定頁同步變更所選 WordPress 頁面的正式標題，並保留原頁面內容、短代碼與網址代稱。</li></ul>
             <h4>2.2.9</h4><ul><li>首頁商品「查看更多」設定新增完整操作與顯示條件說明，並列出商品不足、可見性及快取等排查方式。</li><li>商品頁碼改為簡約純數字樣式，移除上一頁與下一頁按鈕。</li></ul>
             <h4>2.2.8</h4><ul><li>驗證碼圖片改由 WordPress 公開 AJAX 端點輸出，避免隱藏登入、重新導向與快取導致圖片無法顯示。</li><li>驗證碼後台預覽改為與前台相同樣式，並修正點擊重新整理圖示時沒有反應。</li><li>首頁商品查看更多新增指定網址、商品頁碼與逐批載入三種模式，並完整支援未登入訪客。</li></ul>

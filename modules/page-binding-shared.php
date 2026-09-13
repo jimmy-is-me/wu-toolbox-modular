@@ -2,6 +2,26 @@
 defined('ABSPATH') || exit;
 
 if (!function_exists('wutm_page_binding_sanitize')) {
+    function wutm_page_binding_modules(): array {
+        return [
+            ['module' => 'faq-shortcode', 'option' => 'wutm_faq_shortcode_options', 'page' => 'wu-faq-shortcode', 'label' => '常見問題頁面'],
+            ['module' => 'refund-policy', 'option' => 'wutm_refund_shortcode_options', 'page' => 'wu-refund-policy', 'label' => '退換貨政策頁面'],
+            ['module' => 'privacy-policy', 'option' => 'wutm_privacy_shortcode_options', 'page' => 'wu-privacy-policy', 'label' => '隱私權政策頁面'],
+            ['module' => 'homepage-products', 'option' => 'wutm_homepage_products', 'page' => 'wu-homepage-products', 'label' => '首頁商品頁面'],
+        ];
+    }
+
+    function wutm_page_binding_matches(int $post_id): array {
+        if (!$post_id) return [];
+        $matches = [];
+        foreach (wutm_page_binding_modules() as $module) {
+            if (function_exists('wutm_is_enabled') && !wutm_is_enabled($module['module'])) continue;
+            $options = (array) get_option($module['option'], []);
+            if (absint($options['page_id'] ?? 0) === $post_id) $matches[] = $module;
+        }
+        return $matches;
+    }
+
     /**
      * Validate a selected WordPress page and update only its title.
      * The page content and slug are deliberately left untouched.
@@ -78,11 +98,26 @@ if (!function_exists('wutm_page_binding_sanitize')) {
                 </label>
             </div>
             <p class="description">請選擇放置 <code>[<?php echo esc_html($shortcode); ?>]</code> 的頁面。儲存設定時會同步更新該頁面的正式標題；不會修改頁面內容、短代碼或網址代稱。</p>
-            <?php if ($bound_page instanceof WP_Post && $bound_page->post_type === 'page'): ?>
-                <p><a href="<?php echo esc_url(get_edit_post_link($bound_page->ID, '')); ?>">前往編輯已綁定頁面</a></p>
+            <?php if ($bound_page instanceof WP_Post && $bound_page->post_type === 'page' && $bound_page->post_status === 'publish'): ?>
+                <p><a href="<?php echo esc_url(get_permalink($bound_page)); ?>" target="_blank" rel="noopener">查看已綁定頁面</a></p>
             <?php endif; ?>
         </section>
         <script>(function(){const section=document.currentScript.previousElementSibling;if(!section)return;const select=section.querySelector('.wutm-page-binding-select'),title=section.querySelector('.wutm-page-binding-title');if(!select||!title)return;select.addEventListener('change',function(){const option=select.options[select.selectedIndex];title.value=option&&option.value!=='0'?(option.dataset.title||''):'';});})();</script>
         <?php
     }
+
+    add_filter('display_post_states', function (array $states, WP_Post $post): array {
+        if ($post->post_type !== 'page') return $states;
+        foreach (wutm_page_binding_matches((int) $post->ID) as $module) {
+            if (!in_array($module['label'], $states, true)) $states['wutm_' . $module['module']] = $module['label'];
+        }
+        return $states;
+    }, 10, 2);
+
+    add_filter('get_edit_post_link', function ($link, int $post_id, string $context) {
+        if (!current_user_can('manage_options')) return $link;
+        $matches = wutm_page_binding_matches($post_id);
+        if (!$matches) return $link;
+        return add_query_arg('page', $matches[0]['page'], admin_url('admin.php'));
+    }, 10, 3);
 }
