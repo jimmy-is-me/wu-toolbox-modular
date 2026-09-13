@@ -632,14 +632,13 @@ class WU_WooCommerce_Optimizer {
         add_action('woocommerce_checkout_process', array($this, 'validate_711_fields'));
         add_action('woocommerce_checkout_create_order', array($this, 'save_711_fields'));
         add_action('woocommerce_admin_order_data_after_shipping_address', array($this, 'display_711_in_admin'));
+        add_action('woocommerce_process_shop_order_meta', array($this, 'save_711_tracking_code'), 30, 2);
+        add_action('woocommerce_order_details_after_order_table', array($this, 'display_711_tracking_for_customer'), 20);
         add_filter('woocommerce_order_get_formatted_shipping_address', array($this, 'format_711_shipping_address'), 10, 3);
+        add_filter('woocommerce_cart_shipping_method_full_label', array($this, 'add_711_free_shipping_notice'), 20, 2);
         add_filter('woocommerce_checkout_fields', array($this, 'modify_711_checkout_fields'), 1001);
         add_action('template_redirect', array($this, 'handle_711_map_return'));
         add_action('admin_footer', array($this, 'admin_711_settings_js'));
-        add_filter('manage_edit-shop_order_columns', array($this, 'add_711_order_column'), 30);
-        add_action('manage_shop_order_posts_custom_column', array($this, 'render_711_legacy_order_column'), 30, 2);
-        add_filter('manage_woocommerce_page_wc-orders_columns', array($this, 'add_711_order_column'), 30);
-        add_action('manage_woocommerce_page_wc-orders_custom_column', array($this, 'render_711_hpos_order_column'), 30, 2);
         add_action('woocommerce_shipping_zone_method_added', array($this, 'clear_shipping_cache'));
         add_action('woocommerce_shipping_zone_method_deleted', array($this, 'clear_shipping_cache'));
         add_action('woocommerce_shipping_zone_method_status_toggled', array($this, 'clear_shipping_cache'));
@@ -739,7 +738,7 @@ class WU_WooCommerce_Optimizer {
         $configs = $this->get_711_checkout_configs();
 
         echo '<div id="wutm_711_store_field" class="wutm-711-store-box" style="display:none">';
-        echo '<div class="wutm-711-store-heading"><span class="wutm-711-store-icon">7</span><div><h3>7-11 取貨門市資訊</h3><p>請完整確認門市店號、名稱與地址。</p></div></div>';
+        echo '<div class="wutm-711-store-heading"><div><h3>7-11 取貨門市資訊</h3><p>請完整確認門市店號、名稱與地址。</p></div></div>';
         echo '<div class="wutm-711-map-panel"><p id="wutm_711_store_info" class="wutm-711-store-status">目前尚未選擇門市</p><button type="button" class="button alt" id="wutm_open_711_map">開啟 7-11 電子地圖</button></div>';
         echo '<div class="wutm-711-manual-help">請先至 <a href="https://www.ibon.com.tw/retail_inquiry.aspx" target="_blank" rel="noopener">7-11 門市查詢</a> 確認資料，再填寫下列欄位。</div>';
         echo '<div class="wutm-711-store-fields">';
@@ -777,13 +776,13 @@ class WU_WooCommerce_Optimizer {
         <style>
         #wutm_711_store_field{margin:24px 0;padding:22px;border:1px solid #e1e5e9;border-radius:12px;background:#fff;box-shadow:0 8px 24px rgba(22,39,58,.06)}
         #wutm_711_store_field .wutm-711-store-heading{display:flex;align-items:flex-start;gap:12px;margin-bottom:18px}
-        #wutm_711_store_field .wutm-711-store-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 34px;width:34px;height:34px;border-radius:9px;background:#00844a;color:#fff;font-weight:800}
         #wutm_711_store_field h3{margin:0 0 3px;font-size:19px}#wutm_711_store_field .wutm-711-store-heading p{margin:0;color:#68717a;font-size:14px}
         #wutm_711_store_field .wutm-711-map-panel,#wutm_711_store_field .wutm-711-manual-help{margin:0 0 16px;padding:14px 16px;border-radius:8px;background:#f6f8f7}
         #wutm_711_store_field .wutm-711-store-status{margin:0 0 12px;color:#b32d2e;font-weight:700;line-height:1.65}
         #wutm_711_store_field .wutm-711-store-status.is-selected{color:#087a42}
         #wutm_711_store_field .form-row{margin-bottom:14px}#wutm_711_store_field input.input-text{min-height:48px;border-color:#d6dce1;border-radius:7px;background:#fff}
         #wutm_711_store_field #wutm_open_711_map{padding:10px 18px;border-radius:7px;background:#00844a;color:#fff;font-weight:700}
+        .wutm-711-free-shipping-note{display:block;width:max-content;max-width:100%;margin-top:8px;padding:7px 11px;border-radius:6px;background:#171717;color:#fff;font-size:14px;font-weight:600;line-height:1.45}
         @media(max-width:600px){#wutm_711_store_field{padding:17px}}
         </style>
         <script>
@@ -874,25 +873,89 @@ class WU_WooCommerce_Optimizer {
         return array('id' => $id, 'name' => $name, 'address' => $address);
     }
 
+    private function is_711_order($order) {
+        if (!$order instanceof WC_Order) return false;
+        $store = $this->get_711_order_store($order);
+        if ($store['id'] !== '' || $store['name'] !== '' || $store['address'] !== '') return true;
+        foreach ($order->get_items('shipping') as $item) {
+            $method_id = is_callable(array($item, 'get_method_id')) ? $item->get_method_id() : '';
+            $method_title = is_callable(array($item, 'get_method_title')) ? $item->get_method_title() : '';
+            if ($this->is_711_rate($method_id) || strpos((string) $method_title, '7-11') !== false) return true;
+        }
+        return false;
+    }
+
+    private function get_711_tracking_code($order) {
+        if (!$order instanceof WC_Order) return '';
+        return sanitize_text_field((string) ($order->get_meta('_wutm_711_tracking_code') ?: $order->get_meta('交貨便服務代碼')));
+    }
+
     public function display_711_in_admin($order) {
         $store = $this->get_711_order_store($order);
-        if ($store['id'] === '' && $store['name'] === '' && $store['address'] === '') return;
+        if (!$this->is_711_order($order)) return;
         echo '<div style="margin-top:15px;padding:12px 14px;border:1px solid #b8dfca;border-radius:6px;background:#f1fbf5">';
         echo '<h4 style="margin:0 0 8px;color:#087a42">運送方式：7-11 超商取貨</h4>';
         if ($store['id'] !== '') echo '<p style="margin:4px 0"><strong>門市店號：</strong>' . esc_html($store['id']) . '</p>';
         if ($store['name'] !== '') echo '<p style="margin:4px 0"><strong>門市名稱：</strong>' . esc_html($store['name']) . '</p>';
         if ($store['address'] !== '') echo '<p style="margin:4px 0"><strong>門市地址：</strong>' . esc_html($store['address']) . '</p>';
+        echo '<p style="margin:12px 0 5px"><label for="wutm_711_tracking_code"><strong>取貨編號／交貨便服務代碼</strong></label></p>';
+        echo '<input type="text" id="wutm_711_tracking_code" name="wutm_711_tracking_code" value="' . esc_attr($this->get_711_tracking_code($order)) . '" class="widefat" maxlength="60" placeholder="輸入交貨便服務代碼">';
+        echo '<p style="margin:5px 0 0;color:#646970">儲存訂單後，會員可在訂單明細查看此代碼與包裹查詢連結。</p>';
+        wp_nonce_field('wutm_save_711_tracking_' . $order->get_id(), 'wutm_711_tracking_nonce');
         echo '</div>';
+    }
+
+    public function save_711_tracking_code($order_id, $order = null) {
+        $order = $order instanceof WC_Order ? $order : wc_get_order($order_id);
+        if (!$this->is_711_order($order) || !current_user_can('edit_shop_order', $order->get_id())) return;
+        $nonce = isset($_POST['wutm_711_tracking_nonce']) && is_scalar($_POST['wutm_711_tracking_nonce']) ? sanitize_text_field(wp_unslash((string) $_POST['wutm_711_tracking_nonce'])) : '';
+        if (!wp_verify_nonce($nonce, 'wutm_save_711_tracking_' . $order->get_id())) return;
+        $code = isset($_POST['wutm_711_tracking_code']) && is_scalar($_POST['wutm_711_tracking_code']) ? sanitize_text_field(wp_unslash((string) $_POST['wutm_711_tracking_code'])) : '';
+        if ($code === '') {
+            $order->delete_meta_data('_wutm_711_tracking_code');
+            $order->delete_meta_data('交貨便服務代碼');
+        } else {
+            $order->update_meta_data('_wutm_711_tracking_code', $code);
+            $order->update_meta_data('交貨便服務代碼', $code);
+        }
+        $order->save();
+    }
+
+    public function display_711_tracking_for_customer($order) {
+        if (!function_exists('is_account_page') || !is_account_page() || !$this->is_711_order($order)) return;
+        $code = $this->get_711_tracking_code($order);
+        echo '<section class="woocommerce-order-details wutm-711-tracking" style="margin-top:24px;padding:20px;border:1px solid #dcdcde;border-radius:10px;background:#fff">';
+        echo '<h2 style="margin-top:0">7-11 超商取貨</h2>';
+        echo '<p><strong>取貨編號／交貨便服務代碼：</strong> ' . ($code !== '' ? '<code>' . esc_html($code) . '</code>' : '尚未提供') . '</p>';
+        echo '<p style="margin-bottom:0"><a class="button" href="https://tracking.shopmore.com.tw/" target="_blank" rel="noopener noreferrer">前往包裹查詢</a></p>';
+        echo '</section>';
     }
 
     public function format_711_shipping_address($formatted, $raw_address, $order) {
         $store = $this->get_711_order_store($order);
         if ($store['id'] === '' && $store['name'] === '' && $store['address'] === '') return $formatted;
-        $parts = array('<strong>7-11 超商取貨</strong>');
-        if ($store['name'] !== '') $parts[] = esc_html($store['name']);
-        if ($store['id'] !== '') $parts[] = '店號：' . esc_html($store['id']);
-        if ($store['address'] !== '') $parts[] = esc_html($store['address']);
-        return implode('<br>', $parts);
+        $parts = array('7-11 超商取貨');
+        if ($store['name'] !== '') $parts[] = $store['name'];
+        if ($store['id'] !== '') $parts[] = '店號：' . $store['id'];
+        if ($store['address'] !== '') $parts[] = $store['address'];
+        if (is_admin()) return implode('，', $parts);
+        $parts = array_map('esc_html', $parts);
+        $heading = array_shift($parts);
+        return '<strong>' . $heading . '</strong>' . ($parts ? '<br>' . implode('<br>', $parts) : '');
+    }
+
+    public function add_711_free_shipping_notice($label, $method) {
+        if (!$method instanceof WC_Shipping_Rate || !$this->is_711_rate($method->get_id())) return $label;
+        $settings = $this->get_711_instance_settings($method->get_id());
+        $threshold = max(0, (float) $settings['free_shipping_threshold']);
+        if ($threshold <= 0 || !function_exists('WC') || !WC()->cart) return $label;
+        $cart_total = max(0, (float) WC()->cart->get_cart_contents_total());
+        if ($cart_total >= $threshold) {
+            $message = '您的訂單已達免運門檻！';
+        } else {
+            $message = '再買 ' . wc_price($threshold - $cart_total) . ' 即可享免運費！';
+        }
+        return $label . '<span class="wutm-711-free-shipping-note" style="display:block;width:max-content;max-width:100%;margin-top:8px;padding:7px 11px;border-radius:6px;background:#171717;color:#fff;font-size:14px;font-weight:600;line-height:1.45">' . wp_kses_post($message) . '</span>';
     }
 
     public function handle_711_map_return() {
@@ -920,32 +983,6 @@ class WU_WooCommerce_Optimizer {
         ?>
         <script>jQuery(function($){function toggleWutm711Merchant(){const $modes=$('select[id*="seven_eleven_pickup"][id$="_select_mode"],select[name*="seven_eleven_pickup"][name$="[select_mode]"]');$modes.each(function(){const $mode=$(this),$scope=$mode.closest('form,.wc-backbone-modal-content'),$merchant=$scope.find('input[id*="seven_eleven_pickup"][id$="_merchant_id"],input[name*="seven_eleven_pickup"][name$="[merchant_id]"]').first();$merchant.closest('tr,.form-field').toggle($mode.val()==='map')})}$(document.body).on('change','select[id*="seven_eleven_pickup"][id$="_select_mode"],select[name*="seven_eleven_pickup"][name$="[select_mode]"]',toggleWutm711Merchant);$(document.body).on('wc_backbone_modal_loaded',function(){setTimeout(toggleWutm711Merchant,0)});toggleWutm711Merchant()});</script>
         <?php
-    }
-
-    public function add_711_order_column($columns) {
-        $result = array();
-        foreach ($columns as $key => $label) {
-            $result[$key] = $label;
-            if ($key === 'shipping_address') $result['wutm_711_store'] = '7-11 門市';
-        }
-        if (!isset($result['wutm_711_store'])) $result['wutm_711_store'] = '7-11 門市';
-        return $result;
-    }
-
-    private function render_711_order_column_value($order) {
-        $store = $this->get_711_order_store($order);
-        if ($store['id'] === '' && $store['name'] === '' && $store['address'] === '') { echo '—'; return; }
-        echo '<strong style="color:#087a42">7-11 超商取貨</strong><br>';
-        echo esc_html(trim($store['name'] . ($store['id'] !== '' ? '（' . $store['id'] . '）' : '')));
-        if ($store['address'] !== '') echo '<br><small>' . esc_html($store['address']) . '</small>';
-    }
-
-    public function render_711_legacy_order_column($column, $post_id) {
-        if ($column === 'wutm_711_store') $this->render_711_order_column_value(wc_get_order($post_id));
-    }
-
-    public function render_711_hpos_order_column($column, $order) {
-        if ($column === 'wutm_711_store') $this->render_711_order_column_value($order instanceof WC_Order ? $order : wc_get_order($order));
     }
 
     public function modify_711_checkout_fields($fields) {
