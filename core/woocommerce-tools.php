@@ -173,7 +173,7 @@ class WU_WooCommerce_Optimizer {
     private function fields() {
         if ($this->mode === 'shipping') return array(
             'wu_woo_enable_island_shipping' => array('啟用台灣離島運送', 'enable_island_shipping_callback'),
-            'wu_woo_enable_711_shipping' => array('啟用 7-11 超商取貨', 'enable_711_shipping_callback')
+            'wu_woo_enable_711_shipping' => array('7-11 超商物流', 'enable_711_shipping_callback')
         );
         return $this->mode === 'commerce' ? array(
             'wu_woo_taiwan_address' => array('台灣地址選單優化', 'taiwan_address_callback'),
@@ -201,7 +201,7 @@ class WU_WooCommerce_Optimizer {
 
     public function settings_section_callback() {
         if ($this->mode === 'commerce') { echo '<p>選擇需要啟用的結帳欄位功能。電子發票僅收集並顯示訂單資訊，不含發票開立或任何服務串接。</p>'; return; }
-        if ($this->mode === 'shipping') { echo '<p>集中管理台灣離島與 7-11 超商取貨。7-11 為顧客自行填寫門市名稱及地址的運送方式。</p>'; return; }
+        if ($this->mode === 'shipping') { echo '<p>集中管理台灣離島配送與 7-11 超商物流。7-11 支援買家手動填寫或綠界電子地圖選店，並將完整門市資訊保存至訂單。</p>'; return; }
         echo '<p>配置 WooCommerce 優化選項。所有功能均需手動啟用。隱藏選項僅整理後台選單或設定分頁，不停用相關功能、不改變權限，也不影響前台購物與結帳；取消勾選並儲存即可恢復。</p>';
     }
     
@@ -229,22 +229,12 @@ class WU_WooCommerce_Optimizer {
     
     public function enable_711_shipping_callback() {
         $value = get_option('wu_woo_enable_711_shipping', false);
-        $cost = get_option('wu_woo_711_shipping_cost', 60);
-        $threshold = get_option('wu_woo_711_free_shipping_threshold', 0);
-        
         echo '<input type="checkbox" id="wu_woo_enable_711_shipping" name="wu_woo_enable_711_shipping" value="1" ' . checked(1, $value, false) . ' />';
-        echo '<label for="wu_woo_enable_711_shipping">啟用 7-11 超商取貨運送方式</label>';
-        echo '<p class="description"><strong>重要:</strong>啟用後會自動新增「7-11 超商取貨」運送方式,適用於台灣本島及離島。</p>';
-        
-        echo '<div style="margin-top:15px;padding:15px;background:#f8f8f8;border-left:4px solid #2271b1;">';
-        echo '<p style="margin:0 0 10px 0;"><strong>運費設定</strong></p>';
-        echo '<label for="wu_woo_711_shipping_cost">7-11 運費 (NT$): </label>';
-        echo '<input type="number" id="wu_woo_711_shipping_cost" name="wu_woo_711_shipping_cost" value="' . esc_attr($cost) . '" min="0" step="1" style="width:100px;" />';
-        echo '<p class="description" style="margin:5px 0 15px 0;">預設 NT$60</p>';
-        
-        echo '<label for="wu_woo_711_free_shipping_threshold">免運門檻 (NT$): </label>';
-        echo '<input type="number" id="wu_woo_711_free_shipping_threshold" name="wu_woo_711_free_shipping_threshold" value="' . esc_attr($threshold) . '" min="0" step="1" style="width:100px;" />';
-        echo '<p class="description" style="margin:5px 0 0 0;">訂單金額達到此金額則免運費,設為 0 表示不提供免運</p>';
+        echo '<label for="wu_woo_enable_711_shipping"><strong>啟用 7-11 超商物流運送方式</strong></label>';
+        echo '<p class="description">啟用並儲存後，請到 WooCommerce「運送區域」加入或編輯 7-11 超商取貨。</p>';
+        echo '<div class="wutm-shipping-guide">';
+        echo '<h3>可用功能</h3><ul><li>每個運送區域可分別設定顯示名稱、運費及免運門檻。</li><li>可選擇買家手動填寫門市，或串接綠界 7-11 電子地圖。</li><li>結帳會收集門市店號、門市名稱與完整地址。</li><li>感謝頁、訂單編輯與訂單列表會清楚標示 7-11 取貨門市。</li></ul>';
+        echo '<p><a class="button" href="' . esc_url(admin_url('admin.php?page=wc-settings&tab=shipping')) . '">前往設定運送區域</a></p>';
         echo '</div>';
     }
     
@@ -637,14 +627,19 @@ class WU_WooCommerce_Optimizer {
     public function register_711_shipping() {
         add_filter('woocommerce_shipping_methods', array($this, 'add_711_shipping_method'));
         add_action('woocommerce_shipping_init', array($this, 'init_711_shipping_method'));
-        add_action('woocommerce_after_order_notes', array($this, 'add_711_store_fields'));
+        add_action('woocommerce_after_checkout_shipping_form', array($this, 'add_711_store_fields'));
         add_action('wp_footer', array($this, 'add_711_toggle_script'));
         add_action('woocommerce_checkout_process', array($this, 'validate_711_fields'));
         add_action('woocommerce_checkout_create_order', array($this, 'save_711_fields'));
         add_action('woocommerce_admin_order_data_after_shipping_address', array($this, 'display_711_in_admin'));
+        add_filter('woocommerce_order_get_formatted_shipping_address', array($this, 'format_711_shipping_address'), 10, 3);
         add_filter('woocommerce_checkout_fields', array($this, 'modify_711_checkout_fields'), 1001);
-        add_action('wp_ajax_save_711_store_info', array($this, 'ajax_save_711_store_info'));
-        add_action('wp_ajax_nopriv_save_711_store_info', array($this, 'ajax_save_711_store_info'));
+        add_action('template_redirect', array($this, 'handle_711_map_return'));
+        add_action('admin_footer', array($this, 'admin_711_settings_js'));
+        add_filter('manage_edit-shop_order_columns', array($this, 'add_711_order_column'), 30);
+        add_action('manage_shop_order_posts_custom_column', array($this, 'render_711_legacy_order_column'), 30, 2);
+        add_filter('manage_woocommerce_page_wc-orders_columns', array($this, 'add_711_order_column'), 30);
+        add_action('manage_woocommerce_page_wc-orders_custom_column', array($this, 'render_711_hpos_order_column'), 30, 2);
         add_action('woocommerce_shipping_zone_method_added', array($this, 'clear_shipping_cache'));
         add_action('woocommerce_shipping_zone_method_deleted', array($this, 'clear_shipping_cache'));
         add_action('woocommerce_shipping_zone_method_status_toggled', array($this, 'clear_shipping_cache'));
@@ -662,98 +657,169 @@ class WU_WooCommerce_Optimizer {
     public function init_711_shipping_method() {
         // 類別已在檔案末尾定義
     }
-    
-    public function add_711_store_fields($checkout) {
+
+    private function is_711_rate($rate_id) {
+        return strpos((string) $rate_id, 'seven_eleven_pickup') !== false || strpos((string) $rate_id, 'cvs_711_shipping') !== false;
+    }
+
+    private function selected_711_rate() {
+        $methods = array();
+        if (!empty($_POST['shipping_method']) && is_array($_POST['shipping_method'])) {
+            $methods = wp_unslash($_POST['shipping_method']);
+        } elseif (!empty($_POST['post_data']) && is_scalar($_POST['post_data'])) {
+            $posted = array();
+            parse_str(wp_unslash((string) $_POST['post_data']), $posted);
+            $methods = isset($posted['shipping_method']) && is_array($posted['shipping_method']) ? $posted['shipping_method'] : array();
+        } elseif (function_exists('WC') && WC()->session) {
+            $methods = (array) WC()->session->get('chosen_shipping_methods', array());
+        }
+        foreach ($methods as $method) {
+            $method = sanitize_text_field((string) $method);
+            if ($this->is_711_rate($method)) return $method;
+        }
+        return '';
+    }
+
+    private function get_711_instance_settings($rate_id) {
+        $instance_id = 0;
+        if (preg_match('/:(\d+)/', (string) $rate_id, $matches)) $instance_id = absint($matches[1]);
+        $settings = (array) get_option('woocommerce_seven_eleven_pickup_' . $instance_id . '_settings', array());
+        $settings = wp_parse_args($settings, array(
+            'title' => '7-11 超商取貨',
+            'cost' => get_option('wu_woo_711_shipping_cost', 60),
+            'free_shipping_threshold' => get_option('wu_woo_711_free_shipping_threshold', 0),
+            'select_mode' => 'manual',
+            'merchant_id' => '',
+        ));
+        $settings['select_mode'] = $settings['select_mode'] === 'map' ? 'map' : 'manual';
+        $settings['merchant_id'] = preg_replace('/\D+/', '', (string) $settings['merchant_id']);
+        if ($settings['merchant_id'] === '') $settings['merchant_id'] = '2000132';
+        return $settings;
+    }
+
+    private function get_711_checkout_configs() {
+        $configs = array();
+        $zone_ids = array(0);
+        foreach ((array) WC_Shipping_Zones::get_zones() as $zone_id => $zone_data) {
+            $zone_ids[] = absint($zone_data['zone_id'] ?? $zone_id);
+        }
+        foreach (array_unique($zone_ids) as $zone_id) {
+            $zone = new WC_Shipping_Zone($zone_id);
+            foreach ($zone->get_shipping_methods(true) as $method) {
+                if (($method->id ?? '') !== 'seven_eleven_pickup') continue;
+                $rate_id = $method->get_rate_id();
+                $settings = $this->get_711_instance_settings($rate_id);
+                $configs[$rate_id] = array(
+                    'mode' => $settings['select_mode'],
+                    'merchantId' => $settings['merchant_id'],
+                    'mapUrl' => $settings['merchant_id'] === '2000132' ? 'https://logistics-stage.ecpay.com.tw/Express/map' : 'https://logistics.ecpay.com.tw/Express/map',
+                );
+            }
+        }
+        return $configs;
+    }
+
+    public function add_711_store_fields($checkout = null) {
         $user_id = get_current_user_id();
+        $saved_store_id = '';
         $saved_store_name = '';
         $saved_store_address = '';
-        
         if ($user_id > 0) {
+            $saved_store_id = get_user_meta($user_id, '_wu_711_store_id', true);
             $saved_store_name = get_user_meta($user_id, '_wu_711_store_name', true);
             $saved_store_address = get_user_meta($user_id, '_wu_711_store_address', true);
         }
-        
-        echo '<div id="seven_store_field" style="display:none;margin-top:20px;padding:20px;background:#f8f8f8;border:1px solid #ddd;border-radius:4px;">';
-        echo '<h3 style="margin-top:0;">7-11 門市資訊</h3>';
+        $get_value = is_object($checkout) && is_callable(array($checkout, 'get_value')) ? array($checkout, 'get_value') : null;
+        $store_id = $get_value ? call_user_func($get_value, 'cvs_store_id') : '';
+        $store_name = $get_value ? call_user_func($get_value, 'cvs_store_name') : '';
+        $store_address = $get_value ? call_user_func($get_value, 'cvs_store_address') : '';
+        $issued_at = time();
+        $token = $issued_at . '.' . hash_hmac('sha256', $issued_at . '|' . home_url('/'), wp_salt('nonce'));
+        $return_url = add_query_arg('wutm_711_map_return', '1', home_url('/'));
+        $configs = $this->get_711_checkout_configs();
 
-        woocommerce_form_field('seven_store_name', array(
+        echo '<div id="wutm_711_store_field" class="wutm-711-store-box" style="display:none">';
+        echo '<div class="wutm-711-store-heading"><span class="wutm-711-store-icon">7</span><div><h3>7-11 取貨門市資訊</h3><p>請完整確認門市店號、名稱與地址。</p></div></div>';
+        echo '<div class="wutm-711-map-panel"><p id="wutm_711_store_info" class="wutm-711-store-status">目前尚未選擇門市</p><button type="button" class="button alt" id="wutm_open_711_map">開啟 7-11 電子地圖</button></div>';
+        echo '<div class="wutm-711-manual-help">請先至 <a href="https://www.ibon.com.tw/retail_inquiry.aspx" target="_blank" rel="noopener">7-11 門市查詢</a> 確認資料，再填寫下列欄位。</div>';
+        echo '<div class="wutm-711-store-fields">';
+        woocommerce_form_field('cvs_store_id', array(
             'type' => 'text',
-            'label' => '7-11 門市名稱',
+            'label' => '門市店號',
             'required' => true,
-            'placeholder' => '例如:台北忠孝門市',
+            'placeholder' => '例如：123456',
             'class' => array('form-row-wide'),
-            'default' => $saved_store_name
-        ), $checkout->get_value('seven_store_name') ?: $saved_store_name);
-
-        woocommerce_form_field('seven_store_address', array(
+            'custom_attributes' => array('maxlength' => '9', 'inputmode' => 'numeric'),
+        ), $store_id ?: $saved_store_id);
+        woocommerce_form_field('cvs_store_name', array(
+            'type' => 'text',
+            'label' => '門市名稱',
+            'required' => true,
+            'placeholder' => '例如：忠孝門市',
+            'class' => array('form-row-wide'),
+            'custom_attributes' => array('maxlength' => '40'),
+        ), $store_name ?: $saved_store_name);
+        woocommerce_form_field('cvs_store_address', array(
             'type' => 'text',
             'label' => '門市地址',
             'required' => true,
-            'placeholder' => '例如:台北市中正區忠孝東路一段 100 號',
+            'placeholder' => '例如：台北市中正區忠孝東路一段 100 號',
             'class' => array('form-row-wide'),
-            'default' => $saved_store_address
-        ), $checkout->get_value('seven_store_address') ?: $saved_store_address);
+            'custom_attributes' => array('maxlength' => '100'),
+        ), $store_address ?: $saved_store_address);
+        echo '</div></div>';
+        echo '<script id="wutm-711-config">window.wutm711Checkout=' . wp_json_encode(array('rates' => $configs, 'returnUrl' => $return_url, 'token' => $token)) . ';</script>';
+    }
 
-        echo '</div>';
-    }
-    
-    public function ajax_save_711_store_info() {
-        $user_id = get_current_user_id();
-        
-        if ($user_id > 0 && isset($_POST['store_name']) && isset($_POST['store_address'])) {
-            update_user_meta($user_id, '_wu_711_store_name', sanitize_text_field($_POST['store_name']));
-            update_user_meta($user_id, '_wu_711_store_address', sanitize_text_field($_POST['store_address']));
-            wp_send_json_success();
-        } else {
-            wp_send_json_error();
-        }
-    }
-    
     public function add_711_toggle_script() {
         if (!is_checkout()) return;
         ?>
+        <style>
+        #wutm_711_store_field{margin:24px 0;padding:22px;border:1px solid #e1e5e9;border-radius:12px;background:#fff;box-shadow:0 8px 24px rgba(22,39,58,.06)}
+        #wutm_711_store_field .wutm-711-store-heading{display:flex;align-items:flex-start;gap:12px;margin-bottom:18px}
+        #wutm_711_store_field .wutm-711-store-icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 34px;width:34px;height:34px;border-radius:9px;background:#00844a;color:#fff;font-weight:800}
+        #wutm_711_store_field h3{margin:0 0 3px;font-size:19px}#wutm_711_store_field .wutm-711-store-heading p{margin:0;color:#68717a;font-size:14px}
+        #wutm_711_store_field .wutm-711-map-panel,#wutm_711_store_field .wutm-711-manual-help{margin:0 0 16px;padding:14px 16px;border-radius:8px;background:#f6f8f7}
+        #wutm_711_store_field .wutm-711-store-status{margin:0 0 12px;color:#b32d2e;font-weight:700;line-height:1.65}
+        #wutm_711_store_field .wutm-711-store-status.is-selected{color:#087a42}
+        #wutm_711_store_field .form-row{margin-bottom:14px}#wutm_711_store_field input.input-text{min-height:48px;border-color:#d6dce1;border-radius:7px;background:#fff}
+        #wutm_711_store_field #wutm_open_711_map{padding:10px 18px;border-radius:7px;background:#00844a;color:#fff;font-weight:700}
+        @media(max-width:600px){#wutm_711_store_field{padding:17px}}
+        </style>
         <script>
         jQuery(function($){
+            const data=window.wutm711Checkout||{rates:{}};
+            const $box=$('#wutm_711_store_field'),$id=$('#cvs_store_id'),$name=$('#cvs_store_name'),$address=$('#cvs_store_address');
+            function selectedRate(){return String($('input[name^="shipping_method"]:checked').val()||'')}
+            function selectedConfig(){const rate=selectedRate();return data.rates[rate]||{mode:'manual',merchantId:'2000132',mapUrl:'https://logistics-stage.ecpay.com.tw/Express/map'}}
+            function refreshStoreInfo(){const complete=$id.val()&&$name.val()&&$address.val();$('#wutm_711_store_info').toggleClass('is-selected',!!complete).html(complete?'<strong>已選擇門市</strong><br>'+ $('<div>').text($name.val()+'（店號 '+$id.val()+'）').html()+'<br>'+ $('<div>').text($address.val()).html():'目前尚未選擇門市')}
             function toggle711(){
-                let shipping = $('input[name^="shipping_method"]:checked').val();
-                if(shipping && shipping.indexOf('seven_eleven_pickup') !== -1){
-                    $('#seven_store_field').slideDown();
-                    
+                const shipping=selectedRate(),active=shipping.indexOf('seven_eleven_pickup')!==-1||shipping.indexOf('cvs_711_shipping')!==-1,cfg=selectedConfig(),manual=cfg.mode!=='map';
+                if(active){
+                    $box.stop(true,true).slideDown();
                     if(!$('#ship-to-different-address-checkbox').is(':checked')){
                         $('#ship-to-different-address-checkbox').prop('checked', true).trigger('change');
                     }
-                    
-                    $('#shipping_city_field, #shipping_postcode_field, #shipping_address_1_field').slideUp();
-                    $('#shipping_state_field, #shipping_region_type_field').slideUp();
-                    
+                    $('#shipping_country_field,#shipping_state_field,#shipping_city_field,#shipping_postcode_field,#shipping_address_1_field,#shipping_address_2_field,#shipping_company_field,#shipping_region_type_field').hide();
                     $('#shipping_phone_field').slideDown();
                     $('#shipping_phone').attr('required', 'required');
-                    
-                    $('#seven_store_name, #seven_store_address').on('blur', function(){
-                        let storeName = $('#seven_store_name').val();
-                        let storeAddress = $('#seven_store_address').val();
-                        if(storeName && storeAddress){
-                            $.post('<?php echo admin_url('admin-ajax.php'); ?>', {
-                                action: 'save_711_store_info',
-                                store_name: storeName,
-                                store_address: storeAddress
-                            });
-                        }
-                    });
+                    if(!$('#shipping_country').val())$('#shipping_country').val('TW');
+                    if(!$('#shipping_city').val())$('#shipping_city').val('超商取貨');
+                    if(!$('#shipping_address_1').val())$('#shipping_address_1').val('7-11 超商取貨');
+                    if(!$('#shipping_postcode').val())$('#shipping_postcode').val('000');
+                    $('.wutm-711-map-panel').toggle(!manual);$('.wutm-711-manual-help').toggle(manual);
+                    $('.wutm-711-store-fields').toggle(manual);$id.add($name).add($address).prop('readonly',!manual).prop('required',manual);
+                    refreshStoreInfo();
                 } else {
-                    $('#seven_store_field').slideUp();
-                    $('#shipping_city_field, #shipping_postcode_field, #shipping_address_1_field').slideDown();
-                    $('#shipping_state_field, #shipping_region_type_field').slideDown();
+                    $box.stop(true,true).slideUp();
+                    $('#shipping_country_field,#shipping_state_field,#shipping_city_field,#shipping_postcode_field,#shipping_address_1_field,#shipping_address_2_field,#shipping_company_field,#shipping_region_type_field').show();
                     $('#shipping_phone').removeAttr('required');
                 }
             }
-            
-            $(document).on('change','input[name^="shipping_method"]', function(){
-                toggle711();
-                $(document.body).trigger('update_checkout');
-            });
-            
+            $(document).on('change','input[name^="shipping_method"]',toggle711);
             $(document.body).on('updated_checkout', toggle711);
+            $id.add($name).add($address).on('input change',refreshStoreInfo);
+            $(document).on('click','#wutm_open_711_map',function(e){e.preventDefault();const cfg=selectedConfig(),form=document.createElement('form');form.method='post';form.action=cfg.mapUrl;form.target='wutm_711_map_window';const params={MerchantID:cfg.merchantId,LogisticsType:'CVS',LogisticsSubType:'UNIMART',IsCollection:'N',ServerReplyURL:data.returnUrl,ExtraData:data.token,Device:/Mobi|Android/i.test(navigator.userAgent)?1:0};Object.keys(params).forEach(function(key){const input=document.createElement('input');input.type='hidden';input.name=key;input.value=params[key];form.appendChild(input)});document.body.appendChild(form);window.open('','wutm_711_map_window','width=1024,height=768,status=no,resizable=yes,scrollbars=yes');form.submit();form.remove()});
             toggle711();
         });
         </script>
@@ -761,81 +827,144 @@ class WU_WooCommerce_Optimizer {
     }
     
     public function validate_711_fields() {
-        if (isset($_POST['shipping_method']) && is_array($_POST['shipping_method'])) {
-            $shipping_method = $_POST['shipping_method'][0];
-            if (strpos($shipping_method, 'seven_eleven_pickup') !== false) {
-                if (empty($_POST['seven_store_name']) || empty($_POST['seven_store_address'])) {
-                    wc_add_notice('請填寫 7-11 門市名稱與地址', 'error');
-                }
-                if (empty($_POST['shipping_phone'])) {
-                    wc_add_notice('請填寫收件者電話', 'error');
-                }
-            }
-        }
+        if (!$this->selected_711_rate()) return;
+        $store_id = sanitize_text_field(wp_unslash($_POST['cvs_store_id'] ?? $_POST['seven_store_id'] ?? ''));
+        $store_name = sanitize_text_field(wp_unslash($_POST['cvs_store_name'] ?? $_POST['seven_store_name'] ?? ''));
+        $store_address = sanitize_text_field(wp_unslash($_POST['cvs_store_address'] ?? $_POST['seven_store_address'] ?? ''));
+        if ($store_id === '' || $store_name === '' || $store_address === '') wc_add_notice('請完整填寫或選擇 7-11 門市店號、名稱與地址。', 'error');
+        if ($store_id !== '' && !preg_match('/^[A-Za-z0-9]{3,9}$/', $store_id)) wc_add_notice('7-11 門市店號格式不正確，請輸入 3 至 9 碼英數字。', 'error');
+        if (empty($_POST['shipping_phone']) && empty($_POST['billing_phone'])) wc_add_notice('請填寫取件人聯絡電話。', 'error');
     }
-    
-    public function save_711_fields($order) {
-        if (isset($_POST['seven_store_name'])) {
-            $order->update_meta_data('_seven_store_name', sanitize_text_field($_POST['seven_store_name']));
-            $order->update_meta_data('7-11 門市', sanitize_text_field($_POST['seven_store_name']));
-        }
-        if (isset($_POST['seven_store_address'])) {
-            $order->update_meta_data('_seven_store_address', sanitize_text_field($_POST['seven_store_address']));
-            $order->update_meta_data('門市地址', sanitize_text_field($_POST['seven_store_address']));
-        }
-    }
-    
-    public function display_711_in_admin($order) {
-        $store = $order->get_meta('7-11 門市');
-        $address = $order->get_meta('門市地址');
 
-        if ($store || $address) {
-            echo '<div style="margin-top:15px;padding:10px;background:#f8f8f8;border:1px solid #ddd;">';
-            echo '<h4 style="margin-top:0;">7-11 超商取貨資訊</h4>';
-            if ($store) {
-                echo '<p><strong>門市名稱:</strong><br>' . esc_html($store) . '</p>';
-            }
-            if ($address) {
-                echo '<p><strong>門市地址:</strong><br>' . esc_html($address) . '</p>';
-            }
-            echo '</div>';
+    public function save_711_fields($order) {
+        if (!$this->selected_711_rate()) return;
+        $store_id = sanitize_text_field(wp_unslash($_POST['cvs_store_id'] ?? $_POST['seven_store_id'] ?? ''));
+        $store_name = sanitize_text_field(wp_unslash($_POST['cvs_store_name'] ?? $_POST['seven_store_name'] ?? ''));
+        $store_address = sanitize_text_field(wp_unslash($_POST['cvs_store_address'] ?? $_POST['seven_store_address'] ?? ''));
+        if ($store_id === '' || $store_name === '' || $store_address === '') return;
+        $order->update_meta_data('_wutm_711_shipping', 'yes');
+        $order->update_meta_data('_cvs_store_id', $store_id);
+        $order->update_meta_data('_cvs_store_name', $store_name);
+        $order->update_meta_data('_cvs_store_address', $store_address);
+        $order->update_meta_data('_seven_store_id', $store_id);
+        $order->update_meta_data('_seven_store_name', $store_name);
+        $order->update_meta_data('_seven_store_address', $store_address);
+        $order->update_meta_data('7-11 門市', $store_name . '（' . $store_id . '）');
+        $order->update_meta_data('門市地址', $store_address);
+        $order->set_shipping_company('7-11 ' . $store_name . '（店號 ' . $store_id . '）');
+        $order->set_shipping_address_1($store_address);
+        $order->set_shipping_address_2('');
+        $order->set_shipping_city('');
+        $order->set_shipping_state('');
+        $order->set_shipping_postcode('');
+        $order->set_shipping_country('TW');
+        $user_id = get_current_user_id();
+        if ($user_id) {
+            update_user_meta($user_id, '_wu_711_store_id', $store_id);
+            update_user_meta($user_id, '_wu_711_store_name', $store_name);
+            update_user_meta($user_id, '_wu_711_store_address', $store_address);
         }
     }
-    
+
+    private function get_711_order_store($order) {
+        if (!$order instanceof WC_Order) return array('id' => '', 'name' => '', 'address' => '');
+        $id = (string) ($order->get_meta('_cvs_store_id') ?: $order->get_meta('_seven_store_id'));
+        $name = (string) ($order->get_meta('_cvs_store_name') ?: $order->get_meta('_seven_store_name') ?: $order->get_meta('7-11 門市'));
+        $address = (string) ($order->get_meta('_cvs_store_address') ?: $order->get_meta('_seven_store_address') ?: $order->get_meta('門市地址'));
+        return array('id' => $id, 'name' => $name, 'address' => $address);
+    }
+
+    public function display_711_in_admin($order) {
+        $store = $this->get_711_order_store($order);
+        if ($store['id'] === '' && $store['name'] === '' && $store['address'] === '') return;
+        echo '<div style="margin-top:15px;padding:12px 14px;border:1px solid #b8dfca;border-radius:6px;background:#f1fbf5">';
+        echo '<h4 style="margin:0 0 8px;color:#087a42">運送方式：7-11 超商取貨</h4>';
+        if ($store['id'] !== '') echo '<p style="margin:4px 0"><strong>門市店號：</strong>' . esc_html($store['id']) . '</p>';
+        if ($store['name'] !== '') echo '<p style="margin:4px 0"><strong>門市名稱：</strong>' . esc_html($store['name']) . '</p>';
+        if ($store['address'] !== '') echo '<p style="margin:4px 0"><strong>門市地址：</strong>' . esc_html($store['address']) . '</p>';
+        echo '</div>';
+    }
+
+    public function format_711_shipping_address($formatted, $raw_address, $order) {
+        $store = $this->get_711_order_store($order);
+        if ($store['id'] === '' && $store['name'] === '' && $store['address'] === '') return $formatted;
+        $parts = array('<strong>7-11 超商取貨</strong>');
+        if ($store['name'] !== '') $parts[] = esc_html($store['name']);
+        if ($store['id'] !== '') $parts[] = '店號：' . esc_html($store['id']);
+        if ($store['address'] !== '') $parts[] = esc_html($store['address']);
+        return implode('<br>', $parts);
+    }
+
+    public function handle_711_map_return() {
+        if (empty($_GET['wutm_711_map_return'])) return;
+        nocache_headers();
+        header('Content-Type: text/html; charset=' . get_bloginfo('charset'));
+        $received_token = sanitize_text_field(wp_unslash($_POST['ExtraData'] ?? ''));
+        $token_parts = explode('.', $received_token, 2);
+        $issued_at = isset($token_parts[0]) ? absint($token_parts[0]) : 0;
+        $expected_signature = $issued_at ? hash_hmac('sha256', $issued_at . '|' . home_url('/'), wp_salt('nonce')) : '';
+        $valid = count($token_parts) === 2 && $issued_at > 0 && abs(time() - $issued_at) <= 2 * HOUR_IN_SECONDS && hash_equals($expected_signature, (string) $token_parts[1]);
+        $payload = array(
+            'valid' => $valid,
+            'id' => sanitize_text_field(wp_unslash($_POST['CVSStoreID'] ?? '')),
+            'name' => sanitize_text_field(wp_unslash($_POST['CVSStoreName'] ?? '')),
+            'address' => sanitize_text_field(wp_unslash($_POST['CVSAddress'] ?? '')),
+        );
+        echo '<!doctype html><html><head><meta charset="' . esc_attr(get_bloginfo('charset')) . '"><title>7-11 門市選擇</title></head><body><script>(function(){const data=' . wp_json_encode($payload) . ';if(!data.valid){alert("門市選擇已逾時，請回到結帳頁重新開啟電子地圖。");window.close();return}if(!window.opener||window.opener.closed){alert("找不到原本的結帳頁面。");return}const doc=window.opener.document,values={cvs_store_id:data.id,cvs_store_name:data.name,cvs_store_address:data.address};Object.keys(values).forEach(function(key){const field=doc.getElementById(key);if(field){field.value=values[key];field.dispatchEvent(new Event("change",{bubbles:true}))}});window.close()})();</script></body></html>';
+        exit;
+    }
+
+    public function admin_711_settings_js() {
+        $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+        if (!$screen || $screen->id !== 'woocommerce_page_wc-settings') return;
+        ?>
+        <script>jQuery(function($){function toggleWutm711Merchant(){const $modes=$('select[id*="seven_eleven_pickup"][id$="_select_mode"],select[name*="seven_eleven_pickup"][name$="[select_mode]"]');$modes.each(function(){const $mode=$(this),$scope=$mode.closest('form,.wc-backbone-modal-content'),$merchant=$scope.find('input[id*="seven_eleven_pickup"][id$="_merchant_id"],input[name*="seven_eleven_pickup"][name$="[merchant_id]"]').first();$merchant.closest('tr,.form-field').toggle($mode.val()==='map')})}$(document.body).on('change','select[id*="seven_eleven_pickup"][id$="_select_mode"],select[name*="seven_eleven_pickup"][name$="[select_mode]"]',toggleWutm711Merchant);$(document.body).on('wc_backbone_modal_loaded',function(){setTimeout(toggleWutm711Merchant,0)});toggleWutm711Merchant()});</script>
+        <?php
+    }
+
+    public function add_711_order_column($columns) {
+        $result = array();
+        foreach ($columns as $key => $label) {
+            $result[$key] = $label;
+            if ($key === 'shipping_address') $result['wutm_711_store'] = '7-11 門市';
+        }
+        if (!isset($result['wutm_711_store'])) $result['wutm_711_store'] = '7-11 門市';
+        return $result;
+    }
+
+    private function render_711_order_column_value($order) {
+        $store = $this->get_711_order_store($order);
+        if ($store['id'] === '' && $store['name'] === '' && $store['address'] === '') { echo '—'; return; }
+        echo '<strong style="color:#087a42">7-11 超商取貨</strong><br>';
+        echo esc_html(trim($store['name'] . ($store['id'] !== '' ? '（' . $store['id'] . '）' : '')));
+        if ($store['address'] !== '') echo '<br><small>' . esc_html($store['address']) . '</small>';
+    }
+
+    public function render_711_legacy_order_column($column, $post_id) {
+        if ($column === 'wutm_711_store') $this->render_711_order_column_value(wc_get_order($post_id));
+    }
+
+    public function render_711_hpos_order_column($column, $order) {
+        if ($column === 'wutm_711_store') $this->render_711_order_column_value($order instanceof WC_Order ? $order : wc_get_order($order));
+    }
+
     public function modify_711_checkout_fields($fields) {
-        // 新增收件者電話欄位到 shipping (必填)
         if (!isset($fields['shipping']['shipping_phone'])) {
             $fields['shipping']['shipping_phone'] = array(
                 'label' => '收件者電話',
-                'required' => true,
+                'required' => false,
                 'type' => 'tel',
                 'class' => array('form-row-wide'),
                 'priority' => 25,
                 'validate' => array('phone')
             );
         }
-        
-        if (isset($_POST['shipping_method']) && is_array($_POST['shipping_method'])) {
-            $shipping_method = isset($_POST['shipping_method'][0]) ? $_POST['shipping_method'][0] : '';
-            if (strpos($shipping_method, 'seven_eleven_pickup') !== false) {
-                if (isset($fields['shipping']['shipping_city'])) {
-                    $fields['shipping']['shipping_city']['required'] = false;
-                }
-                if (isset($fields['shipping']['shipping_postcode'])) {
-                    $fields['shipping']['shipping_postcode']['required'] = false;
-                }
-                if (isset($fields['shipping']['shipping_address_1'])) {
-                    $fields['shipping']['shipping_address_1']['required'] = false;
-                }
-                if (isset($fields['shipping']['shipping_state'])) {
-                    $fields['shipping']['shipping_state']['required'] = false;
-                }
-                if (isset($fields['shipping']['shipping_phone'])) {
-                    $fields['shipping']['shipping_phone']['required'] = true;
-                }
+        if ($this->selected_711_rate()) {
+            foreach (array('shipping_country','shipping_state','shipping_city','shipping_postcode','shipping_address_1','shipping_address_2','shipping_company') as $key) {
+                if (isset($fields['shipping'][$key])) $fields['shipping'][$key]['required'] = false;
             }
+            $fields['shipping']['shipping_phone']['required'] = true;
         }
-        
         return $fields;
     }
     
@@ -1412,9 +1541,11 @@ jQuery(document).ready(function($) {
             }
             echo '<div class="notice notice-success"><p>設定已儲存。新設定於下次載入頁面生效。</p></div>';
         }
-        echo '<div class="wrap"><h1>' . esc_html($this->page_title()) . '</h1>';
+        echo '<div class="wrap' . ($this->mode === 'shipping' ? ' wutm-shipping-admin' : '') . '">';
+        if ($this->mode === 'shipping') echo '<style>.wutm-shipping-admin{max-width:1080px}.wutm-shipping-admin>form{margin-top:20px;padding:22px 26px;border:1px solid #dcdcde;border-radius:12px;background:#fff}.wutm-shipping-admin .form-table th{width:230px}.wutm-shipping-guide{margin-top:16px;padding:16px 18px;border-left:4px solid #2271b1;border-radius:4px;background:#f6f7f7}.wutm-shipping-guide h3{margin:0 0 8px}.wutm-shipping-guide ul{margin:0 0 14px 20px;list-style:disc}.wutm-shipping-guide li{margin:6px 0}@media(max-width:782px){.wutm-shipping-admin>form{padding:16px}.wutm-shipping-admin .form-table th{width:auto}}</style>';
+        echo '<h1>' . esc_html($this->page_title()) . '</h1>';
         if ($this->mode === 'commerce') echo '<p>沿用原有地址、訂單備註與電子發票設定，不需重新填寫。停用本卡片即可停止載入這些功能。</p>';
-        if ($this->mode === 'shipping') echo '<p>沿用原有離島與 7-11 運費設定，不需重新填寫。停用本卡片即可停止載入這些運送功能。</p>';
+        if ($this->mode === 'shipping') echo '<p>啟用需要的運送工具後，再到各 WooCommerce 運送區域調整 7-11 的個別運費與門市選擇方式。停用本卡片即可停止載入這些功能。</p>';
         echo '<form method="post">';
         wp_nonce_field($group . '-options');
         if ($this->mode === 'visibility') {
@@ -1444,23 +1575,75 @@ jQuery(document).ready(function($) {
 if (!class_exists('WC_Seven_Eleven_Pickup')) {
     class WC_Seven_Eleven_Pickup extends WC_Shipping_Method {
 
+        public $cost = 60;
+        public $free_shipping_threshold = 0;
+        public $select_mode = 'manual';
+        public $merchant_id = '';
+
         public function __construct($instance_id = 0) {
             $this->id = 'seven_eleven_pickup';
             $this->instance_id = absint($instance_id);
-            $this->method_title = '7-11 超商取貨';
-            $this->method_description = '7-11 超商取貨(門市自填)';
-            $this->enabled = "yes";
-            $this->title = '7-11 超商取貨';
+            $this->method_title = '7-11 超商物流';
+            $this->method_description = '提供 7-11 超商取貨，可選擇手動填寫門市或串接綠界電子地圖。';
             $this->supports = array(
                 'shipping-zones',
                 'instance-settings',
+                'instance-settings-modal',
             );
             $this->init();
         }
 
         public function init() {
+            $this->init_form_fields();
             $this->init_settings();
+            $this->enabled = $this->get_option('enabled', 'yes');
+            $this->title = $this->get_option('title', '7-11 超商取貨');
+            $this->cost = max(0, (float) $this->get_option('cost', get_option('wu_woo_711_shipping_cost', 60)));
+            $this->free_shipping_threshold = max(0, (float) $this->get_option('free_shipping_threshold', get_option('wu_woo_711_free_shipping_threshold', 0)));
+            $this->select_mode = $this->get_option('select_mode', 'manual') === 'map' ? 'map' : 'manual';
+            $this->merchant_id = preg_replace('/\D+/', '', (string) $this->get_option('merchant_id', ''));
             add_action('woocommerce_update_options_shipping_' . $this->id, array($this, 'process_admin_options'));
+        }
+
+        public function init_form_fields() {
+            $this->instance_form_fields = array(
+                'title' => array(
+                    'title' => '結帳顯示名稱',
+                    'type' => 'text',
+                    'default' => '7-11 超商取貨',
+                    'desc_tip' => true,
+                    'description' => '顧客在結帳頁看到的運送方式名稱。',
+                ),
+                'cost' => array(
+                    'title' => '運費',
+                    'type' => 'price',
+                    'default' => (string) get_option('wu_woo_711_shipping_cost', 60),
+                    'description' => '此運送區域的 7-11 取貨運費。',
+                ),
+                'free_shipping_threshold' => array(
+                    'title' => '免運門檻',
+                    'type' => 'price',
+                    'default' => (string) get_option('wu_woo_711_free_shipping_threshold', 0),
+                    'description' => '商品小計達此金額時免運；填 0 表示不啟用。',
+                ),
+                'select_mode' => array(
+                    'title' => '門市選擇方式',
+                    'type' => 'select',
+                    'default' => 'manual',
+                    'options' => array(
+                        'manual' => '買家手動填寫',
+                        'map' => '綠界 7-11 電子地圖',
+                    ),
+                    'description' => '手動模式由買家填寫店號、店名及地址；電子地圖模式由地圖自動帶回完整資料。',
+                ),
+                'merchant_id' => array(
+                    'title' => 'MerchantID',
+                    'type' => 'text',
+                    'default' => '',
+                    'description' => '僅電子地圖模式使用。留空會使用綠界測試商店代號 2000132；正式營運請填入自己的綠界 MerchantID。',
+                    'custom_attributes' => array('inputmode' => 'numeric'),
+                ),
+            );
         }
 
         public function calculate_shipping($package = array()) {
@@ -1468,8 +1651,8 @@ if (!class_exists('WC_Seven_Eleven_Pickup')) {
                 return;
             }
 
-            $cost = floatval(get_option('wu_woo_711_shipping_cost', 60));
-            $free_threshold = floatval(get_option('wu_woo_711_free_shipping_threshold', 0));
+            $cost = $this->cost;
+            $free_threshold = $this->free_shipping_threshold;
             
             $cart_total = 0;
             if (isset($package['contents'])) {
@@ -1484,7 +1667,7 @@ if (!class_exists('WC_Seven_Eleven_Pickup')) {
 
             $this->add_rate(array(
                 'id'    => $this->get_rate_id(),
-                'label' => $this->title . ($cost == 0 ? ' (免運)' : ''),
+                'label' => $this->title . ($cost == 0 ? '（免運）' : ''),
                 'cost'  => $cost,
                 'package' => $package,
             ));
