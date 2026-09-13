@@ -8,6 +8,7 @@ if (!function_exists('wutm_page_binding_sanitize')) {
             ['module' => 'refund-policy', 'option' => 'wutm_refund_shortcode_options', 'page' => 'wu-refund-policy', 'label' => '退換貨政策頁面'],
             ['module' => 'privacy-policy', 'option' => 'wutm_privacy_shortcode_options', 'page' => 'wu-privacy-policy', 'label' => '隱私權政策頁面'],
             ['module' => 'homepage-products', 'option' => 'wutm_homepage_products', 'page' => 'wu-homepage-products', 'label' => '首頁商品頁面'],
+            ['module' => 'simple-message-board', 'option' => 'wutm_simple_message_board_options', 'page' => 'wu-simple-message-board', 'label' => '簡易留言板頁面'],
         ];
     }
 

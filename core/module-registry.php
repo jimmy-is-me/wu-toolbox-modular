@@ -54,6 +54,7 @@ function wutm_modules(): array {
         'hide-login-page' => ['name' => '隱藏登入頁', 'description' => '使用自訂登入 URL。', 'group' => '安全性', 'icon' => '🔒'],
         'login-limiter' => ['name' => '登入限制', 'description' => '限制失敗次數，防止暴力破解。', 'group' => '安全性', 'icon' => '🛡️'],
         'woocommerce' => ['name' => 'WooCommerce', 'description' => '快速安裝與啟用官方 WooCommerce 外掛。', 'group' => '電商工具', 'icon' => '🛒', 'tag' => '第三方外掛', 'settings_page' => 'wu-woocommerce'],
+        'simple-message-board' => ['name' => '簡易留言板', 'description' => '以短代碼建立聯絡留言表單，並在後台集中回覆與管理客戶留言。', 'group' => '電商工具', 'icon' => '💬', 'settings_page' => 'wu-simple-message-board'],
         'atm-transfer-optimizer' => ['name' => 'ATM 轉帳優化', 'description' => '強化銀行轉帳付款資訊、顧客匯款回報、後台對帳狀態與催繳通知。', 'group' => '電商工具', 'icon' => '🏧', 'requires' => 'woocommerce', 'settings_url' => 'admin.php?page=wc-bacs-dashboard'],
         'order-receipt' => ['name' => '列印訂單收據', 'description' => '為管理員與顧客提供安全、美觀且適合列印的繁體中文訂單收據。', 'group' => '電商工具', 'icon' => '🧾', 'requires' => 'woocommerce', 'settings_page' => 'wu-order-receipt'],
         'coupon-optimizer' => ['name' => '折價券優化', 'description' => '顯示可用折價券、一鍵套用、推廣連結、QR Code、使用統計與會員專區。', 'group' => '電商工具', 'icon' => '🏷️', 'requires' => 'woocommerce', 'settings_page' => 'wu-coupon-optimizer'],
