@@ -1,5 +1,6 @@
 <?php
 defined('ABSPATH') || exit;
+require_once __DIR__ . '/page-binding-shared.php';
 
 if (!function_exists('wutm_policy_defaults')) {
     function wutm_policy_defaults(string $type): array {
@@ -18,12 +19,13 @@ if (!function_exists('wutm_policy_defaults')) {
     }
 
     function wutm_policy_option_name(string $type): string { return 'wutm_' . $type . '_shortcode_options'; }
-    function wutm_policy_options(string $type): array { return wp_parse_args((array)get_option(wutm_policy_option_name($type), []), array_merge(wutm_policy_defaults($type),['max_width'=>'1200px'])); }
+    function wutm_policy_options(string $type): array { return wp_parse_args((array)get_option(wutm_policy_option_name($type), []), array_merge(wutm_policy_defaults($type),['max_width'=>'1200px','page_id'=>0,'page_title'=>''])); }
     function wutm_policy_size($value): string { $value=trim((string)$value);return preg_match('/^\d+(?:\.\d+)?(?:px|rem|em|vw|%)$/',$value)?$value:'1200px'; }
     function wutm_policy_sanitize($input): array {
         $input=is_array($input)?$input:[];
         $behavior=($input['faq_behavior']??'accordion')==='multiple'?'multiple':'accordion';
-        $clean=['intro'=>wp_kses_post($input['intro']??''),'content'=>wp_kses_post($input['content']??''),'faq_behavior'=>$behavior,'max_width'=>wutm_policy_size($input['max_width']??''),'items'=>[]];
+        $binding=wutm_page_binding_sanitize($input['page_id']??0,$input['page_title']??'','wutm_policy_page_binding');
+        $clean=['intro'=>wp_kses_post($input['intro']??''),'content'=>wp_kses_post($input['content']??''),'faq_behavior'=>$behavior,'max_width'=>wutm_policy_size($input['max_width']??''),'page_id'=>$binding['page_id'],'page_title'=>$binding['page_title'],'items'=>[]];
         foreach((array)($input['items']??[]) as $item){
             $title=sanitize_text_field($item['title']??'');$intro=sanitize_textarea_field($item['intro']??'');$content=wp_kses_post($item['content']??'');
             if($title===''&&trim(wp_strip_all_tags($content))==='')continue;
@@ -49,7 +51,7 @@ if (!function_exists('wutm_policy_defaults')) {
         $defaults=wutm_policy_defaults($type);$options=wutm_policy_options($type);$option=wutm_policy_option_name($type);?>
         <div class="wrap wutm-policy-admin"><style>.wutm-policy-admin{max-width:1040px}.wutm-policy-admin .wutm-module-subtitle{margin:0 0 22px}.wutm-policy-code{display:inline-block;margin-left:8px;padding:5px 10px;border:1px solid #9ec5e6;border-radius:6px;background:#f0f7fc;color:#135e96;cursor:pointer}.wutm-policy-panel{margin:18px 0;padding:20px 22px;border:1px solid #dcdcde;border-radius:8px;background:#fff}.wutm-policy-panel>h2{margin:0 0 18px;padding-bottom:10px;border-bottom:1px solid #e5e7eb;font-size:17px}.wutm-policy-row{margin:14px 0;padding:18px;border:1px solid #e1e5ea;border-radius:8px;background:#f7f8fa}.wutm-policy-field{margin-bottom:16px}.wutm-policy-field>label{display:block;margin-bottom:7px;font-weight:600}.wutm-policy-field input,.wutm-policy-field textarea{width:100%}.wutm-policy-remove{color:#b32d2e!important;border-color:#e6a5a5!important}</style>
         <h1><?php echo esc_html($defaults['title']);?>設定</h1><p class="wutm-module-subtitle">設定完成後，將短代碼放入文章或頁面。<button type="button" class="wutm-policy-code" data-copy="[<?php echo esc_attr($defaults['shortcode']);?>]">[<?php echo esc_html($defaults['shortcode']);?>]　點擊複製</button></p>
-        <form method="post" action="options.php"><?php settings_fields('wutm_'.$type.'_policy_group');?><section class="wutm-policy-panel"><h2>版面寬度</h2><label class="wutm-policy-field">最大寬度<input type="text" name="<?php echo esc_attr($option);?>[max_width]" value="<?php echo esc_attr($options['max_width']);?>" placeholder="1200px"></label><p class="description">區塊不會超過所在頁面；可輸入 1200px、60rem 或 100%。手機版會自動保留左右間距。</p></section>
+        <form method="post" action="options.php"><?php settings_fields('wutm_'.$type.'_policy_group');?><style>.wutm-policy-admin .wutm-page-binding{margin:18px 0;padding:20px 22px;border:1px solid #dcdcde;border-radius:8px;background:#fff}.wutm-policy-admin .wutm-page-binding>h2{margin:0 0 18px;padding-bottom:10px;border-bottom:1px solid #e5e7eb;font-size:17px}.wutm-policy-admin .wutm-page-binding-grid{display:grid;grid-template-columns:repeat(2,minmax(220px,1fr));gap:16px 24px}.wutm-policy-admin .wutm-page-binding-grid label{font-weight:600}.wutm-policy-admin .wutm-page-binding-grid select,.wutm-policy-admin .wutm-page-binding-grid input{display:block;width:100%;margin-top:7px;min-height:40px}@media(max-width:720px){.wutm-policy-admin .wutm-page-binding-grid{grid-template-columns:1fr}}</style><?php wutm_page_binding_render($option,$options,$defaults['shortcode']);?><section class="wutm-policy-panel"><h2>版面寬度</h2><label class="wutm-policy-field">最大寬度<input type="text" name="<?php echo esc_attr($option);?>[max_width]" value="<?php echo esc_attr($options['max_width']);?>" placeholder="1200px"></label><p class="description">區塊不會超過所在頁面；可輸入 1200px、60rem 或 100%。手機版會自動保留左右間距。</p></section>
         <?php if($type==='privacy'):?><section class="wutm-policy-panel"><h2>隱私權政策內容</h2><p>此處為前台顯示的完整內容，可直接編輯段落與清單。</p><?php wutm_policy_editor($options['content'],'wutm_privacy_content',$option.'[content]');?></section><?php else:?>
         <?php if($type==='faq'):?><section class="wutm-policy-panel"><h2>展開方式</h2><label><input type="radio" name="<?php echo esc_attr($option);?>[faq_behavior]" value="accordion" <?php checked($options['faq_behavior'],'accordion');?>> 一次只展開一個，開啟其他問題時自動收合</label><br><label><input type="radio" name="<?php echo esc_attr($option);?>[faq_behavior]" value="multiple" <?php checked($options['faq_behavior'],'multiple');?>> 允許同時展開多個問題</label><p class="description">兩種模式都會預設展開第一個問答。</p></section><?php endif;?>
         <section class="wutm-policy-panel"><h2><?php echo $type==='faq'?'問題與回答':'退換貨內容';?></h2><div class="wutm-policy-items">
