@@ -31,11 +31,22 @@ final class WUTM_Shipping_Notification_Email {
             'shop_name' => $site_name ?: '本店',
             'logo_url' => '',
             'support_email' => is_email($admin_email) ? $admin_email : '',
-            'account_url' => wc_get_page_permalink('myaccount'),
+            'account_url' => $this->default_account_url(),
             'shop_url' => home_url('/'),
             'subject' => '【{shop_name}】您的訂單已出貨通知',
             'body' => $this->default_body(),
         );
+    }
+
+    /**
+     * Build the account page URL without WordPress rewrite APIs. This module is
+     * loaded on plugins_loaded, before $wp_rewrite is guaranteed to exist.
+     */
+    private function default_account_url(): string {
+        $page_id = absint(get_option('woocommerce_myaccount_page_id'));
+        $page_path = $page_id ? trim((string) get_page_uri($page_id), '/') : '';
+        if ($page_path === '') $page_path = 'my-account';
+        return home_url('/' . $page_path . '/');
     }
 
     private function default_body(): string {
