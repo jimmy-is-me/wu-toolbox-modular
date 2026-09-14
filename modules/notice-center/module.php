@@ -73,11 +73,10 @@ final class WUTM_Notice_Center {
             return false;
         }
 
-        // 區塊編輯器、網站編輯器與本模組的設定頁會使用動態通知/連線狀態；
+        // 區塊編輯器與網站編輯器會使用自己的動態通知/連線狀態；
         // 不觸碰其 DOM，避免干擾儲存、Heartbeat 或 REST API 狀態。
         if ((method_exists($screen, 'is_block_editor') && $screen->is_block_editor())
-            || in_array($screen->base, ['site-editor', 'widgets'], true)
-            || strpos((string) $screen->id, self::SLUG) !== false) {
+            || in_array($screen->base, ['site-editor', 'widgets'], true)) {
             return false;
         }
 
@@ -93,16 +92,12 @@ final class WUTM_Notice_Center {
         wp_enqueue_style('wutm-notice-center');
         wp_add_inline_style('wutm-notice-center', '
             @keyframes wutm-notice-precollect-fallback{to{visibility:visible;}}
-            html.js body.wutm-notice-center-precollect #wpbody-content>.notice,
-            html.js body.wutm-notice-center-precollect #wpbody-content>.updated,
-            html.js body.wutm-notice-center-precollect #wpbody-content>.error,
-            html.js body.wutm-notice-center-precollect #wpbody-content>.update-nag,
-            html.js body.wutm-notice-center-precollect #wpbody-content>.wrap>.notice,
-            html.js body.wutm-notice-center-precollect #wpbody-content>.wrap>.updated,
-            html.js body.wutm-notice-center-precollect #wpbody-content>.wrap>.error,
-            html.js body.wutm-notice-center-precollect #wpbody-content>.wrap>.update-nag,
-            html.js body.wutm-notice-center-precollect .wutm-notice-slot>.notice,
-            html.js body.wutm-notice-center-precollect .wutm-header>.notice{
+            html.js body.wutm-notice-center-active #wpbody-content .notice:not(.inline):not(.wutm-notice-keep),
+            html.js body.wutm-notice-center-active #wpbody-content div.updated:not(.inline):not(.wutm-notice-keep),
+            html.js body.wutm-notice-center-active #wpbody-content div.error:not(.inline):not(.wutm-notice-keep),
+            html.js body.wutm-notice-center-active #wpbody-content .update-nag:not(.inline):not(.wutm-notice-keep),
+            html.js body.wutm-notice-center-active #wpbody-content .e-notice:not(.inline):not(.wutm-notice-keep),
+            html.js body.wutm-notice-center-active #wpbody-content .trp-notice:not(.inline):not(.wutm-notice-keep){
                 visibility:hidden;
                 animation:wutm-notice-precollect-fallback 0s 2s forwards;
             }
@@ -113,14 +108,20 @@ final class WUTM_Notice_Center {
             #wutm-notice-center .wutm-notice-count{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:#2271b1;color:#fff;font-size:12px;}
             #wutm-notice-center .wutm-notice-important{color:#b32d2e;font-size:12px;font-weight:600;}
             #wutm-notice-center .wutm-notice-items{padding:1px 0 12px;}
-            #wutm-notice-center .wutm-notice-items>.notice,#wutm-notice-center .wutm-notice-items>.updated,#wutm-notice-center .wutm-notice-items>.error,#wutm-notice-center .wutm-notice-items>.update-nag{display:block;margin:10px 12px 0;}
+            body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.notice,
+            body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.updated,
+            body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.error,
+            body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.update-nag,
+            body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.e-notice,
+            body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.trp-notice{display:block;visibility:visible!important;animation:none!important;margin:10px 12px 0;}
+            body.wutm-notice-center-active #wpbody-content .wutm-notice-keep{visibility:visible!important;animation:none!important;}
         ');
 
-        wp_enqueue_script('wutm-notice-center', WUTM_URL . 'assets/js/notice-center.js', ['jquery', 'common'], WUTM_VERSION, true);
+        wp_enqueue_script('wutm-notice-center', WUTM_URL . 'assets/js/notice-center.js', [], WUTM_VERSION, true);
     }
 
     public static function body_class(string $classes): string {
-        return self::can_collect_notices() ? $classes . ' wutm-notice-center-precollect' : $classes;
+        return self::can_collect_notices() ? $classes . ' wutm-notice-center-active' : $classes;
     }
 
     public static function panel(): void {
@@ -157,7 +158,7 @@ final class WUTM_Notice_Center {
 
             <div class="card" style="max-width:100%;margin:20px 0;">
                 <h2 style="margin-top:0;">目前狀態</h2>
-                <p><strong><?php echo !empty($settings['enabled']) ? '運作中' : '已暫停'; ?></strong> — 整理只在後台畫面載入完成後執行，不影響網站前台與資料庫。</p>
+                <p><strong><?php echo !empty($settings['enabled']) ? '運作中' : '已暫停'; ?></strong> — 整理只調整後台通知的顯示位置，不影響網站前台與資料庫。</p>
             </div>
 
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
@@ -179,7 +180,7 @@ final class WUTM_Notice_Center {
                 <h2 style="margin-top:0;">使用說明</h2>
                 <ul style="list-style:disc;padding-left:22px;">
                     <li>通知內容由 WordPress 或原外掛提供；本工具只調整顯示位置，不會翻譯或改寫第三方通知。</li>
-                    <li>外掛更新列、表格中的更新訊息與非標準自訂介面會保留在原位置，避免影響原本操作。</li>
+                    <li>表格、表單、編輯器與資訊卡片內的情境訊息會保留在原位置，避免影響原本操作。</li>
                     <li>通知整理使用瀏覽器端畫面整理，沒有外部請求、不會新增資料庫紀錄，也不會影響網站前台效能。</li>
                 </ul>
             </div>
