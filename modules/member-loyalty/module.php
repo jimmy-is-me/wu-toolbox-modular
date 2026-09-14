@@ -2,8 +2,7 @@
 /**
  * WU Toolbox Modular：會員點數與階級。
  *
- * 以單一模組載入會員點數與會員階級，並保留兩套既有設定、資料表、短代碼及會員資料。
- * 會員階級的點數回饋倍率會透過 wmt_points_multiplier 套用至會員點數回饋計算。
+ * 以單一模組及分頁介面載入會員點數、會員階級、CRM 與 VIP 隱密賣場。
  */
 
 defined('ABSPATH') || exit;
@@ -12,81 +11,107 @@ require_once __DIR__ . '/points.php';
 require_once __DIR__ . '/tiers.php';
 
 add_action('admin_menu', function (): void {
-    add_submenu_page(
-        'wu-toolbox-modular',
-        '會員點數與階級',
-        '會員點數與階級',
-        'manage_woocommerce',
-        'wu-member-loyalty',
-        'wutm_render_member_loyalty_page'
-    );
+    add_submenu_page('wu-toolbox-modular', '會員點數與階級', '會員點數與階級', 'manage_woocommerce', 'wu-member-loyalty', 'wutm_render_member_loyalty_page');
 }, 20);
 
-// Keep only the unified WU Toolbox entry visible. The original page slugs stay
-// registered so bookmarks, form redirects and existing integrations keep working.
-add_action('admin_menu', function (): void {
-    remove_submenu_page('wu-toolbox-modular', 'wcmp-points');
-    remove_menu_page('wmt-tiers');
-}, 998);
+function wutm_member_loyalty_url(string $section = 'points', array $args = []): string {
+    return add_query_arg(array_merge(['page' => 'wu-member-loyalty', 'section' => $section], $args), admin_url('admin.php'));
+}
 
 function wutm_render_member_loyalty_page(): void {
-    if (!current_user_can('manage_woocommerce')) {
-        wp_die(esc_html__('權限不足', 'wu-toolbox-modular'));
-    }
+    if (!current_user_can('manage_woocommerce')) wp_die(esc_html__('權限不足', 'wu-toolbox-modular'));
 
-    $points_settings = wp_parse_args((array) get_option('wcmp_settings', []), [
-        'enable_points' => 'yes',
-        'enable_earn' => 'yes',
-        'enable_redeem' => 'yes',
-    ]);
-    $tier_settings = wp_parse_args((array) get_option('wmt_settings', []), [
-        'enable' => 'yes',
-    ]);
-    $points_active = $points_settings['enable_points'] === 'yes';
-    $tiers_active = $tier_settings['enable'] === 'yes';
+    $section = isset($_GET['section']) ? sanitize_key(wp_unslash($_GET['section'])) : 'points';
+    $sections = [
+        'points' => '會員點數',
+        'tiers' => '會員階級',
+        'members' => '會員名單',
+        'settings' => '全站設定',
+        'vip-store' => 'VIP 隱密賣場',
+    ];
+    if (!isset($sections[$section])) $section = 'points';
     ?>
     <div class="wrap wutm-loyalty-wrap">
         <h1>會員點數與階級</h1>
-        <p class="description">兩項會員制度由同一個 WU Toolbox 模組載入。會員階級設定的點數回饋倍率，會自動套用至會員點數的訂單回饋計算。</p>
-
-        <div class="wutm-loyalty-grid">
-            <section class="wutm-loyalty-card">
-                <div class="wutm-loyalty-heading">
-                    <span class="dashicons dashicons-star-filled" aria-hidden="true"></span>
-                    <h2>會員點數</h2>
-                    <span class="wutm-loyalty-status <?php echo $points_active ? 'is-active' : 'is-paused'; ?>">
-                        <?php echo esc_html($points_active ? '運作中' : '已暫停'); ?>
-                    </span>
-                </div>
-                <p>管理消費回饋、結帳折抵、點數效期、會員餘額與人工調整。</p>
-                <p>
-                    <a class="button button-primary" href="<?php echo esc_url(admin_url('admin.php?page=wcmp-points')); ?>">開啟點數管理</a>
-                </p>
-            </section>
-
-            <section class="wutm-loyalty-card">
-                <div class="wutm-loyalty-heading">
-                    <span class="dashicons dashicons-awards" aria-hidden="true"></span>
-                    <h2>會員階級</h2>
-                    <span class="wutm-loyalty-status <?php echo $tiers_active ? 'is-active' : 'is-paused'; ?>">
-                        <?php echo esc_html($tiers_active ? '運作中' : '已暫停'); ?>
-                    </span>
-                </div>
-                <p>管理會員分級、升降級條件、專屬折扣、點數倍率、會員權益與 CRM。</p>
-                <p class="wutm-loyalty-actions">
-                    <a class="button button-primary" href="<?php echo esc_url(admin_url('admin.php?page=wmt-tiers')); ?>">開啟階級管理</a>
-                    <a class="button" href="<?php echo esc_url(admin_url('admin.php?page=wmt-members')); ?>">會員名單</a>
-                    <a class="button" href="<?php echo esc_url(admin_url('admin.php?page=wmt-settings')); ?>">全站設定</a>
-                </p>
-            </section>
-        </div>
-
-        <div class="notice notice-info inline wutm-loyalty-note">
-            <p><strong>資料相容性：</strong>整併只調整模組入口與載入方式，不會搬移或清除既有點數帳本、會員階級、訂單紀錄、短代碼或設定。</p>
-        </div>
+        <p class="description">會員點數、階級規則、會員名單與 VIP 商品限制都集中在這裡；階級設定的點數回饋倍率會自動套用至訂單點數回饋。</p>
+        <nav class="nav-tab-wrapper wutm-loyalty-tabs" aria-label="會員點數與階級設定">
+            <?php foreach ($sections as $key => $label) : ?>
+                <a class="nav-tab <?php echo $section === $key ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url(wutm_member_loyalty_url($key)); ?>"><?php echo esc_html($label); ?></a>
+            <?php endforeach; ?>
+        </nav>
     </div>
+    <?php
+    if ($section === 'points') {
+        WC_Member_Points_Rewards::instance()->wcmp_render_admin_page();
+    } elseif ($section === 'tiers') {
+        WC_Membership_Tiers::instance()->wmt_page_tiers();
+    } elseif ($section === 'members') {
+        WC_Membership_Tiers::instance()->wmt_page_members();
+    } elseif ($section === 'settings') {
+        WC_Membership_Tiers::instance()->wmt_page_settings();
+    } else {
+        wutm_render_member_loyalty_vip_store_tab();
+    }
+    ?>
     <style>
-        .wutm-loyalty-wrap{max-width:1100px}.wutm-loyalty-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;margin:22px 0}.wutm-loyalty-card{background:#fff;border:1px solid #dcdcde;border-radius:10px;padding:22px;box-shadow:0 1px 2px rgba(0,0,0,.04)}.wutm-loyalty-heading{display:flex;align-items:center;gap:10px}.wutm-loyalty-heading .dashicons{color:#2271b1;font-size:24px;width:24px;height:24px}.wutm-loyalty-heading h2{margin:0}.wutm-loyalty-status{margin-left:auto;padding:4px 9px;border-radius:20px;font-size:12px;font-weight:700}.wutm-loyalty-status.is-active{background:#edfaef;color:#007017}.wutm-loyalty-status.is-paused{background:#f0f0f1;color:#50575e}.wutm-loyalty-card>p{font-size:14px;line-height:1.7}.wutm-loyalty-actions{display:flex;gap:8px;flex-wrap:wrap}.wutm-loyalty-note{margin-top:0!important}@media(max-width:782px){.wutm-loyalty-grid{grid-template-columns:1fr}.wutm-loyalty-card{padding:18px}.wutm-loyalty-heading{flex-wrap:wrap}.wutm-loyalty-status{margin-left:0}}
+        .wutm-loyalty-wrap{max-width:none;margin-bottom:0}.wutm-loyalty-tabs{margin-top:20px}.wutm-loyalty-tabs .nav-tab{font-weight:600}.wutm-loyalty-vip{max-width:1180px}.wutm-vip-guide{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:18px 0}.wutm-vip-guide>div{background:#fff;border:1px solid #dcdcde;border-radius:8px;padding:18px}.wutm-vip-guide h3{margin-top:0}.wutm-vip-guide p{margin-bottom:0;line-height:1.7}.wutm-vip-flow{background:#f0f6fc;border-left:4px solid #2271b1;padding:14px 16px;margin:16px 0}.wutm-loyalty-wrap+.wrap{margin-top:14px}.wutm-loyalty-wrap+.wrap>h1:first-child{display:none}@media(max-width:782px){.wutm-loyalty-tabs{display:flex;overflow-x:auto;padding-bottom:1px}.wutm-loyalty-tabs .nav-tab{flex:0 0 auto;margin-left:0}.wutm-vip-guide{grid-template-columns:1fr}}
     </style>
+    <?php
+}
+
+function wutm_render_member_loyalty_vip_store_tab(): void {
+    $tier_names = [];
+    foreach (WC_Membership_Tiers::instance()->wmt_get_all_tiers() as $tier) $tier_names[(int) $tier->id] = (string) $tier->name;
+
+    $product_ids = get_posts([
+        'post_type' => 'product',
+        'post_status' => ['publish', 'draft', 'pending', 'future', 'private'],
+        'posts_per_page' => 50,
+        'fields' => 'ids',
+        'orderby' => 'modified',
+        'order' => 'DESC',
+        'meta_query' => [
+            'relation' => 'OR',
+            ['key' => '_wmt_public_release_date', 'value' => '', 'compare' => '!='],
+            ['key' => '_wmt_early_days', 'value' => '0', 'compare' => '>', 'type' => 'NUMERIC'],
+            ['key' => '_wmt_min_tier_id', 'value' => '0', 'compare' => '>', 'type' => 'NUMERIC'],
+        ],
+    ]);
+    ?>
+    <div class="wrap wutm-loyalty-vip">
+        <h2>VIP 隱密賣場設定</h2>
+        <p>此功能是會員階級的一部分，設定位置在每一項商品的編輯畫面右側「VIP 隱密賣場設定」。可同時控制公開日期、VIP 提前購買期間，以及最低可見／可購買階級。</p>
+        <div class="wutm-vip-guide">
+            <div><h3>公開上架日期時間</h3><p>留空代表不啟用限時上架。設定日期後，商品在公開時間以前會依 VIP 條件限制；到達公開時間後恢復一般商品規則，所有符合商店條件的顧客皆可瀏覽與購買。</p></div>
+            <div><h3>VIP 早鳥天數</h3><p>填入公開日前幾天開放給 VIP，例如公開日為 10 日、早鳥天數為 3，符合階級的會員會從 7 日起看到並購買商品。填 0 代表不提供提前開放。</p></div>
+            <div><h3>最低可見／可購買階級</h3><p>選定後，只有該階級與更高階會員能在早鳥期間瀏覽及購買。未登入或階級不足的顧客不會在商店列表看到商品，直接開啟商品網址也會收到尚未開放提示。</p></div>
+        </div>
+        <div class="wutm-vip-flow"><strong>實際判斷順序：</strong>尚未到早鳥日 → 所有人隱藏；進入早鳥期間 → 只開放指定階級以上會員；到達公開日期 → 解除 VIP 限制並公開販售。</div>
+        <p><a class="button button-primary" href="<?php echo esc_url(admin_url('edit.php?post_type=product')); ?>">前往商品列表設定</a></p>
+        <h2>目前已設定 VIP 規則的商品</h2>
+        <?php if (!$product_ids) : ?>
+            <p>目前沒有商品設定 VIP 隱密賣場規則。</p>
+        <?php else : ?>
+            <table class="widefat striped">
+                <thead><tr><th>商品</th><th>公開日期</th><th>早鳥天數</th><th>最低階級</th><th>操作</th></tr></thead>
+                <tbody>
+                <?php foreach ($product_ids as $product_id) :
+                    $release = (string) get_post_meta($product_id, '_wmt_public_release_date', true);
+                    $days = (int) get_post_meta($product_id, '_wmt_early_days', true);
+                    $tier_id = (int) get_post_meta($product_id, '_wmt_min_tier_id', true);
+                    ?>
+                    <tr>
+                        <td><strong><?php echo esc_html(get_the_title($product_id)); ?></strong></td>
+                        <td><?php echo esc_html($release ?: '未設定'); ?></td>
+                        <td><?php echo esc_html($days > 0 ? $days . ' 天' : '未設定'); ?></td>
+                        <td><?php echo esc_html($tier_id ? ($tier_names[$tier_id] ?? '階級 #' . $tier_id) : '不限制'); ?></td>
+                        <td><a href="<?php echo esc_url(get_edit_post_link($product_id)); ?>">編輯商品</a></td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <p class="description">依最近修改時間顯示最多 50 項商品。</p>
+        <?php endif; ?>
+    </div>
     <?php
 }

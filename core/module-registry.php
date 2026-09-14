@@ -60,8 +60,8 @@ function wutm_modules(): array {
         'order-receipt' => ['name' => '列印訂單收據', 'description' => '為管理員與顧客提供安全、美觀且適合列印的繁體中文訂單收據。', 'group' => '電商工具', 'icon' => '🧾', 'requires' => 'woocommerce', 'settings_page' => 'wu-order-receipt'],
         'coupon-optimizer' => ['name' => '折價券優化', 'description' => '顯示可用折價券、一鍵套用、推廣連結、QR Code、使用統計與會員專區。', 'group' => '電商工具', 'icon' => '🏷️', 'requires' => 'woocommerce', 'settings_page' => 'wu-coupon-optimizer'],
         'checkout-login-optimizer' => ['name' => '結帳登入優化', 'description' => '美化並展開結帳登入介面，調整會員密碼欄位並提供帳號設定指引。', 'group' => '電商工具', 'icon' => '🔐', 'requires' => 'woocommerce', 'settings_page' => 'wu-checkout-login-optimizer'],
-        'payuni-payment' => ['name' => 'PAYUNi 付款工具', 'description' => '整合 PAYUNi 統一金流付款、退款與訂單通知。', 'group' => '電商工具', 'icon' => '💳', 'requires' => 'woocommerce', 'settings_page' => 'wc-settings&tab=payuni&section=payment'],
-        'linepay-payment' => ['name' => 'LINE Pay 付款工具', 'description' => '整合台灣 LINE Pay 付款、退款及區塊結帳。', 'group' => '電商工具', 'icon' => '🟢', 'requires' => 'woocommerce', 'settings_page' => 'wc-settings&tab=linepay-tw'],
+        'payuni-payment' => ['name' => 'PAYUNi 付款工具', 'description' => '整合 PAYUNi 統一金流付款、退款與訂單通知。', 'group' => '電商支付工具', 'icon' => '💳', 'requires' => 'woocommerce', 'settings_page' => 'wc-settings&tab=payuni&section=payment'],
+        'linepay-payment' => ['name' => 'LINE Pay 付款工具', 'description' => '整合台灣 LINE Pay 付款、退款及區塊結帳。', 'group' => '電商支付工具', 'icon' => '🟢', 'requires' => 'woocommerce', 'settings_page' => 'wc-settings&tab=linepay-tw'],
         'discord-notifications' => ['name' => 'Discord 通知工具', 'description' => '將 WooCommerce 訂單與狀態變更即時通知到 Discord。', 'group' => '電商工具', 'icon' => '🔔', 'requires' => 'woocommerce', 'settings_page' => 'wu-discord-notifications'],
         'order-status-manager' => ['name' => '訂單狀態管理', 'description' => '新增、檢視、改名或停用訂單狀態，同步後台、帳號訂單與通知標題。', 'group' => '電商工具', 'icon' => '🏷️', 'requires' => 'woocommerce', 'settings_page' => 'wu-order-status-manager'],
         'media-encoder' => ['name' => '媒體編碼器', 'description' => '上傳時可先等比例縮小圖片，再轉換為 WebP。', 'group' => '媒體工具', 'icon' => '🎬'],
@@ -82,8 +82,9 @@ function wutm_modules(): array {
         'free-shipping-notice' => ['name' => '免運門檻提示', 'description' => '為單一費率與自行取貨設定滿額免運，並顯示尚差金額或達標提示。', 'group' => '電商工具', 'icon' => '🚚', 'requires' => 'woocommerce', 'settings_page' => 'wu-free-shipping-notice'],
         'new-member-discount' => ['name' => '新會員優惠', 'description' => '新會員首次消費滿額自動折抵，並記錄使用狀態與取消解鎖。', 'group' => '電商工具', 'icon' => '🎁', 'requires' => 'woocommerce', 'settings_page' => 'wu-new-member-discount'],
         'member-loyalty' => ['name' => '會員點數與階級', 'description' => '整合消費點數、結帳折抵、會員分級、專屬權益與 CRM；階級點數倍率會自動套用至點數回饋。', 'group' => '電商工具', 'icon' => '🏆', 'requires' => 'woocommerce', 'settings_page' => 'wu-member-loyalty', 'legacy_sources' => ['member-points', 'member-tiers']],
-        'ecpay-tools' => ['name' => '綠界金流/物流/電子發票工具', 'description' => '整合綠界付款、超商與宅配物流及電子發票。需設定商店資料並完成測試。', 'group' => '電商工具', 'icon' => '💳', 'requires' => 'woocommerce'],
-        'esun-payment' => ['name' => '玉山銀行金流工具', 'description' => '玉山信用卡一次付清與分期付款，沿用銀行交易驗證流程。', 'group' => '電商工具', 'icon' => '🏦', 'requires' => 'woocommerce'],
+        'ecpay-tools' => ['name' => '綠界金流/物流/電子發票工具', 'description' => '整合綠界付款、超商與宅配物流及電子發票。需設定商店資料並完成測試。', 'group' => '電商支付工具', 'icon' => '💳', 'requires' => 'woocommerce'],
+        'esun-payment' => ['name' => '玉山銀行金流工具', 'description' => '玉山信用卡一次付清與分期付款，沿用銀行交易驗證流程。', 'group' => '電商支付工具', 'icon' => '🏦', 'requires' => 'woocommerce'],
+        'shopcom-integration' => ['name' => '美安串接', 'description' => '整合 SHOP.COM RID／Click_ID 追蹤、訂單成立與取消回傳、佣金計算、商品 XML Feed 與 HPOS 訂單狀態。', 'group' => '專業工具', 'icon' => '🔗', 'requires' => 'woocommerce', 'settings_url' => 'admin.php?page=wc-settings&tab=shopcom'],
     ];
 }
 
@@ -100,9 +101,20 @@ function wutm_grouped_modules(): array {
         unset($groups[$group]);
     }
 
+    $payments = $groups['電商支付工具'] ?? null;
+    $professional = $groups['專業工具'] ?? null;
     $special = $groups['特殊工具'] ?? null;
-    unset($groups['特殊工具']);
-    $ordered += $groups;
+    unset($groups['電商支付工具'], $groups['專業工具'], $groups['特殊工具']);
+
+    foreach ($groups as $group => $items) {
+        $ordered[$group] = $items;
+        if ($group === '電商工具' && $payments !== null) {
+            $ordered['電商支付工具'] = $payments;
+            $payments = null;
+        }
+    }
+    if ($payments !== null) $ordered['電商支付工具'] = $payments;
+    if ($professional !== null) $ordered['專業工具'] = $professional;
     if ($special !== null) $ordered['特殊工具'] = $special;
 
     return $ordered;

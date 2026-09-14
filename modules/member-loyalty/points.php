@@ -819,7 +819,9 @@ final class WC_Member_Points_Rewards {
         echo '<p>本單消費回饋：<strong>' . $earned . '</strong> 點</p>';
         if ( $user_id ) {
             echo '<p>會員目前' . esc_html( $settings['front_label'] ) . '餘額：<strong>' . intval( $this->wcmp_get_balance( $user_id ) ) . '</strong> 點</p>';
-            $link = add_query_arg( array( 'page' => 'wcmp-points', 'tab' => 'members', 'uid' => $user_id ), admin_url( 'admin.php' ) );
+            $link = function_exists( 'wutm_member_loyalty_url' )
+                ? wutm_member_loyalty_url( 'points', array( 'tab' => 'members', 'uid' => $user_id ) )
+                : add_query_arg( array( 'page' => 'wcmp-points', 'tab' => 'members', 'uid' => $user_id ), admin_url( 'admin.php' ) );
             echo '<p><a href="' . esc_url( $link ) . '" class="button button-small">查看該會員完整點數紀錄</a></p>';
         } else {
             echo '<p>此訂單非會員訂單，無對應點數帳戶。</p>';
@@ -983,7 +985,7 @@ final class WC_Member_Points_Rewards {
 
     public function wcmp_admin_menu() {
         add_submenu_page(
-            'wu-toolbox-modular',
+            null,
             '購物點數',
             '會員點數',
             'manage_woocommerce',
@@ -993,7 +995,7 @@ final class WC_Member_Points_Rewards {
     }
 
     public function wcmp_admin_assets( $hook ) {
-        if ( strpos( $hook, 'wcmp-points' ) === false ) return;
+        if ( strpos( $hook, 'wcmp-points' ) === false && strpos( $hook, 'wu-member-loyalty' ) === false ) return;
         wp_register_style( 'wcmp-admin', false, array(), self::VERSION );
         wp_enqueue_style( 'wcmp-admin' );
         wp_add_inline_style( 'wcmp-admin', '
@@ -1049,7 +1051,9 @@ final class WC_Member_Points_Rewards {
     public function wcmp_render_admin_page() {
         if ( ! current_user_can( 'manage_woocommerce' ) ) return;
         $tab = isset( $_GET['tab'] ) ? sanitize_text_field( $_GET['tab'] ) : 'overview';
-        $base_url = admin_url( 'admin.php?page=wcmp-points' );
+        $base_url = function_exists( 'wutm_member_loyalty_url' )
+            ? wutm_member_loyalty_url( 'points' )
+            : admin_url( 'admin.php?page=wcmp-points' );
         ?>
         <div class="wrap">
             <h1>購物點數</h1>
@@ -1273,7 +1277,9 @@ final class WC_Member_Points_Rewards {
 
         flush_rewrite_rules();
 
-        wp_safe_redirect( add_query_arg( array( 'page' => 'wcmp-points', 'tab' => 'settings', 'saved' => 1 ), admin_url( 'admin.php' ) ) );
+        wp_safe_redirect( function_exists( 'wutm_member_loyalty_url' )
+            ? wutm_member_loyalty_url( 'points', array( 'tab' => 'settings', 'saved' => 1 ) )
+            : add_query_arg( array( 'page' => 'wcmp-points', 'tab' => 'settings', 'saved' => 1 ), admin_url( 'admin.php' ) ) );
         exit;
     }
 
@@ -1296,7 +1302,8 @@ final class WC_Member_Points_Rewards {
 
         <div class="wcmp-filter-bar">
             <form method="get" style="display:flex;gap:8px;align-items:center;">
-                <input type="hidden" name="page" value="wcmp-points" />
+                <input type="hidden" name="page" value="wu-member-loyalty" />
+                <input type="hidden" name="section" value="points" />
                 <input type="hidden" name="tab" value="members" />
                 <input type="text" name="s" value="<?php echo esc_attr( $search ); ?>" placeholder="輸入 Email、帳號或姓名搜尋會員" class="regular-text" />
                 <button class="button button-primary">搜尋</button>
@@ -1377,7 +1384,9 @@ final class WC_Member_Points_Rewards {
                     <thead><tr><th class="wcmp-rank-col">#</th><th>會員</th><th>Email</th><th>目前餘額</th><th>操作</th></tr></thead>
                     <tbody>
                     <?php foreach ( $members as $i => $m ) :
-                        $detail_url = add_query_arg( array( 'page' => 'wcmp-points', 'tab' => 'members', 'uid' => $m['ID'] ), admin_url( 'admin.php' ) );
+                        $detail_url = function_exists( 'wutm_member_loyalty_url' )
+                            ? wutm_member_loyalty_url( 'points', array( 'tab' => 'members', 'uid' => $m['ID'] ) )
+                            : add_query_arg( array( 'page' => 'wcmp-points', 'tab' => 'members', 'uid' => $m['ID'] ), admin_url( 'admin.php' ) );
                         ?>
                         <tr class="wcmp-member-row">
                             <td class="wcmp-rank-col"><?php echo intval( $i + 1 ); ?></td>
@@ -1422,7 +1431,9 @@ final class WC_Member_Points_Rewards {
             }
         }
 
-        wp_safe_redirect( add_query_arg( array( 'page' => 'wcmp-points', 'tab' => 'members', 'uid' => $user_id, 'adjusted' => 1 ), admin_url( 'admin.php' ) ) );
+        wp_safe_redirect( function_exists( 'wutm_member_loyalty_url' )
+            ? wutm_member_loyalty_url( 'points', array( 'tab' => 'members', 'uid' => $user_id, 'adjusted' => 1 ) )
+            : add_query_arg( array( 'page' => 'wcmp-points', 'tab' => 'members', 'uid' => $user_id, 'adjusted' => 1 ), admin_url( 'admin.php' ) ) );
         exit;
     }
 
@@ -1462,7 +1473,8 @@ final class WC_Member_Points_Rewards {
         </ul>
 
         <form method="get" class="wcmp-filter-bar">
-            <input type="hidden" name="page" value="wcmp-points" />
+            <input type="hidden" name="page" value="wu-member-loyalty" />
+            <input type="hidden" name="section" value="points" />
             <input type="hidden" name="tab" value="overview" />
             <select name="type" class="wcmp-auto-submit">
                 <option value="">全部類型</option>
@@ -1485,7 +1497,9 @@ final class WC_Member_Points_Rewards {
 
         <?php if ( $selected_member ) :
             $sel_balance = $this->wcmp_get_balance( $selected_member->ID );
-            $manual_link = add_query_arg( array( 'page' => 'wcmp-points', 'tab' => 'members', 'uid' => $selected_member->ID ), admin_url( 'admin.php' ) );
+            $manual_link = function_exists( 'wutm_member_loyalty_url' )
+                ? wutm_member_loyalty_url( 'points', array( 'tab' => 'members', 'uid' => $selected_member->ID ) )
+                : add_query_arg( array( 'page' => 'wcmp-points', 'tab' => 'members', 'uid' => $selected_member->ID ), admin_url( 'admin.php' ) );
             ?>
             <div class="wcmp-selected-callout">
                 目前篩選會員：<strong><?php echo esc_html( $selected_member->display_name ); ?></strong>（<?php echo esc_html( $selected_member->user_email ); ?>），目前餘額 <strong><?php echo intval( $sel_balance ); ?></strong> 點。

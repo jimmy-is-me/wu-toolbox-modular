@@ -10,6 +10,7 @@ $wutm_early_module_keys = [
     'member-loyalty',
     'ecpay-tools',
     'esun-payment',
+    'shopcom-integration',
 ];
 foreach ($wutm_early_module_keys as $wutm_early_module_key) {
     if (!wutm_is_enabled($wutm_early_module_key)) continue;
