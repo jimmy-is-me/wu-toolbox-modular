@@ -1537,8 +1537,8 @@ add_action('admin_head', function() {
 	
 	.wu-monitoring-badge {
 		font-size: 11px;
-		background: #f0f6fc;
-		color: #2271b1;
+		background: #00a32a;
+		color: #fff;
 		padding: 4px 10px;
 		border-radius: 3px;
 		font-weight: 500;
@@ -2220,9 +2220,9 @@ add_action('admin_head', function() {
 		#wu_unified_dashboard .wu-info-table th, #wu_unified_dashboard .wu-info-table td { width: auto; border: 0; padding: 10px 12px; }
 		#wu_unified_dashboard .wu-info-table td.wu-info-meta { padding-top: 0; }
 	}
-	.wu-monitoring-badge { position: relative; padding-left: 22px; }
-	.wu-monitoring-badge::before { content: ""; position: absolute; left: 9px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: #00a32a; box-shadow: 0 0 0 0 rgba(0,163,42,.45); animation: wu-monitor-pulse 2s ease-out infinite; }
-	@keyframes wu-monitor-pulse { 0% { box-shadow: 0 0 0 0 rgba(0,163,42,.45); } 70% { box-shadow: 0 0 0 7px rgba(0,163,42,0); } 100% { box-shadow: 0 0 0 0 rgba(0,163,42,0); } }
+	.wu-monitoring-badge { position: relative; padding: 4px 10px; }
+	.wu-monitoring-badge::before { content: ""; position: absolute; left: 9px; top: 50%; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: #fff; box-shadow: 0 0 0 0 rgba(255,255,255,.55); animation: wu-monitor-pulse 2s ease-out infinite; }
+	@keyframes wu-monitor-pulse { 0% { box-shadow: 0 0 0 0 rgba(255,255,255,.55); } 70% { box-shadow: 0 0 0 7px rgba(255,255,255,0); } 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0); } }
 	@media (prefers-reduced-motion: reduce) { .wu-monitoring-badge::before { animation: none; } }
 
 	/* 儀表板版面覆寫：模組啟用時只調整此頁，不影響其他後台頁面。 */

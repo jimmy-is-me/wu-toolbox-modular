@@ -81,8 +81,7 @@ function wutm_modules(): array {
         'product-sales-count' => ['name' => '商品購買量', 'description' => '顯示商品實際銷售量，並可由管理員設定顯示調整值。', 'group' => '電商工具', 'icon' => '📊', 'requires' => 'woocommerce', 'settings_page' => 'wu-product-sales-count'],
         'free-shipping-notice' => ['name' => '免運門檻提示', 'description' => '為單一費率與自行取貨設定滿額免運，並顯示尚差金額或達標提示。', 'group' => '電商工具', 'icon' => '🚚', 'requires' => 'woocommerce', 'settings_page' => 'wu-free-shipping-notice'],
         'new-member-discount' => ['name' => '新會員優惠', 'description' => '新會員首次消費滿額自動折抵，並記錄使用狀態與取消解鎖。', 'group' => '電商工具', 'icon' => '🎁', 'requires' => 'woocommerce', 'settings_page' => 'wu-new-member-discount'],
-        'member-points' => ['name' => '會員點數', 'description' => '提供消費回饋、結帳折抵、點數效期、會員紀錄與後台手動調整。', 'group' => '電商工具', 'icon' => '⭐', 'requires' => 'woocommerce', 'settings_page' => 'wcmp-points'],
-        'member-tiers' => ['name' => '會員階級', 'description' => '提供會員分級、自動升降級、專屬權益、VIP 會員中心與 CRM 管理。', 'group' => '電商工具', 'icon' => '🏆', 'requires' => 'woocommerce', 'settings_page' => 'wmt-tiers'],
+        'member-loyalty' => ['name' => '會員點數與階級', 'description' => '整合消費點數、結帳折抵、會員分級、專屬權益與 CRM；階級點數倍率會自動套用至點數回饋。', 'group' => '電商工具', 'icon' => '🏆', 'requires' => 'woocommerce', 'settings_page' => 'wu-member-loyalty', 'legacy_sources' => ['member-points', 'member-tiers']],
         'ecpay-tools' => ['name' => '綠界金流/物流/電子發票工具', 'description' => '整合綠界付款、超商與宅配物流及電子發票。需設定商店資料並完成測試。', 'group' => '電商工具', 'icon' => '💳', 'requires' => 'woocommerce'],
         'esun-payment' => ['name' => '玉山銀行金流工具', 'description' => '玉山信用卡一次付清與分期付款，沿用銀行交易驗證流程。', 'group' => '電商工具', 'icon' => '🏦', 'requires' => 'woocommerce'],
     ];
@@ -115,10 +114,28 @@ function wutm_is_enabled(string $key): bool {
     $new = get_option(wutm_module_option($key), null);
     if ($new !== null) return (bool) $new;
     $module = wutm_get_module($key) ?: [];
-    $legacy_key = $module['source'] ?? $key;
-    $legacy = 'wumetax_module_' . str_replace('-', '_', $legacy_key);
-    return (bool) get_option($legacy, false);
+    $legacy_keys = $module['legacy_sources'] ?? [$module['source'] ?? $key];
+    foreach ($legacy_keys as $legacy_key) {
+        $previous = get_option(wutm_module_option($legacy_key), null);
+        if ($previous !== null) {
+            if ((bool) $previous) return true;
+            continue;
+        }
+        $legacy = 'wumetax_module_' . str_replace('-', '_', $legacy_key);
+        if ((bool) get_option($legacy, false)) return true;
+    }
+    return false;
 }
+
+// Merge the former points and tiers cards without changing their stored data.
+// Enabling either former card keeps the new unified module enabled after update.
+add_action('plugins_loaded', function (): void {
+    if (get_option('wutm_member_loyalty_merged_240', false)) return;
+    if (get_option(wutm_module_option('member-loyalty'), null) === null) {
+        update_option(wutm_module_option('member-loyalty'), wutm_is_enabled('member-loyalty') ? 1 : 0, false);
+    }
+    update_option('wutm_member_loyalty_merged_240', 1, false);
+}, 18);
 
 // One-time split migration: preserve the old module's enabled state and existing settings.
 add_action('plugins_loaded', function (): void {

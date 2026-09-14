@@ -7,8 +7,7 @@ $wutm_early_module_keys = [
     'payuni-payment',
     'linepay-payment',
     'discord-notifications',
-    'member-points',
-    'member-tiers',
+    'member-loyalty',
     'ecpay-tools',
     'esun-payment',
 ];
