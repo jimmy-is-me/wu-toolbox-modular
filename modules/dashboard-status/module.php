@@ -55,6 +55,9 @@ add_action('admin_init', function() {
 	add_option('wu_dashboard_referrals', array());
 	add_option('wu_dashboard_referral_enabled', 0);
 	add_option('wu_dashboard_referral_content', '');
+	add_option('wu_dashboard_basic_services_enabled', 0);
+	add_option('wu_dashboard_advanced_promo_enabled', 0);
+	add_option('wu_dashboard_support_enabled', 0);
 	add_option('wu_dashboard_advanced_plan', 0);
 	add_option('wu_dashboard_support_tickets', array());
 	add_option('wu_dashboard_contact_company', 'WUMETAX 末特數位科技');
@@ -99,6 +102,9 @@ function wu_render_unified_dashboard() {
 	$referrals = get_option('wu_dashboard_referrals', array());
 	$referral_enabled = get_option('wu_dashboard_referral_enabled', 0);
 	$referral_content = get_option('wu_dashboard_referral_content', '');
+	$basic_services_enabled = get_option('wu_dashboard_basic_services_enabled', 0);
+	$advanced_promo_enabled = get_option('wu_dashboard_advanced_promo_enabled', 0);
+	$support_enabled = get_option('wu_dashboard_support_enabled', 0);
 	$advanced_plan = get_option('wu_dashboard_advanced_plan', 0);
 	$support_tickets = get_option('wu_dashboard_support_tickets', array());
 	$contact_company = get_option('wu_dashboard_contact_company', 'WUMETAX 末特數位科技');
@@ -261,7 +267,7 @@ function wu_render_unified_dashboard() {
 		</div>
 		
 		<!-- 基礎維護方案 -->
-		<?php if (!empty($services)): ?>
+		<?php if ($basic_services_enabled && !empty($services)): ?>
 		<div class="wu-section wu-section-basic-plan">
 			<h3 class="wu-section-title">基礎維護方案</h3>
 			<ul class="wu-basic-plan-list">
@@ -321,7 +327,7 @@ function wu_render_unified_dashboard() {
 				</li>
 			</ul>
 		</div>
-		<?php else: ?>
+		<?php elseif ($advanced_promo_enabled): ?>
 		<div class="wu-section wu-section-promo">
 			<h3 class="wu-section-title">升級進階維護方案</h3>
 			<div class="wu-promo-box">
@@ -385,6 +391,7 @@ function wu_render_unified_dashboard() {
 		<?php endif; ?>
 		
 		<!-- 技術支援工單 -->
+		<?php if ($support_enabled): ?>
 		<div class="wu-section">
 			<h3 class="wu-section-title">技術支援工單</h3>
 			<form id="wu-support-form" class="wu-support-form">
@@ -443,6 +450,7 @@ function wu_render_unified_dashboard() {
 			</div>
 			<?php endif; ?>
 		</div>
+		<?php endif; ?>
 		
 		<!-- 聯絡資訊 -->
 		<div class="wu-section wu-contact-section">
@@ -1002,6 +1010,9 @@ function wu_dashboard_settings_page() {
 		check_admin_referer('wu_dash_settings');
 		
 		update_option('wu_dashboard_enabled', isset($_POST['enabled']) ? 1 : 0);
+		update_option('wu_dashboard_basic_services_enabled', isset($_POST['basic_services_enabled']) ? 1 : 0);
+		update_option('wu_dashboard_advanced_promo_enabled', isset($_POST['advanced_promo_enabled']) ? 1 : 0);
+		update_option('wu_dashboard_support_enabled', isset($_POST['support_enabled']) ? 1 : 0);
 		update_option('wu_dashboard_referral_enabled', isset($_POST['referral_enabled']) ? 1 : 0);
 		update_option('wu_dashboard_referral_content', wp_kses_post($_POST['referral_content'] ?? ''));
 		update_option('wu_dashboard_site_status', sanitize_text_field($_POST['status'] ?? 'normal'));
@@ -1084,6 +1095,9 @@ function wu_dashboard_settings_page() {
 	}
 	
 	$enabled = get_option('wu_dashboard_enabled', 1);
+	$basic_services_enabled = get_option('wu_dashboard_basic_services_enabled', 0);
+	$advanced_promo_enabled = get_option('wu_dashboard_advanced_promo_enabled', 0);
+	$support_enabled = get_option('wu_dashboard_support_enabled', 0);
 	$referral_enabled = get_option('wu_dashboard_referral_enabled', 0);
 	$referral_content = get_option('wu_dashboard_referral_content', '');
 	$status = get_option('wu_dashboard_site_status', 'normal');
@@ -1156,7 +1170,26 @@ function wu_dashboard_settings_page() {
 						</label>
 					</td>
 				</tr>
-				
+
+				<tr>
+					<th><label>儀表板顯示區塊</label></th>
+					<td>
+						<label style="display:block;margin-bottom:10px;">
+							<input type="checkbox" name="basic_services_enabled" value="1" <?php checked(1, $basic_services_enabled); ?>>
+							<strong>顯示基礎維護服務項目</strong>
+						</label>
+						<label style="display:block;margin-bottom:10px;">
+							<input type="checkbox" name="advanced_promo_enabled" value="1" <?php checked(1, $advanced_promo_enabled); ?>>
+							<strong>顯示「升級進階維護方案」</strong>
+						</label>
+						<label style="display:block;">
+							<input type="checkbox" name="support_enabled" value="1" <?php checked(1, $support_enabled); ?>>
+							<strong>顯示技術支援工單</strong>
+						</label>
+						<p class="description">三個區塊預設皆不顯示，可依客戶方案個別開啟。若已勾選下方「已啟用進階維護方案」，仍會顯示已啟用方案內容。</p>
+					</td>
+				</tr>
+
 				<tr>
 					<th><label>網站狀態</label></th>
 					<td>
@@ -1475,11 +1508,21 @@ add_action('admin_head', function() {
 	}
 	
 	/* Section */
-	.wu-section {
+	#wu_unified_dashboard .wu-section {
 		background: #fff;
 		border: 1px solid #ddd;
 		padding: 20px;
 		margin-bottom: 15px;
+		animation: wu-section-enter .42s ease both;
+	}
+
+	#wu_unified_dashboard .wu-section:nth-child(2) { animation-delay: .04s; }
+	#wu_unified_dashboard .wu-section:nth-child(3) { animation-delay: .08s; }
+	#wu_unified_dashboard .wu-section:nth-child(4) { animation-delay: .12s; }
+
+	@keyframes wu-section-enter {
+		from { opacity: 0; transform: translateY(7px); }
+		to { opacity: 1; transform: translateY(0); }
 	}
 	
 	.wu-section-title {
@@ -1600,6 +1643,16 @@ add_action('admin_head', function() {
 		text-align: center;
 		padding: 15px;
 		background: #f6f7f7;
+		border: 1px solid transparent;
+		transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+	}
+
+	@media (hover: hover) {
+		.wu-disk-item:hover {
+			transform: translateY(-2px);
+			border-color: #c3c4c7;
+			box-shadow: 0 4px 12px rgba(0, 0, 0, .06);
+		}
 	}
 	
 	.wu-disk-label {
@@ -1629,6 +1682,13 @@ add_action('admin_head', function() {
 		height: 100%;
 		transition: width 0.3s ease;
 		border-radius: 6px;
+		transform-origin: left center;
+		animation: wu-disk-bar-grow .8s ease-out both;
+	}
+
+	@keyframes wu-disk-bar-grow {
+		from { transform: scaleX(0); }
+		to { transform: scaleX(1); }
 	}
 	
 	.wu-disk-status {
@@ -2097,8 +2157,41 @@ add_action('admin_head', function() {
 	
 	/* Responsive */
 	@media (max-width: 782px) {
+		.wu-dashboard-container {
+			overflow: hidden;
+		}
+
+		#wu_unified_dashboard .wu-section {
+			padding: 14px;
+			margin-bottom: 12px;
+		}
+
+		.wu-section-title {
+			align-items: flex-start;
+			flex-wrap: wrap;
+			gap: 8px;
+			line-height: 1.45;
+		}
+
+		.wu-status-card,
+		.wu-support-form,
+		.wu-promo-box {
+			padding: 14px;
+		}
+
 		.wu-disk-grid {
 			grid-template-columns: repeat(2, 1fr);
+			gap: 10px;
+		}
+
+		.wu-disk-item {
+			min-width: 0;
+			padding: 12px 8px;
+		}
+
+		.wu-disk-value {
+			font-size: 20px;
+			overflow-wrap: anywhere;
 		}
 		
 		.wu-card-grid {
@@ -2137,14 +2230,58 @@ add_action('admin_head', function() {
 	body.index-php #dashboard-widgets .postbox-container { width: 100% !important; float: none !important; }
 	body.index-php #dashboard-widgets .postbox-container:empty { display: none !important; }
 	body.index-php #wu_unified_dashboard { width: 100% !important; max-width: none !important; }
-	body.index-php #wu_unified_dashboard .wu-info-table { width: 100%; overflow-x: auto; }
+	body.index-php #wu_unified_dashboard .wu-info-table { width: 100%; }
 	body.index-php #wu_unified_dashboard .wu-info-table tbody { display: grid; grid-template-columns: repeat(6, minmax(120px, 1fr)); gap: 8px; min-width: 760px; }
 	body.index-php #wu_unified_dashboard .wu-info-table tr { min-width: 0; }
 	.wu-monitoring-badge { display: inline-flex !important; align-items: center; white-space: nowrap; font-weight: 700 !important; line-height: 1.4; position: relative; z-index: 1; }
 	.wu-monitoring-badge::before { flex: 0 0 6px; position: static !important; margin-right: 7px; }
 	@media (max-width: 782px) {
 		body.index-php #dashboard-widgets .postbox-container { width: 100% !important; }
-		body.index-php #wu_unified_dashboard .wu-info-table tbody { grid-template-columns: repeat(6, minmax(120px, 1fr)); min-width: 760px; }
+		body.index-php #wu_unified_dashboard .wu-info-table { display: block !important; table-layout: auto; }
+		body.index-php #wu_unified_dashboard .wu-info-table tbody {
+			display: grid !important;
+			grid-template-columns: 1fr !important;
+			gap: 10px;
+			min-width: 0 !important;
+			width: 100%;
+		}
+		body.index-php #wu_unified_dashboard .wu-info-table tr {
+			display: grid !important;
+			grid-template-columns: minmax(88px, .65fr) minmax(0, 1.35fr);
+			width: auto;
+			border: 1px solid #dcdcde;
+			background: #fff;
+		}
+		body.index-php #wu_unified_dashboard .wu-info-table th,
+		body.index-php #wu_unified_dashboard .wu-info-table td {
+			display: block;
+			width: auto !important;
+			min-width: 0;
+			padding: 10px 12px;
+			border: 0;
+			line-height: 1.55;
+			white-space: normal;
+			word-break: normal;
+			overflow-wrap: anywhere;
+		}
+		body.index-php #wu_unified_dashboard .wu-info-table th {
+			grid-row: 1 / span 2;
+			background: #f6f7f7;
+			border-right: 1px solid #dcdcde;
+		}
+		body.index-php #wu_unified_dashboard .wu-info-table td.wu-info-meta {
+			padding-top: 0;
+		}
+	}
+
+	@media (prefers-reduced-motion: reduce) {
+		#wu_unified_dashboard .wu-section,
+		.wu-disk-bar-fill {
+			animation: none !important;
+		}
+		.wu-disk-item {
+			transition: none;
+		}
 	}
 </style>
 	<?php
