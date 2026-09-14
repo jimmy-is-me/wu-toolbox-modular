@@ -116,8 +116,6 @@ class ShopCom_XML_Feed {
 	}
 
 	private function build_xml_document() {
-		$description_source = $this->settings->get( 'xml_description_source' );
-
 		$paged      = 1;
 		$products_xml = '';
 
@@ -131,48 +129,25 @@ class ShopCom_XML_Feed {
 
 			while ( $query->have_posts() ) {
 				$query->the_post();
-				global $product;
-
+				$product = wc_get_product( get_the_ID() );
 				if ( ! $product instanceof WC_Product ) {
-					continue;
-				}
-				if ( $this->is_excluded_type( $product ) || '' === $product->get_price() ) {
 					continue;
 				}
 				if ( 'hidden' === $product->get_catalog_visibility() ) {
 					continue;
 				}
 
-				$description = 'description' === $description_source
-					? $product->get_description()
-					: $product->get_short_description();
-
-				$image_url = '';
-				$image_id  = $product->get_image_id();
-				if ( $image_id ) {
-					$image_url = wp_get_attachment_image_url( $image_id, 'full' );
+				if ( $product->is_type( 'variable' ) ) {
+					foreach ( $product->get_children() as $variation_id ) {
+						$variation = wc_get_product( $variation_id );
+						if ( ! $variation instanceof WC_Product_Variation || ! $variation->variation_is_visible() || '' === $variation->get_price() ) continue;
+						$products_xml .= $this->build_product_xml( $variation, $product );
+					}
+					continue;
 				}
 
-				$products_xml .= sprintf(
-					"\t<product>\n" .
-					"\t\t<id>%s</id>\n" .
-					"\t\t<sku><![CDATA[%s]]></sku>\n" .
-					"\t\t<name><![CDATA[%s]]></name>\n" .
-					"\t\t<url><![CDATA[%s]]></url>\n" .
-					"\t\t<price>%s</price>\n" .
-					"\t\t<image><![CDATA[%s]]></image>\n" .
-					"\t\t<category><![CDATA[%s]]></category>\n" .
-					"\t\t<description><![CDATA[%s]]></description>\n" .
-					"\t</product>\n",
-					esc_xml( $product->get_id() ),
-					esc_xml( $product->get_sku() ),
-					wp_strip_all_tags( get_the_title() ),
-					esc_url( get_permalink() ),
-					esc_xml( $product->get_price() ),
-					esc_url( $image_url ),
-					esc_xml( $this->get_primary_category_name( $product ) ),
-					wp_kses( wp_trim_words( $description, 60 ), array() )
-				);
+				if ( $this->is_excluded_type( $product ) || '' === $product->get_price() ) continue;
+				$products_xml .= $this->build_product_xml( $product );
 			}
 
 			$paged++;
@@ -184,6 +159,50 @@ class ShopCom_XML_Feed {
 			'<products generated="' . esc_xml( current_time( 'mysql' ) ) . '">' . "\n" .
 			$products_xml .
 			'</products>';
+	}
+
+	private function build_product_xml( $product, $parent = null ) {
+		$base_product = $parent instanceof WC_Product ? $parent : $product;
+		$description_source = $this->settings->get( 'xml_description_source' );
+		$description = 'description' === $description_source
+			? $product->get_description()
+			: $product->get_short_description();
+		if ( '' === trim( wp_strip_all_tags( $description ) ) && $parent instanceof WC_Product ) {
+			$description = 'description' === $description_source ? $parent->get_description() : $parent->get_short_description();
+		}
+
+		$name = $base_product->get_name();
+		if ( $product instanceof WC_Product_Variation ) {
+			$attributes = wc_get_formatted_variation( $product, true, false, true );
+			if ( $attributes ) $name .= '－' . wp_strip_all_tags( $attributes );
+		}
+
+		$image_id = $product->get_image_id();
+		if ( ! $image_id && $parent instanceof WC_Product ) $image_id = $parent->get_image_id();
+		$image_url = $image_id ? wp_get_attachment_image_url( $image_id, 'full' ) : '';
+
+		return sprintf(
+			"\t<product>\n" .
+			"\t\t<id>%s</id>\n" .
+			"\t\t<parent_id>%s</parent_id>\n" .
+			"\t\t<sku><![CDATA[%s]]></sku>\n" .
+			"\t\t<name><![CDATA[%s]]></name>\n" .
+			"\t\t<url><![CDATA[%s]]></url>\n" .
+			"\t\t<price>%s</price>\n" .
+			"\t\t<image><![CDATA[%s]]></image>\n" .
+			"\t\t<category><![CDATA[%s]]></category>\n" .
+			"\t\t<description><![CDATA[%s]]></description>\n" .
+			"\t</product>\n",
+			esc_xml( $product->get_id() ),
+			esc_xml( $parent instanceof WC_Product ? $parent->get_id() : 0 ),
+			esc_xml( $product->get_sku() ),
+			esc_xml( $name ),
+			esc_url( $product->get_permalink() ),
+			esc_xml( $product->get_price() ),
+			esc_url( $image_url ),
+			esc_xml( $this->get_primary_category_name( $base_product ) ),
+			esc_xml( wp_trim_words( wp_strip_all_tags( $description ), 60 ) )
+		);
 	}
 
 	private function get_primary_category_name( $product ) {

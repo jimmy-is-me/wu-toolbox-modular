@@ -269,6 +269,7 @@ class ShopCom_Settings {
 
 		<h2>商品 XML Feed</h2>
 		<p>提供給美安的商品目錄網址：<code><?php echo esc_html( $feed_url ); ?></code>　<a href="<?php echo esc_url( $feed_url ); ?>" target="_blank" rel="noopener noreferrer">預覽 XML</a></p>
+		<p class="description">一般商品輸出一筆；多規格商品會依每個可見且有價格的規格分別輸出，包含規格 ID、主商品 ID、規格名稱、SKU、價格、圖片與可直接選取該規格的商品網址。</p>
 		<table class="form-table">
 			<tr><th><label for="shopcom_description_source">商品說明來源</label></th><td><select id="shopcom_description_source" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[xml_description_source]"><option value="short_description" <?php selected( $options['xml_description_source'], 'short_description' ); ?>>商品簡短說明</option><option value="description" <?php selected( $options['xml_description_source'], 'description' ); ?>>商品完整說明</option></select></td></tr>
 			<tr><th><label for="shopcom_filter_mode">分類篩選方式</label></th><td><select id="shopcom_filter_mode" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[xml_filter_mode]"><option value="none" <?php selected( $options['xml_filter_mode'], 'none' ); ?>>不篩選</option><option value="include" <?php selected( $options['xml_filter_mode'], 'include' ); ?>>只包含所選分類</option><option value="exclude" <?php selected( $options['xml_filter_mode'], 'exclude' ); ?>>排除所選分類</option></select></td></tr>

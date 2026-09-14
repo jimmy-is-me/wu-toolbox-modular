@@ -23,10 +23,8 @@ function wutm_render_member_loyalty_page(): void {
 
     $section = isset($_GET['section']) ? sanitize_key(wp_unslash($_GET['section'])) : 'points';
     $sections = [
-        'points' => '會員點數',
-        'tiers' => '會員階級',
-        'members' => '會員名單',
-        'settings' => '全站設定',
+        'points' => '點數管理',
+        'tiers' => '階級與會員',
         'vip-store' => 'VIP 隱密賣場',
     ];
     if (!isset($sections[$section])) $section = 'points';
@@ -44,17 +42,24 @@ function wutm_render_member_loyalty_page(): void {
     if ($section === 'points') {
         WC_Member_Points_Rewards::instance()->wcmp_render_admin_page();
     } elseif ($section === 'tiers') {
-        WC_Membership_Tiers::instance()->wmt_page_tiers();
-    } elseif ($section === 'members') {
-        WC_Membership_Tiers::instance()->wmt_page_members();
-    } elseif ($section === 'settings') {
-        WC_Membership_Tiers::instance()->wmt_page_settings();
+        $view = isset($_GET['view']) ? sanitize_key(wp_unslash($_GET['view'])) : 'rules';
+        $tier_views = ['rules' => '階級規則', 'members' => '會員名單', 'settings' => '全站設定'];
+        if (!isset($tier_views[$view])) $view = 'rules';
+        echo '<div class="wrap wutm-loyalty-subnav"><nav class="nav-tab-wrapper" aria-label="階級與會員設定">';
+        foreach ($tier_views as $key => $label) {
+            $active = $view === $key ? ' nav-tab-active' : '';
+            echo '<a class="nav-tab' . esc_attr($active) . '" href="' . esc_url(wutm_member_loyalty_url('tiers', ['view' => $key])) . '">' . esc_html($label) . '</a>';
+        }
+        echo '</nav></div>';
+        if ($view === 'members') WC_Membership_Tiers::instance()->wmt_page_members();
+        elseif ($view === 'settings') WC_Membership_Tiers::instance()->wmt_page_settings();
+        else WC_Membership_Tiers::instance()->wmt_page_tiers();
     } else {
         wutm_render_member_loyalty_vip_store_tab();
     }
     ?>
     <style>
-        .wutm-loyalty-wrap{max-width:none;margin-bottom:0}.wutm-loyalty-tabs{margin-top:20px}.wutm-loyalty-tabs .nav-tab{font-weight:600}.wutm-loyalty-vip{max-width:1180px}.wutm-vip-guide{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:18px 0}.wutm-vip-guide>div{background:#fff;border:1px solid #dcdcde;border-radius:8px;padding:18px}.wutm-vip-guide h3{margin-top:0}.wutm-vip-guide p{margin-bottom:0;line-height:1.7}.wutm-vip-flow{background:#f0f6fc;border-left:4px solid #2271b1;padding:14px 16px;margin:16px 0}.wutm-loyalty-wrap+.wrap{margin-top:14px}.wutm-loyalty-wrap+.wrap>h1:first-child{display:none}@media(max-width:782px){.wutm-loyalty-tabs{display:flex;overflow-x:auto;padding-bottom:1px}.wutm-loyalty-tabs .nav-tab{flex:0 0 auto;margin-left:0}.wutm-vip-guide{grid-template-columns:1fr}}
+        .wutm-loyalty-wrap{max-width:none;margin-bottom:0}.wutm-loyalty-tabs{margin-top:20px}.wutm-loyalty-tabs .nav-tab{font-weight:600}.wutm-loyalty-subnav{margin-top:16px}.wutm-loyalty-subnav .nav-tab{font-size:13px}.wutm-loyalty-vip{max-width:1180px}.wutm-vip-guide{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:18px 0}.wutm-vip-guide>div{background:#fff;border:1px solid #dcdcde;border-radius:8px;padding:18px}.wutm-vip-guide h3{margin-top:0}.wutm-vip-guide p{margin-bottom:0;line-height:1.7}.wutm-vip-flow{background:#f0f6fc;border-left:4px solid #2271b1;padding:14px 16px;margin:16px 0}.wutm-loyalty-wrap+.wrap>h1:first-child,.wutm-loyalty-subnav+.wrap>h1:first-child{display:none}@media(max-width:782px){.wutm-loyalty-tabs,.wutm-loyalty-subnav .nav-tab-wrapper{display:flex;overflow-x:auto;padding-bottom:1px}.wutm-loyalty-tabs .nav-tab,.wutm-loyalty-subnav .nav-tab{flex:0 0 auto;margin-left:0}.wutm-vip-guide{grid-template-columns:1fr}}
     </style>
     <?php
 }

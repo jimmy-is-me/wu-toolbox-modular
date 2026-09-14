@@ -77,6 +77,7 @@ function wutm_modules(): array {
         'user-switcher' => ['name' => '使用者切換', 'description' => '切換帳號進行測試。', 'group' => '後台介面', 'icon' => '🔄'],
         'wc-optimization-tools' => ['name' => 'WC優化工具', 'description' => '台灣地址下拉選單、訂單備註與電子發票資訊欄位設定。', 'group' => '電商工具', 'icon' => '🛠️', 'requires' => 'woocommerce'],
         'shipping-optimization-tools' => ['name' => '運送優化功能', 'description' => '管理台灣離島配送與 7-11 超商物流，支援手動填寫、綠界電子地圖、門市資料及訂單辨識。', 'group' => '電商工具', 'icon' => '🚚', 'requires' => 'woocommerce', 'settings_page' => 'wu-shipping-optimization-tools'],
+        'product-shipping-restrict' => ['name' => '商品限制物流', 'description' => '為主商品或個別商品規格限制允許的物流方式，並依購物車商品自動顯示共同可用配送選項。', 'group' => '電商工具', 'icon' => '📍', 'requires' => 'woocommerce', 'settings_page' => 'wu-product-shipping-restrict'],
         'woocommerce-optimizer' => ['name' => '隱藏WC工具', 'description' => '整理 WooCommerce 後台選單、推廣區與頁尾。', 'group' => '電商工具', 'icon' => '🛒', 'requires' => 'woocommerce'],
         'product-sales-count' => ['name' => '商品購買量', 'description' => '顯示商品實際銷售量，並可由管理員設定顯示調整值。', 'group' => '電商工具', 'icon' => '📊', 'requires' => 'woocommerce', 'settings_page' => 'wu-product-sales-count'],
         'free-shipping-notice' => ['name' => '免運門檻提示', 'description' => '為單一費率與自行取貨設定滿額免運，並顯示尚差金額或達標提示。', 'group' => '電商工具', 'icon' => '🚚', 'requires' => 'woocommerce', 'settings_page' => 'wu-free-shipping-notice'],

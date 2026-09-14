@@ -441,7 +441,7 @@ final class WC_Membership_Tiers {
             $id = $wpdb->insert_id;
         }
 
-        wp_safe_redirect( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'tiers', array( 'updated' => 1 ) ) : admin_url( 'admin.php?page=wmt-tiers&updated=1' ) );
+        wp_safe_redirect( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'tiers', array( 'view' => 'rules', 'updated' => 1 ) ) : admin_url( 'admin.php?page=wmt-tiers&updated=1' ) );
         exit;
     }
 
@@ -451,7 +451,7 @@ final class WC_Membership_Tiers {
         global $wpdb;
         $id = intval( $_GET['tier_id'] ?? 0 );
         $wpdb->delete( $this->wmt_table_tiers(), array( 'id' => $id ) );
-        wp_safe_redirect( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'tiers', array( 'deleted' => 1 ) ) : admin_url( 'admin.php?page=wmt-tiers&deleted=1' ) );
+        wp_safe_redirect( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'tiers', array( 'view' => 'rules', 'deleted' => 1 ) ) : admin_url( 'admin.php?page=wmt-tiers&deleted=1' ) );
         exit;
     }
 
@@ -466,7 +466,7 @@ final class WC_Membership_Tiers {
             'downgrade_to_default'  => isset( $_POST['downgrade_to_default'] ) ? 'yes' : 'no',
         );
         update_option( self::OPTION_KEY, $s );
-        wp_safe_redirect( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'settings', array( 'updated' => 1 ) ) : admin_url( 'admin.php?page=wmt-settings&updated=1' ) );
+        wp_safe_redirect( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'tiers', array( 'view' => 'settings', 'updated' => 1 ) ) : admin_url( 'admin.php?page=wmt-settings&updated=1' ) );
         exit;
     }
 
@@ -481,7 +481,7 @@ final class WC_Membership_Tiers {
             $valid_days = $days > 0 ? $days : ( $tier ? intval( $tier->valid_days ) : 0 );
             $this->wmt_assign_tier( $user_id, $tier_id, $valid_days, 'manual', true );
         }
-        $redirect = wp_get_referer() ? wp_get_referer() : ( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'members' ) : admin_url( 'admin.php?page=wmt-members' ) );
+        $redirect = wp_get_referer() ? wp_get_referer() : ( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'tiers', array( 'view' => 'members' ) ) : admin_url( 'admin.php?page=wmt-members' ) );
         wp_safe_redirect( add_query_arg( 'msg', 'manual_set', $redirect ) );
         exit;
     }
@@ -528,7 +528,7 @@ final class WC_Membership_Tiers {
         $user_id = intval( $_GET['user_id'] ?? 0 );
         check_admin_referer( 'wmt_reset_birthday_' . $user_id );
         if ( $user_id > 0 ) delete_user_meta( $user_id, 'billing_birthday' );
-        $redirect = wp_get_referer() ? wp_get_referer() : ( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'members' ) : admin_url( 'admin.php?page=wmt-members' ) );
+        $redirect = wp_get_referer() ? wp_get_referer() : ( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'tiers', array( 'view' => 'members' ) ) : admin_url( 'admin.php?page=wmt-members' ) );
         wp_safe_redirect( add_query_arg( 'msg', 'birthday_reset', $redirect ) );
         exit;
     }
@@ -539,7 +539,7 @@ final class WC_Membership_Tiers {
         check_admin_referer( 'wmt_run_manual_cycle' );
         $result = $this->wmt_run_daily_cycle( true );
         set_transient( 'wmt_manual_run_result', $result, 60 );
-        wp_safe_redirect( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'settings', array( 'manual_run' => 1 ) ) : admin_url( 'admin.php?page=wmt-settings&manual_run=1' ) );
+        wp_safe_redirect( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'tiers', array( 'view' => 'settings', 'manual_run' => 1 ) ) : admin_url( 'admin.php?page=wmt-settings&manual_run=1' ) );
         exit;
     }
 
@@ -554,7 +554,7 @@ final class WC_Membership_Tiers {
             '<p>這是一封測試信，如果您收到這封信，代表本外掛的升級通知信功能可以正常寄出。</p><p>若沒收到，請檢查主機的郵件寄送設定（SMTP）或安裝 WP Mail SMTP 等外掛改善送達率。</p>'
         );
         set_transient( 'wmt_test_mail_result', array( 'to' => $to, 'sent' => $sent ), 60 );
-        wp_safe_redirect( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'settings', array( 'test_mail' => 1 ) ) : admin_url( 'admin.php?page=wmt-settings&test_mail=1' ) );
+        wp_safe_redirect( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'tiers', array( 'view' => 'settings', 'test_mail' => 1 ) ) : admin_url( 'admin.php?page=wmt-settings&test_mail=1' ) );
         exit;
     }
 
@@ -566,7 +566,7 @@ final class WC_Membership_Tiers {
         foreach ( $users as $uid ) {
             $this->wmt_recalculate_user( intval( $uid ) );
         }
-        wp_safe_redirect( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'members', array( 'init' => 1 ) ) : admin_url( 'admin.php?page=wmt-members&init=1' ) );
+        wp_safe_redirect( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'tiers', array( 'view' => 'members', 'init' => 1 ) ) : admin_url( 'admin.php?page=wmt-members&init=1' ) );
         exit;
     }
 
@@ -1528,7 +1528,7 @@ final class WC_Membership_Tiers {
                         <td><?php echo esc_html( $t->points_multiplier ); ?>x</td>
                         <td><?php echo $t->status ? '啟用' : '停用'; ?></td>
                         <td>
-                            <a href="<?php echo esc_url( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'tiers', array( 'edit' => $t->id ) ) : admin_url( 'admin.php?page=wmt-tiers&edit=' . $t->id ) ); ?>">編輯</a> |
+                            <a href="<?php echo esc_url( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'tiers', array( 'view' => 'rules', 'edit' => $t->id ) ) : admin_url( 'admin.php?page=wmt-tiers&edit=' . $t->id ) ); ?>">編輯</a> |
                             <a href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=wmt_delete_tier&tier_id=' . $t->id ), 'wmt_delete_tier' ) ); ?>" onclick="return confirm('確定刪除此階級？');">刪除</a>
                         </td>
                     </tr>
@@ -1587,7 +1587,8 @@ final class WC_Membership_Tiers {
 
             <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0;">
                 <input type="hidden" name="page" value="wu-member-loyalty"/>
-                <input type="hidden" name="section" value="members"/>
+                <input type="hidden" name="section" value="tiers"/>
+                <input type="hidden" name="view" value="members"/>
                 <input type="text" name="s" value="<?php echo esc_attr( $keyword ); ?>" placeholder="搜尋姓名或 Email"/>
                 <select name="tier_id">
                     <option value="">全部</option>
