@@ -432,13 +432,17 @@ class WC_Product_Shipping_Restrict {
 			'wu-toolbox-modular',
 			'商品限制物流',
 			'商品限制物流',
-			'manage_woocommerce',
+			'manage_options',
 			'wu-product-shipping-restrict',
 			[ __CLASS__, 'render_admin_page' ]
 		);
 	}
 
 	public static function render_admin_page() {
+		if ( ! current_user_can( 'manage_options' ) ) {
+			wp_die( esc_html__( '抱歉，您沒有管理此設定頁的權限。', 'wu-toolbox-modular' ) );
+		}
+
 		$current_tab  = isset( $_GET['tab'] ) ? sanitize_text_field( wp_unslash( $_GET['tab'] ) ) : 'all';
 		$allowed_tabs = [ 'all', 'restricted', 'unrestricted', 'settings' ];
 		if ( ! in_array( $current_tab, $allowed_tabs, true ) ) {
@@ -454,7 +458,7 @@ class WC_Product_Shipping_Restrict {
 	}
 
 	private static function render_settings_tab() {
-		if ( isset( $_POST['wcpsr_settings_nonce'] ) && wp_verify_nonce( $_POST['wcpsr_settings_nonce'], 'wcpsr_save_settings' ) && current_user_can( 'manage_woocommerce' ) ) {
+		if ( isset( $_POST['wcpsr_settings_nonce'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['wcpsr_settings_nonce'] ) ), 'wcpsr_save_settings' ) && current_user_can( 'manage_options' ) ) {
 			$input = isset( $_POST[ self::$settings_option ] ) ? wp_unslash( $_POST[ self::$settings_option ] ) : [];
 			update_option( self::$settings_option, self::sanitize_settings( $input ) );
 			echo '<div class="notice notice-success is-dismissible"><p>設定已儲存。</p></div>';
