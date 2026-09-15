@@ -69,7 +69,6 @@ function wutm_modules(): array {
         'order-bulk-actions-manager' => ['name' => '訂單批次操作管理', 'description' => '集中管理傳統與 HPOS 訂單列表的批次操作，可逐項顯示、隱藏或快速全部切換。', 'group' => '電商工具', 'icon' => '🎛️', 'requires' => 'woocommerce', 'settings_page' => 'wu-order-bulk-actions-manager'],
         'media-encoder' => ['name' => '媒體編碼器', 'description' => '上傳時可先等比例縮小圖片，再轉換為 WebP。', 'group' => '媒體工具', 'icon' => '🎬'],
         'moving-mode' => ['name' => '維護模式', 'description' => '暫時阻止訪客存取網站。', 'group' => '效能優化', 'icon' => '🚧'],
-        'no-cache-pages' => ['name' => '免快取頁面', 'description' => '指定頁面略過快取。', 'group' => '效能優化', 'icon' => '⚡', 'source' => 'no_cache_pages'],
         'post-optimization' => ['name' => '文章瀏覽及目錄', 'description' => '文章瀏覽量統計與自動文章目錄。', 'group' => '內容管理', 'icon' => '👁️'],
         'revision-manager' => ['name' => '版本管理', 'description' => '控制文章修訂版本。', 'group' => '內容管理', 'icon' => '🗂️'],
         'system-monitor' => ['name' => '系統監控', 'description' => '監控伺服器、資料庫與外掛效能。', 'group' => '監控追蹤', 'icon' => '🖥️'],
@@ -161,6 +160,30 @@ add_action('plugins_loaded', function (): void {
     }
     update_option('wutm_wc_tools_split_182', 1);
 }, 19);
+
+// Merge the former no-cache card into Page Cache and retain its saved paths.
+add_action('plugins_loaded', function (): void {
+    if (get_option('wutm_page_cache_merged_247', false)) return;
+
+    $legacy_enabled = (bool) get_option(wutm_module_option('no-cache-pages'), false)
+        || (bool) get_option('wumetax_module_no_cache_pages', false);
+    if (get_option(wutm_module_option('page-cache'), null) === null && $legacy_enabled) {
+        update_option(wutm_module_option('page-cache'), 1, false);
+    }
+
+    $legacy = get_option('wu_no_cache_pages_options', []);
+    if (is_array($legacy) && !empty($legacy['pages'])) {
+        $current = get_option('wutm_page_cache_settings', []);
+        $current = is_array($current) ? $current : [];
+        $paths = preg_split('/\R/', (string) ($current['excluded_uri'] ?? "/cart/\n/checkout/\n/my-account/"));
+        $paths = array_merge($paths ?: [], preg_split('/\R/', (string) $legacy['pages']) ?: []);
+        $paths = array_values(array_unique(array_filter(array_map('trim', $paths))));
+        $current['excluded_uri'] = implode("\n", $paths);
+        update_option('wutm_page_cache_settings', $current, false);
+    }
+
+    update_option('wutm_page_cache_merged_247', 1, false);
+}, 18);
 
 add_action('plugins_loaded', function (): void {
     if (get_option('wutm_product_sales_count_split_212', false)) return;
