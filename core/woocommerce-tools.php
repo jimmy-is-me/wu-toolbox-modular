@@ -178,7 +178,11 @@ class WU_WooCommerce_Optimizer {
         return $this->mode === 'commerce' ? array(
             'wu_woo_taiwan_address' => array('台灣地址選單優化', 'taiwan_address_callback'),
             'wu_woo_enable_order_comments' => array('啟用訂單備註欄位', 'enable_order_comments_callback'),
-            'wu_woo_enable_einvoice' => array('啟用電子發票功能', 'enable_einvoice_callback')
+            'wu_woo_enable_einvoice' => array('啟用電子發票功能', 'enable_einvoice_callback'),
+            'wutm_wc_onepage_checkout' => array('啟用一頁式結帳', 'onepage_checkout_callback'),
+            'wutm_wc_attr_enter_add' => array('按 Enter 新增屬性數值', 'attribute_enter_add_callback'),
+            'wutm_wc_variation_tags' => array('按鈕標籤顯示可變屬性', 'variation_tags_callback'),
+            'wutm_wc_virtual_order_autocomplete' => array('虛擬商品自動完成訂單', 'virtual_order_autocomplete_callback')
         ) : array(
             'wu_woo_disable_notifications' => array('停用 WooCommerce 通知欄', 'disable_notifications_callback')
         );
@@ -250,6 +254,28 @@ class WU_WooCommerce_Optimizer {
         echo '<input type="checkbox" id="wu_woo_enable_einvoice" name="wu_woo_enable_einvoice" value="1" ' . checked(1, $value, false) . ' />';
         echo '<label for="wu_woo_enable_einvoice">啟用電子發票功能</label>';
         echo '<p class="description"><strong>僅顯示資訊，無任何發票服務串接。</strong> 啟用後只會在結帳頁收集個人、公司或捐贈資訊並儲存於訂單，不會自動開立、上傳或作廢電子發票。</p>';
+    }
+
+    private function commerce_checkbox($option, $label, $description, $default = false) {
+        $value = (bool) get_option($option, $default);
+        echo '<label><input type="checkbox" name="' . esc_attr($option) . '" value="1" ' . checked(true, $value, false) . '> ' . esc_html($label) . '</label>';
+        echo '<p class="description">' . esc_html($description) . '</p>';
+    }
+
+    public function onepage_checkout_callback() {
+        $this->commerce_checkbox('wutm_wc_onepage_checkout', '啟用一頁式結帳', '購物車頁自動導向結帳頁，並在結帳頁上方顯示可調整數量的購物車內容。');
+    }
+
+    public function attribute_enter_add_callback() {
+        $this->commerce_checkbox('wutm_wc_attr_enter_add', '啟用 Enter 快速新增', '在商品編輯頁的自訂屬性數值欄按 Enter，自動補上分隔符號。', true);
+    }
+
+    public function variation_tags_callback() {
+        $this->commerce_checkbox('wutm_wc_variation_tags', '啟用按鈕標籤規格', '將商品頁的顏色、尺寸等可變商品下拉選單顯示為按鈕標籤。', true);
+    }
+
+    public function virtual_order_autocomplete_callback() {
+        $this->commerce_checkbox('wutm_wc_virtual_order_autocomplete', '啟用虛擬商品自動完成', '訂單內全部都是虛擬商品時，付款成功後自動轉為已完成。');
     }
 
     private function load_optimizations() {

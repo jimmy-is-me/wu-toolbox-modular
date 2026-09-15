@@ -77,7 +77,7 @@ function wutm_modules(): array {
         'spam-cleaner' => ['name' => '垃圾帳號清除', 'description' => '依使用者名稱關鍵字預覽並清理垃圾機器人帳號。', 'group' => '安全性', 'icon' => '🧹'],
         'transients-manager' => ['name' => 'Transients 管理', 'description' => '查看、搜尋及清理 WordPress Transients 過期暫存資料。', 'group' => '效能優化', 'icon' => '🧹'],
         'user-switcher' => ['name' => '使用者切換', 'description' => '管理員可快速切換會員帳號進行權限、訂單與前台功能測試。', 'group' => '後台介面', 'icon' => '🔄'],
-        'wc-optimization-tools' => ['name' => 'WC優化工具', 'description' => '台灣地址下拉選單、訂單備註與電子發票資訊欄位設定。', 'group' => '電商工具', 'icon' => '🛠️', 'requires' => 'woocommerce'],
+        'wc-optimization-tools' => ['name' => 'WC優化工具', 'description' => '台灣地址、訂單備註、電子發票、一頁式結帳、Enter 新增商品屬性、按鈕標籤規格及虛擬商品自動完成。', 'group' => '電商工具', 'icon' => '🛠️', 'requires' => 'woocommerce'],
         'shipping-optimization-tools' => ['name' => '運送優化功能', 'description' => '管理台灣離島配送與 7-11 超商物流，支援運費、免運門檻、手動填寫、綠界電子地圖、門市資料及訂單辨識。', 'group' => '電商工具', 'icon' => '🚚', 'requires' => 'woocommerce', 'settings_page' => 'wu-shipping-optimization-tools'],
         'free-shipping-notice' => ['name' => '免運門檻提示', 'description' => '統一設定單一費率、自行取貨與 7-11 超商物流的免運門檻，並顯示尚差金額或已達免運提示。', 'group' => '電商工具', 'icon' => '🚚', 'requires' => 'woocommerce', 'settings_page' => 'wu-free-shipping-notice'],
         'product-shipping-restrict' => ['name' => '商品限制物流', 'description' => '為主商品或個別商品規格限制允許的物流方式，並依購物車商品自動顯示共同可用配送選項。', 'group' => '電商工具', 'icon' => '📍', 'requires' => 'woocommerce', 'settings_page' => 'wu-product-shipping-restrict'],
