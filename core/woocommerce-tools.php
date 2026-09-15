@@ -1560,15 +1560,6 @@ jQuery(document).ready(function($) {
 
     public function admin_page() {
         if (!current_user_can('manage_options')) wp_die('您沒有管理此設定的權限。');
-        if ($this->mode === 'shipping') {
-            $tab = sanitize_key(wp_unslash($_GET['tab'] ?? 'shipping'));
-            echo '<nav class="nav-tab-wrapper">';
-            foreach (array('shipping'=>'配送與門市設定','free-shipping'=>'免運門檻與提示') as $key=>$label) {
-                echo '<a class="nav-tab ' . ($tab === $key ? 'nav-tab-active' : '') . '" href="' . esc_url(admin_url('admin.php?page=wu-shipping-optimization-tools&tab=' . $key)) . '">' . esc_html($label) . '</a>';
-            }
-            echo '</nav>';
-            if ($tab === 'free-shipping') { wutm_fs_admin_page(); return; }
-        }
         $group = $this->settings_group();
         $bulk_action = isset($_POST['wutm_visibility_bulk']) ? sanitize_key(wp_unslash($_POST['wutm_visibility_bulk'])) : '';
         if (isset($_POST['submit']) || in_array($bulk_action, array('enable', 'disable'), true)) {
