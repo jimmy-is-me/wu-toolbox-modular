@@ -82,7 +82,6 @@ function wutm_modules(): array {
         'product-shipping-restrict' => ['name' => '商品限制物流', 'description' => '為主商品或個別商品規格限制允許的物流方式，並依購物車商品自動顯示共同可用配送選項。', 'group' => '電商工具', 'icon' => '📍', 'requires' => 'woocommerce', 'settings_page' => 'wu-product-shipping-restrict'],
         'woocommerce-optimizer' => ['name' => '隱藏WC工具', 'description' => '整理 WooCommerce 後台選單、推廣區與頁尾。', 'group' => '電商工具', 'icon' => '🛒', 'requires' => 'woocommerce'],
         'product-sales-count' => ['name' => '商品購買量', 'description' => '顯示商品實際銷售量，並可由管理員設定顯示調整值。', 'group' => '電商工具', 'icon' => '📊', 'requires' => 'woocommerce', 'settings_page' => 'wu-product-sales-count'],
-        'free-shipping-notice' => ['name' => '免運門檻提示', 'description' => '為單一費率與自行取貨設定滿額免運，並顯示尚差金額或達標提示。', 'group' => '電商工具', 'icon' => '🚚', 'requires' => 'woocommerce', 'settings_page' => 'wu-free-shipping-notice'],
         'new-member-discount' => ['name' => '新會員優惠', 'description' => '新會員首次消費滿額自動折抵，並記錄使用狀態與取消解鎖。', 'group' => '電商工具', 'icon' => '🎁', 'requires' => 'woocommerce', 'settings_page' => 'wu-new-member-discount'],
         'member-loyalty' => ['name' => '會員點數與階級', 'description' => '整合消費點數、結帳折抵、會員分級、專屬權益與 CRM；階級點數倍率會自動套用至點數回饋。', 'group' => '電商工具', 'icon' => '🏆', 'requires' => 'woocommerce', 'settings_page' => 'wu-member-loyalty', 'legacy_sources' => ['member-points', 'member-tiers']],
         'product-scheduled-unpublish' => ['name' => '商品排程下架', 'description' => '在商品編輯頁設定下架時間，到期後自動轉為草稿，並於商品列表顯示及排序排程。', 'group' => '電商工具', 'icon' => '🕒', 'requires' => 'woocommerce', 'settings_url' => 'edit.php?post_type=product'],
@@ -213,3 +212,11 @@ add_action('plugins_loaded', function (): void {
     delete_option('wutm_points_rewards_initialized');
     update_option('wutm_points_rewards_removed_188', 1, false);
 }, 18);
+
+// Preserve either former module's enabled state and its stored thresholds.
+add_action('plugins_loaded', function (): void {
+    if (get_option('wutm_shipping_merged_251')) return;
+    if (wutm_is_enabled('free-shipping-notice')) update_option(wutm_module_option('shipping-optimization-tools'), 1, false);
+    if (class_exists('WC_Cache_Helper')) WC_Cache_Helper::get_transient_version('shipping', true);
+    update_option('wutm_shipping_merged_251', 1, false);
+}, 19);

@@ -13,7 +13,7 @@
 if (!defined('ABSPATH')) exit;
 
 class WU_WooCommerce_Optimizer {
-    
+
     private $mode;
     private static $taiwan_address_registered = false;
     public function __construct($mode = 'visibility') {
@@ -23,7 +23,7 @@ class WU_WooCommerce_Optimizer {
         if (!class_exists('WooCommerce')) {
             return;
         }
-        
+
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('admin_init', array($this, 'admin_init'));
         if ($this->mode === 'visibility') {
@@ -35,7 +35,7 @@ class WU_WooCommerce_Optimizer {
         }
         $this->load_optimizations();
     }
-    
+
 
     private function admin_visibility_options() {
         return array(
@@ -204,14 +204,14 @@ class WU_WooCommerce_Optimizer {
         if ($this->mode === 'shipping') { echo '<p>集中管理台灣離島配送與 7-11 超商物流。7-11 支援買家手動填寫或綠界電子地圖選店，並將完整門市資訊保存至訂單。</p>'; return; }
         echo '<p>配置 WooCommerce 優化選項。所有功能均需手動啟用。隱藏選項僅整理後台選單或設定分頁，不停用相關功能、不改變權限，也不影響前台購物與結帳；取消勾選並儲存即可恢復。</p>';
     }
-    
+
     public function disable_notifications_callback() {
         $value = get_option('wu_woo_disable_notifications', false);
         echo '<input type="checkbox" id="wu_woo_disable_notifications" name="wu_woo_disable_notifications" value="1" ' . checked(1, $value, false) . ' />';
         echo '<label for="wu_woo_disable_notifications">停用 WooCommerce 通知欄</label>';
         echo '<p class="description">隱藏 WooCommerce 管理介面通知標題欄。</p>';
     }
-    
+
     public function taiwan_address_callback() {
         $value = get_option('wu_woo_taiwan_address', false);
         echo '<input type="checkbox" id="wu_woo_taiwan_address" name="wu_woo_taiwan_address" value="1" ' . checked(1, $value, false) . ' />';
@@ -219,14 +219,14 @@ class WU_WooCommerce_Optimizer {
         echo '<p class="description">縣市/鄉鎮市區/郵遞區號自動關聯。</p>';
         echo '<div style="margin-top:10px;padding:12px 14px;background:#f6f7f7;border-left:4px solid #2271b1"><strong>啟用後的結帳欄位調整：</strong><ul style="margin:8px 0 0 18px;list-style:disc"><li>帳單姓名改為單一姓名欄位，隱藏姓氏欄位</li><li>隱藏帳單地址第二行與國家選擇（固定台灣）</li><li>隱藏收件姓氏、公司、地址第二行與國家選擇（固定台灣）</li><li>縣市、鄉鎮市區改為連動下拉選單並自動填入郵遞區號</li></ul></div>';
     }
-    
+
     public function enable_island_shipping_callback() {
         $value = get_option('wu_woo_enable_island_shipping', false);
         echo '<input type="checkbox" id="wu_woo_enable_island_shipping" name="wu_woo_enable_island_shipping" value="1" ' . checked(1, $value, false) . ' />';
         echo '<label for="wu_woo_enable_island_shipping">啟用台灣離島運送選項</label>';
         echo '<p class="description"><strong>重要:</strong>啟用後,結帳頁面會顯示「台灣本島」或「台灣離島」選項。請確保已在 WooCommerce 運送區域設定離島運費。</p>';
     }
-    
+
     public function enable_711_shipping_callback() {
         $value = get_option('wu_woo_enable_711_shipping', false);
         echo '<input type="checkbox" id="wu_woo_enable_711_shipping" name="wu_woo_enable_711_shipping" value="1" ' . checked(1, $value, false) . ' />';
@@ -237,67 +237,67 @@ class WU_WooCommerce_Optimizer {
         echo '<p><a class="button" href="' . esc_url(admin_url('admin.php?page=wc-settings&tab=shipping')) . '">前往設定運送區域</a></p>';
         echo '</div>';
     }
-    
+
     public function enable_order_comments_callback() {
         $value = get_option('wu_woo_enable_order_comments', false);
         echo '<input type="checkbox" id="wu_woo_enable_order_comments" name="wu_woo_enable_order_comments" value="1" ' . checked(1, $value, false) . ' />';
         echo '<label for="wu_woo_enable_order_comments">顯示訂單備註欄位</label>';
         echo '<p class="description">啟用後,結帳頁面會顯示「訂單備註」欄位供顧客填寫。</p>';
     }
-    
+
     public function enable_einvoice_callback() {
         $value = get_option('wu_woo_enable_einvoice', false);
         echo '<input type="checkbox" id="wu_woo_enable_einvoice" name="wu_woo_enable_einvoice" value="1" ' . checked(1, $value, false) . ' />';
         echo '<label for="wu_woo_enable_einvoice">啟用電子發票功能</label>';
         echo '<p class="description"><strong>僅顯示資訊，無任何發票服務串接。</strong> 啟用後只會在結帳頁收集個人、公司或捐贈資訊並儲存於訂單，不會自動開立、上傳或作廢電子發票。</p>';
     }
-    
+
     private function load_optimizations() {
         if ($this->mode === 'visibility') {
         if (get_option('wu_woo_disable_notifications')) {
             add_action('admin_init', array($this, 'disable_notifications'));
         }
-        
+
         return;
         }
         if (($this->mode === 'commerce' && get_option('wu_woo_taiwan_address')) || ($this->mode === 'shipping' && get_option('wu_woo_enable_island_shipping'))) {
             add_action('init', array($this, 'register_taiwan_address'));
             add_filter('woocommerce_checkout_posted_data', array($this, 'preserve_saved_billing_fields'), 5);
         }
-        
+
         if ($this->mode === 'shipping' && get_option('wu_woo_enable_711_shipping')) {
             add_action('init', array($this, 'register_711_shipping'));
         }
-        
+
         if ($this->mode === 'commerce' && get_option('wu_woo_enable_einvoice')) {
             add_action('init', array($this, 'register_einvoice'));
         }
-        
+
         // 訂單備註欄位控制
         if ($this->mode === 'commerce' && !get_option('wu_woo_enable_order_comments', false)) {
             add_filter('woocommerce_enable_order_notes_field', '__return_false');
         }
-        
+
         // 載入錯誤訊息樣式
         if ($this->mode === 'commerce' || $this->mode === 'shipping') add_action('wp_enqueue_scripts', array($this, 'enqueue_error_message_styles'), 999);
-        
+
         // 修改「商品明細」標題
         if ($this->mode === 'commerce') add_filter('gettext', array($this, 'change_order_review_heading'), 20, 3);
     }
-    
+
     public function change_order_review_heading($translated_text, $text, $domain) {
         if ($domain === 'woocommerce' && $text === 'Your order') {
             return '商品明細';
         }
         return $translated_text;
     }
-    
+
     public function disable_notifications() {
         add_action('admin_head', function() {
             echo '<style>.woocommerce-layout__header,.woocommerce-admin-notices,.wc-admin-notice,#woocommerce-admin-notices{display:none!important}</style>';
         });
     }
-    
+
     /**
      * 註冊電子發票功能
      */
@@ -307,12 +307,12 @@ class WU_WooCommerce_Optimizer {
         add_action('woocommerce_checkout_process', array($this, 'validate_einvoice_fields'));
         add_action('woocommerce_checkout_create_order', array($this, 'save_einvoice_fields'));
         add_action('woocommerce_admin_order_data_after_billing_address', array($this, 'display_einvoice_in_admin'));
-        
+
         // AJAX 查詢公司名稱
         add_action('wp_ajax_get_company_name', array($this, 'ajax_get_company_name'));
         add_action('wp_ajax_nopriv_get_company_name', array($this, 'ajax_get_company_name'));
     }
-    
+
     /**
      * 添加電子發票欄位到結帳頁面
      */
@@ -374,7 +374,7 @@ class WU_WooCommerce_Optimizer {
             'placeholder' => '請輸入公司名稱',
             'class' => array('form-row-wide')
         ), $checkout->get_value('einvoice_company_name'));
-        
+
         echo '<p class="description" style="color:#c62828;background:#ffebee;padding:8px;border-radius:4px;font-size:12px;margin-top:-10px;">輸入統一編號後將自動查詢公司名稱</p>';
         echo '</div>';
 
@@ -392,7 +392,7 @@ class WU_WooCommerce_Optimizer {
 
         echo '</div>';
     }
-    
+
     /**
      * JavaScript 控制電子發票欄位顯示/隱藏
      */
@@ -404,7 +404,7 @@ class WU_WooCommerce_Optimizer {
             function toggleEinvoiceFields(){
                 let type = $('#einvoice_type').val();
                 $('#einvoice_personal, #einvoice_company, #einvoice_donate').hide();
-                
+
                 if(type === 'personal'){
                     $('#einvoice_personal').slideDown();
                     toggleCarrierFields();
@@ -414,7 +414,7 @@ class WU_WooCommerce_Optimizer {
                     $('#einvoice_donate').slideDown();
                 }
             }
-            
+
             function toggleCarrierFields(){
                 let carrierType = $('#einvoice_carrier_type').val();
                 if(carrierType === 'mobile'){
@@ -423,13 +423,13 @@ class WU_WooCommerce_Optimizer {
                     $('#einvoice_mobile_carrier_field').slideUp();
                 }
             }
-            
+
             // 監聽發票類型變更
             $(document).on('change', '#einvoice_type', toggleEinvoiceFields);
-            
+
             // 監聽載具類型變更
             $(document).on('change', '#einvoice_carrier_type', toggleCarrierFields);
-            
+
             // 監聽統一編號變更 - 自動查詢公司名稱
             var taxIdTimer;
             $(document).on('input', '#einvoice_tax_id', function(){
@@ -448,14 +448,14 @@ class WU_WooCommerce_Optimizer {
                     }, 500);
                 }
             });
-            
+
             $(document.body).on('updated_checkout', toggleEinvoiceFields);
             toggleEinvoiceFields();
         });
         </script>
         <?php
     }
-    
+
     /**
      * 驗證電子發票欄位
      */
@@ -464,9 +464,9 @@ class WU_WooCommerce_Optimizer {
             wc_add_notice('請選擇發票類型', 'error');
             return;
         }
-        
+
         $type = sanitize_text_field($_POST['einvoice_type']);
-        
+
         if ($type === 'personal') {
             $carrier_type = isset($_POST['einvoice_carrier_type']) ? sanitize_text_field($_POST['einvoice_carrier_type']) : '';
             if ($carrier_type === 'mobile') {
@@ -502,7 +502,7 @@ class WU_WooCommerce_Optimizer {
             }
         }
     }
-    
+
     /**
      * 儲存電子發票資訊到訂單
      */
@@ -510,19 +510,19 @@ class WU_WooCommerce_Optimizer {
         if (isset($_POST['einvoice_type'])) {
             $type = sanitize_text_field($_POST['einvoice_type']);
             $order->update_meta_data('_einvoice_type', $type);
-            
+
             $type_labels = array(
                 'personal' => '個人',
                 'company' => '公司',
                 'donate' => '捐贈'
             );
             $order->update_meta_data('發票類型', $type_labels[$type]);
-            
+
             if ($type === 'personal') {
                 $carrier_type = isset($_POST['einvoice_carrier_type']) ? sanitize_text_field($_POST['einvoice_carrier_type']) : 'paper';
                 $order->update_meta_data('_einvoice_carrier_type', $carrier_type);
                 $order->update_meta_data('載具類型', $carrier_type === 'mobile' ? '手機載具' : '紙本發票');
-                
+
                 if ($carrier_type === 'mobile' && !empty($_POST['einvoice_mobile_carrier'])) {
                     $carrier = sanitize_text_field($_POST['einvoice_mobile_carrier']);
                     $order->update_meta_data('_einvoice_mobile_carrier', $carrier);
@@ -548,18 +548,18 @@ class WU_WooCommerce_Optimizer {
             }
         }
     }
-    
+
     /**
      * 在後台訂單詳情顯示電子發票資訊
      */
     public function display_einvoice_in_admin($order) {
         $type = $order->get_meta('發票類型');
-        
+
         if ($type) {
             echo '<div style="margin-top:15px;padding:10px;background:#f8f8f8;border:1px solid #ddd;">';
             echo '<h4 style="margin-top:0;">電子發票資訊</h4>';
             echo '<p><strong>發票類型:</strong> ' . esc_html($type) . '</p>';
-            
+
             if ($type === '個人') {
                 $carrier_type = $order->get_meta('載具類型');
                 echo '<p><strong>載具類型:</strong> ' . esc_html($carrier_type) . '</p>';
@@ -584,43 +584,43 @@ class WU_WooCommerce_Optimizer {
                     echo '<p><strong>捐贈碼:</strong> ' . esc_html($donate_code) . '</p>';
                 }
             }
-            
+
             echo '</div>';
         }
     }
-    
+
     /**
      * AJAX 查詢公司名稱 (使用政府開放資料API)
      */
     public function ajax_get_company_name() {
         $tax_id = isset($_POST['tax_id']) ? sanitize_text_field($_POST['tax_id']) : '';
-        
+
         if (empty($tax_id) || !preg_match('/^[0-9]{8}$/', $tax_id)) {
             wp_send_json_error(array('message' => '統一編號格式不正確'));
         }
-        
+
         // 使用財政部開放資料API查詢公司名稱
         $api_url = 'https://data.gcis.nat.gov.tw/od/data/api/5F64D864-61CB-4D0D-8AD9-492047CC1EA6?$format=json&$filter=Business_Accounting_NO eq ' . $tax_id;
-        
+
         $response = wp_remote_get($api_url, array('timeout' => 10));
-        
+
         if (is_wp_error($response)) {
             wp_send_json_error(array('message' => '無法連接API'));
         }
-        
+
         $body = wp_remote_retrieve_body($response);
         $data = json_decode($body, true);
-        
+
         if (!empty($data) && is_array($data) && count($data) > 0) {
             $company_name = isset($data[0]['Company_Name']) ? $data[0]['Company_Name'] : '';
             if ($company_name) {
                 wp_send_json_success(array('company_name' => $company_name));
             }
         }
-        
+
         wp_send_json_error(array('message' => '查無此統一編號'));
     }
-    
+
     /**
      * 註冊 7-11 超商取貨運送方式
      */
@@ -635,7 +635,7 @@ class WU_WooCommerce_Optimizer {
         add_action('woocommerce_process_shop_order_meta', array($this, 'save_711_tracking_code'), 30, 2);
         add_action('woocommerce_order_details_after_order_table', array($this, 'display_711_tracking_for_customer'), 20);
         add_filter('woocommerce_order_get_formatted_shipping_address', array($this, 'format_711_shipping_address'), 10, 3);
-        add_filter('woocommerce_cart_shipping_method_full_label', array($this, 'add_711_free_shipping_notice'), 20, 2);
+        // Free-shipping labels are rendered once by the integrated notice module.
         add_filter('woocommerce_checkout_fields', array($this, 'modify_711_checkout_fields'), 1001);
         add_action('template_redirect', array($this, 'handle_711_map_return'));
         add_action('admin_footer', array($this, 'admin_711_settings_js'));
@@ -643,16 +643,16 @@ class WU_WooCommerce_Optimizer {
         add_action('woocommerce_shipping_zone_method_deleted', array($this, 'clear_shipping_cache'));
         add_action('woocommerce_shipping_zone_method_status_toggled', array($this, 'clear_shipping_cache'));
     }
-    
+
     public function clear_shipping_cache() {
         WC_Cache_Helper::get_transient_version('shipping', true);
     }
-    
+
     public function add_711_shipping_method($methods) {
         $methods['seven_eleven_pickup'] = 'WC_Seven_Eleven_Pickup';
         return $methods;
     }
-    
+
     public function init_711_shipping_method() {
         // 類別已在檔案末尾定義
     }
@@ -824,7 +824,7 @@ class WU_WooCommerce_Optimizer {
         </script>
         <?php
     }
-    
+
     public function validate_711_fields() {
         if (!$this->selected_711_rate()) return;
         $store_id = sanitize_text_field(wp_unslash($_POST['cvs_store_id'] ?? $_POST['seven_store_id'] ?? ''));
@@ -1004,10 +1004,10 @@ class WU_WooCommerce_Optimizer {
         }
         return $fields;
     }
-    
+
     public function enqueue_error_message_styles() {
         if (!is_checkout()) return;
-        
+
         wp_add_inline_style('woocommerce-general', "
 .woocommerce form .form-row .woocommerce-error,
 .woocommerce form .form-row .woocommerce-message,
@@ -1048,7 +1048,7 @@ class WU_WooCommerce_Optimizer {
 }
         ");
     }
-    
+
     public function register_taiwan_address() {
         if (self::$taiwan_address_registered) return;
         self::$taiwan_address_registered = true;
@@ -1058,7 +1058,7 @@ class WU_WooCommerce_Optimizer {
         add_action('wp_enqueue_scripts', array($this, 'enqueue_taiwan_address_assets'), 999);
         add_action('wp_footer', array($this, 'fix_ship_to_different_markup'), 999);
     }
-    
+
     public function change_ship_to_different_text($translated_text, $text, $domain) {
         if ($domain === 'woocommerce' && $text === 'Ship to a different address?') {
             return '需寄送到其他收件地址';
@@ -1078,10 +1078,10 @@ class WU_WooCommerce_Optimizer {
         </script>
         <?php
     }
-    
+
     public function customize_taiwan_address_fields($fields) {
         $enable_island = get_option('wu_woo_enable_island_shipping', false);
-        
+
         // === Billing 欄位 ===
         unset($fields['billing']['billing_last_name']);
         unset($fields['billing']['billing_address_2']);
@@ -1093,7 +1093,7 @@ class WU_WooCommerce_Optimizer {
             $fields['billing']['billing_country']['default'] = 'TW';
             $fields['billing']['billing_country']['required'] = true;
         }
-        
+
         if (isset($fields['billing']['billing_first_name'])) {
             $fields['billing']['billing_first_name']['label'] = '帳單姓名';
             $fields['billing']['billing_first_name']['class'] = array('form-row-wide');
@@ -1105,15 +1105,15 @@ class WU_WooCommerce_Optimizer {
         if (isset($fields['billing']['billing_company'])) {
             $fields['billing']['billing_company']['required'] = false;
         }
-        
+
         if (isset($fields['billing']['billing_email'])) {
             $fields['billing']['billing_email']['priority'] = 20;
         }
-        
+
         if (isset($fields['billing']['billing_phone'])) {
             $fields['billing']['billing_phone']['priority'] = 30;
         }
-        
+
         if ($enable_island) {
             $fields['billing']['billing_region_type'] = array(
                 'type' => 'select',
@@ -1128,7 +1128,7 @@ class WU_WooCommerce_Optimizer {
                 )
             );
         }
-        
+
         if (isset($fields['billing']['billing_state'])) {
             $fields['billing']['billing_state']['type'] = 'select';
             $fields['billing']['billing_state']['options'] = $this->get_taiwan_mainland_cities();
@@ -1136,7 +1136,7 @@ class WU_WooCommerce_Optimizer {
             $fields['billing']['billing_state']['priority'] = 40;
             $fields['billing']['billing_state']['label'] = '縣 / 市';
         }
-        
+
         if (isset($fields['billing']['billing_city'])) {
             $fields['billing']['billing_city']['type'] = 'select';
             $billing_state = $this->checkout_address_value('billing', 'state');
@@ -1146,20 +1146,20 @@ class WU_WooCommerce_Optimizer {
             $fields['billing']['billing_city']['priority'] = 50;
             $fields['billing']['billing_city']['label'] = '鄉鎮市區';
         }
-        
+
         if (isset($fields['billing']['billing_postcode'])) {
             $fields['billing']['billing_postcode']['type'] = 'text';
             $fields['billing']['billing_postcode']['class'] = array('form-row-wide', 'wu-tw-postcode');
             $fields['billing']['billing_postcode']['priority'] = 60;
             $fields['billing']['billing_postcode']['label'] = '郵遞區號';
         }
-        
+
         if (isset($fields['billing']['billing_address_1'])) {
             $fields['billing']['billing_address_1']['label'] = '詳細地址';
             $fields['billing']['billing_address_1']['placeholder'] = '';
             $fields['billing']['billing_address_1']['priority'] = 70;
         }
-        
+
         // === Shipping 欄位 ===
         unset($fields['shipping']['shipping_last_name']);
         unset($fields['shipping']['shipping_address_2']);
@@ -1169,13 +1169,13 @@ class WU_WooCommerce_Optimizer {
             $fields['shipping']['shipping_country']['required'] = true;
         }
         unset($fields['shipping']['shipping_company']);
-        
+
         if (isset($fields['shipping']['shipping_first_name'])) {
             $fields['shipping']['shipping_first_name']['label'] = '收件人姓名';
             $fields['shipping']['shipping_first_name']['class'] = array('form-row-wide');
             $fields['shipping']['shipping_first_name']['priority'] = 10;
         }
-        
+
         if ($enable_island) {
             $fields['shipping']['shipping_region_type'] = array(
                 'type' => 'select',
@@ -1190,7 +1190,7 @@ class WU_WooCommerce_Optimizer {
                 )
             );
         }
-        
+
         if (isset($fields['shipping']['shipping_state'])) {
             $fields['shipping']['shipping_state']['type'] = 'select';
             $fields['shipping']['shipping_state']['options'] = $this->get_taiwan_mainland_cities();
@@ -1198,7 +1198,7 @@ class WU_WooCommerce_Optimizer {
             $fields['shipping']['shipping_state']['priority'] = 20;
             $fields['shipping']['shipping_state']['label'] = '縣 / 市';
         }
-        
+
         if (isset($fields['shipping']['shipping_city'])) {
             $fields['shipping']['shipping_city']['type'] = 'select';
             $shipping_state = $this->checkout_address_value('shipping', 'state');
@@ -1208,20 +1208,20 @@ class WU_WooCommerce_Optimizer {
             $fields['shipping']['shipping_city']['priority'] = 30;
             $fields['shipping']['shipping_city']['label'] = '鄉鎮市區';
         }
-        
+
         if (isset($fields['shipping']['shipping_postcode'])) {
             $fields['shipping']['shipping_postcode']['type'] = 'text';
             $fields['shipping']['shipping_postcode']['class'] = array('form-row-wide', 'wu-tw-postcode');
             $fields['shipping']['shipping_postcode']['priority'] = 40;
             $fields['shipping']['shipping_postcode']['label'] = '郵遞區號';
         }
-        
+
         if (isset($fields['shipping']['shipping_address_1'])) {
             $fields['shipping']['shipping_address_1']['label'] = '詳細地址';
             $fields['shipping']['shipping_address_1']['placeholder'] = '';
             $fields['shipping']['shipping_address_1']['priority'] = 50;
         }
-        
+
         return $fields;
     }
 
@@ -1259,7 +1259,7 @@ class WU_WooCommerce_Optimizer {
         if ($selected !== '' && !isset($options[$selected])) $options[$selected] = $selected;
         return $options;
     }
-    
+
     private function get_taiwan_mainland_cities() {
         return array(
             '' => '請選擇縣市',
@@ -1284,7 +1284,7 @@ class WU_WooCommerce_Optimizer {
             '台東縣' => '台東縣'
         );
     }
-    
+
     private function get_taiwan_island_cities() {
         return array(
             '' => '請選擇縣市',
@@ -1293,7 +1293,7 @@ class WU_WooCommerce_Optimizer {
             '連江縣' => '連江縣'
         );
     }
-    
+
     private function get_taiwan_mainland_data() {
         return array(
             '台北市' => array('中正區' => '100','大同區' => '103','中山區' => '104','松山區' => '105','大安區' => '106','萬華區' => '108','信義區' => '110','士林區' => '111','北投區' => '112','內湖區' => '114','南港區' => '115','文山區' => '116'),
@@ -1317,7 +1317,7 @@ class WU_WooCommerce_Optimizer {
             '台東縣' => array('台東市' => '950','成功鎮' => '961','關山鎮' => '956','卑南鄉' => '954','鹿野鄉' => '955','池上鄉' => '958','東河鄉' => '959','長濱鄉' => '962','太麻里鄉' => '963','大武鄉' => '965','綠島鄉' => '951','海端鄉' => '957','延平鄉' => '953','金峰鄉' => '964','達仁鄉' => '966','蘭嶼鄉' => '952')
         );
     }
-    
+
     private function get_taiwan_island_data() {
         return array(
             '澎湖縣' => array('馬公市' => '880','湖西鄉' => '885','白沙鄉' => '884','西嶼鄉' => '881','望安鄉' => '882','七美鄉' => '883'),
@@ -1325,14 +1325,14 @@ class WU_WooCommerce_Optimizer {
             '連江縣' => array('南竿鄉' => '209','北竿鄉' => '210','莒光鄉' => '211','東引鄉' => '212')
         );
     }
-    
+
     public function enqueue_taiwan_address_assets() {
         if (!is_checkout() || is_order_received_page()) {
             return;
         }
-        
+
         $enable_island = get_option('wu_woo_enable_island_shipping', false);
-        
+
         wp_localize_script('jquery', 'wuTaiwanAddress', array(
             'enableIsland' => $enable_island,
             'mainland' => array(
@@ -1344,10 +1344,10 @@ class WU_WooCommerce_Optimizer {
                 'data' => $this->get_taiwan_island_data()
             )
         ));
-        
+
         wp_add_inline_script('jquery', $this->get_taiwan_address_js());
     }
-    
+
     private function get_taiwan_address_js() {
         return "
 jQuery(document).ready(function($) {
@@ -1356,12 +1356,12 @@ jQuery(document).ready(function($) {
     var currentRegion = 'mainland';
     var enableIsland = addressData.enableIsland;
     var updateTimer = null;
-    
+
     var postcodeIndex = {
         mainland: {},
         island: {}
     };
-    
+
     $.each(['mainland', 'island'], function(idx, region) {
         $.each(addressData[region].data, function(city, districts) {
             $.each(districts, function(district, postcode) {
@@ -1372,17 +1372,17 @@ jQuery(document).ready(function($) {
             });
         });
     });
-    
+
     function updateCitiesByRegion(prefix, selectedCity, selectedDistrict) {
         var regionType = enableIsland ? $('#' + prefix + '_region_type').val() || 'mainland' : 'mainland';
         var \$city = $('#' + prefix + '_state');
 
         selectedCity = selectedCity || \$city.val();
         selectedDistrict = selectedDistrict || $('#' + prefix + '_city').val();
-        
+
         \$city.empty();
         $('#' + prefix + '_city').empty().append('<option value=\"\">請先選擇縣市</option>');
-        
+
         if (regionType && addressData[regionType]) {
             currentRegion = regionType;
             $.each(addressData[regionType].cities, function(key, city) {
@@ -1394,17 +1394,17 @@ jQuery(document).ready(function($) {
             \$city.val(selectedCity);
             updateDistricts(prefix, selectedDistrict);
         }
-        
+
         triggerShippingUpdate(prefix);
     }
-    
+
     function updateDistricts(prefix, selectedDistrict) {
         var regionType = enableIsland ? $('#' + prefix + '_region_type').val() || 'mainland' : 'mainland';
         var city = $('#' + prefix + '_state').val();
         var \$district = $('#' + prefix + '_city');
-        
+
         \$district.empty().append('<option value=\"\">請選擇鄉鎮市區</option>');
-        
+
         if (city && addressData[regionType] && addressData[regionType].data[city]) {
             $.each(addressData[regionType].data[city], function(district, postcode) {
                 var selected = (district === selectedDistrict) ? ' selected' : '';
@@ -1412,12 +1412,12 @@ jQuery(document).ready(function($) {
             });
         }
     }
-    
+
     function updatePostcode(prefix) {
         var regionType = enableIsland ? $('#' + prefix + '_region_type').val() || 'mainland' : 'mainland';
         var city = $('#' + prefix + '_state').val();
         var district = $('#' + prefix + '_city').val();
-        
+
         if (city && district && addressData[regionType] && addressData[regionType].data[city] && addressData[regionType].data[city][district]) {
             var postcode = addressData[regionType].data[city][district];
             var \$postcodeField = $('#' + prefix + '_postcode');
@@ -1425,20 +1425,20 @@ jQuery(document).ready(function($) {
             triggerShippingUpdate(prefix);
         }
     }
-    
+
     function triggerShippingUpdate(prefix) {
         clearTimeout(updateTimer);
         updateTimer = setTimeout(function() {
             $(document.body).trigger('update_checkout');
         }, 300);
     }
-    
+
     function updateAddressByPostcode(prefix, postcode) {
         if (!postcode || postcode.length < 3) return;
-        
+
         var found = null;
         var foundRegion = null;
-        
+
         $.each(['mainland', 'island'], function(idx, region) {
             if (postcodeIndex[region][postcode] && postcodeIndex[region][postcode].length > 0) {
                 found = postcodeIndex[region][postcode][0];
@@ -1446,25 +1446,25 @@ jQuery(document).ready(function($) {
                 return false;
             }
         });
-        
+
         if (found) {
             isUpdating = true;
-            
+
             if (enableIsland && foundRegion) {
                 $('#' + prefix + '_region_type').val(foundRegion);
                 updateCitiesByRegion(prefix);
             }
-            
+
             $('#' + prefix + '_state').val(found.city);
             updateDistricts(prefix, found.district);
             $('#' + prefix + '_city').val(found.district);
-            
+
             triggerShippingUpdate(prefix);
-            
+
             isUpdating = false;
         }
     }
-    
+
     if (enableIsland) {
         $(document.body).on('change', '#billing_region_type, #shipping_region_type', function() {
             if (isUpdating) return;
@@ -1474,7 +1474,7 @@ jQuery(document).ready(function($) {
             isUpdating = false;
         });
     }
-    
+
     $(document.body).on('change', '#billing_state, #shipping_state', function() {
         if (isUpdating) return;
         isUpdating = true;
@@ -1482,7 +1482,7 @@ jQuery(document).ready(function($) {
         updateDistricts(prefix, '');
         isUpdating = false;
     });
-    
+
     $(document.body).on('change', '#billing_city, #shipping_city', function() {
         if (isUpdating) return;
         isUpdating = true;
@@ -1490,7 +1490,7 @@ jQuery(document).ready(function($) {
         updatePostcode(prefix);
         isUpdating = false;
     });
-    
+
     $(document.body).on('blur', '#billing_postcode, #shipping_postcode', function() {
         if (isUpdating) return;
         var prefix = $(this).attr('id').replace('_postcode', '');
@@ -1501,14 +1501,14 @@ jQuery(document).ready(function($) {
             isUpdating = false;
         }
     });
-    
+
     $(document.body).on('updated_checkout', function() {
         var billingCity = $('#billing_state').val();
         var billingDistrict = $('#billing_city').val();
         if (billingCity && billingDistrict) {
             updateDistricts('billing', billingDistrict);
         }
-        
+
         if ($('#ship-to-different-address-checkbox').is(':checked')) {
             var shippingCity = $('#shipping_state').val();
             var shippingDistrict = $('#shipping_city').val();
@@ -1517,11 +1517,11 @@ jQuery(document).ready(function($) {
             }
         }
     });
-    
+
     var initialBillingState = $('#billing_state').val();
     var initialBillingDistrict = $('#billing_city').val();
     updateCitiesByRegion('billing', initialBillingState, initialBillingDistrict);
-    
+
     if ($('#ship-to-different-address-checkbox').is(':checked')) {
         var initialShippingState = $('#shipping_state').val();
         var initialShippingDistrict = $('#shipping_city').val();
@@ -1556,10 +1556,19 @@ jQuery(document).ready(function($) {
 
         return $data;
     }
-    
+
 
     public function admin_page() {
         if (!current_user_can('manage_options')) wp_die('您沒有管理此設定的權限。');
+        if ($this->mode === 'shipping') {
+            $tab = sanitize_key(wp_unslash($_GET['tab'] ?? 'shipping'));
+            echo '<nav class="nav-tab-wrapper">';
+            foreach (array('shipping'=>'配送與門市設定','free-shipping'=>'免運門檻與提示') as $key=>$label) {
+                echo '<a class="nav-tab ' . ($tab === $key ? 'nav-tab-active' : '') . '" href="' . esc_url(admin_url('admin.php?page=wu-shipping-optimization-tools&tab=' . $key)) . '">' . esc_html($label) . '</a>';
+            }
+            echo '</nav>';
+            if ($tab === 'free-shipping') { wutm_fs_admin_page(); return; }
+        }
         $group = $this->settings_group();
         $bulk_action = isset($_POST['wutm_visibility_bulk']) ? sanitize_key(wp_unslash($_POST['wutm_visibility_bulk'])) : '';
         if (isset($_POST['submit']) || in_array($bulk_action, array('enable', 'disable'), true)) {
@@ -1599,7 +1608,7 @@ jQuery(document).ready(function($) {
         echo '<tr><th>WooCommerce 版本</th><td>' . esc_html(WC()->version) . '</td></tr>';
         echo '<tr><th>WordPress 版本</th><td>' . esc_html(get_bloginfo('version')) . '</td></tr>';
         echo '<tr><th>PHP 版本</th><td>' . esc_html(phpversion()) . '</td></tr>';
-        
+
         $theme = wp_get_theme();
         echo '<tr><th>主題</th><td>' . esc_html($theme->get('Name')) . '</td></tr>';
         echo '</table>';
@@ -1661,7 +1670,7 @@ if (!class_exists('WC_Seven_Eleven_Pickup')) {
                     'title' => '免運門檻',
                     'type' => 'price',
                     'default' => (string) get_option('wu_woo_711_free_shipping_threshold', 0),
-                    'description' => '商品小計達此金額時免運；填 0 表示不啟用。',
+                    'description' => '折扣後商品金額（不含運費及稅）達此金額時免運；填 0 表示不啟用。',
                 ),
                 'select_mode' => array(
                     'title' => '門市選擇方式',
@@ -1690,14 +1699,9 @@ if (!class_exists('WC_Seven_Eleven_Pickup')) {
 
             $cost = $this->cost;
             $free_threshold = $this->free_shipping_threshold;
-            
-            $cart_total = 0;
-            if (isset($package['contents'])) {
-                foreach ($package['contents'] as $item) {
-                    $cart_total += floatval($item['line_total']);
-                }
-            }
-            
+
+            $cart_total = function_exists('wutm_fs_cart_subtotal') ? wutm_fs_cart_subtotal() : (WC()->cart ? (float) WC()->cart->get_cart_contents_total() : 0);
+
             if ($free_threshold > 0 && $cart_total >= $free_threshold) {
                 $cost = 0;
             }
