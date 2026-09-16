@@ -137,24 +137,34 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'update_post', 'group' => '文章與 FAQ', 'method' => 'POST', 'path' => '/posts/{post_id}',
-            'summary' => '修改文章標題／正文／狀態', 'description' => '修改指定文章 ID 的標題、正文或狀態（需讀寫金鑰）。',
+            'summary' => '修改文章與 SEO', 'description' => '修改文章標題、正文、摘要或 SEO 欄位。生成內容須符合搜尋意圖、以自然語句呈現主要關鍵字、使用清楚的小標題及原創資訊；勿堆砌關鍵字或編造事實。既有欄位只更新有帶入的項目（需讀寫金鑰）。',
             'scenario' => '確認現況後要更新內容或發佈草稿', 'prompt' => '把文章 123 的標題改成「中秋送禮推薦」，內文先不要動',
             'need_write' => true, 'available' => true,
             'params' => [
                 'post_id' => [ 'type' => 'integer', 'in' => 'path', 'required' => true ],
                 'title'   => [ 'type' => 'string', 'in' => 'body' ],
                 'content' => [ 'type' => 'string', 'in' => 'body' ],
+                'excerpt' => [ 'type' => 'string', 'in' => 'body', 'description' => '供列表與無 SEO 外掛時使用的自然摘要' ],
+                'slug' => [ 'type' => 'string', 'in' => 'body', 'description' => '簡短、可讀且與主題相關的網址代稱' ],
+                'seo_title' => [ 'type' => 'string', 'in' => 'body', 'description' => '獨特且自然的搜尋標題，避免關鍵字堆砌' ],
+                'seo_description' => [ 'type' => 'string', 'in' => 'body', 'description' => '簡明描述讀者可獲得的資訊，不要保證排名' ],
+                'focus_keyword' => [ 'type' => 'string', 'in' => 'body', 'description' => '符合讀者搜尋意圖的主要關鍵字' ],
                 'status'  => [ 'type' => 'string', 'in' => 'body', 'description' => 'publish 或 draft，不填則維持原狀態' ],
             ],
         ],
         [
             'name' => 'create_post', 'group' => '文章與 FAQ', 'method' => 'POST', 'path' => '/posts',
-            'summary' => '新增文章草稿', 'description' => '建立一篇新文章，預設狀態為草稿（需讀寫金鑰）。',
-            'scenario' => '想請 AI 先擬一篇新文章草稿，之後自己審核發佈', 'prompt' => '幫我寫一篇「中秋節送禮推薦」部落格文章，約 800 字，語氣自然、使用繁體中文；先建立草稿，不要直接發佈',
+            'summary' => '新增 SEO 友善文章草稿', 'description' => '建立文章時先確認搜尋意圖與目標讀者；撰寫原創、準確且有用的內容，以自然方式使用主要關鍵字、清楚的小標題與具體資訊，同時提供摘要與獨特 SEO 標題／描述。勿堆砌關鍵字、編造資訊或保證排名；預設草稿（需讀寫金鑰）。',
+            'scenario' => '想請 AI 先擬一篇兼顧讀者與 SEO 的文章草稿，之後自己審核發佈', 'prompt' => '先確認「中秋節送禮推薦」的搜尋意圖，再寫原創繁體中文文章，包含清楚小標題、自然摘要與獨特 SEO 標題／描述；不要堆砌關鍵字，先存草稿讓我審核',
             'need_write' => true, 'available' => true,
             'params' => [
                 'title'   => [ 'type' => 'string', 'in' => 'body', 'required' => true ],
                 'content' => [ 'type' => 'string', 'in' => 'body' ],
+                'excerpt' => [ 'type' => 'string', 'in' => 'body', 'description' => '摘要；未提供時由正文擷取，供列表及無 SEO 外掛時使用' ],
+                'slug' => [ 'type' => 'string', 'in' => 'body', 'description' => '簡短、可讀且與主題相關的網址代稱' ],
+                'seo_title' => [ 'type' => 'string', 'in' => 'body', 'description' => '獨特且自然的搜尋標題；未提供時使用文章標題' ],
+                'seo_description' => [ 'type' => 'string', 'in' => 'body', 'description' => '搜尋摘要；未提供時使用文章摘要' ],
+                'focus_keyword' => [ 'type' => 'string', 'in' => 'body', 'description' => '符合讀者搜尋意圖的主要關鍵字' ],
                 'status'  => [ 'type' => 'string', 'in' => 'body', 'description' => '預設 draft，可填 publish' ],
             ],
         ],
@@ -277,13 +287,18 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'create_product', 'group' => 'WooCommerce 商品', 'method' => 'POST', 'path' => '/wc/products',
-            'summary' => '新增商品', 'description' => '建立新的 WooCommerce 商品，可指定名稱、說明、價格、庫存、狀態、分類（需讀寫金鑰）。預設 draft，可指定 publish 直接上架。',
+            'summary' => '新增 SEO 友善商品', 'description' => '建立 WooCommerce 商品時先確認真實規格與適用情境，撰寫獨特、清楚且可掃讀的商品說明與簡短說明，自然使用主要關鍵字，提供 SEO 標題、描述及圖片替代文字；勿捏造功效或堆砌關鍵字。預設草稿（需讀寫金鑰）。',
             'scenario' => '想請 AI 幫忙快速建立一筆新商品，之後自己審核上架', 'prompt' => '幫我新增「中秋綜合禮盒」，售價 880 元、庫存 20 盒，先存成草稿',
             'need_write' => true, 'available' => $has_wc,
             'params' => [
                 'name'              => [ 'type' => 'string', 'in' => 'body', 'required' => true, 'description' => '商品名稱' ],
                 'description'       => [ 'type' => 'string', 'in' => 'body', 'description' => '完整說明（支援 HTML）' ],
                 'short_description' => [ 'type' => 'string', 'in' => 'body', 'description' => '簡短說明' ],
+                'slug'              => [ 'type' => 'string', 'in' => 'body', 'description' => '簡短、與商品相關的網址代稱' ],
+                'seo_title'         => [ 'type' => 'string', 'in' => 'body', 'description' => '獨特且自然的商品搜尋標題' ],
+                'seo_description'   => [ 'type' => 'string', 'in' => 'body', 'description' => '準確描述商品特點與適用情境的搜尋摘要' ],
+                'focus_keyword'     => [ 'type' => 'string', 'in' => 'body', 'description' => '主要商品搜尋關鍵字' ],
+                'image_alt'         => [ 'type' => 'string', 'in' => 'body', 'description' => '主圖的真實、具體替代文字；僅當同時提供 image_id 時使用' ],
                 'regular_price'     => [ 'type' => 'string', 'in' => 'body', 'description' => '原價，例如 1000' ],
                 'sale_price'        => [ 'type' => 'string', 'in' => 'body', 'description' => '特價（選填）' ],
                 'stock_quantity'    => [ 'type' => 'integer', 'in' => 'body', 'description' => '庫存數量' ],
@@ -295,7 +310,7 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'update_product', 'group' => 'WooCommerce 商品', 'method' => 'POST', 'path' => '/wc/products/{product_id}',
-            'summary' => '修改商品', 'description' => '修改指定商品的名稱、說明、價格、庫存、狀態、分類、主圖，只更新有帶入的欄位（需讀寫金鑰）。',
+            'summary' => '修改商品與 SEO', 'description' => '修改商品資料與 SEO 欄位；若重寫商品內容，須以真實規格、買家疑問與自然語言為核心，避免重複或誇大。只更新有帶入的欄位（需讀寫金鑰）。',
             'scenario' => '確認現況後要調整價格、補貨或上下架', 'prompt' => '商品 88 補貨 20 件了，請先確認現有資料，再把庫存設為 20',
             'need_write' => true, 'available' => $has_wc,
             'params' => [
@@ -303,6 +318,11 @@ function sac_get_tool_definitions() {
                 'name'              => [ 'type' => 'string', 'in' => 'body' ],
                 'description'       => [ 'type' => 'string', 'in' => 'body' ],
                 'short_description' => [ 'type' => 'string', 'in' => 'body' ],
+                'slug'              => [ 'type' => 'string', 'in' => 'body' ],
+                'seo_title'         => [ 'type' => 'string', 'in' => 'body' ],
+                'seo_description'   => [ 'type' => 'string', 'in' => 'body' ],
+                'focus_keyword'     => [ 'type' => 'string', 'in' => 'body' ],
+                'image_alt'         => [ 'type' => 'string', 'in' => 'body', 'description' => '主圖替代文字；須同時提供 image_id' ],
                 'regular_price'     => [ 'type' => 'string', 'in' => 'body' ],
                 'sale_price'        => [ 'type' => 'string', 'in' => 'body' ],
                 'stock_quantity'    => [ 'type' => 'integer', 'in' => 'body' ],
@@ -465,7 +485,7 @@ function sac_build_openapi_schema() {
         $body_props = []; $body_required = [];
         foreach ( $d['params'] as $key => $p ) {
             if ( $p['in'] === 'body' ) {
-                $body_props[ $key ] = [ 'type' => $p['type'] ];
+                $body_props[ $key ] = [ 'type' => $p['type'], 'description' => $p['description'] ?? $d['summary'] ];
                 if ( ! empty( $p['required'] ) ) $body_required[] = $key;
             } else {
                 $op['parameters'][] = [ 'name' => $key, 'in' => $p['in'], 'required' => ! empty( $p['required'] ), 'schema' => [ 'type' => $p['type'] ], 'description' => $p['description'] ?? '' ];
@@ -870,9 +890,11 @@ function sac_render_admin_page() {
 
         <h2>常用指令：直接複製貼給 AI</h2>
         <p>先用生活化的說法交辦即可。涉及文章、商品或優惠券時，先請 AI 查出正確編號；發佈或停用前再確認內容。</p>
+        <p><strong>SEO 寫作原則：</strong>先確認讀者需求與實際資料，再產出獨特標題、可讀的段落與小標題、自然摘要、SEO 標題與描述；避免關鍵字堆砌、重複內容、無依據的功效或排名保證。新內容預設先存草稿，由管理員審核。</p>
         <?php
         $sac_common_prompts = [
-            [ 'title' => '寫部落格文章', 'text' => '幫我寫一篇「中秋節送禮推薦」部落格文章，約 800 字，用台灣常用的繁體中文，語氣自然，先建立草稿，不要直接發佈。' ],
+            [ 'title' => '寫部落格文章', 'text' => '先確認「中秋節送禮推薦」的搜尋意圖與目標讀者，再用繁體中文撰寫原創文章，附清楚小標題、摘要、SEO 標題、SEO 描述與主要關鍵字。不要堆砌關鍵字或編造資料；先建立草稿讓我審核。' ],
+            [ 'title' => '建立 SEO 友善商品', 'text' => '先根據我提供的真實規格與照片，撰寫獨特商品名稱、完整說明、簡短說明、SEO 標題與描述及主圖替代文字，說明適用情境；不要捏造功效或規格，先存草稿。' ],
             [ 'title' => '更新舊文章', 'text' => '搜尋網站裡關於「送禮」的文章，列出標題和編號；我選好後，幫我補充最新內容，原有重點要保留。' ],
             [ 'title' => '補 SEO 描述', 'text' => '找出已發佈但還沒填 SEO 描述的文章，先列出前 10 篇；我指定文章後，幫我擬適合台灣讀者的描述。' ],
             [ 'title' => '補文章常見問題', 'text' => '先讀文章 123 和原有 FAQ，再幫我新增 3 題讀者常問的問題；保留原有題目。' ],
@@ -1073,15 +1095,22 @@ add_action( 'rest_api_init', function () {
     register_rest_route( SAC_NAMESPACE, '/posts', [
         'methods' => 'POST', 'permission_callback' => 'sac_permission_write', 'args' => [ 'title' => [ 'required' => true ] ],
         'callback' => function ( WP_REST_Request $req ) {
+            $content = wp_kses_post( $req->get_param( 'content' ) ?: '' );
+            $excerpt = $req->get_param( 'excerpt' ) !== null
+                ? sanitize_textarea_field( $req->get_param( 'excerpt' ) )
+                : sac_seo_summary( $content );
             $post_id = wp_insert_post( [
                 'post_title'   => sanitize_text_field( $req->get_param( 'title' ) ),
-                'post_content' => wp_kses_post( $req->get_param( 'content' ) ?: '' ),
+                'post_content' => $content,
+                'post_excerpt' => $excerpt,
+                'post_name'    => $req->get_param( 'slug' ) !== null ? sanitize_title( $req->get_param( 'slug' ) ) : '',
                 'post_status'  => sanitize_text_field( $req->get_param( 'status' ) ?: 'draft' ),
                 'post_type'    => 'post',
             ], true );
             if ( is_wp_error( $post_id ) ) return $post_id;
+            sac_apply_seo_request( $post_id, $req, true, $req->get_param( 'title' ), $excerpt );
             sac_write_log( 'create_post', '新增文章草稿', "文章#{$post_id}：" . sanitize_text_field( $req->get_param( 'title' ) ), $req->get_header( 'x-sac-key' ) );
-            return rest_ensure_response( [ 'success' => true, 'post_id' => $post_id ] );
+            return rest_ensure_response( [ 'success' => true, 'post_id' => $post_id, 'seo' => sac_get_seo_fields( $post_id ) ] );
         },
     ] );
 
@@ -1103,11 +1132,14 @@ add_action( 'rest_api_init', function () {
             $changed_fields = [];
             if ( $req->get_param( 'title' ) !== null ) { $update['post_title'] = sanitize_text_field( $req->get_param( 'title' ) ); $changed_fields[] = '標題'; }
             if ( $req->get_param( 'content' ) !== null ) { $update['post_content'] = wp_kses_post( $req->get_param( 'content' ) ); $changed_fields[] = '內容'; }
+            if ( $req->get_param( 'excerpt' ) !== null ) { $update['post_excerpt'] = sanitize_textarea_field( $req->get_param( 'excerpt' ) ); $changed_fields[] = '摘要'; }
+            if ( $req->get_param( 'slug' ) !== null ) { $update['post_name'] = sanitize_title( $req->get_param( 'slug' ) ); $changed_fields[] = '網址代稱'; }
             if ( $req->get_param( 'status' ) !== null ) { $update['post_status'] = sanitize_text_field( $req->get_param( 'status' ) ); $changed_fields[] = '狀態'; }
             $result = wp_update_post( $update, true );
             if ( is_wp_error( $result ) ) return $result;
+            if ( sac_apply_seo_request( $post_id, $req ) ) $changed_fields[] = 'SEO';
             sac_write_log( 'update_post', '修改文章', "文章#{$post_id}，更新：" . implode( '、', $changed_fields ), $req->get_header( 'x-sac-key' ) );
-            return rest_ensure_response( [ 'success' => true, 'post_id' => $post_id ] );
+            return rest_ensure_response( [ 'success' => true, 'post_id' => $post_id, 'seo' => sac_get_seo_fields( $post_id ) ] );
         },
     ] );
 
@@ -1276,6 +1308,7 @@ add_action( 'rest_api_init', function () {
             if ( ! class_exists( 'WooCommerce' ) ) return new WP_Error( 'sac_no_wc', 'WooCommerce 未啟用', [ 'status' => 400 ] );
             $product = new WC_Product_Simple();
             $product->set_name( sanitize_text_field( $req->get_param( 'name' ) ) );
+            if ( $req->get_param( 'slug' ) !== null ) $product->set_slug( sanitize_title( $req->get_param( 'slug' ) ) );
             if ( $req->get_param( 'description' ) !== null ) $product->set_description( wp_kses_post( $req->get_param( 'description' ) ) );
             if ( $req->get_param( 'short_description' ) !== null ) $product->set_short_description( wp_kses_post( $req->get_param( 'short_description' ) ) );
             if ( $req->get_param( 'regular_price' ) !== null ) $product->set_regular_price( sanitize_text_field( $req->get_param( 'regular_price' ) ) );
@@ -1295,8 +1328,11 @@ add_action( 'rest_api_init', function () {
             if ( ! $product_id ) return new WP_Error( 'sac_create_failed', '商品建立失敗', [ 'status' => 500 ] );
             $categories = $req->get_param( 'categories' );
             if ( ! empty( $categories ) && is_array( $categories ) ) sac_set_product_categories( $product_id, $categories );
+            $summary = $req->get_param( 'short_description' ) ?: sac_seo_summary( $req->get_param( 'description' ) ?: '' );
+            sac_apply_seo_request( $product_id, $req, true, $req->get_param( 'name' ), $summary );
+            sac_apply_image_alt( $req );
             sac_write_log( 'create_product', '新增商品', "商品#{$product_id}：" . sanitize_text_field( $req->get_param( 'name' ) ), $req->get_header( 'x-sac-key' ) );
-            return rest_ensure_response( [ 'success' => true, 'product_id' => $product_id ] );
+            return rest_ensure_response( [ 'success' => true, 'product_id' => $product_id, 'seo' => sac_get_seo_fields( $product_id ) ] );
         },
     ] );
 
@@ -1318,6 +1354,7 @@ add_action( 'rest_api_init', function () {
             if ( ! $product ) return new WP_Error( 'sac_not_found', '商品不存在', [ 'status' => 404 ] );
             $changed_fields = [];
             if ( $req->get_param( 'name' ) !== null ) { $product->set_name( sanitize_text_field( $req->get_param( 'name' ) ) ); $changed_fields[] = '名稱'; }
+            if ( $req->get_param( 'slug' ) !== null ) { $product->set_slug( sanitize_title( $req->get_param( 'slug' ) ) ); $changed_fields[] = '網址代稱'; }
             if ( $req->get_param( 'description' ) !== null ) $product->set_description( wp_kses_post( $req->get_param( 'description' ) ) );
             if ( $req->get_param( 'short_description' ) !== null ) $product->set_short_description( wp_kses_post( $req->get_param( 'short_description' ) ) );
             if ( $req->get_param( 'regular_price' ) !== null ) { $product->set_regular_price( sanitize_text_field( $req->get_param( 'regular_price' ) ) ); $changed_fields[] = '價格'; }
@@ -1334,8 +1371,10 @@ add_action( 'rest_api_init', function () {
             $product->save();
             $categories = $req->get_param( 'categories' );
             if ( ! empty( $categories ) && is_array( $categories ) ) sac_set_product_categories( $product->get_id(), $categories );
+            if ( sac_apply_seo_request( $product->get_id(), $req ) ) $changed_fields[] = 'SEO';
+            if ( sac_apply_image_alt( $req ) ) $changed_fields[] = '圖片替代文字';
             sac_write_log( 'update_product', '修改商品', "商品#{$product->get_id()}，更新：" . implode( '、', $changed_fields ), $req->get_header( 'x-sac-key' ) );
-            return rest_ensure_response( [ 'success' => true, 'product' => sac_format_product( wc_get_product( $product->get_id() ) ) ] );
+            return rest_ensure_response( [ 'success' => true, 'product' => sac_format_product( wc_get_product( $product->get_id() ) ), 'seo' => sac_get_seo_fields( $product->get_id() ) ] );
         },
     ] );
 
@@ -1513,6 +1552,35 @@ function sac_mask_contact( $value ) {
     return $len <= 4 ? str_repeat( '*', $len ) : substr( $value, 0, 3 ) . str_repeat( '*', $len - 5 ) . substr( $value, -2 );
 }
 
+/** Build a concise, plain-language fallback; this is not a ranking guarantee. */
+function sac_seo_summary( $content ) {
+    $plain = trim( preg_replace( '/\s+/u', ' ', wp_strip_all_tags( (string) $content ) ) );
+    return mb_substr( $plain, 0, 155 );
+}
+
+/** Apply only explicitly provided SEO fields on updates; add safe defaults on creation. */
+function sac_apply_seo_request( $post_id, WP_REST_Request $request, $creating = false, $title = '', $summary = '' ) {
+    $params = [];
+    foreach ( [ 'seo_title' => 'title', 'seo_description' => 'description', 'focus_keyword' => 'focus_keyword' ] as $input => $field ) {
+        if ( $request->get_param( $input ) !== null ) $params[ $field ] = $request->get_param( $input );
+    }
+    if ( $creating ) {
+        if ( ! isset( $params['title'] ) && $title !== '' ) $params['title'] = $title;
+        if ( ! isset( $params['description'] ) && $summary !== '' ) $params['description'] = sac_seo_summary( $summary );
+    }
+    if ( ! $params ) return false;
+    sac_update_seo_fields( $post_id, $params );
+    return true;
+}
+
+function sac_apply_image_alt( WP_REST_Request $request ) {
+    if ( $request->get_param( 'image_alt' ) === null || ! $request->get_param( 'image_id' ) ) return false;
+    $image_id = (int) $request->get_param( 'image_id' );
+    if ( ! wp_attachment_is_image( $image_id ) ) return false;
+    update_post_meta( $image_id, '_wp_attachment_image_alt', sanitize_text_field( $request->get_param( 'image_alt' ) ) );
+    return true;
+}
+
 function sac_get_seo_fields( $post_id ) {
     $has_seo_plugin = defined( 'WPSEO_VERSION' ) || class_exists( 'RankMath' );
     $description = get_post_meta( $post_id, '_yoast_wpseo_metadesc', true ) ?: get_post_meta( $post_id, 'rank_math_description', true );
@@ -1540,7 +1608,7 @@ function sac_update_seo_fields( $post_id, $params ) {
         $desc = sanitize_text_field( $params['description'] );
         update_post_meta( $post_id, '_yoast_wpseo_metadesc', $desc );
         update_post_meta( $post_id, 'rank_math_description', $desc );
-        if ( ! $has_seo_plugin ) {
+        if ( ! $has_seo_plugin && get_post_type( $post_id ) === 'post' && ! get_post_field( 'post_excerpt', $post_id ) ) {
             wp_update_post( [ 'ID' => $post_id, 'post_excerpt' => $desc ] );
         }
     }
