@@ -815,7 +815,15 @@ class WU_WooCommerce_Optimizer {
         jQuery(function($){
             const data=window.wutm711Checkout||{rates:{}};
             const $box=$('#wutm_711_store_field'),$id=$('#cvs_store_id'),$name=$('#cvs_store_name'),$address=$('#cvs_store_address');
-            function selectedRate(){return String($('input[name^="shipping_method"]:checked').val()||'')}
+            function selectedRate(){
+                const $methods=$('input[name^="shipping_method"],select[name^="shipping_method"]');
+                const $checked=$methods.filter(':checked').first();
+                if($checked.length)return String($checked.val()||'');
+                const $single=$methods.filter('input[type="hidden"]').first();
+                if($single.length)return String($single.val()||'');
+                const $select=$methods.filter('select').first();
+                return String($select.length?$select.val()||'':'');
+            }
             function selectedConfig(){const rate=selectedRate();return data.rates[rate]||{mode:'manual',merchantId:'2000132',mapUrl:'https://logistics-stage.ecpay.com.tw/Express/map'}}
             function refreshStoreInfo(){const complete=$id.val()&&$name.val()&&$address.val();$('#wutm_711_store_info').toggleClass('is-selected',!!complete).html(complete?'<strong>已選擇門市</strong><br>'+ $('<div>').text($name.val()+'（店號 '+$id.val()+'）').html()+'<br>'+ $('<div>').text($address.val()).html():'目前尚未選擇門市')}
             function toggle711(){
@@ -841,7 +849,7 @@ class WU_WooCommerce_Optimizer {
                     $('#shipping_phone').removeAttr('required');
                 }
             }
-            $(document).on('change','input[name^="shipping_method"]',toggle711);
+            $(document).on('change','input[name^="shipping_method"],select[name^="shipping_method"]',toggle711);
             $(document.body).on('updated_checkout', toggle711);
             $id.add($name).add($address).on('input change',refreshStoreInfo);
             $(document).on('click','#wutm_open_711_map',function(e){e.preventDefault();const cfg=selectedConfig(),form=document.createElement('form');form.method='post';form.action=cfg.mapUrl;form.target='wutm_711_map_window';const params={MerchantID:cfg.merchantId,LogisticsType:'CVS',LogisticsSubType:'UNIMART',IsCollection:'N',ServerReplyURL:data.returnUrl,ExtraData:data.token,Device:/Mobi|Android/i.test(navigator.userAgent)?1:0};Object.keys(params).forEach(function(key){const input=document.createElement('input');input.type='hidden';input.name=key;input.value=params[key];form.appendChild(input)});document.body.appendChild(form);window.open('','wutm_711_map_window','width=1024,height=768,status=no,resizable=yes,scrollbars=yes');form.submit();form.remove()});
