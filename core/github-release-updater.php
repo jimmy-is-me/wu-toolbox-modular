@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>2.5.6</h4><ul><li>新增「AI 連接器」內容管理模組，整合 MCP、OpenAPI、Gemini 工具規格與網站內容／WooCommerce 管理端點。</li><li>提供唯讀及讀寫金鑰、IP 白名單、一次性圖片上傳、寫入操作紀錄，並調整模組啟用流程及上傳安全檢查。</li></ul>
             <h4>2.5.5</h4><ul><li>新增「知識庫」內容管理模組，支援文件、自訂分類、短代碼首頁與最新文件列表。</li><li>提供 AJAX 關鍵字／分類搜尋、單一文件側邊目錄、麵包屑、主題色及文件頁尾設定。</li></ul>
             <h4>2.5.4</h4><ul><li>修正結帳只有一個 7-11 超商物流選項時，WooCommerce 使用隱藏欄位而未顯示超商門市結帳欄位的問題。</li><li>配送方式偵測同時支援單選、隱藏欄位及下拉選單，並在結帳 AJAX 更新後維持正確顯示。</li></ul>
             <h4>2.5.3</h4><ul><li>WC優化工具新增一頁式結帳，可從購物車導向結帳並在結帳頁調整商品數量。</li><li>新增商品屬性 Enter 快速輸入、前台按鈕標籤規格，以及純虛擬商品付款後自動完成訂單。</li></ul>
