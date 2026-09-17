@@ -48,21 +48,25 @@ function wutm_pcm_admin_page(): void {
 
 function wutm_pcm_tree(array $terms, array $children_by_parent, int $current, array $ancestors, string $mode, bool $show_count): string {
     if (!$terms) return '';
-    $html = '<ul class="wutm-pcm-list">';
+    // Use neutral containers: many themes target menu ul/li:first-child and
+    // hide the first nested item (or the only item) unintentionally.
+    $html = '<div class="wutm-pcm-list" role="list">';
     foreach ($terms as $term) {
         $children = $children_by_parent[(int) $term->term_id] ?? [];
         $active = $current === (int) $term->term_id;
         $branch = $active || in_array((int) $term->term_id, $ancestors, true);
         $expanded = $mode === 'expand_all' || ($mode === 'current_only' && $branch);
         $link = get_term_link($term);
-        if (is_wp_error($link)) continue;
-        $html .= '<li class="wutm-pcm-item' . ($branch ? ' is-current' : '') . '"><div class="wutm-pcm-row"><a href="' . esc_url($link) . '">' . esc_html($term->name) . ($show_count ? ' <small>(' . absint($term->count) . ')</small>' : '') . '</a>';
+        $label = esc_html($term->name) . ($show_count ? ' <small>(' . absint($term->count) . ')</small>' : '');
+        $html .= '<div class="wutm-pcm-item' . ($branch ? ' is-current' : '') . '" role="listitem"><div class="wutm-pcm-row">';
+        // A temporary permalink error must not erase a whole category branch.
+        $html .= is_wp_error($link) ? '<span class="wutm-pcm-label">' . $label . '</span>' : '<a href="' . esc_url($link) . '">' . $label . '</a>';
         if ($children) $html .= '<button type="button" class="wutm-pcm-toggle" aria-expanded="' . ($expanded ? 'true' : 'false') . '" aria-label="' . esc_attr('切換 ' . $term->name . ' 子分類') . '"><span></span></button>';
         $html .= '</div>';
         if ($children) $html .= '<div class="wutm-pcm-children"' . ($expanded ? '' : ' hidden') . '>' . wutm_pcm_tree($children, $children_by_parent, $current, $ancestors, $mode, $show_count) . '</div>';
-        $html .= '</li>';
+        $html .= '</div>';
     }
-    return $html . '</ul>';
+    return $html . '</div>';
 }
 
 function wutm_pcm_shortcode($atts): string {
@@ -82,6 +86,7 @@ function wutm_pcm_shortcode($atts): string {
     $uid = wp_unique_id('wutm-pcm-');
     $html = '<nav id="' . esc_attr($uid) . '" class="wutm-pcm" aria-label="商品分類">' . wutm_pcm_tree($terms, $children_by_parent, $current, $ancestors, $mode, $show_count) . '</nav>';
     $html .= '<style>#' . esc_attr($uid) . '{max-width:440px;font-family:inherit}#' . esc_attr($uid) . ' ul{margin:0;padding:0;list-style:none}#' . esc_attr($uid) . ' .wutm-pcm-item{margin:0 0 7px}#' . esc_attr($uid) . ' .wutm-pcm-row{display:flex;align-items:center;min-height:46px;border-radius:9px;background:' . esc_attr($o['row_bg']) . ';overflow:hidden;transition:.2s}#' . esc_attr($uid) . ' .wutm-pcm-row:hover,#' . esc_attr($uid) . ' .is-current>.wutm-pcm-row{background:' . esc_attr($o['row_hover']) . '}#' . esc_attr($uid) . ' .wutm-pcm-row>a{flex:1;padding:11px 14px;color:' . esc_attr($o['text_color']) . ';font-size:' . (int) $o['font_size'] . 'px;font-weight:' . esc_attr($o['font_weight']) . ';text-decoration:none}#' . esc_attr($uid) . ' .is-current>.wutm-pcm-row>a{color:' . esc_attr($o['active_color']) . '}#' . esc_attr($uid) . ' small{opacity:.62}#' . esc_attr($uid) . ' .wutm-pcm-toggle{position:relative;width:42px;height:42px;border:0;background:transparent;cursor:pointer}#' . esc_attr($uid) . ' .wutm-pcm-toggle:before,#' . esc_attr($uid) . ' .wutm-pcm-toggle:after{position:absolute;left:15px;top:20px;width:12px;height:2px;background:' . esc_attr($o['active_color']) . ';content:""}#' . esc_attr($uid) . ' .wutm-pcm-toggle:after{transform:rotate(90deg);transition:.2s}#' . esc_attr($uid) . ' .wutm-pcm-toggle[aria-expanded=true]:after{transform:none}#' . esc_attr($uid) . ' .wutm-pcm-children{margin:4px 0 5px 14px;padding-left:12px;border-left:2px solid ' . esc_attr($o['row_bg']) . '}#' . esc_attr($uid) . ' .wutm-pcm-children .wutm-pcm-row{min-height:38px;background:transparent}#' . esc_attr($uid) . ' .wutm-pcm-children .wutm-pcm-row>a{padding:8px 10px;font-size:' . (int) $o['sub_font_size'] . 'px}</style>';
+    $html .= '<style>#' . esc_attr($uid) . ' .wutm-pcm-list,#' . esc_attr($uid) . ' .wutm-pcm-item{display:block!important;visibility:visible!important;opacity:1!important}#' . esc_attr($uid) . ' .wutm-pcm-children[hidden]{display:none!important}#' . esc_attr($uid) . ' .wutm-pcm-row>.wutm-pcm-label{flex:1;padding:11px 14px;color:' . esc_attr($o['text_color']) . ';font-size:' . (int) $o['sub_font_size'] . 'px;font-weight:' . esc_attr($o['font_weight']) . '}</style>';
     $html .= '<script>(function(){const root=document.getElementById(' . wp_json_encode($uid) . ');if(!root||root.dataset.ready)return;root.dataset.ready="1";root.addEventListener("click",function(e){const b=e.target.closest(".wutm-pcm-toggle");if(!b||!root.contains(b))return;const c=b.closest(".wutm-pcm-item").querySelector(":scope > .wutm-pcm-children"),open=b.getAttribute("aria-expanded")==="true";b.setAttribute("aria-expanded",open?"false":"true");if(c)c.hidden=open;});})();</script>';
     $html .= '<style>#' . esc_attr($uid) . '{width:100%;max-width:' . esc_attr($o['width']) . '}</style>';
     return $html;
