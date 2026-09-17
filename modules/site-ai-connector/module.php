@@ -498,7 +498,7 @@ function sac_build_openapi_schema() {
     }
     return [
         'openapi' => '3.1.0',
-        'info'    => [ 'title' => get_bloginfo( 'name' ) . ' AI Connector', 'version' => '2.4.1' ],
+        'info'    => [ 'title' => get_bloginfo( 'name' ) . ' AI Connector', 'version' => WUTM_VERSION ],
         'servers' => [ [ 'url' => untrailingslashit( $rest_base ) ] ],
         'paths'   => $paths,
         'components' => [ 'securitySchemes' => [ 'ApiKeyAuth' => [ 'type' => 'apiKey', 'in' => 'header', 'name' => 'X-SAC-Key' ] ] ],
@@ -540,8 +540,8 @@ function sac_cache_set( $cache_key, $value ) {
  * 4. 真正的 MCP 端點
  * ============================================================
  */
-function sac_mcp_tools_list() {
-    $defs = array_filter( sac_get_tool_definitions(), fn( $d ) => $d['available'] );
+function sac_mcp_tools_list( $auth_level ) {
+    $defs = array_filter( sac_get_tool_definitions(), fn( $d ) => $d['available'] && ( $auth_level === 'write' || ! $d['need_write'] ) );
     $tools = [];
     foreach ( $defs as $d ) {
         $properties = []; $required = [];
@@ -549,7 +549,19 @@ function sac_mcp_tools_list() {
             $properties[ $key ] = [ 'type' => $p['type'], 'description' => $p['description'] ?? $d['summary'] ];
             if ( ! empty( $p['required'] ) ) $required[] = $key;
         }
-        $tools[] = [ 'name' => $d['name'], 'description' => $d['description'] . ( $d['need_write'] ? '（此操作會修改網站內容，需讀寫權限）' : '（唯讀查詢）' ), 'inputSchema' => [ 'type' => 'object', 'properties' => $properties, 'required' => $required ] ];
+        $tools[] = [
+            'name' => $d['name'],
+            'description' => $d['description'] . ( $d['need_write'] ? '（此操作會修改網站內容，需讀寫權限）' : '（唯讀查詢）' ),
+            'inputSchema' => [ 'type' => 'object', 'properties' => $properties, 'required' => $required ],
+            // Honest risk hints help clients distinguish a lookup from a write.
+            // They never override a client's own confirmation requirements.
+            'annotations' => [
+                'title' => $d['summary'],
+                'readOnlyHint' => ! $d['need_write'],
+                'destructiveHint' => $d['need_write'],
+                'idempotentHint' => ! $d['need_write'],
+            ],
+        ];
     }
     return $tools;
 }
@@ -586,6 +598,12 @@ add_action( 'rest_api_init', function () {
         'methods' => 'POST', 'permission_callback' => '__return_true', 'callback' => 'sac_handle_mcp_request',
     ] );
 
+    // This stateless JSON endpoint does not offer an unsolicited SSE stream.
+    register_rest_route( SAC_NAMESPACE, '/mcp', [
+        'methods' => 'GET', 'permission_callback' => '__return_true',
+        'callback' => function () { return new WP_Error( 'sac_no_sse', '此端點使用 Streamable HTTP JSON，不提供 SSE 串流。', [ 'status' => 405 ] ); },
+    ] );
+
     register_rest_route( SAC_NAMESPACE, '/capabilities', [
         'methods' => 'GET', 'permission_callback' => '__return_true',
         'callback' => function () { return rest_ensure_response( sac_get_tool_definitions() ); },
@@ -611,6 +629,12 @@ function sac_handle_mcp_request( WP_REST_Request $request ) {
     if ( ! is_array( $body ) ) return new WP_Error( 'sac_invalid_json', '請提供有效的 JSON 物件', [ 'status' => 400 ] );
     $id = $body['id'] ?? null;
     $method = $body['method'] ?? '';
+    if ( ! is_string( $method ) ) return new WP_Error( 'sac_invalid_method', 'MCP 方法格式錯誤', [ 'status' => 400 ] );
+
+    // Streamable HTTP notifications have no JSON-RPC response body.
+    if ( strpos( $method, 'notifications/' ) === 0 ) {
+        return new WP_REST_Response( null, 202 );
+    }
 
     $auth_header = $request->get_header( 'authorization' );
     $key = $request->get_header( 'x-sac-key' );
@@ -621,32 +645,40 @@ function sac_handle_mcp_request( WP_REST_Request $request ) {
     $auth_level = isset( $keys[ $key ] ) ? sac_get_key_level( $keys[ $key ] ) : null;
 
     if ( $method === 'initialize' ) {
+        $requested_version = $body['params']['protocolVersion'] ?? '';
+        $supported_versions = [ '2024-11-05', '2025-03-26', '2025-06-18', '2025-11-25' ];
+        $protocol_version = in_array( $requested_version, $supported_versions, true ) ? $requested_version : '2025-03-26';
         return rest_ensure_response( [
             'jsonrpc' => '2.0', 'id' => $id,
-            'result'  => [ 'protocolVersion' => '2024-11-05', 'capabilities' => [ 'tools' => new stdClass() ], 'serverInfo' => [ 'name' => get_bloginfo( 'name' ) . ' AI Connector', 'version' => '2.4.1' ] ],
+            'result'  => [
+                'protocolVersion' => $protocol_version,
+                'capabilities' => [ 'tools' => new stdClass() ],
+                'serverInfo' => [ 'name' => get_bloginfo( 'name' ) . ' AI Connector', 'version' => WUTM_VERSION ],
+                'instructions' => '唯讀工具可查詢網站資料；修改網站內容的工具需讀寫金鑰，並須依連接平台的確認流程取得使用者同意。',
+            ],
         ] );
     }
 
     if ( $method === 'tools/list' ) {
         if ( ! $auth_level ) return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'error' => [ 'code' => 401, 'message' => '缺少或無效的 API 金鑰' ] ] );
-        return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'result' => [ 'tools' => sac_mcp_tools_list() ] ] );
+        return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'result' => [ 'tools' => sac_mcp_tools_list( $auth_level ) ] ] );
     }
 
     if ( $method === 'tools/call' ) {
         if ( ! $auth_level ) return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'error' => [ 'code' => 401, 'message' => '缺少或無效的 API 金鑰' ] ] );
+        if ( ! is_array( $body['params'] ?? null ) || ! is_string( $body['params']['name'] ?? null ) ) {
+            return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'error' => [ 'code' => -32602, 'message' => '缺少有效的工具名稱' ] ] );
+        }
         $tool_name = $body['params']['name'] ?? '';
         $args = $body['params']['arguments'] ?? [];
         $result = sac_mcp_call_tool( $tool_name, $args, $auth_level );
-        if ( is_wp_error( $result ) ) return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'error' => [ 'code' => 400, 'message' => $result->get_error_message() ] ] );
-
-        // 只記錄「寫入」動作，唯讀查詢不寫入紀錄，避免操作紀錄快速膨脹
-        $defs = sac_get_tool_definitions();
-        foreach ( $defs as $d ) {
-            if ( $d['name'] === $tool_name && $d['need_write'] ) {
-                sac_write_log( $tool_name, $d['summary'], sac_summarize_args( $args ), $key ?: 'unknown' );
-                break;
-            }
+        if ( is_wp_error( $result ) ) {
+            return rest_ensure_response( [
+                'jsonrpc' => '2.0', 'id' => $id,
+                'result' => [ 'content' => [ [ 'type' => 'text', 'text' => $result->get_error_message() ] ], 'isError' => true ],
+            ] );
         }
+        // The underlying write endpoint logs successful writes once.
         return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'result' => [ 'content' => [ [ 'type' => 'text', 'text' => wp_json_encode( $result, JSON_UNESCAPED_UNICODE ) ] ] ] ] );
     }
 
@@ -821,6 +853,7 @@ function sac_render_admin_page() {
                 <li>Authentication 選「API Key」貼上金鑰，Transport 選「Streamable HTTP」。</li>
                 <li>按「Add」，完成後在對話的 Sources 裡啟用這個連接器。連上後可先問「What tools do you have access to?」確認。</li>
             </ol>
+            <p><strong>連線後驗證：</strong>先請 Perplexity 使用 <code>get_post</code> 讀取指定文章 ID，確認回傳標題與狀態。只有讀寫金鑰會列出 <code>update_post</code> 等寫入工具；若更新後仍看到舊工具清單，請重新連接。若能讀取但寫入被要求確認，請在 Perplexity 完成確認；本站無法略過平台的安全確認。若確認後仍失敗，檢查下方「最近操作紀錄」是否出現寫入紀錄。只有看見工具名稱，不代表寫入呼叫已送達本站。</p>
         </div>
 
         <div id="tab-chatgpt" class="sac-tab-panel" style="border:1px solid #ccd0d4;padding:20px;max-width:1000px;display:none;">
