@@ -8,7 +8,7 @@ if (!defined('ABSPATH')) exit;
 
 /*
  * WumetaxToolkit - Email Tracking & Management System
- * Version: 3.6
+ * Version: 3.7
  *
  * 修改紀錄:
  * - 移除密碼保護
@@ -123,9 +123,6 @@ add_action('admin_init', function() {
     }
 }, 5);
 
-global $wu_api_email_sent;
-$wu_api_email_sent = false;
-
 // ===== Menu Registration =====
 
 add_action('admin_menu', function() {
@@ -155,21 +152,10 @@ function wu_render_email_tracker_dashboard() {
     global $wpdb;
     $table              = $wpdb->prefix . 'wu_email_logs';
     $send_method_option = get_option('wu_email_send_method', 'default');
-
-    switch ($send_method_option) {
-        case 'resend':
-            $send_method = 'Resend API'; $send_status = '已啟用'; $send_color = '#46b450'; break;
-        case 'brevo':
-            $send_method = 'Brevo API';  $send_status = '已啟用'; $send_color = '#46b450'; break;
-        case 'smtp':
-            $send_method = '自訂 SMTP';  $send_status = '已啟用'; $send_color = '#46b450'; break;
-        default:
-            $smtp_info   = wu_detect_smtp_plugin();
-            $send_method = $smtp_info['plugin_name'];
-            $send_status = $smtp_info['enabled'] ? '正常運作' : '未啟用';
-            $send_color  = $smtp_info['enabled'] ? '#46b450' : '#dc3232';
-            break;
-    }
+    $health = wu_get_email_health();
+    $send_method = $health['method_label'];
+    $send_status = $health['title'];
+    $send_color = $health['state'] === 'success' ? '#00a32a' : ($health['state'] === 'error' ? '#d63638' : '#996800');
 
     // ✅ 優化：合併今日/本月查詢為一次
     $stats = wu_get_email_stats();
@@ -206,11 +192,8 @@ function wu_render_email_tracker_dashboard() {
                                 'brevo'  => '使用 Brevo (Sendinblue) API 發送郵件',
                                 'smtp'   => '使用自訂 SMTP 伺服器發送郵件',
                             ];
-                            if (isset($desc_map[$send_method_option])) {
-                                echo $desc_map[$send_method_option];
-                            } else {
-                                echo esc_html($smtp_info['description']);
-                            }
+                            echo esc_html($health['detail']);
+                            if ($health['last_time']) echo '<br><small>最近檢查：' . esc_html($health['last_time']) . '</small>';
                             ?>
                         </td>
                     </tr>
@@ -304,6 +287,92 @@ function wu_detect_smtp_plugin() {
         $info['plugin_name'] = 'Post SMTP';    $info['description'] = '已安裝並啟用 Post SMTP 外掛';
     }
     return $info;
+}
+
+/**
+ * Return an honest mail-health summary.
+ * "wp_mail_succeeded" means WordPress handed the message to the configured
+ * transport successfully; it does not guarantee inbox delivery.
+ */
+function wu_get_email_health() {
+    $method = get_option('wu_email_send_method', 'default');
+    $labels = [
+        'default' => wu_detect_smtp_plugin()['plugin_name'],
+        'resend'  => 'Resend API',
+        'brevo'   => 'Brevo API',
+        'smtp'    => '自訂 SMTP',
+    ];
+    $configured = true;
+    $configuration_message = '目前使用 WordPress 系統預設或郵件外掛設定。';
+
+    if ($method === 'resend') {
+        $configured = (bool) get_option('wu_email_resend_api_key', '') && is_email(get_option('wu_email_resend_from_email', ''));
+        $configuration_message = $configured ? 'Resend API 金鑰與寄件者資料已設定。' : '請完成 Resend API Key 與寄件者 Email。';
+    } elseif ($method === 'brevo') {
+        $configured = (bool) get_option('wu_email_brevo_api_key', '') && is_email(get_option('wu_email_brevo_from_email', ''));
+        $configuration_message = $configured ? 'Brevo API 金鑰與寄件者資料已設定。' : '請完成 Brevo API Key 與寄件者 Email。';
+    } elseif ($method === 'smtp') {
+        $configured = (bool) get_option('wu_email_smtp_host', '') && is_email(get_option('wu_email_smtp_from_email', ''));
+        $configuration_message = $configured ? 'SMTP 主機與寄件者資料已設定。' : '請完成 SMTP 主機與寄件者 Email。';
+    }
+
+    $last = get_option('wu_email_last_health', []);
+    $last = is_array($last) ? $last : [];
+    $last_success = !empty($last['success']);
+    $last_time = !empty($last['time']) ? (string) $last['time'] : '';
+
+    if (!$configured) {
+        $state = 'error';
+        $title = '發信設定未完成';
+        $detail = $configuration_message;
+    } elseif (!$last_time) {
+        $state = 'unknown';
+        $title = '尚未驗證發信';
+        $detail = '設定已可使用，請寄送測試信以確認網站能否成功交件。';
+    } elseif ($last_success) {
+        $state = 'success';
+        $title = '網站發信正常';
+        $detail = '最近一次郵件已成功交給目前的寄送服務。';
+    } else {
+        $state = 'error';
+        $title = '最近一次發信失敗';
+        $detail = !empty($last['message']) ? (string) $last['message'] : '請檢查目前的寄送設定。';
+    }
+
+    return [
+        'method' => $method,
+        'method_label' => $labels[$method] ?? '系統預設',
+        'configured' => $configured,
+        'configuration_message' => $configuration_message,
+        'state' => $state,
+        'title' => $title,
+        'detail' => $detail,
+        'last_time' => $last_time,
+        'last_success' => $last_success,
+    ];
+}
+
+function wu_update_email_health($success, $message = '', $method = '') {
+    update_option('wu_email_last_health', [
+        'success' => (bool) $success,
+        'message' => sanitize_text_field((string) $message),
+        'method'  => sanitize_key($method ?: get_option('wu_email_send_method', 'default')),
+        'time'    => current_time('mysql'),
+    ], false);
+}
+
+function wu_email_log_result($mail_data, $status, $message = '', $method = '') {
+    global $wpdb;
+    $to = $mail_data['to'] ?? '';
+    $to = is_array($to) ? implode(', ', $to) : (string) $to;
+    $wpdb->insert($wpdb->prefix . 'wu_email_logs', [
+        'to_email'      => $to,
+        'subject'       => (string) ($mail_data['subject'] ?? '(無主旨)'),
+        'status'        => $status,
+        'error_message' => $message,
+        'send_method'   => $method ?: get_option('wu_email_send_method', 'default'),
+        'sent_time'     => current_time('mysql'),
+    ], ['%s','%s','%s','%s','%s','%s']);
 }
 
 function wu_get_quota_status($percentage) {
@@ -419,7 +488,7 @@ add_action('phpmailer_init', function($phpmailer) {
     $phpmailer->isSMTP();
     $phpmailer->Host       = $smtp_host;
     $phpmailer->Port       = (int)$smtp_port;
-    $phpmailer->SMTPAuth   = true;
+    $phpmailer->SMTPAuth   = ($smtp_username !== '');
     $phpmailer->Username   = $smtp_username;
     $phpmailer->Password   = $smtp_password;
     $phpmailer->SMTPSecure = ($smtp_encryption === 'none') ? '' : $smtp_encryption;
@@ -429,10 +498,11 @@ add_action('phpmailer_init', function($phpmailer) {
 
 // ===== 核心追蹤邏輯 =====
 
-add_filter('wp_mail', 'wu_intercept_email', 1);
+// 在 wp_mail() 真正寄送前處理額度與 API 傳輸；回傳 null 代表交回 WordPress。
+add_filter('pre_wp_mail', 'wu_intercept_email', 5, 2);
 
-function wu_intercept_email($args) {
-    if (!get_option('wu_email_tracker_enabled', 1)) return $args;
+function wu_intercept_email($return, $args) {
+    if (!get_option('wu_email_tracker_enabled', 1)) return $return;
 
     global $wpdb;
     $table = $wpdb->prefix . 'wu_email_logs';
@@ -446,7 +516,7 @@ function wu_intercept_email($args) {
             $table_checked = ($wpdb->get_var("SHOW TABLES LIKE '$table'") === $table);
         }
     }
-    if (!$table_checked) return $args;
+    if (!$table_checked) return $return;
 
     $to_email = is_array($args['to']) ? implode(', ', $args['to']) : $args['to'];
     $subject  = $args['subject'] ?? '(無主旨)';
@@ -478,8 +548,8 @@ function wu_intercept_email($args) {
             'sent_time'     => current_time('mysql'),
         ], ['%s','%s','%s','%s','%s','%s']);
         wu_send_quota_alert('blocked', $to_email, $subject);
-        $args['to'] = '';
-        return $args;
+        wu_update_email_health(false, '郵件因超過每日或每月額度而被阻擋。', 'blocked');
+        return false;
     }
 
     $send_method = get_option('wu_email_send_method', 'default');
@@ -499,12 +569,12 @@ function wu_intercept_email($args) {
             'sent_time'     => current_time('mysql'),
         ], ['%s','%s','%s','%s','%s','%s']);
         if ($result['success']) {
-            global $wu_api_email_sent;
-            $wu_api_email_sent = true;
+            wu_update_email_health(true, 'Resend API 已接受郵件。', 'resend');
+        } else {
+            wu_update_email_health(false, $result['error'], 'resend');
         }
         wu_check_quota_warning();
-        $args['to'] = '';
-        return $args;
+        return (bool) $result['success'];
     }
 
     // ── Brevo API ──
@@ -522,26 +592,35 @@ function wu_intercept_email($args) {
             'sent_time'     => current_time('mysql'),
         ], ['%s','%s','%s','%s','%s','%s']);
         if ($result['success']) {
-            global $wu_api_email_sent;
-            $wu_api_email_sent = true;
+            wu_update_email_health(true, 'Brevo API 已接受郵件。', 'brevo');
+        } else {
+            wu_update_email_health(false, $result['error'], 'brevo');
         }
         wu_check_quota_warning();
-        $args['to'] = '';
-        return $args;
+        return (bool) $result['success'];
     }
 
-    // ── Default / SMTP ──
-    $wpdb->insert($table, [
-        'to_email'    => $to_email,
-        'subject'     => $subject,
-        'status'      => 'sent',
-        'send_method' => ($send_method === 'smtp') ? 'smtp' : 'default',
-        'sent_time'   => current_time('mysql'),
-    ], ['%s','%s','%s','%s','%s']);
-
-    wu_check_quota_warning();
-    return $args;
+    // ── Default / SMTP：交由 WordPress 寄送，再由成功/失敗事件記錄。──
+    return $return;
 }
+
+add_action('wp_mail_succeeded', function($mail_data) {
+    if (!get_option('wu_email_tracker_enabled', 1)) return;
+    $method = get_option('wu_email_send_method', 'default');
+    wu_email_log_result($mail_data, 'sent', 'WordPress 已成功交給郵件傳輸服務。', $method === 'smtp' ? 'smtp' : 'default');
+    wu_update_email_health(true, 'WordPress 已成功交給郵件傳輸服務。', $method);
+    wu_check_quota_warning();
+}, 10, 1);
+
+add_action('wp_mail_failed', function($error) {
+    if (!get_option('wu_email_tracker_enabled', 1)) return;
+    $data = $error instanceof WP_Error ? $error->get_error_data() : [];
+    $data = is_array($data) ? $data : [];
+    $message = $error instanceof WP_Error ? $error->get_error_message() : '未知的 wp_mail 發信錯誤';
+    $method = get_option('wu_email_send_method', 'default');
+    wu_email_log_result($data, 'failed', $message, $method === 'smtp' ? 'smtp' : 'default');
+    wu_update_email_health(false, $message, $method);
+}, 10, 1);
 
 function wu_check_quota_warning() {
     $transient_key = 'wu_email_quota_warning_' . date('Y-m-d');
@@ -660,6 +739,11 @@ function wu_log_api_test_result($to_email, $result, $method) {
         'error_message' => $result['success'] ? ('Message ID: ' . $result['id']) : ('Error: ' . $result['error']),
         'sent_time'     => current_time('mysql'),
     ], ['%s','%s','%s','%s','%s','%s']);
+    wu_update_email_health(
+        !empty($result['success']),
+        !empty($result['success']) ? '測試郵件已成功交給 API 服務。' : ($result['error'] ?? 'API 測試失敗'),
+        $method === 'resend_api' ? 'resend' : 'brevo'
+    );
 }
 
 // ===== Settings Page =====
@@ -689,6 +773,7 @@ function wu_email_tracker_settings_page() {
     // 儲存設定
     if (isset($_POST['wu_email_save'])) {
         check_admin_referer('wu_email_settings');
+        $previous_send_method = get_option('wu_email_send_method', 'default');
         $fields = [
             'wu_email_tracker_enabled'   => ['type' => 'bool',  'post' => 'enabled'],
             'wu_email_daily_limit'        => ['type' => 'int',   'post' => 'daily_limit',        'default' => 20],
@@ -723,6 +808,9 @@ function wu_email_tracker_settings_page() {
         }
         // 重置表格快取（避免設定改變後未重新偵測）
         delete_transient('wu_email_table_ok');
+        if ($previous_send_method !== get_option('wu_email_send_method', 'default')) {
+            delete_option('wu_email_last_health');
+        }
         echo '<div class="notice notice-success is-dismissible"><p><strong>✅ 設定已儲存</strong></p></div>';
     }
 
@@ -765,6 +853,7 @@ function wu_email_tracker_settings_page() {
 
     $method_labels = ['resend' => 'Resend API', 'brevo' => 'Brevo API', 'smtp' => '自訂 SMTP'];
     $current_method_label = $method_labels[$send_method] ?? wu_detect_smtp_plugin()['plugin_name'];
+    $health = wu_get_email_health();
 
     $log_file    = WP_CONTENT_DIR . '/wu-email-tracker-debug.log';
     $log_exists  = file_exists($log_file);
@@ -773,11 +862,27 @@ function wu_email_tracker_settings_page() {
     ?>
 
     <div class="wrap">
-        <h1>郵件追蹤管理 <span style="font-size:14px;color:#666;font-weight:normal;">(v3.6)</span></h1>
+        <h1>郵件追蹤管理 <span style="font-size:14px;color:#666;font-weight:normal;">(v3.7)</span></h1>
 
         <!-- 當前狀態 -->
         <div style="background:#fff;padding:20px;border:1px solid #ddd;margin-top:20px;border-left:4px solid #0073aa;">
             <h2 style="margin-top:0;">當前發信狀態</h2>
+            <?php
+            $health_color = $health['state'] === 'success' ? '#00a32a' : ($health['state'] === 'error' ? '#d63638' : '#996800');
+            $health_bg = $health['state'] === 'success' ? '#edfaef' : ($health['state'] === 'error' ? '#fcf0f1' : '#fcf9e8');
+            ?>
+            <div style="display:flex;align-items:flex-start;gap:12px;padding:15px 18px;margin-bottom:18px;background:<?php echo esc_attr($health_bg); ?>;border-left:4px solid <?php echo esc_attr($health_color); ?>;">
+                <span style="width:12px;height:12px;margin-top:5px;border-radius:50%;background:<?php echo esc_attr($health_color); ?>;box-shadow:0 0 0 4px rgba(0,0,0,.05);"></span>
+                <div>
+                    <div style="font-size:17px;font-weight:700;color:<?php echo esc_attr($health_color); ?>;"><?php echo esc_html($health['title']); ?></div>
+                    <div style="margin-top:4px;color:#50575e;"><?php echo esc_html($health['detail']); ?></div>
+                    <?php if ($health['last_time']): ?>
+                        <div style="margin-top:5px;font-size:12px;color:#646970;">最近檢查：<?php echo esc_html($health['last_time']); ?>（僅代表寄送服務已接受，不保證收件匣投遞）</div>
+                    <?php else: ?>
+                        <div style="margin-top:5px;font-size:12px;color:#646970;">尚無測試或實際發信結果。</div>
+                    <?php endif; ?>
+                </div>
+            </div>
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:20px;">
                 <div style="padding:15px;background:#f9f9f9;border-left:3px solid #2271b1;">
                     <div style="font-size:11px;color:#666;margin-bottom:5px;">發信方式</div>
