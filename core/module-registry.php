@@ -45,7 +45,7 @@ function wutm_modules(): array {
         'disk-space-manager' => ['name' => '磁碟空間管理', 'description' => '掃描 wp-content 空間、找出大檔案並安全清理。', 'group' => '效能優化', 'icon' => '💾'],
         'disable-emojis' => ['name' => '禁用表情符號', 'description' => '移除 WordPress Emoji 前後台資源與相關轉換。', 'group' => '效能優化', 'icon' => '🙂', 'settings_page' => 'wu-disable-emojis'],
         'fluent-smtp' => ['name' => 'FluentSMTP', 'description' => '快速安裝與啟用官方 FluentSMTP 外掛。', 'group' => '郵件工具', 'icon' => '✉️', 'settings_page' => 'wu-fluent-smtp', 'tag' => '第三方外掛'],
-        'email-tracking' => ['name' => '郵件追蹤', 'description' => '記錄 WordPress 寄件時間、收件者、主旨與實際寄送結果，並顯示網站發信健康狀態、最近檢查時間與測試寄信。', 'group' => '郵件工具', 'icon' => '📧'],
+        'email-tracking' => ['name' => '郵件追蹤', 'description' => '記錄 WordPress 寄件時間、多個收件地址、主旨與實際寄送結果，並顯示網站發信健康狀態、最近檢查時間與測試寄信。', 'group' => '郵件工具', 'icon' => '📧'],
         'enhanced-downloader' => ['name' => '增強下載器', 'description' => '提供媒體檔下載、附件網址與檔案存取權限控制。', 'group' => '後台介面', 'icon' => '⬇️'],
         'enhanced-user-list' => ['name' => '增強使用者列表', 'description' => '在使用者列表顯示更多會員資訊，並提供搜尋、欄位與篩選功能。', 'group' => '後台介面', 'icon' => '👥'],
         'wpcode' => ['name' => 'WPCode', 'description' => '快速安裝與啟用官方 WPCode 外掛。', 'group' => '代碼注入', 'icon' => '💻', 'tag' => '第三方外掛', 'settings_page' => 'wu-wpcode'],

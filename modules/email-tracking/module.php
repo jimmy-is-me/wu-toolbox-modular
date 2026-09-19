@@ -8,7 +8,7 @@ if (!defined('ABSPATH')) exit;
 
 /*
  * WumetaxToolkit - Email Tracking & Management System
- * Version: 3.7
+ * Version: 3.8
  *
  * 修改紀錄:
  * - 移除密碼保護
@@ -29,7 +29,7 @@ function wu_debug_log($message) {
 
 // ===== 資料表版本管理 =====
 
-define('WU_EMAIL_TRACKER_DB_VERSION', '1.1');
+define('WU_EMAIL_TRACKER_DB_VERSION', '1.2');
 
 function wu_email_tracker_install() {
     global $wpdb;
@@ -38,7 +38,7 @@ function wu_email_tracker_install() {
 
     $sql = "CREATE TABLE $table_name (
         id bigint(20) NOT NULL AUTO_INCREMENT,
-        to_email varchar(255) NOT NULL,
+        to_email text NOT NULL,
         subject text NOT NULL,
         status varchar(20) NOT NULL DEFAULT 'sent',
         error_message text,
@@ -375,6 +375,50 @@ function wu_email_log_result($mail_data, $status, $message = '', $method = '') {
     ], ['%s','%s','%s','%s','%s','%s']);
 }
 
+/**
+ * Normalize the recipient formats accepted by wp_mail/WooCommerce.
+ * Supports arrays, comma/semicolon-separated strings and "Name <email>".
+ */
+function wu_normalize_email_recipients($recipients) {
+    $items = is_array($recipients) ? $recipients : [$recipients];
+    $normalized = [];
+
+    foreach ($items as $item) {
+        if (!is_scalar($item)) continue;
+        $item = str_replace(';', ',', (string) $item);
+        foreach (str_getcsv($item) as $recipient) {
+            $recipient = trim($recipient);
+            if ($recipient === '') continue;
+
+            $name = '';
+            $email = $recipient;
+            if (preg_match('/^(.*?)<([^>]+)>$/', $recipient, $matches)) {
+                $name = trim($matches[1], " \t\n\r\0\x0B\"'");
+                $email = trim($matches[2]);
+            }
+
+            $email = sanitize_email($email);
+            if (!$email || !is_email($email)) continue;
+            $key = strtolower($email);
+            if (isset($normalized[$key])) continue;
+
+            $normalized[$key] = [
+                'email' => $email,
+                'name' => sanitize_text_field($name),
+                'formatted' => $name !== '' ? sanitize_text_field($name) . ' <' . $email . '>' : $email,
+            ];
+        }
+    }
+
+    return array_values($normalized);
+}
+
+function wu_format_email_recipients_for_log($recipients) {
+    $normalized = wu_normalize_email_recipients($recipients);
+    if ($normalized) return implode(', ', array_column($normalized, 'formatted'));
+    return is_array($recipients) ? implode(', ', array_map('strval', $recipients)) : (string) $recipients;
+}
+
 function wu_get_quota_status($percentage) {
     if ($percentage < 70) return ['text' => '額度充足', 'color' => '#46b450'];
     if ($percentage < 90) return ['text' => '接近上限', 'color' => '#f0b849'];
@@ -392,7 +436,10 @@ function wu_send_email_via_resend($to, $subject, $message, $headers = '', $attac
         return ['success' => false, 'error' => 'API Key 或發件者 Email 未設定'];
     }
 
-    $to_email     = is_array($to) ? $to[0] : $to;
+    $recipients   = wu_normalize_email_recipients($to);
+    if (!$recipients) {
+        return ['success' => false, 'error' => '找不到有效的收件者 Email'];
+    }
     $html_message = wpautop($message);
 
     $response = wp_remote_post('https://api.resend.com/emails', [
@@ -402,7 +449,7 @@ function wu_send_email_via_resend($to, $subject, $message, $headers = '', $attac
         ],
         'body'    => json_encode([
             'from'    => $from_name . ' <' . $from_email . '>',
-            'to'      => [$to_email],
+            'to'      => array_column($recipients, 'formatted'),
             'subject' => $subject,
             'html'    => $html_message,
         ]),
@@ -436,7 +483,15 @@ function wu_send_email_via_brevo($to, $subject, $message, $headers = '', $attach
         return ['success' => false, 'error' => 'Brevo API Key 或發件者 Email 未設定'];
     }
 
-    $to_email     = is_array($to) ? $to[0] : $to;
+    $recipients   = wu_normalize_email_recipients($to);
+    if (!$recipients) {
+        return ['success' => false, 'error' => '找不到有效的收件者 Email'];
+    }
+    $brevo_recipients = array_map(function($recipient) {
+        $entry = ['email' => $recipient['email']];
+        if ($recipient['name'] !== '') $entry['name'] = $recipient['name'];
+        return $entry;
+    }, $recipients);
     $html_message = wpautop($message);
 
     $response = wp_remote_post('https://api.brevo.com/v3/smtp/email', [
@@ -447,7 +502,7 @@ function wu_send_email_via_brevo($to, $subject, $message, $headers = '', $attach
         ],
         'body'    => json_encode([
             'sender'      => ['name' => $from_name, 'email' => $from_email],
-            'to'          => [['email' => $to_email]],
+            'to'          => $brevo_recipients,
             'subject'     => $subject,
             'htmlContent' => $html_message,
         ]),
@@ -518,7 +573,7 @@ function wu_intercept_email($return, $args) {
     }
     if (!$table_checked) return $return;
 
-    $to_email = is_array($args['to']) ? implode(', ', $args['to']) : $args['to'];
+    $to_email = wu_format_email_recipients_for_log($args['to']);
     $subject  = $args['subject'] ?? '(無主旨)';
 
     // ✅ 優化：合併今日/本月計數為一次查詢
@@ -862,7 +917,7 @@ function wu_email_tracker_settings_page() {
     ?>
 
     <div class="wrap">
-        <h1>郵件追蹤管理 <span style="font-size:14px;color:#666;font-weight:normal;">(v3.7)</span></h1>
+        <h1>郵件追蹤管理 <span style="font-size:14px;color:#666;font-weight:normal;">(v3.8)</span></h1>
 
         <!-- 當前狀態 -->
         <div style="background:#fff;padding:20px;border:1px solid #ddd;margin-top:20px;border-left:4px solid #0073aa;">
