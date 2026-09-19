@@ -8,7 +8,7 @@ function wutm_modules(): array {
         'wordfence' => ['name' => 'Wordfence', 'description' => '快速安裝與啟用官方 Wordfence 外掛。', 'group' => '安全性', 'icon' => '🛡️', 'tag' => '第三方外掛', 'settings_page' => 'wu-wordfence'],
         'marquee-announcements' => ['name' => '跑馬燈／公告輪播', 'description' => '建立可拖曳排序的多則公告，支援全站、首頁、指定頁面或短代碼顯示與多種輪播效果。', 'group' => '內容管理', 'icon' => '📢', 'settings_page' => 'wu-marquee-announcements'],
         'knowledge-base' => ['name' => '知識庫', 'description' => '建立知識庫文件與分類，提供短代碼首頁、AJAX 站內搜尋、最新文件、側邊目錄、麵包屑及獨立文件版面。', 'group' => '內容管理', 'icon' => '📚', 'settings_url' => 'edit.php?post_type=skb_doc&page=skb-settings', 'related_pages' => ['edit.php?post_type=skb_doc', 'edit-tags.php?taxonomy=skb_category&post_type=skb_doc']],
-        'site-ai-connector' => ['name' => 'AI 連接器', 'description' => '提供 MCP、OpenAPI 與 Gemini 工具規格，以唯讀／讀寫金鑰管理網站資料；生成文章及商品時支援 SEO 標題、描述、摘要與圖片替代文字，並記錄寫入操作。', 'group' => '內容管理', 'icon' => '🤖', 'settings_page' => 'site-ai-connector'],
+        'site-ai-connector' => ['name' => 'AI 連接器', 'description' => '提供 MCP、OpenAPI 與 Gemini 工具規格，以唯讀／讀寫金鑰管理網站資料；生成文章及商品時支援 SEO 標題、描述、摘要與圖片替代文字，並記錄寫入操作。', 'group' => 'AI功能', 'icon' => '🤖', 'settings_page' => 'site-ai-connector'],
         '404-redirector' => ['name' => '404 重新導向', 'description' => '將 404 錯誤導向首頁或指定頁面。', 'group' => '內容管理', 'icon' => '🔀'],
         'admin-bar-cleaner' => ['name' => '後台介面管理', 'description' => '管理 WordPress 管理列、後台頁尾、側邊選單、角色權限與顯示項目。', 'group' => '後台介面', 'icon' => '🎛️'],
         'audit-logger' => ['name' => '操作日誌', 'description' => '記錄使用者登入、文章、設定及其他重要後台活動，方便追查操作紀錄。', 'group' => '安全性', 'icon' => '📋'],
@@ -28,6 +28,7 @@ function wutm_modules(): array {
         'content-duplicator' => ['name' => '內容複製器', 'description' => '複製文章、頁面與自訂內容。', 'group' => '內容管理', 'icon' => '📄'],
         'content-ordering' => ['name' => '文章及分類排序', 'description' => '集中拖曳排序文章、商品與自訂分類法。', 'group' => '內容管理', 'icon' => '↕️'],
         'contact-widgets' => ['name' => '浮動聯絡按鈕', 'description' => '在網站前台顯示可自訂的聯絡方式按鈕。', 'group' => '前台介面', 'icon' => '💬'],
+        'custom-cursor' => ['name' => '自訂網站鼠標', 'description' => '在桌面裝置顯示極簡圓環鼠標，支援連結互動、點擊效果、文字欄位切換及圓環、中心點與互動顏色設定。', 'group' => '前台介面', 'icon' => '🖱️', 'settings_page' => 'wu-custom-cursor'],
         'translatepress' => ['name' => 'TranslatePress', 'description' => '快速安裝與啟用官方 TranslatePress 外掛。', 'group' => '網站翻譯', 'icon' => '🌐', 'tag' => '第三方外掛', 'settings_page' => 'wu-translatepress'],
         'translatepress-addons' => ['name' => '多語言管理', 'description' => '強化 TranslatePress 的語言切換、自動偵測與前台設定。', 'group' => '網站翻譯', 'icon' => '🌐', 'requires' => 'translatepress'],
         'gtranslate' => ['name' => 'GTranslate', 'description' => '快速安裝與啟用官方 GTranslate 外掛。', 'group' => '網站翻譯', 'icon' => '🌍', 'tag' => '第三方外掛', 'settings_page' => 'wu-gtranslate'],
@@ -101,7 +102,7 @@ function wutm_grouped_modules(): array {
     }
 
     $ordered = [];
-    foreach (['後台介面', '內容管理', '效能優化'] as $group) {
+    foreach (['後台介面', '前台介面', '內容管理', 'AI功能', '效能優化'] as $group) {
         if (!isset($groups[$group])) continue;
         $ordered[$group] = $groups[$group];
         unset($groups[$group]);
