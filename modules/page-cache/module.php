@@ -15,9 +15,15 @@ final class WUTM_Page_Cache {
 
 	private static string $cache_file = '';
 	private static string $request_url = '';
+	private static string $device_variant = 'desktop';
 	private static bool $capturing = false;
 
 	public static function init(): void {
+		if ( ! get_option( 'wutm_page_cache_device_variants_264', false ) ) {
+			$count = self::clear_cache();
+			self::record_invalidation( '升級裝置獨立快取', $count, 'all' );
+			update_option( 'wutm_page_cache_device_variants_264', 1, false );
+		}
 		add_action( 'template_redirect', array( __CLASS__, 'serve_or_capture' ), -100 );
 		add_action( 'send_headers', array( __CLASS__, 'apply_exclusion_headers' ), 1 );
 		add_action( 'shutdown', array( __CLASS__, 'store_captured_page' ), 0 );
@@ -26,23 +32,26 @@ final class WUTM_Page_Cache {
 		add_action( 'admin_head', array( __CLASS__, 'admin_bar_styles' ) );
 		add_action( 'admin_post_wutm_page_cache_save', array( __CLASS__, 'save_settings' ) );
 		add_action( 'admin_post_wutm_page_cache_clear', array( __CLASS__, 'clear_from_request' ) );
-		add_action( 'save_post', array( __CLASS__, 'invalidate_post' ), 99, 3 );
-		add_action( 'before_delete_post', array( __CLASS__, 'invalidate_post_before_delete' ), 99, 2 );
-		add_action( 'set_object_terms', array( __CLASS__, 'invalidate_object_terms' ), 99, 6 );
-		add_action( 'edited_term', array( __CLASS__, 'invalidate_term' ), 99, 3 );
-		add_action( 'delete_term', array( __CLASS__, 'invalidate_term' ), 99, 3 );
-		add_action( 'comment_post', array( __CLASS__, 'invalidate_comment_post' ), 99, 3 );
-		add_action( 'transition_comment_status', array( __CLASS__, 'invalidate_comment_status' ), 99, 3 );
-		add_action( 'switch_theme', array( __CLASS__, 'clear_on_global_change' ), 99 );
-		add_action( 'customize_save_after', array( __CLASS__, 'clear_on_global_change' ), 99 );
-		add_action( 'wp_update_nav_menu', array( __CLASS__, 'clear_on_global_change' ), 99 );
-		add_action( 'update_option_sidebars_widgets', array( __CLASS__, 'clear_on_global_change' ), 99 );
+		if ( ! empty( self::settings()['auto_invalidate'] ) ) {
+			add_action( 'save_post', array( __CLASS__, 'invalidate_post' ), 99, 3 );
+			add_action( 'before_delete_post', array( __CLASS__, 'invalidate_post_before_delete' ), 99, 2 );
+			add_action( 'set_object_terms', array( __CLASS__, 'invalidate_object_terms' ), 99, 6 );
+			add_action( 'edited_term', array( __CLASS__, 'invalidate_term' ), 99, 3 );
+			add_action( 'delete_term', array( __CLASS__, 'invalidate_term' ), 99, 3 );
+			add_action( 'comment_post', array( __CLASS__, 'invalidate_comment_post' ), 99, 3 );
+			add_action( 'transition_comment_status', array( __CLASS__, 'invalidate_comment_status' ), 99, 3 );
+			add_action( 'switch_theme', array( __CLASS__, 'clear_on_global_change' ), 99 );
+			add_action( 'customize_save_after', array( __CLASS__, 'clear_on_global_change' ), 99 );
+			add_action( 'wp_update_nav_menu', array( __CLASS__, 'clear_on_global_change' ), 99 );
+			add_action( 'update_option_sidebars_widgets', array( __CLASS__, 'clear_on_global_change' ), 99 );
+		}
 	}
 
 	private static function defaults(): array {
 		return array(
-			'ttl'          => 3600,
-			'excluded_uri' => "/cart/\n/checkout/\n/my-account/",
+			'ttl'             => 3600,
+			'auto_invalidate' => 1,
+			'excluded_uri'    => "/cart/\n/checkout/\n/my-account/",
 		);
 	}
 
@@ -121,8 +130,20 @@ final class WUTM_Page_Cache {
 		$host = preg_replace( '/[^a-z0-9.:-]/i', '', (string) $host );
 		$path = wp_parse_url( $uri, PHP_URL_PATH ) ?: '/';
 		$scheme = is_ssl() ? 'https' : 'http';
+		self::$device_variant = self::detect_device_variant();
 		self::$request_url = $scheme . '://' . $host . $path;
-		self::$cache_file  = self::cache_dir() . hash( 'sha256', $scheme . '|' . $host . '|' . $path ) . '.html.gz';
+		self::$cache_file  = self::cache_dir() . hash( 'sha256', 'device-v1|' . self::$device_variant . '|' . $scheme . '|' . $host . '|' . $path ) . '.html.gz';
+	}
+
+	private static function detect_device_variant(): string {
+		$user_agent = isset( $_SERVER['HTTP_USER_AGENT'] ) ? strtolower( sanitize_text_field( wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) ) ) : '';
+		if ( preg_match( '/(?:ipad|macintosh.*mobile|tablet|playbook|silk|kindle|kftt|kfapwi|android(?!.*mobile))/i', $user_agent ) ) {
+			return 'tablet';
+		}
+		if ( preg_match( '/(?:iphone|ipod|android.*mobile|windows phone|blackberry|bb10|opera mini|mobile|webos)/i', $user_agent ) ) {
+			return 'mobile';
+		}
+		return 'desktop';
 	}
 
 	public static function serve_or_capture(): void {
@@ -136,8 +157,9 @@ final class WUTM_Page_Cache {
 			$compressed = file_get_contents( self::$cache_file );
 			if ( false !== $compressed ) {
 				header( 'Content-Type: text/html; charset=' . get_bloginfo( 'charset' ) );
-				header( 'Vary: Accept-Encoding', false );
+				header( 'Vary: Accept-Encoding, User-Agent', false );
 				header( 'X-WUTM-Page-Cache: HIT' );
+				header( 'X-WUTM-Cache-Device: ' . self::$device_variant );
 				$accepts_gzip = ! empty( $_SERVER['HTTP_ACCEPT_ENCODING'] ) && false !== stripos( wp_unslash( $_SERVER['HTTP_ACCEPT_ENCODING'] ), 'gzip' );
 				if ( $accepts_gzip ) {
 					header( 'Content-Encoding: gzip' );
@@ -157,6 +179,8 @@ final class WUTM_Page_Cache {
 		self::$capturing = true;
 		ob_start();
 		header( 'X-WUTM-Page-Cache: MISS' );
+		header( 'X-WUTM-Cache-Device: ' . self::$device_variant );
+		header( 'Vary: Accept-Encoding, User-Agent', false );
 	}
 
 	public static function store_captured_page(): void {
@@ -181,7 +205,7 @@ final class WUTM_Page_Cache {
 			return;
 		}
 		if ( false !== file_put_contents( self::$cache_file, $compressed, LOCK_EX ) ) {
-			$meta = array_merge( array( 'url' => self::$request_url, 'created' => time(), 'original_size' => strlen( $html ) ), self::current_cache_context() );
+			$meta = array_merge( array( 'url' => self::$request_url, 'device' => self::$device_variant, 'created' => time(), 'original_size' => strlen( $html ) ), self::current_cache_context() );
 			file_put_contents( self::$cache_file . '.json', wp_json_encode( $meta ), LOCK_EX );
 		}
 	}
@@ -314,6 +338,9 @@ final class WUTM_Page_Cache {
 		if ( isset( $_POST['ttl'] ) ) {
 			$settings['ttl'] = max( 60, min( WEEK_IN_SECONDS, absint( $_POST['ttl'] ) ) );
 		}
+		if ( isset( $_POST['settings_form'] ) ) {
+			$settings['auto_invalidate'] = isset( $_POST['auto_invalidate'] ) ? 1 : 0;
+		}
 		if ( isset( $_POST['excluded_uri'] ) ) {
 			$paths = preg_split( '/\R/', sanitize_textarea_field( wp_unslash( $_POST['excluded_uri'] ) ) );
 			$paths = array_values( array_unique( array_filter( array_map( 'trim', $paths ?: array() ) ) ) );
@@ -390,7 +417,8 @@ final class WUTM_Page_Cache {
 			if ( is_readable( $file . '.json' ) ) {
 				$meta = json_decode( (string) file_get_contents( $file . '.json' ), true );
 			}
-			$stats['items'][] = array( 'url' => esc_url_raw( $meta['url'] ?? '' ), 'size' => (int) filesize( $file ), 'time' => (int) filemtime( $file ) );
+			$device = sanitize_key( (string) ( $meta['device'] ?? 'legacy' ) );
+			$stats['items'][] = array( 'url' => esc_url_raw( $meta['url'] ?? '' ), 'device' => $device, 'size' => (int) filesize( $file ), 'time' => (int) filemtime( $file ) );
 		}
 		usort( $stats['items'], static function ( $a, $b ) { return $b['time'] <=> $a['time']; } );
 		return $stats;
@@ -420,14 +448,14 @@ final class WUTM_Page_Cache {
 			</nav>
 
 			<?php if ( 'overview' === $tab ) : ?>
-				<section class="card wutm-cache-panel"><h2>最近快取頁面</h2><p class="description">顯示最近 100 筆由本模組建立的 GZIP 快取。</p><div class="wutm-cache-table"><table class="widefat striped"><thead><tr><th>網址</th><th>壓縮大小</th><th>建立時間</th></tr></thead><tbody><?php if ( ! $stats['items'] ) : ?><tr><td colspan="3">目前尚無快取頁面。請用未登入視窗瀏覽前台頁面後再重新整理。</td></tr><?php else : foreach ( array_slice( $stats['items'], 0, 100 ) as $item ) : ?><tr><td><?php if ( $item['url'] ) : ?><a href="<?php echo esc_url( $item['url'] ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html( $item['url'] ); ?></a><?php else : ?>無法取得網址<?php endif; ?></td><td><?php echo esc_html( size_format( $item['size'], 2 ) ); ?></td><td><?php echo esc_html( wp_date( 'Y-m-d H:i', $item['time'] ) ); ?></td></tr><?php endforeach; endif; ?></tbody></table></div></section>
+				<section class="card wutm-cache-panel"><h2>最近快取頁面</h2><p class="description">顯示最近 100 筆由本模組建立的 GZIP 快取；同一網址會依電腦、平板與手機建立正確的獨立版本。</p><div class="wutm-cache-table"><table class="widefat striped"><thead><tr><th>網址</th><th>裝置</th><th>壓縮大小</th><th>建立時間</th></tr></thead><tbody><?php if ( ! $stats['items'] ) : ?><tr><td colspan="4">目前尚無快取頁面。請用未登入視窗瀏覽前台頁面後再重新整理。</td></tr><?php else : foreach ( array_slice( $stats['items'], 0, 100 ) as $item ) : $device_labels = array( 'desktop' => '電腦', 'tablet' => '平板', 'mobile' => '手機', 'legacy' => '舊版' ); ?><tr><td><?php if ( $item['url'] ) : ?><a href="<?php echo esc_url( $item['url'] ); ?>" target="_blank" rel="noopener noreferrer"><?php echo esc_html( $item['url'] ); ?></a><?php else : ?>無法取得網址<?php endif; ?></td><td><?php echo esc_html( $device_labels[ $item['device'] ] ?? '其他' ); ?></td><td><?php echo esc_html( size_format( $item['size'], 2 ) ); ?></td><td><?php echo esc_html( wp_date( 'Y-m-d H:i', $item['time'] ) ); ?></td></tr><?php endforeach; endif; ?></tbody></table></div></section>
 			<?php elseif ( 'status' === $tab ) :
 				$last = $diagnostics['last_invalidation'];
 				$healthy = $diagnostics['gzip'] && $diagnostics['directory'];
 				?>
-				<section class="card wutm-cache-panel"><div class="wutm-cache-health <?php echo $healthy ? 'is-healthy' : 'has-error'; ?>"><span class="dashicons <?php echo $healthy ? 'dashicons-yes-alt' : 'dashicons-warning'; ?>"></span><div><h2><?php echo $healthy ? '頁面快取可正常使用' : '頁面快取需要處理'; ?></h2><p><?php echo $healthy ? ( $stats['count'] ? '已成功建立快取檔案，訪客再次瀏覽相同頁面時可直接使用。' : '環境檢查正常，目前正等待未登入訪客瀏覽可快取頁面。' ) : '請依下方檢查結果修正伺服器環境。'; ?></p></div></div><div class="wutm-cache-checks"><div><span class="dashicons <?php echo $diagnostics['gzip'] ? 'dashicons-yes-alt' : 'dashicons-no-alt'; ?>"></span><strong>GZIP 壓縮</strong><small><?php echo $diagnostics['gzip'] ? 'gzencode 與 gzdecode 可用' : 'PHP GZIP 函式不可用'; ?></small></div><div><span class="dashicons <?php echo $diagnostics['directory'] ? 'dashicons-yes-alt' : 'dashicons-no-alt'; ?>"></span><strong>快取目錄</strong><small><?php echo $diagnostics['directory'] ? '目錄可建立、寫入與讀取' : 'wp-content/cache 無法寫入'; ?></small></div><div><span class="dashicons dashicons-shield-alt"></span><strong>動態頁保護</strong><small>登入、購物車、結帳及會員頁自動略過</small></div><div><span class="dashicons dashicons-update"></span><strong>精準自動清除</strong><small>內容更新只清除單頁、首頁與相關列表</small></div></div><div class="wutm-cache-activity"><h3>最近活動</h3><dl><div><dt>最近建立快取</dt><dd><?php echo $diagnostics['latest'] ? esc_html( wp_date( 'Y-m-d H:i:s', $diagnostics['latest'] ) ) : '尚未建立'; ?></dd></div><div><dt>最近自動／手動清除</dt><dd><?php echo ! empty( $last['time'] ) ? esc_html( wp_date( 'Y-m-d H:i:s', absint( $last['time'] ) ) . '｜' . (string) ( $last['reason'] ?? '' ) . '｜清除 ' . absint( $last['count'] ?? 0 ) . ' 頁' ) : '尚無紀錄'; ?></dd></div><div><dt>快取目錄</dt><dd><code><?php echo esc_html( self::cache_dir() ); ?></code></dd></div></dl></div></section>
+				<section class="card wutm-cache-panel"><div class="wutm-cache-health <?php echo $healthy ? 'is-healthy' : 'has-error'; ?>"><span class="dashicons <?php echo $healthy ? 'dashicons-yes-alt' : 'dashicons-warning'; ?>"></span><div><h2><?php echo $healthy ? '頁面快取可正常使用' : '頁面快取需要處理'; ?></h2><p><?php echo $healthy ? ( $stats['count'] ? '已成功建立快取檔案，訪客再次瀏覽相同頁面時可直接使用。' : '環境檢查正常，目前正等待未登入訪客瀏覽可快取頁面。' ) : '請依下方檢查結果修正伺服器環境。'; ?></p></div></div><div class="wutm-cache-checks"><div><span class="dashicons <?php echo $diagnostics['gzip'] ? 'dashicons-yes-alt' : 'dashicons-no-alt'; ?>"></span><strong>GZIP 壓縮</strong><small><?php echo $diagnostics['gzip'] ? 'gzencode 與 gzdecode 可用' : 'PHP GZIP 函式不可用'; ?></small></div><div><span class="dashicons <?php echo $diagnostics['directory'] ? 'dashicons-yes-alt' : 'dashicons-no-alt'; ?>"></span><strong>快取目錄</strong><small><?php echo $diagnostics['directory'] ? '目錄可建立、寫入與讀取' : 'wp-content/cache 無法寫入'; ?></small></div><div><span class="dashicons dashicons-smartphone"></span><strong>裝置獨立快取</strong><small>電腦、平板與手機使用各自的頁面版本</small></div><div><span class="dashicons dashicons-update"></span><strong>精準自動清除</strong><small><?php echo ! empty( $settings['auto_invalidate'] ) ? '已開啟，內容更新會清除相關頁面' : '已關閉，僅由管理員手動清除'; ?></small></div></div><div class="wutm-cache-activity"><h3>最近活動</h3><dl><div><dt>最近建立快取</dt><dd><?php echo $diagnostics['latest'] ? esc_html( wp_date( 'Y-m-d H:i:s', $diagnostics['latest'] ) ) : '尚未建立'; ?></dd></div><div><dt>最近自動／手動清除</dt><dd><?php echo ! empty( $last['time'] ) ? esc_html( wp_date( 'Y-m-d H:i:s', absint( $last['time'] ) ) . '｜' . (string) ( $last['reason'] ?? '' ) . '｜清除 ' . absint( $last['count'] ?? 0 ) . ' 頁' ) : '尚無紀錄'; ?></dd></div><div><dt>快取目錄</dt><dd><code><?php echo esc_html( self::cache_dir() ); ?></code></dd></div></dl></div></section>
 			<?php elseif ( 'settings' === $tab ) : ?>
-				<section class="card wutm-cache-panel"><h2>快取效能設定</h2><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><?php wp_nonce_field( self::NONCE ); ?><input type="hidden" name="action" value="wutm_page_cache_save"><input type="hidden" name="return_tab" value="settings"><div class="wutm-cache-field"><label for="wutm-cache-ttl">快取有效期限（秒）</label><input id="wutm-cache-ttl" type="number" min="60" max="<?php echo esc_attr( WEEK_IN_SECONDS ); ?>" name="ttl" value="<?php echo esc_attr( $settings['ttl'] ); ?>"><p>預設 3600 秒（1 小時），最長 7 天。儲存後會清除舊快取，以新期限重新建立。</p></div><?php submit_button( '儲存快取設定' ); ?></form><div class="wutm-cache-note"><strong>系統自動排除</strong><p>登入使用者、購物車、結帳、會員中心、搜尋、預覽、密碼保護內容、REST、帶查詢參數的網址，以及設定禁止快取標頭的回應。</p></div></section>
+				<section class="card wutm-cache-panel"><h2>快取效能設定</h2><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><?php wp_nonce_field( self::NONCE ); ?><input type="hidden" name="action" value="wutm_page_cache_save"><input type="hidden" name="return_tab" value="settings"><input type="hidden" name="settings_form" value="1"><div class="wutm-cache-field"><label for="wutm-cache-ttl">快取有效期限（秒）</label><input id="wutm-cache-ttl" type="number" min="60" max="<?php echo esc_attr( WEEK_IN_SECONDS ); ?>" name="ttl" value="<?php echo esc_attr( $settings['ttl'] ); ?>"><p>預設 3600 秒（1 小時），最長 7 天。儲存後會清除舊快取，以新期限重新建立。</p></div><div class="wutm-cache-field wutm-cache-toggle"><label><input type="checkbox" name="auto_invalidate" value="1" <?php checked( ! empty( $settings['auto_invalidate'] ) ); ?>> 內容更新時自動清除相關快取</label><p>預設開啟。文章、頁面、商品、分類、留言、選單或外觀更新時，精準清除可能受影響的裝置快取；關閉後請由管理員手動清除。</p></div><?php submit_button( '儲存快取設定' ); ?></form><div class="wutm-cache-note"><strong>系統自動排除</strong><p>登入使用者、購物車、結帳、會員中心、搜尋、預覽、密碼保護內容、REST、帶查詢參數的網址，以及設定禁止快取標頭的回應。</p></div></section>
 			<?php else : ?>
 				<section class="card wutm-cache-panel"><h2>免快取頁面</h2><p>指定內容即時變動、不適合建立頁面快取的網址。原「免快取頁面」功能已整合至此，既有路徑會自動保留。</p><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><?php wp_nonce_field( self::NONCE ); ?><input type="hidden" name="action" value="wutm_page_cache_save"><input type="hidden" name="return_tab" value="exclusions"><div class="wutm-cache-field"><label for="wutm-cache-excluded">網址路徑</label><textarea id="wutm-cache-excluded" name="excluded_uri" rows="10" class="large-text code" placeholder="/dashboard/&#10;/member-area/&#10;/booking/"><?php echo esc_textarea( $settings['excluded_uri'] ); ?></textarea><p>每行一個網址片段，支援部分比對。例如 <code>/dashboard/</code> 也會排除其下層網址。</p></div><?php submit_button( '儲存免快取頁面' ); ?></form><div class="wutm-cache-examples"><strong>常見用途</strong><span>會員或客戶儀表板</span><span>即時預約與報名頁面</span><span>依訪客狀態變動的自訂頁面</span></div></section>
 			<?php endif; ?>

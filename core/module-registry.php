@@ -42,7 +42,7 @@ function wutm_modules(): array {
         'data-import-export' => ['name' => '資料匯入／匯出', 'description' => '集中管理使用者、WooCommerce 訂單與舊密碼雜湊。', 'group' => '特殊工具', 'icon' => '🔄'],
         'all-fields-overview' => ['name' => '顯示網站所有欄位', 'description' => '集中檢視 ACF、文章、使用者、分類與留言的所有 Meta 欄位名稱。', 'group' => '特殊工具', 'icon' => '🗂️', 'settings_page' => 'wu-all-fields-overview'],
         'order-status-migrator' => ['name' => '訂單狀態遷移工具', 'description' => '預覽並分批遷移 WooCommerce 訂單狀態，支援傳統訂單與 HPOS。', 'group' => '特殊工具', 'icon' => '🔁', 'requires' => 'woocommerce', 'settings_page' => 'wu-order-status-migrator'],
-        'page-cache' => ['name' => '頁面快取', 'description' => '為未登入訪客建立安全的 GZIP 實體頁面快取，排除購物車、結帳、會員與其他動態請求。', 'group' => '效能優化', 'icon' => '⚡', 'settings_page' => 'wu-page-cache'],
+        'page-cache' => ['name' => '頁面快取', 'description' => '為電腦、平板與手機建立獨立 GZIP 頁面快取，支援 TTL、免快取網址、快取狀態與可控制的內容更新自動清除。', 'group' => '效能優化', 'icon' => '⚡', 'settings_page' => 'wu-page-cache'],
         'disk-space-manager' => ['name' => '磁碟空間管理', 'description' => '掃描 wp-content 空間、找出大檔案並安全清理。', 'group' => '效能優化', 'icon' => '💾'],
         'disable-emojis' => ['name' => '禁用表情符號', 'description' => '移除 WordPress Emoji 前後台資源與相關轉換。', 'group' => '效能優化', 'icon' => '🙂', 'settings_page' => 'wu-disable-emojis'],
         'fluent-smtp' => ['name' => 'FluentSMTP', 'description' => '快速安裝與啟用官方 FluentSMTP 外掛。', 'group' => '郵件工具', 'icon' => '✉️', 'settings_page' => 'wu-fluent-smtp', 'tag' => '第三方外掛'],
