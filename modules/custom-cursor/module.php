@@ -90,7 +90,8 @@ function wutm_custom_cursor_settings_page(): void {
     <?php
 }
 
-add_action('wp_footer', function (): void {
+// Load in the document head so pointer tracking is ready before heavy page assets finish.
+add_action('wp_head', function (): void {
     if (is_admin()) return;
     $options = wutm_custom_cursor_options();
     $ring = $options['ring_color'];
@@ -103,10 +104,10 @@ add_action('wp_footer', function (): void {
     @media (hover:hover) and (pointer:fine){
         html.wutm-cursor-enabled,html.wutm-cursor-enabled body,html.wutm-cursor-enabled body *{cursor:none!important}
         html.wutm-cursor-enabled input[type="text"],html.wutm-cursor-enabled input[type="email"],html.wutm-cursor-enabled input[type="url"],html.wutm-cursor-enabled input[type="tel"],html.wutm-cursor-enabled input[type="number"],html.wutm-cursor-enabled input[type="password"],html.wutm-cursor-enabled input[type="search"],html.wutm-cursor-enabled textarea,html.wutm-cursor-enabled select,html.wutm-cursor-enabled [contenteditable="true"]{cursor:text!important}
-        #wutm-minimal-cursor{position:fixed;z-index:2147483646;top:0;left:0;width:28px;height:28px;pointer-events:none;opacity:0;transform:translate3d(-100px,-100px,0) translate(-50%,-50%);will-change:transform}
+        #wutm-minimal-cursor{position:fixed;z-index:2147483646;top:0;left:0;width:28px;height:28px;pointer-events:none;opacity:0;transform:translate3d(-100px,-100px,0) translate(-50%,-50%);will-change:transform;contain:layout style paint}
         html.wutm-cursor-visible #wutm-minimal-cursor{opacity:1}
-        .wutm-cursor-ring{position:absolute;top:50%;left:50%;width:26px;height:26px;border:1px solid <?php echo esc_attr($ring); ?>;border-radius:50%;background:rgba(255,255,255,.04);transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(23,27,25,.05);transition:width .22s cubic-bezier(.22,1,.36,1),height .22s cubic-bezier(.22,1,.36,1),border-color .22s ease,background .22s ease,box-shadow .22s ease,transform .18s cubic-bezier(.22,1,.36,1)}
-        .wutm-cursor-dot{position:absolute;top:50%;left:50%;width:5px;height:5px;border-radius:50%;background:<?php echo esc_attr($dot); ?>;transform:translate(-50%,-50%);box-shadow:0 0 0 4px rgba(<?php echo esc_attr($dot_rgb); ?>,.10);transition:width .2s cubic-bezier(.22,1,.36,1),height .2s cubic-bezier(.22,1,.36,1),background .2s ease,box-shadow .2s ease,transform .18s cubic-bezier(.22,1,.36,1)}
+        .wutm-cursor-ring{position:absolute;top:50%;left:50%;width:26px;height:26px;border:1px solid <?php echo esc_attr($ring); ?>;border-radius:50%;background:rgba(255,255,255,.04);transform:translate(-50%,-50%);box-shadow:0 1px 3px rgba(23,27,25,.05);transition:width .16s cubic-bezier(.22,1,.36,1),height .16s cubic-bezier(.22,1,.36,1),border-color .16s ease,background .16s ease,box-shadow .16s ease}
+        .wutm-cursor-dot{position:absolute;top:50%;left:50%;width:5px;height:5px;border-radius:50%;background:<?php echo esc_attr($dot); ?>;transform:translate(-50%,-50%);box-shadow:0 0 0 4px rgba(<?php echo esc_attr($dot_rgb); ?>,.10);transition:width .14s cubic-bezier(.22,1,.36,1),height .14s cubic-bezier(.22,1,.36,1),background .14s ease,box-shadow .14s ease}
         html.wutm-cursor-hover .wutm-cursor-ring{width:44px;height:44px;border-color:<?php echo esc_attr($hover); ?>;background:rgba(<?php echo esc_attr($hover_rgb); ?>,.06);box-shadow:0 0 0 6px rgba(<?php echo esc_attr($hover_rgb); ?>,.06),0 2px 10px rgba(23,27,25,.06)}
         html.wutm-cursor-hover .wutm-cursor-dot{width:10px;height:10px;background:<?php echo esc_attr($hover); ?>;box-shadow:0 0 0 6px rgba(<?php echo esc_attr($hover_rgb); ?>,.12)}
         html.wutm-cursor-down .wutm-cursor-ring{transform:translate(-50%,-50%) scale(.85)}
@@ -115,23 +116,23 @@ add_action('wp_footer', function (): void {
     }
     @media (prefers-reduced-motion:reduce){.wutm-cursor-ring,.wutm-cursor-dot{transition:none!important}}
     </style>
-    <div id="wutm-minimal-cursor" aria-hidden="true"><div class="wutm-cursor-ring"></div><div class="wutm-cursor-dot"></div></div>
     <script id="wutm-minimal-cursor-js">
     (function(){'use strict';
         if(!window.matchMedia('(hover:hover) and (pointer:fine)').matches)return;
-        var root=document.documentElement,cursor=document.getElementById('wutm-minimal-cursor');if(!cursor)return;
+        var root=document.documentElement,cursor=document.createElement('span');
+        cursor.id='wutm-minimal-cursor';cursor.setAttribute('aria-hidden','true');cursor.innerHTML='<i class="wutm-cursor-ring"></i><i class="wutm-cursor-dot"></i>';root.appendChild(cursor);
         var clickable='a[href],button,[role="button"],summary,label[for],input[type="button"],input[type="submit"],input[type="reset"],input[type="checkbox"],input[type="radio"],.wp-block-button__link,.wp-element-button,.ct-button';
         var textual='input[type="text"],input[type="email"],input[type="url"],input[type="tel"],input[type="number"],input[type="password"],input[type="search"],textarea,select,[contenteditable="true"]';
-        function move(x,y){cursor.style.transform='translate3d('+x+'px,'+y+'px,0) translate(-50%,-50%)'}
-        document.addEventListener('pointermove',function(e){move(e.clientX,e.clientY);root.classList.add('wutm-cursor-enabled','wutm-cursor-visible')},{passive:true});
+        function move(e){var p=e.getCoalescedEvents?e.getCoalescedEvents():null,last=p&&p.length?p[p.length-1]:e;cursor.style.transform='translate3d('+last.clientX+'px,'+last.clientY+'px,0) translate(-50%,-50%)';root.classList.add('wutm-cursor-enabled','wutm-cursor-visible')}
+        document.addEventListener(('onpointerrawupdate' in window)?'pointerrawupdate':'pointermove',move,{passive:true,capture:true});
         document.addEventListener('pointerover',function(e){if(!e.target||!e.target.closest)return;var text=e.target.closest(textual),link=e.target.closest(clickable);root.classList.toggle('wutm-cursor-text',!!text);root.classList.toggle('wutm-cursor-hover',!!link&&!text)},{passive:true});
         document.addEventListener('pointerout',function(e){var target=e.relatedTarget;if(target&&target.closest){var text=target.closest(textual),link=target.closest(clickable);root.classList.toggle('wutm-cursor-text',!!text);root.classList.toggle('wutm-cursor-hover',!!link&&!text)}else{root.classList.remove('wutm-cursor-hover','wutm-cursor-text')}},{passive:true});
         document.addEventListener('pointerdown',function(){root.classList.add('wutm-cursor-down')},{passive:true});
         document.addEventListener('pointerup',function(){root.classList.remove('wutm-cursor-down')},{passive:true});
         document.addEventListener('mouseleave',function(){root.classList.remove('wutm-cursor-visible')},{passive:true});
-        document.addEventListener('mouseenter',function(e){if(typeof e.clientX==='number')move(e.clientX,e.clientY);root.classList.add('wutm-cursor-visible')},{passive:true});
+        document.addEventListener('mouseenter',function(e){if(typeof e.clientX==='number')move(e)},{passive:true});
         window.addEventListener('blur',function(){root.classList.remove('wutm-cursor-visible','wutm-cursor-down')});
     })();
     </script>
     <?php
-}, 100);
+}, 1);
