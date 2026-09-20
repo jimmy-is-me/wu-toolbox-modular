@@ -11,17 +11,12 @@ add_filter('woocommerce_shipping_instance_form_fields_local_pickup','wutm_fs_add
 
 /**
  * 免運門檻採用商品金額扣除一般折價券後的金額。
- * 新會員優惠是負的 fee，會在此加回，避免折扣使顧客失去已達成的免運資格。
+ * WooCommerce 的 cart_contents_total 僅包含商品項目、不包含 fee，
+ * 因此「新會員優惠」的負費用永遠不會降低免運門檻。
  */
 function wutm_fs_cart_subtotal(): float {
     if (!function_exists('WC') || !WC()->cart) return 0.0;
-    $subtotal = (float) WC()->cart->get_cart_contents_total();
-    foreach ((array) WC()->cart->get_fees() as $fee) {
-        if (strpos((string) $fee->name, '新會員優惠') === 0 && (float) $fee->total < 0) {
-            $subtotal += abs((float) $fee->total);
-        }
-    }
-    return max(0, $subtotal);
+    return max(0, (float) WC()->cart->get_cart_contents_total());
 }
 
 /** 已套用且設定「允許免運費」的折價券，優先提供真正的免運。 */

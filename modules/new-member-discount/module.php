@@ -91,7 +91,7 @@ add_action('wp_enqueue_scripts',function():void{
 });
 function wutm_nmd_notice():void{
     $o=wutm_nmd_options();if(!$o['enabled']||!$o['notice'])return;if(is_user_logged_in()&&!wutm_nmd_eligible(get_current_user_id()))return;
-    echo '<div class="wutm-nmd-notice" style="margin:15px 0;padding:12px 16px;border:1px solid #d6e7dc;border-radius:7px;background:#f4faf6;color:#185c37">🎉 <strong>新會員優惠：</strong>首次下單滿 '.wp_kses_post(wc_price($o['minimum'])).'，自動折抵 '.wp_kses_post(wc_price($o['discount'])).'。<strong>此折扣不會降低免運門檻，免運資格仍以套用新會員優惠前的商品金額判定。</strong>'.(!is_user_logged_in()?'登入會員後即可套用。':'').'</div>';
+    echo '<div class="wutm-nmd-notice" style="margin:15px 0;padding:12px 16px;border:1px solid #d6e7dc;border-radius:7px;background:#f4faf6;color:#185c37">🎉 <strong>新會員優惠：</strong>首次下單滿 '.wp_kses_post(wc_price($o['minimum'])).'，自動折抵 '.wp_kses_post(wc_price($o['discount'])).'。<strong>免運門檻只看商品金額，不扣除這筆新會員優惠；例如商品 NT$2,000、優惠折 NT$100，仍以 NT$2,000 判定是否免運。</strong>'.(!is_user_logged_in()?'登入會員後即可套用。':'').'</div>';
 }
 add_action('woocommerce_single_product_summary','wutm_nmd_notice',25);
 add_action('woocommerce_before_cart','wutm_nmd_notice',8);
@@ -126,7 +126,7 @@ function wutm_nmd_admin_page():void{
 }
 
 function wutm_nmd_render_settings():void{$o=wutm_nmd_options();?>
-    <section class="wutm-nmd-panel wutm-nmd-guide"><h2>設定說明</h2><p>優惠只提供給已登入、沒有成功購買紀錄且尚未使用此優惠的會員。折扣會在訂單建立時鎖定，避免同時重複下單。</p><p><strong>免運計算說明：</strong>新會員優惠屬於訂單折抵，不會降低免運門檻；顧客是否達免運，仍以套用新會員優惠前的商品金額判定，避免結帳時出現門檻爭議。</p></section>
+    <section class="wutm-nmd-panel wutm-nmd-guide"><h2>設定說明</h2><p>優惠只提供給已登入、沒有成功購買紀錄且尚未使用此優惠的會員。折扣會在訂單建立時鎖定，避免同時重複下單。</p><p><strong>免運計算說明：</strong>新會員優惠屬於訂單折抵，不會降低免運門檻；免運只看商品金額。例如免運門檻為 NT$2,000、商品為 NT$2,000 並套用 NT$100 新會員優惠時，仍符合免運資格。</p></section>
     <section class="wutm-nmd-panel"><h2>滿額折扣設定</h2><form method="post" action="options.php"><?php settings_fields('wutm_nmd_group');?><table class="form-table wutm-nmd-form-table" role="presentation">
     <tr><th scope="row">啟用優惠</th><td><label><input type="checkbox" name="wutm_new_member_discount[enabled]" value="1" <?php checked($o['enabled']);?>> 啟用新會員首次消費折扣</label><p class="description">關閉後不會套用折扣，也不顯示前台活動提示。</p></td></tr>
     <tr><th scope="row">最低消費金額</th><td><input type="number" min="0" step="1" name="wutm_new_member_discount[minimum]" value="<?php echo esc_attr($o['minimum']);?>"><p class="description">購物車商品小計達到此金額後才會自動折抵。</p></td></tr>
