@@ -4,6 +4,7 @@ defined('ABSPATH') || exit;
 function wutm_modules(): array {
     return [
         'missing-product-images' => ['name' => '遺失商品圖片修復', 'description' => '掃描商品描述，從來源站補回本站遺失的同路徑圖片。', 'group' => '特殊工具', 'icon' => '🩹', 'requires' => 'woocommerce', 'settings_page' => 'wu-missing-product-images'],
+        'layout-inspector' => ['name' => '版面檢查器', 'description' => '讓管理員從前台管理列掃描 Section 與 Container 寬度、標示異常區塊並複製完整報告，可設定版面基準寬度與容許誤差。', 'group' => '特殊工具', 'icon' => '📐', 'settings_page' => 'wu-layout-inspector'],
         'wp-downgrade' => ['name' => 'WP Downgrade', 'description' => '快速安裝與啟用官方 WP Downgrade 外掛。', 'group' => '特殊工具', 'icon' => '⏪', 'tag' => '第三方外掛', 'settings_page' => 'wu-wp-downgrade'],
         'wordfence' => ['name' => 'Wordfence', 'description' => '快速安裝與啟用官方 Wordfence 外掛。', 'group' => '安全性', 'icon' => '🛡️', 'tag' => '第三方外掛', 'settings_page' => 'wu-wordfence'],
         'marquee-announcements' => ['name' => '跑馬燈／公告輪播', 'description' => '建立可拖曳排序的多則公告，支援全站、首頁、指定頁面或短代碼顯示與多種輪播效果。', 'group' => '內容管理', 'icon' => '📢', 'settings_page' => 'wu-marquee-announcements'],
