@@ -983,7 +983,7 @@ class WU_WooCommerce_Optimizer {
         $settings = $this->get_711_instance_settings($method->get_id());
         $threshold = max(0, (float) $settings['free_shipping_threshold']);
         if ($threshold <= 0 || !function_exists('WC') || !WC()->cart) return $label;
-        $cart_total = max(0, (float) WC()->cart->get_cart_contents_total());
+        $cart_total = function_exists('wutm_fs_cart_subtotal') ? wutm_fs_cart_subtotal() : max(0, (float) WC()->cart->get_cart_contents_total());
         if ($cart_total >= $threshold) {
             $message = '您的訂單已達免運門檻！';
         } else {
@@ -1695,7 +1695,7 @@ if (!class_exists('WC_Seven_Eleven_Pickup')) {
                     'title' => '免運門檻',
                     'type' => 'price',
                     'default' => (string) get_option('wu_woo_711_free_shipping_threshold', 0),
-                    'description' => '商品金額扣除一般折價券後（不含運費及稅）達此金額時免運；新會員優惠不會降低免運門檻。填 0 表示不啟用。',
+                    'description' => '商品金額扣除折價券與新會員優惠後的小計（不含運費及稅）達此金額時免運；填 0 表示不啟用。',
                 ),
                 'select_mode' => array(
                     'title' => '門市選擇方式',
