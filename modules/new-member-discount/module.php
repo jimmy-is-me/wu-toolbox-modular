@@ -91,9 +91,10 @@ add_action('wp_enqueue_scripts',function():void{
 });
 function wutm_nmd_notice():void{
     $o=wutm_nmd_options();if(!$o['enabled']||!$o['notice'])return;if(is_user_logged_in()&&!wutm_nmd_eligible(get_current_user_id()))return;
-    echo '<div class="wutm-nmd-notice" style="margin:15px 0;padding:12px 16px;border:1px solid #d6e7dc;border-radius:7px;background:#f4faf6;color:#185c37">🎉 <strong>新會員優惠：</strong>首次下單滿 '.wp_kses_post(wc_price($o['minimum'])).'，自動折抵 '.wp_kses_post(wc_price($o['discount'])).'。'.(!is_user_logged_in()?'登入會員後即可套用。':'').'</div>';
+    echo '<div class="wutm-nmd-notice" style="margin:15px 0;padding:12px 16px;border:1px solid #d6e7dc;border-radius:7px;background:#f4faf6;color:#185c37">🎉 <strong>新會員優惠：</strong>首次下單滿 '.wp_kses_post(wc_price($o['minimum'])).'，自動折抵 '.wp_kses_post(wc_price($o['discount'])).'。<strong>此折扣不會降低免運門檻，免運資格仍以套用新會員優惠前的商品金額判定。</strong>'.(!is_user_logged_in()?'登入會員後即可套用。':'').'</div>';
 }
 add_action('woocommerce_single_product_summary','wutm_nmd_notice',25);
+add_action('woocommerce_before_cart','wutm_nmd_notice',8);
 add_action('woocommerce_before_checkout_form','wutm_nmd_notice',8);
 
 add_action('admin_init',function():void{register_setting('wutm_nmd_group','wutm_new_member_discount',['type'=>'array','sanitize_callback'=>'wutm_nmd_sanitize','default'=>wutm_nmd_defaults()]);});
@@ -125,12 +126,12 @@ function wutm_nmd_admin_page():void{
 }
 
 function wutm_nmd_render_settings():void{$o=wutm_nmd_options();?>
-    <section class="wutm-nmd-panel wutm-nmd-guide"><h2>設定說明</h2><p>優惠只提供給已登入、沒有成功購買紀錄且尚未使用此優惠的會員。折扣會在訂單建立時鎖定，避免同時重複下單。</p></section>
+    <section class="wutm-nmd-panel wutm-nmd-guide"><h2>設定說明</h2><p>優惠只提供給已登入、沒有成功購買紀錄且尚未使用此優惠的會員。折扣會在訂單建立時鎖定，避免同時重複下單。</p><p><strong>免運計算說明：</strong>新會員優惠屬於訂單折抵，不會降低免運門檻；顧客是否達免運，仍以套用新會員優惠前的商品金額判定，避免結帳時出現門檻爭議。</p></section>
     <section class="wutm-nmd-panel"><h2>滿額折扣設定</h2><form method="post" action="options.php"><?php settings_fields('wutm_nmd_group');?><table class="form-table wutm-nmd-form-table" role="presentation">
     <tr><th scope="row">啟用優惠</th><td><label><input type="checkbox" name="wutm_new_member_discount[enabled]" value="1" <?php checked($o['enabled']);?>> 啟用新會員首次消費折扣</label><p class="description">關閉後不會套用折扣，也不顯示前台活動提示。</p></td></tr>
     <tr><th scope="row">最低消費金額</th><td><input type="number" min="0" step="1" name="wutm_new_member_discount[minimum]" value="<?php echo esc_attr($o['minimum']);?>"><p class="description">購物車商品小計達到此金額後才會自動折抵。</p></td></tr>
-    <tr><th scope="row">折扣金額</th><td><input type="number" min="0" step="1" name="wutm_new_member_discount[discount]" value="<?php echo esc_attr($o['discount']);?>"><p class="description">實際折扣不會超過購物車商品小計。</p></td></tr>
-    <tr><th scope="row">前台活動提示</th><td><label><input type="checkbox" name="wutm_new_member_discount[notice]" value="1" <?php checked($o['notice']);?>> 在商品頁與結帳頁顯示</label><p class="description">已使用優惠或已有成功訂單的會員不會看到提示。</p></td></tr></table><?php submit_button('儲存設定');?></form></section><?php
+    <tr><th scope="row">折扣金額</th><td><input type="number" min="0" step="1" name="wutm_new_member_discount[discount]" value="<?php echo esc_attr($o['discount']);?>"><p class="description">實際折扣不會超過購物車商品小計，且不會降低免運門檻。</p></td></tr>
+    <tr><th scope="row">前台活動提示</th><td><label><input type="checkbox" name="wutm_new_member_discount[notice]" value="1" <?php checked($o['notice']);?>> 在商品頁、購物車與結帳頁顯示</label><p class="description">已使用優惠或已有成功訂單的會員不會看到提示。</p></td></tr></table><?php submit_button('儲存設定');?></form></section><?php
 }
 
 function wutm_nmd_status_label(string $status):string{$labels=['pending'=>'待付款','processing'=>'處理中','on-hold'=>'保留','completed'=>'已完成','cancelled'=>'已取消','refunded'=>'已退款','failed'=>'失敗'];return $labels[$status]??wc_get_order_status_name($status);}

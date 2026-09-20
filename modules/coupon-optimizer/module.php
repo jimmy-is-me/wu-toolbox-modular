@@ -252,6 +252,10 @@ final class WUTM_Coupon_Optimizer {
     public function make_coupon_shipping_free(array $rates, array $package): array {
         if (!function_exists('WC') || !WC()->cart || !$this->cart_has_free_shipping_coupon()) return $rates;
         foreach ($rates as $rate) {
+            if (function_exists('wutm_fs_zero_rate')) {
+                wutm_fs_zero_rate($rate);
+                continue;
+            }
             if (!is_object($rate)) continue;
             if (method_exists($rate, 'set_cost')) $rate->set_cost(0);
             else $rate->cost = 0;

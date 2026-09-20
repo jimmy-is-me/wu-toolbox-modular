@@ -1695,7 +1695,7 @@ if (!class_exists('WC_Seven_Eleven_Pickup')) {
                     'title' => '免運門檻',
                     'type' => 'price',
                     'default' => (string) get_option('wu_woo_711_free_shipping_threshold', 0),
-                    'description' => '折扣後商品金額（不含運費及稅）達此金額時免運；填 0 表示不啟用。',
+                    'description' => '商品金額扣除一般折價券後（不含運費及稅）達此金額時免運；新會員優惠不會降低免運門檻。填 0 表示不啟用。',
                 ),
                 'select_mode' => array(
                     'title' => '門市選擇方式',
