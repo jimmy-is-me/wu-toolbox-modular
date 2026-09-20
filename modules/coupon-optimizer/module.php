@@ -26,6 +26,15 @@ final class WUTM_Coupon_Optimizer {
         add_action('woocommerce_before_checkout_form', array($this, 'render_offer'), 8);
         add_action('wp_loaded', array($this, 'apply_from_url'), 30);
         add_action('woocommerce_coupon_options', array($this, 'coupon_share_tools'), 10, 2);
+        add_action('woocommerce_coupon_options_usage_restriction', array($this, 'allowed_email_selector'), 20, 2);
+        add_action('woocommerce_process_shop_coupon_meta', array($this, 'save_allowed_email_selector'), 99, 2);
+        add_action('wp_ajax_wutm_coupon_email_search', array($this, 'search_customer_emails'));
+        add_filter('woocommerce_package_rates', array($this, 'make_coupon_shipping_free'), 100, 2);
+        add_action('woocommerce_applied_coupon', array($this, 'reset_shipping_rate_cache'));
+        add_action('woocommerce_removed_coupon', array($this, 'reset_shipping_rate_cache'));
+        add_action('admin_footer-post.php', array($this, 'coupon_admin_enhancements'));
+        add_action('admin_footer-post-new.php', array($this, 'coupon_admin_enhancements'));
+        add_action('post_submitbox_misc_actions', array($this, 'coupon_publish_note'));
         add_filter('manage_edit-shop_coupon_columns', array($this, 'coupon_columns'));
         add_action('manage_shop_coupon_posts_custom_column', array($this, 'coupon_column'), 10, 2);
         add_action('init', array($this, 'endpoint'));
@@ -182,6 +191,150 @@ final class WUTM_Coupon_Optimizer {
         $url = $this->share_url($coupon);
         $qr = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' . rawurlencode($url);
         echo '<div class="options_group"><p class="form-field"><label>一鍵套用網址</label><input type="text" readonly value="' . esc_attr($url) . '" style="width:60%;background:#f6f7f7" onclick="this.select()"><span class="description">顧客開啟後會進入購物車並套用這張折價券。</span></p><p class="form-field"><label>活動 QR Code</label><img loading="lazy" referrerpolicy="no-referrer" src="' . esc_url($qr) . '" width="150" height="150" alt="折價券 QR Code" style="display:block;margin:5px 0 10px;border:1px solid #ccd0d4;padding:4px;background:#fff"><span class="description">QR Code 由 api.qrserver.com 產生，適合用於印刷或活動宣傳。</span></p></div>';
+    }
+
+    /**
+     * 以可搜尋下拉選單取代 WooCommerce 原生的純文字 Email 限制欄位。
+     * 已註冊會員會成為選項，也保留手動輸入 Email 或 *@domain.com 的能力。
+     */
+    public function allowed_email_selector($coupon_id, $coupon): void {
+        if (!($coupon instanceof WC_Coupon)) $coupon = new WC_Coupon($coupon_id);
+        $selected = $coupon instanceof WC_Coupon ? array_values(array_filter($coupon->get_email_restrictions())) : array();
+        echo '<p class="form-field wutm-allowed-email-field"><label for="wutm_allowed_customer_emails">允許的電子郵件</label>';
+        echo '<select id="wutm_allowed_customer_emails" name="wutm_allowed_customer_emails[]" multiple="multiple" style="width:50%" data-placeholder="搜尋會員或輸入電子郵件" data-nonce="' . esc_attr(wp_create_nonce('wutm_coupon_email_search')) . '">';
+        foreach ($selected as $email) {
+            echo '<option value="' . esc_attr(strtolower((string) $email)) . '" selected>' . esc_html((string) $email) . '</option>';
+        }
+        echo '</select><span class="description">可下拉搜尋已註冊會員，也可直接輸入完整 Email；多筆請按 Enter 加入。支援 *@example.com 網域規則。</span></p>';
+    }
+
+    public function save_allowed_email_selector($coupon_id, $coupon = null): void {
+        if (!current_user_can('manage_woocommerce')) return;
+        $values = isset($_POST['wutm_allowed_customer_emails']) ? (array) wp_unslash($_POST['wutm_allowed_customer_emails']) : array();
+        $emails = array();
+        foreach ($values as $value) {
+            $value = strtolower(trim(wc_clean((string) $value)));
+            if ($value === '') continue;
+            $validation_value = str_replace('*', 'wildcard', $value);
+            if (!is_email($validation_value)) continue;
+            $emails[] = $value;
+        }
+        update_post_meta($coupon_id, 'customer_email', array_values(array_unique($emails)));
+    }
+
+    public function search_customer_emails(): void {
+        check_ajax_referer('wutm_coupon_email_search', 'nonce');
+        if (!current_user_can('manage_woocommerce')) wp_send_json_error(array('message' => '權限不足。'), 403);
+        $term = sanitize_text_field(wp_unslash($_GET['term'] ?? ''));
+        $args = array(
+            'number' => 20,
+            'orderby' => 'display_name',
+            'order' => 'ASC',
+            'fields' => array('ID', 'display_name', 'user_email'),
+        );
+        if ($term !== '') {
+            $args['search'] = '*' . $term . '*';
+            $args['search_columns'] = array('user_login', 'user_email', 'display_name');
+        }
+        $results = array();
+        foreach (get_users($args) as $user) {
+            $email = strtolower(trim((string) $user->user_email));
+            if ($email === '') continue;
+            $results[] = array(
+                'id' => $email,
+                'text' => trim((string) $user->display_name) !== '' ? $user->display_name . ' (' . $user->user_email . ')' : $user->user_email,
+            );
+        }
+        wp_send_json(array('results' => $results));
+    }
+
+    /** 勾選折價券的允許免運費後，直接將目前可用的運送方式費用歸零。 */
+    public function make_coupon_shipping_free(array $rates, array $package): array {
+        if (!function_exists('WC') || !WC()->cart || !$this->cart_has_free_shipping_coupon()) return $rates;
+        foreach ($rates as $rate) {
+            if (!is_object($rate)) continue;
+            if (method_exists($rate, 'set_cost')) $rate->set_cost(0);
+            else $rate->cost = 0;
+
+            $taxes = method_exists($rate, 'get_taxes') ? (array) $rate->get_taxes() : (array) ($rate->taxes ?? array());
+            $zero_taxes = array_fill_keys(array_keys($taxes), 0);
+            if (method_exists($rate, 'set_taxes')) $rate->set_taxes($zero_taxes);
+            else $rate->taxes = $zero_taxes;
+        }
+        return $rates;
+    }
+
+    private function cart_has_free_shipping_coupon(): bool {
+        foreach ((array) WC()->cart->get_applied_coupons() as $code) {
+            try {
+                $coupon = new WC_Coupon($code);
+                if ($coupon->get_id() && $coupon->get_free_shipping()) return true;
+            } catch (Throwable $error) {
+                continue;
+            }
+        }
+        return false;
+    }
+
+    public function reset_shipping_rate_cache(): void {
+        if (!function_exists('WC') || !WC()->session || !WC()->shipping()) return;
+        foreach ((array) WC()->shipping()->get_packages() as $index => $package) {
+            WC()->session->set('shipping_for_package_' . $index, null);
+        }
+    }
+
+    public function coupon_admin_enhancements(): void {
+        $screen = function_exists('get_current_screen') ? get_current_screen() : null;
+        if (!$screen || $screen->post_type !== 'shop_coupon') return;
+        ?>
+        <script>
+        jQuery(function($) {
+            var $nativeEmail = $('#customer_email');
+            if ($nativeEmail.length) $nativeEmail.closest('.form-field').hide();
+
+            var $emailSelect = $('#wutm_allowed_customer_emails');
+            if ($emailSelect.length && $.fn.selectWoo && !$emailSelect.hasClass('select2-hidden-accessible')) {
+                $emailSelect.selectWoo({
+                    tags: true,
+                    tokenSeparators: [',', ';'],
+                    width: '50%',
+                    placeholder: $emailSelect.data('placeholder'),
+                    minimumInputLength: 0,
+                    ajax: {
+                        url: ajaxurl,
+                        dataType: 'json',
+                        delay: 250,
+                        data: function(params) {
+                            return { action: 'wutm_coupon_email_search', nonce: $emailSelect.data('nonce'), term: params.term || '' };
+                        },
+                        processResults: function(data) {
+                            return data && data.results ? data : { results: [] };
+                        },
+                        cache: true
+                    },
+                    createTag: function(params) {
+                        var value = $.trim(params.term).toLowerCase();
+                        if (!value || value.indexOf('@') < 1) return null;
+                        return { id: value, text: value };
+                    }
+                });
+            }
+
+            var freeShipping = document.getElementById('free_shipping');
+            if (freeShipping) {
+                var row = freeShipping.closest('.form-field');
+                var description = row ? row.querySelector('.description') : null;
+                if (description) description.textContent = '勾選後，顧客套用此折價券時，目前選擇的運送方式會直接變成免運費，不必另外設定「免運送方式」。';
+            }
+        });
+        </script>
+        <?php
+    }
+
+    public function coupon_publish_note(): void {
+        $post_type = get_post_type();
+        if ($post_type !== 'shop_coupon') return;
+        echo '<div class="misc-pub-section" style="line-height:1.6"><span class="dashicons dashicons-info-outline" aria-hidden="true" style="color:#2271b1;margin-right:5px"></span><strong>使用狀態說明</strong><br>折價券必須設為「已發佈」才會生效；若設為「草稿」或「私密」，顧客將無法在前台查看或使用。</div>';
     }
 
     public function coupon_columns(array $columns): array {
