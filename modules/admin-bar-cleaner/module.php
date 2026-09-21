@@ -202,6 +202,7 @@ class WU_Admin_Bar_Cleaner {
         $all_roles      = $wp_roles->get_names();
 
         echo '<p><strong>偵測到 ' . count( $all_roles ) . ' 個使用者角色</strong>（subscriber、administrator 受保護，無法停用）</p>';
+        echo '<p class="description">停用後，擁有此角色的帳號無法登入，也不能取得此角色的任何網站權限；同時會從角色指派清單隱藏。重新取消勾選即可恢復。</p>';
         echo '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;margin-top:15px;">';
 
         foreach ( $all_roles as $role_key => $role_name ) {
@@ -513,6 +514,22 @@ class WU_Admin_Bar_Cleaner {
         $disabled_roles = (array) get_option( 'wu_disabled_user_roles', [] );
         if ( empty( $disabled_roles ) ) return;
 
+        $disabled_roles = array_keys( array_filter( $disabled_roles ) );
+
+        add_filter( 'authenticate', function( $user ) use ( $disabled_roles ) {
+            if ( $user instanceof WP_User && $this->user_has_disabled_role( $user, $disabled_roles ) ) {
+                return new WP_Error( 'wu_disabled_user_role', '此使用者角色目前已停用，暫時無法登入。' );
+            }
+            return $user;
+        }, 100 );
+
+        add_filter( 'user_has_cap', function( $allcaps, $caps, $args, $user ) use ( $disabled_roles ) {
+            if ( $user instanceof WP_User && $this->user_has_disabled_role( $user, $disabled_roles ) ) {
+                return [];
+            }
+            return $allcaps;
+        }, 999, 4 );
+
         add_filter( 'editable_roles', function( array $roles ) use ( $disabled_roles ): array {
             foreach ( array_keys( $disabled_roles ) as $role_key ) {
                 unset( $roles[ $role_key ] );
@@ -535,6 +552,15 @@ class WU_Admin_Bar_Cleaner {
         };
         add_action( 'admin_head-users.php',     $output_js );
         add_action( 'admin_head-user-edit.php', $output_js );
+    }
+
+    private function user_has_disabled_role( WP_User $user, array $disabled_roles ): bool {
+        foreach ( (array) $user->roles as $role ) {
+            if ( in_array( $role, $disabled_roles, true ) ) {
+                return true;
+            }
+        }
+        return false;
     }
 
     public function custom_admin_footer_text(): string {

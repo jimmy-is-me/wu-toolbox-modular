@@ -17,7 +17,7 @@ function wutm_modules(): array {
         'ai-site-tools' => ['name' => 'AI 網站工具', 'description' => '集中查看選單與轉址管理等網站維護工具，依連接器權限安全操作。', 'group' => 'AI功能', 'icon' => '🧰', 'navigation' => true, 'parent_module' => 'site-ai-connector', 'settings_url' => 'admin.php?page=site-ai-tools&group=site'],
         'ai-operation-log' => ['name' => 'AI 操作紀錄', 'description' => '獨立查看 AI 實際完成的新增、修改與刪除紀錄，方便追蹤寫入結果。', 'group' => 'AI功能', 'icon' => '📜', 'navigation' => true, 'parent_module' => 'site-ai-connector', 'settings_url' => 'admin.php?page=site-ai-tools&group=logs'],
         '404-redirector' => ['name' => '404 重新導向', 'description' => '將 404 錯誤導向首頁或指定頁面。', 'group' => '內容管理', 'icon' => '🔀'],
-        'admin-bar-cleaner' => ['name' => '後台介面管理', 'description' => '管理 WordPress 管理列、後台頁尾、側邊選單、角色權限與顯示項目。', 'group' => '後台介面', 'icon' => '🎛️'],
+        'admin-bar-cleaner' => ['name' => '後台介面管理', 'description' => '管理 WordPress 管理列、後台頁尾、側邊選單、角色權限與顯示項目。', 'group' => '後台介面', 'icon' => ''],
         'audit-logger' => ['name' => '操作日誌', 'description' => '記錄使用者登入、文章、設定及其他重要後台活動，方便追查操作紀錄。', 'group' => '安全性', 'icon' => '📋'],
         'advanced-tracking-manager' => ['name' => '進階追蹤管理', 'description' => '管理 GA4、GTM、Google Ads、Meta Pixel 與診斷。', 'group' => '監控追蹤', 'icon' => '🎯'],
         'seo-core' => ['name' => 'SEO 核心', 'description' => '台灣繁中網站用的輕量 SEO 核心，提供編輯器側欄、SEO 健檢、Title、Meta Description、Canonical、Open Graph、Schema 與 Sitemap 控制。', 'group' => 'SEO', 'icon' => '🔎', 'settings_page' => 'wumetax-seo-core', 'related_pages' => ['admin.php?page=wumetax-seo-core-settings']],

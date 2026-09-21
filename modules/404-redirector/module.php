@@ -40,6 +40,9 @@ class WU_404_Redirector {
         if (!is_admin() && $this->get_option('enabled', false)) {
             add_action('template_redirect', array($this, 'handle_404_redirect'), 1);
         }
+        if (!is_admin()) {
+            add_action('wp_footer', array($this, 'render_redirect_notice'));
+        }
     }
     
     /**
@@ -113,8 +116,14 @@ class WU_404_Redirector {
         
         register_setting($this->settings_group, $this->option_prefix . 'log_limit', array(
             'type' => 'integer',
-            'default' => 20,
+            'default' => 10,
             'sanitize_callback' => array($this, 'sanitize_log_limit')
+        ));
+
+        register_setting($this->settings_group, $this->option_prefix . 'show_notice', array(
+            'type' => 'boolean',
+            'default' => true,
+            'sanitize_callback' => array($this, 'sanitize_boolean')
         ));
         
         // 添加設定區塊
@@ -157,6 +166,14 @@ class WU_404_Redirector {
             $this->settings_group,
             'wu_404_redirect_main_section'
         );
+
+        add_settings_field(
+            'wu_404_redirect_show_notice',
+            '重新導向提示',
+            array($this, 'render_notice_field'),
+            $this->settings_group,
+            'wu_404_redirect_main_section'
+        );
         
         add_settings_field(
             'wu_404_redirect_log_limit',
@@ -195,7 +212,7 @@ class WU_404_Redirector {
      */
     public function sanitize_log_limit($value) {
         $value = absint($value);
-        return ($value >= 0 && $value <= 100) ? $value : 20;
+        return ($value >= 0 && $value <= 100) ? $value : 10;
     }
     
     /**
@@ -278,12 +295,28 @@ class WU_404_Redirector {
         </p>
         <?php
     }
+
+    /** Render the visitor-facing confirmation shown after a 404 redirect. */
+    public function render_notice_field() {
+        $value = $this->get_option('show_notice', true);
+        ?>
+        <label for="wu_404_redirect_show_notice">
+            <input type="checkbox"
+                   id="wu_404_redirect_show_notice"
+                   name="<?php echo esc_attr($this->option_prefix . 'show_notice'); ?>"
+                   value="1"
+                   <?php checked(1, $value); ?> />
+            找不到這個頁面，網址可能已調整，已幫您自動導向目標頁面
+        </label>
+        <p class="description">預設開啟，且與「啟用 404 重新導向」一同使用。提示只會在實際發生 404 並完成導向後顯示一次。</p>
+        <?php
+    }
     
     /**
      * 渲染日誌限制欄位
      */
     public function render_log_limit_field() {
-        $value = $this->get_option('log_limit', 20);
+        $value = $this->get_option('log_limit', 10);
         ?>
         <input type="number" 
                id="wu_404_redirect_log_limit" 
@@ -312,7 +345,7 @@ class WU_404_Redirector {
         $redirect_type = $this->get_option('type', 'homepage');
         $redirect_status = $this->get_option('status', 301);
         $custom_url = $this->get_option('custom_url', '');
-        $log_limit = $this->get_option('log_limit', 20);
+        $log_limit = $this->get_option('log_limit', 10);
         
         // 獲取重新導向目標 URL
         $redirect_url = $this->get_redirect_url();
@@ -621,7 +654,7 @@ class WU_404_Redirector {
         }
         
         // 記錄 404 錯誤（如果啟用）
-        $log_limit = $this->get_option('log_limit', 20);
+        $log_limit = $this->get_option('log_limit', 10);
         if ($log_limit > 0) {
             $this->log_404_error($log_limit);
         }
@@ -629,6 +662,11 @@ class WU_404_Redirector {
         // 標記為已發送
         self::$redirect_sent = true;
         
+        // Add a one-time flag so the destination page can politely explain the redirect.
+        if ($this->get_option('show_notice', true)) {
+            $redirect_url = add_query_arg('wu_404_redirected', '1', $redirect_url);
+        }
+
         // 執行重新導向
         $redirect_status = $this->get_option('status', 301);
         wp_redirect($redirect_url, $redirect_status);
@@ -777,7 +815,26 @@ class WU_404_Redirector {
      * 
      * @param int $limit 日誌保留數量上限
      */
-    private function log_404_error($limit = 20) {
+    public function render_redirect_notice() {
+        if (empty($_GET['wu_404_redirected']) || !$this->get_option('show_notice', true)) {
+            return;
+        }
+        $redirect_type = $this->get_option('type', 'homepage');
+        $target = $redirect_type === 'homepage' ? '網站首頁' : '指定頁面';
+        ?>
+        <aside class="wu-404-visitor-notice" role="status" aria-live="polite">
+            <span class="wu-404-visitor-notice__icon" aria-hidden="true">↗</span>
+            <div><strong>已協助您找到方向</strong><p>找不到這個頁面，網址可能已調整，已幫您自動導向<?php echo esc_html($target); ?>。</p></div>
+            <button type="button" class="wu-404-visitor-notice__close" aria-label="關閉提示">×</button>
+        </aside>
+        <style>
+            .wu-404-visitor-notice{position:fixed;z-index:99999;right:24px;bottom:24px;max-width:420px;display:flex;gap:12px;align-items:flex-start;padding:16px 18px;background:#17232c;color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.24);font-size:14px;line-height:1.55}.wu-404-visitor-notice__icon{display:grid;place-items:center;flex:0 0 30px;width:30px;height:30px;background:#46bd7b;border-radius:50%;font-size:18px;font-weight:700}.wu-404-visitor-notice strong{display:block;font-size:15px}.wu-404-visitor-notice p{margin:3px 24px 0 0;color:#dce7eb}.wu-404-visitor-notice__close{position:absolute;top:7px;right:9px;border:0;background:transparent;color:#fff;cursor:pointer;font-size:20px;line-height:1}@media(max-width:600px){.wu-404-visitor-notice{right:14px;bottom:14px;left:14px;max-width:none}}
+        </style>
+        <script>document.querySelector('.wu-404-visitor-notice__close').addEventListener('click',function(){this.parentNode.remove();});</script>
+        <?php
+    }
+
+    private function log_404_error($limit = 10) {
         // 安全取得 $_SERVER 變數（避免 undefined index notice）
         $requested_url = isset($_SERVER['REQUEST_URI']) ? sanitize_text_field($_SERVER['REQUEST_URI']) : '';
         $user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? sanitize_text_field($_SERVER['HTTP_USER_AGENT']) : '';

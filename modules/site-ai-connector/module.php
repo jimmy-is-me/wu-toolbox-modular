@@ -106,9 +106,23 @@ add_action( 'sac_cleanup_tokens', function () {
  */
 add_action( 'admin_menu', function () {
     add_submenu_page( 'wu-toolbox-modular', 'AI 連接器設定', 'AI 連接器', 'manage_options', 'site-ai-connector', 'sac_render_admin_page' );
-    $tools_hook = add_submenu_page( null, 'AI 功能工具', 'AI 功能工具', 'manage_options', 'site-ai-tools', 'sac_render_tools_page' );
-    if ( $tools_hook ) {
-        add_action( 'load-' . $tools_hook, 'sac_prepare_tools_page_title' );
+    $groups = [
+        'content'  => 'AI 文章與 FAQ',
+        'seo'      => 'AI SEO 工具',
+        'media'    => 'AI 圖片工具',
+        'commerce' => 'AI 電商工具',
+        'site'     => 'AI 網站工具',
+        'logs'     => 'AI 操作紀錄',
+    ];
+    foreach ( $groups as $group => $title ) {
+        $module_key = 'logs' === $group ? 'ai-operation-log' : 'ai-' . $group . '-tools';
+        if ( ! wutm_is_enabled( $module_key ) ) {
+            continue;
+        }
+        $tools_hook = add_submenu_page( 'wu-toolbox-modular', $title, $title, 'manage_options', 'site-ai-tools&group=' . $group, 'sac_render_tools_page' );
+        if ( $tools_hook ) {
+            add_action( 'load-' . $tools_hook, 'sac_prepare_tools_page_title' );
+        }
     }
 } );
 

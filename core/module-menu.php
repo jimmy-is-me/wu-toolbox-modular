@@ -40,14 +40,19 @@ function wutm_menu_slug_matches(string $entry_slug, string $needle): bool {
     $needle_query = wp_parse_url($needle, PHP_URL_QUERY);
     $entry_args = [];
     $needle_args = [];
-    $entry_page = '';
-    $needle_page = '';
     if (is_string($entry_query)) parse_str($entry_query, $entry_args);
     if (is_string($needle_query)) parse_str($needle_query, $needle_args);
+    if (!$entry_args && strpos($entry_slug, '&') !== false) parse_str('page=' . $entry_slug, $entry_args);
+    if (!$needle_args && strpos($needle, '&') !== false) parse_str('page=' . $needle, $needle_args);
     $entry_page = isset($entry_args['page']) ? (string) $entry_args['page'] : $entry_slug;
     $needle_page = isset($needle_args['page']) ? (string) $needle_args['page'] : $needle;
 
-    return $entry_page === $needle_page;
+    if ($entry_page !== $needle_page) return false;
+    foreach ($needle_args as $key => $value) {
+        if ($key === 'page') continue;
+        if (!isset($entry_args[$key]) || (string) $entry_args[$key] !== (string) $value) return false;
+    }
+    return true;
 }
 
 add_action('admin_menu', function (): void {
