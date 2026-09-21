@@ -105,7 +105,8 @@ add_action( 'sac_cleanup_tokens', function () {
  * ============================================================
  */
 add_action( 'admin_menu', function () {
-    add_menu_page( 'AI 連接器設定', 'AI 連接器', 'manage_options', 'site-ai-connector', 'sac_render_admin_page', 'dashicons-admin-generic', 80 );
+    add_submenu_page( 'wu-toolbox-modular', 'AI 連接器設定', 'AI 連接器', 'manage_options', 'site-ai-connector', 'sac_render_admin_page' );
+    add_submenu_page( null, 'AI 功能工具', 'AI 功能工具', 'manage_options', 'site-ai-tools', 'sac_render_tools_page' );
 } );
 
 /**
@@ -938,7 +939,7 @@ function sac_render_admin_page() {
     $tool_display_names = [];
     foreach ( $defs as $d ) { $tool_display_names[ $d['name'] ] = $d['summary']; }
     ?>
-    <div class="wrap">
+    <div class="wrap wutm-module-wrap sac-connector-core">
         <h1>AI 連接器設定</h1>
 
         <h2>API 金鑰管理</h2>
@@ -1098,6 +1099,7 @@ function sac_render_admin_page() {
         <p>轉址規則可透過 AI 工具新增或刪除。停用功能時，既有規則會保留，但不再執行轉址。</p>
         <hr style="margin:30px 0;">
 
+        <div class="sac-moved-features" hidden>
         <h2>常用指令：直接複製貼給 AI</h2>
         <p>每份指令都已包含實際工具名稱、查詢條件、內容規格、人工確認與完成回報。複製後可直接貼到 Claude、ChatGPT 或 Perplexity；需要改主題、文章 ID 或商品 ID 時，再替換指令中的範例值。</p>
         <p><strong>SEO 寫作原則：</strong>先確認讀者需求與實際資料，再產出獨特標題、可讀的段落與小標題、自然摘要、SEO 標題與描述；避免關鍵字堆砌、重複內容、無依據的功效或排名保證。新內容預設先存草稿，由管理員審核。</p>
@@ -1203,7 +1205,67 @@ function sac_render_admin_page() {
             <input type="hidden" name="sac_action" value="clear_log">
             <button class="button" onclick="return confirm('確定清空所有操作紀錄？此動作無法復原。');">清空操作紀錄</button>
         </form>
+        </div>
     </div>
+    <?php
+}
+
+/**
+ * 各 AI 功能卡片共用的獨立頁面。連線與權限仍由 AI 連接器統一管理，
+ * 這裡只依工作類型顯示既有工具與指令，避免全部堆在設定首頁。
+ */
+function sac_render_tools_page() {
+    if ( ! current_user_can( 'manage_options' ) ) wp_die( '權限不足' );
+
+    $pages = [
+        'content' => [ 'title' => 'AI 文章與 FAQ', 'groups' => [ '文章與 FAQ' ], 'categories' => [ '文章與 FAQ' ] ],
+        'seo' => [ 'title' => 'AI SEO 工具', 'groups' => [ 'SEO' ], 'categories' => [ 'SEO' ] ],
+        'media' => [ 'title' => 'AI 圖片工具', 'groups' => [ '圖片上傳' ], 'categories' => [ '圖片上傳' ] ],
+        'commerce' => [ 'title' => 'AI 電商工具', 'groups' => [ 'WooCommerce 商品', '營運資料', '優惠券管理' ], 'categories' => [ 'WooCommerce 商品', '營運資料', '優惠券管理' ] ],
+        'site' => [ 'title' => 'AI 網站工具', 'groups' => [ '選單管理', '轉址管理' ], 'categories' => [ '選單管理', '轉址管理' ] ],
+        'logs' => [ 'title' => 'AI 操作紀錄', 'groups' => [], 'categories' => [] ],
+    ];
+    $group_key = isset( $_GET['group'] ) ? sanitize_key( wp_unslash( $_GET['group'] ) ) : 'content'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
+    if ( ! isset( $pages[ $group_key ] ) ) $group_key = 'content';
+    $page = $pages[ $group_key ];
+
+    if ( 'logs' === $group_key && isset( $_POST['sac_action'] ) && 'clear_log' === $_POST['sac_action'] ) {
+        check_admin_referer( 'sac_admin_action' );
+        update_option( SAC_LOG_OPTION, [] );
+        echo '<div class="notice notice-success"><p>已清空操作紀錄</p></div>';
+    }
+
+    $connector_url = admin_url( 'admin.php?page=site-ai-connector' );
+    ?>
+    <div class="wrap wutm-module-wrap sac-tools-page">
+        <h1><?php echo esc_html( $page['title'] ); ?></h1>
+        <p class="wutm-module-subtitle">工具由 AI 連接器統一提供；金鑰、平台串接、IP 白名單與權限請到 <a href="<?php echo esc_url( $connector_url ); ?>">AI 連接器設定</a> 管理。</p>
+        <?php if ( 'logs' === $group_key ) :
+            $logs = array_slice( array_reverse( get_option( SAC_LOG_OPTION, [] ) ), 0, 100 ); ?>
+            <div class="sac-tools-card"><h2>最近寫入操作</h2><p>只記錄真正改變網站內容的新增、修改與刪除；唯讀查詢不會列入。</p>
+            <table class="widefat striped"><thead><tr><th>時間</th><th>動作</th><th>詳細內容</th><th>使用的金鑰</th></tr></thead><tbody>
+            <?php if ( ! $logs ) : ?><tr><td colspan="4">目前沒有任何寫入操作紀錄</td></tr><?php else : foreach ( $logs as $log ) : ?>
+                <tr><td><?php echo esc_html( $log['time'] ?? '' ); ?></td><td><strong><?php echo esc_html( $log['display_name'] ?? $log['action'] ?? '' ); ?></strong></td><td><?php echo esc_html( $log['detail'] ?? $log['target'] ?? '' ); ?></td><td><code><?php echo esc_html( $log['key_prefix'] ?? '' ); ?></code></td></tr>
+            <?php endforeach; endif; ?></tbody></table>
+            <form method="post" style="margin-top:14px;"><?php wp_nonce_field( 'sac_admin_action' ); ?><input type="hidden" name="sac_action" value="clear_log"><button class="button" onclick="return confirm('確定清空所有操作紀錄？此動作無法復原。');">清空操作紀錄</button></form></div>
+        <?php else :
+            $defs = array_values( array_filter( sac_get_tool_definitions(), static function ( $definition ) use ( $page ) { return in_array( $definition['group'], $page['groups'], true ); } ) );
+            $templates = sac_get_prompt_templates();
+            $quick = array_filter( $templates['quick'], static function ( $item ) use ( $page ) { return in_array( $item['category'], $page['categories'], true ); } );
+            if ( $quick ) : ?>
+                <div class="sac-tools-card"><h2>常用完整指令</h2><p>指令已包含查詢、人工確認、寫入與完成回報流程，可直接貼到 Claude、ChatGPT 或 Perplexity。</p><div class="sac-prompt-grid">
+                <?php foreach ( $quick as $key => $item ) : ?><div class="sac-prompt-card"><strong><?php echo esc_html( $item['label'] ); ?></strong><p><?php echo esc_html( $item['category'] ); ?></p><button type="button" class="button sac-copy" data-copy="quick-<?php echo esc_attr( $key ); ?>">複製完整指令</button><textarea id="quick-<?php echo esc_attr( $key ); ?>" hidden><?php echo esc_textarea( $item['prompt'] ); ?></textarea></div><?php endforeach; ?>
+                </div></div>
+            <?php endif; ?>
+            <div class="sac-tools-card"><h2>可使用工具</h2>
+            <?php if ( ! $defs ) : ?><p>目前沒有可顯示的工具。</p><?php else : ?><table class="widefat striped"><thead><tr><th>功能</th><th>權限</th><th>適合情境</th><th>範例指令</th></tr></thead><tbody>
+            <?php foreach ( $defs as $definition ) : $prompt = $templates['tool_prompts'][ $definition['name'] ] ?? $definition['prompt']; ?>
+                <tr<?php echo $definition['available'] ? '' : ' style="opacity:.5"'; ?>><td><strong><?php echo esc_html( $definition['summary'] ); ?></strong><br><code><?php echo esc_html( $definition['name'] ); ?></code></td><td><?php echo $definition['need_write'] ? '需要讀寫' : '唯讀可用'; ?></td><td><?php echo esc_html( $definition['scenario'] ); ?></td><td><?php if ( $definition['available'] ) : ?><button type="button" class="button sac-copy" data-copy="tool-<?php echo esc_attr( $definition['name'] ); ?>">複製指令</button><textarea id="tool-<?php echo esc_attr( $definition['name'] ); ?>" hidden><?php echo esc_textarea( $prompt ); ?></textarea><?php else : ?>尚未啟用或缺少 WooCommerce<?php endif; ?></td></tr>
+            <?php endforeach; ?></tbody></table><?php endif; ?></div>
+        <?php endif; ?>
+    </div>
+    <style>.sac-tools-page{max-width:1240px}.sac-tools-card{margin:20px 0;padding:22px 24px;border:1px solid #dcdcde;border-radius:8px;background:#fff}.sac-tools-card h2{margin-top:0}.sac-prompt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.sac-prompt-card{padding:16px;border:1px solid #dcdcde;border-radius:8px;background:#f6f7f7}.sac-prompt-card p{color:#646970}.sac-tools-page .widefat{margin-top:14px}.sac-tools-page .widefat th,.sac-tools-page .widefat td{vertical-align:top}@media(max-width:782px){.sac-tools-page .widefat{display:block;overflow-x:auto}}</style>
+    <script>document.querySelectorAll('.sac-copy').forEach(function(button){button.addEventListener('click',function(){var source=document.getElementById(button.dataset.copy);if(!source)return;navigator.clipboard.writeText(source.value).then(function(){var old=button.textContent;button.textContent='已複製';setTimeout(function(){button.textContent=old},1200)})})});</script>
     <?php
 }
 

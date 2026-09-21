@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>2.7.5</h4><ul><li>AI 連接器改為統一的串接與安全設定中心，首頁卡片只保留連線、金鑰、IP 白名單與擴充設定。</li><li>新增 AI 文章與 FAQ、AI SEO、AI 圖片、AI 電商、AI 網站工具及 AI 操作紀錄卡片，既有工具依功能移至獨立頁面集中顯示。</li></ul>
             <h4>2.7.4</h4><ul><li>SEO Core 健檢、全站設定與頁面轉場動畫設定頁套用 WU Toolbox 共用後台版型，統一深色標題、內容卡片、間距、邊框與響應式顯示。</li><li>從 SEO 分類移除 Rank Math SEO 卡片，保留 Wumetax SEO Core。</li></ul>
             <h4>2.7.3</h4><ul><li>新增「SEO 核心」模組，提供台灣繁中網站適用的編輯器 SEO 側欄、全站健檢、Title、Meta Description、Canonical、Open Graph、Schema 與 Sitemap 控制。</li><li>「SEO」分類調整至「內容管理」後方，集中顯示 SEO 核心與相關工具。</li></ul>
             <h4>2.7.2</h4><ul><li>「頁面轉場動畫」完整還原為原始 WUMETAX BRAND PAGE TRANSITION 的設定畫面、預覽、文案與品牌動畫，不再變更原程式設計。</li><li>僅保留 WU Toolbox 模組載入與設定入口所需的整合調整。</li></ul>

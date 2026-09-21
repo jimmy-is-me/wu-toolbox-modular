@@ -14,7 +14,8 @@ add_action('admin_enqueue_scripts', function (): void {
     $is_wu_screen = $id === 'toplevel_page_wu-toolbox-modular'
         || strpos($id, 'wu-toolbox-modular_page_') === 0
         || $page === 'wu-toolbox-modular'
-        || strpos($page, 'wu-') === 0;
+        || strpos($page, 'wu-') === 0
+        || strpos($page, 'site-ai-') === 0;
     if (!$is_wu_screen) return;
 
     wp_enqueue_style(
