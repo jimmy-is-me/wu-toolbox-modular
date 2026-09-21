@@ -196,14 +196,14 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'get_post_seo', 'group' => 'SEO', 'method' => 'GET', 'path' => '/posts/{post_id}/seo',
-            'summary' => '檢查 SEO 設定', 'description' => '讀取指定文章的 SEO 標題、描述、焦點關鍵字。若未安裝 Yoast/RankMath，改用文章摘要作為描述備援。',
+            'summary' => '檢查 SEO 設定', 'description' => '讀取指定文章的 SEO 標題、描述、Canonical、社群分享與索引設定。啟用 SEO 核心時，直接讀取 SEO 核心欄位。',
             'scenario' => '想知道某篇文章的搜尋標題、描述、焦點關鍵字', 'prompt' => '文章 123 的 SEO 標題和描述目前寫什麼？',
             'need_write' => false, 'available' => true,
             'params' => [ 'post_id' => [ 'type' => 'integer', 'in' => 'path', 'required' => true ] ],
         ],
         [
             'name' => 'update_post_seo', 'group' => 'SEO', 'method' => 'POST', 'path' => '/posts/{post_id}/seo',
-            'summary' => '修改 SEO 欄位', 'description' => '修改指定文章的 SEO 標題、描述、焦點關鍵字（需讀寫金鑰）。',
+            'summary' => '修改 SEO 核心欄位', 'description' => '修改指定文章的 SEO 標題、描述、Canonical、社群分享與索引設定；啟用 SEO 核心時會直接寫入 SEO 核心欄位（需讀寫金鑰）。',
             'scenario' => '要更新搜尋標題或描述，提高點擊率', 'prompt' => '幫文章 123 寫一段適合台灣讀者的 SEO 描述，先讓我看內容，再更新',
             'need_write' => true, 'available' => true,
             'params' => [
@@ -211,6 +211,12 @@ function sac_get_tool_definitions() {
                 'title'         => [ 'type' => 'string', 'in' => 'body' ],
                 'description'   => [ 'type' => 'string', 'in' => 'body' ],
                 'focus_keyword' => [ 'type' => 'string', 'in' => 'body' ],
+                'canonical'     => [ 'type' => 'string', 'in' => 'body', 'description' => '正式網址；一般留空即可' ],
+                'noindex'       => [ 'type' => 'boolean', 'in' => 'body', 'description' => '設為 true 時不收錄於搜尋結果' ],
+                'nofollow'      => [ 'type' => 'boolean', 'in' => 'body', 'description' => '設為 true 時不追蹤頁面連結' ],
+                'og_title'      => [ 'type' => 'string', 'in' => 'body', 'description' => '社群分享標題；留空時使用 SEO 標題' ],
+                'og_description'=> [ 'type' => 'string', 'in' => 'body', 'description' => '社群分享描述；留空時使用 SEO 描述' ],
+                'og_image_id'   => [ 'type' => 'integer', 'in' => 'body', 'description' => '社群分享圖片媒體 ID' ],
             ],
         ],
         [
@@ -511,7 +517,7 @@ PROMPT,
 2. 逐篇使用 get_post 與 get_post_seo 讀取正文、目前 SEO 欄位；不要改動已存在且內容合理的欄位。
 3. 依文章真實內容產生繁體中文 seo_title（60 字內、含主要關鍵字）、description（120 至 160 字）、focus_keyword 與 excerpt（2 至 3 句），避免誇大與關鍵字堆砌。
 4. 先用「文章 ID／原標題／建議 SEO 標題／建議描述／焦點關鍵字」表格給我確認，不要寫入。
-5. 我確認後才逐篇使用 update_post_seo；需要補 excerpt 時再使用 update_post。最後回報成功、失敗筆數及每筆失敗原因。
+5. 我確認後才逐篇使用 update_post_seo，直接寫入 Wumetax SEO 核心的 SEO Title 與 Meta Description 欄位；需要補 excerpt 時再使用 update_post。最後回報成功、失敗筆數及每筆失敗原因。
 PROMPT,
             ],
             'refresh_old_posts' => [
@@ -1442,18 +1448,21 @@ add_action( 'rest_api_init', function () {
             $cached = sac_cache_get( $cache_key );
             if ( $cached !== false ) return rest_ensure_response( $cached );
 
+            $has_seo_core   = sac_has_wumetax_seo_core();
             $has_seo_plugin = defined( 'WPSEO_VERSION' ) || class_exists( 'RankMath' );
             $query = new WP_Query( [
                 'post_type' => 'post', 'post_status' => 'publish', 'posts_per_page' => 100,
                 'no_found_rows' => true, 'update_post_term_cache' => false,
-                'update_post_meta_cache' => $has_seo_plugin, // 只有需要讀 meta 時才預載
-                'fields' => $has_seo_plugin ? 'all' : 'all',
+                'update_post_meta_cache' => $has_seo_core || $has_seo_plugin,
+                'fields' => 'all',
             ] );
             $missing = [];
             foreach ( $query->posts as $p ) {
-                $desc = $has_seo_plugin
-                    ? ( get_post_meta( $p->ID, '_yoast_wpseo_metadesc', true ) ?: get_post_meta( $p->ID, 'rank_math_description', true ) )
-                    : $p->post_excerpt;
+                $desc = $has_seo_core
+                    ? get_post_meta( $p->ID, '_wu_seo_description', true )
+                    : ( $has_seo_plugin
+                        ? ( get_post_meta( $p->ID, '_yoast_wpseo_metadesc', true ) ?: get_post_meta( $p->ID, 'rank_math_description', true ) )
+                        : $p->post_excerpt );
                 if ( empty( $desc ) ) {
                     $missing[] = [ 'id' => $p->ID, 'title' => get_the_title( $p ) ];
                     if ( count( $missing ) >= $limit ) break;
@@ -1890,7 +1899,28 @@ function sac_apply_image_alt( WP_REST_Request $request ) {
     return true;
 }
 
+/** SEO Core is the first-party source of truth when its module is enabled. */
+function sac_has_wumetax_seo_core() {
+    return class_exists( 'Wumetax_SEO_Core_v120' );
+}
+
 function sac_get_seo_fields( $post_id ) {
+    if ( sac_has_wumetax_seo_core() ) {
+        return [
+            'post_id'        => $post_id,
+            'title'          => (string) get_post_meta( $post_id, '_wu_seo_title', true ),
+            'description'    => (string) get_post_meta( $post_id, '_wu_seo_description', true ),
+            'focus_keyword'  => (string) get_post_meta( $post_id, '_sac_focus_keyword', true ),
+            'canonical'      => (string) get_post_meta( $post_id, '_wu_seo_canonical', true ),
+            'noindex'        => (bool) get_post_meta( $post_id, '_wu_seo_noindex', true ),
+            'nofollow'       => (bool) get_post_meta( $post_id, '_wu_seo_nofollow', true ),
+            'og_title'       => (string) get_post_meta( $post_id, '_wu_seo_og_title', true ),
+            'og_description' => (string) get_post_meta( $post_id, '_wu_seo_og_desc', true ),
+            'og_image_id'    => (int) get_post_meta( $post_id, '_wu_seo_og_image', true ),
+            'source'         => 'wumetax_seo_core',
+        ];
+    }
+
     $has_seo_plugin = defined( 'WPSEO_VERSION' ) || class_exists( 'RankMath' );
     $description = get_post_meta( $post_id, '_yoast_wpseo_metadesc', true ) ?: get_post_meta( $post_id, 'rank_math_description', true );
     if ( ! $has_seo_plugin && empty( $description ) ) {
@@ -1908,6 +1938,28 @@ function sac_get_seo_fields( $post_id ) {
 }
 
 function sac_update_seo_fields( $post_id, $params ) {
+    if ( sac_has_wumetax_seo_core() ) {
+        $fields = [
+            'title'          => [ '_wu_seo_title', 'sanitize_text_field' ],
+            'description'    => [ '_wu_seo_description', 'sanitize_textarea_field' ],
+            'canonical'      => [ '_wu_seo_canonical', 'esc_url_raw' ],
+            'og_title'       => [ '_wu_seo_og_title', 'sanitize_text_field' ],
+            'og_description' => [ '_wu_seo_og_desc', 'sanitize_textarea_field' ],
+        ];
+        foreach ( $fields as $field => $definition ) {
+            if ( ! array_key_exists( $field, $params ) ) continue;
+            $value = call_user_func( $definition[1], $params[ $field ] );
+            if ( '' === $value ) delete_post_meta( $post_id, $definition[0] );
+            else update_post_meta( $post_id, $definition[0], $value );
+        }
+        foreach ( [ 'noindex' => '_wu_seo_noindex', 'nofollow' => '_wu_seo_nofollow' ] as $field => $meta_key ) {
+            if ( array_key_exists( $field, $params ) ) update_post_meta( $post_id, $meta_key, ! empty( $params[ $field ] ) ? 1 : 0 );
+        }
+        if ( array_key_exists( 'og_image_id', $params ) ) update_post_meta( $post_id, '_wu_seo_og_image', absint( $params['og_image_id'] ) );
+        if ( array_key_exists( 'focus_keyword', $params ) ) update_post_meta( $post_id, '_sac_focus_keyword', sanitize_text_field( $params['focus_keyword'] ) );
+        return;
+    }
+
     $has_seo_plugin = defined( 'WPSEO_VERSION' ) || class_exists( 'RankMath' );
     if ( isset( $params['title'] ) ) {
         update_post_meta( $post_id, '_yoast_wpseo_title', sanitize_text_field( $params['title'] ) );
