@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
         $changelog = '
+            <h4>2.7.2</h4><ul><li>「頁面轉場動畫」完整還原為原始 WUMETAX BRAND PAGE TRANSITION 的設定畫面、預覽、文案與品牌動畫，不再變更原程式設計。</li><li>僅保留 WU Toolbox 模組載入與設定入口所需的整合調整。</li></ul>
             <h4>2.7.1</h4><ul><li>新增「頁面轉場動畫」前台介面模組，可設定品牌主色、Logo 與文字並即時預覽。</li><li>自動略過同頁錨點、外部連結、下載、新分頁、後台與 WooCommerce AJAX 操作，支援瀏覽器返回快取及減少動態效果偏好。</li></ul>
             <h4>2.7.0</h4><ul><li>AI 連接器的常用指令改為集中管理的完整提示詞模板，明確包含實際 MCP 工具、查詢條件、內容規格、人工確認與完成回報，可直接貼至 Claude、ChatGPT 或 Perplexity。</li><li>功能總覽的每項工具同步提供可複製的結構化範例；媒體工具新增缺少替代文字篩選與 update_media_alt 寫入功能，支援安全的批次 SEO 圖片整理。</li></ul>
             <h4>2.6.9</h4><ul><li>新增「版面檢查器」特殊工具模組，管理員可從前台管理列按需掃描 Section 與 Container、標示尺寸異常並複製完整報告。</li><li>後台可設定 Section、Container 基準寬度與容許誤差；檢查器預設關閉，只有開啟面板時才掃描頁面。</li></ul>
