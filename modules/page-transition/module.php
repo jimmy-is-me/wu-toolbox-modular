@@ -864,18 +864,12 @@ if ( ! class_exists( 'Wumetax_Brand_Transition_v220' ) ) {
 			<div class="wrap wutm-module-wrap wupt-admin">
 
 
-				<div class="wupt-admin-header wutm-module-header">
+				<h1>Wumetax 轉場動畫</h1>
 
-					<h1>
-						Wumetax 轉場動畫
-					</h1>
-
-					<p>
-						設定網站換頁時顯示的品牌顏色、Logo 與文字。
-						設定完成後會自動套用到全站站內換頁。
-					</p>
-
-				</div>
+				<p class="wutm-module-subtitle">
+					設定網站換頁時顯示的品牌顏色、Logo 與文字。
+					設定完成後會自動套用到全站站內換頁。
+				</p>
 
 
 
