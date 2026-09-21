@@ -240,12 +240,23 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'list_media', 'group' => '圖片上傳', 'method' => 'GET', 'path' => '/media',
-            'summary' => '搜尋媒體庫現有圖片', 'description' => '依關鍵字搜尋媒體庫中現有的圖片，不需要重新上傳。',
-            'scenario' => '想用網站裡已經有的圖片，而不是每次都重新上傳', 'prompt' => '在媒體庫找找看有沒有「中秋禮盒」的照片',
+            'summary' => '搜尋媒體庫與缺少替代文字的圖片', 'description' => '依關鍵字搜尋媒體庫圖片，或只列出替代文字為空的圖片；回傳媒體 ID、標題、檔名、替代文字、所屬內容與網址。',
+            'scenario' => '搜尋現有圖片，或盤點哪些圖片尚未設定替代文字', 'prompt' => '請使用 list_media，設定 missing_alt=true、limit=20，列出缺少替代文字的圖片 ID、檔名與所屬內容；先不要修改。',
             'need_write' => false, 'available' => true,
             'params' => [
                 'search' => [ 'type' => 'string', 'in' => 'query', 'description' => '關鍵字搜尋（比對檔名與標題）' ],
                 'limit'  => [ 'type' => 'integer', 'in' => 'query', 'description' => '回傳數量上限，預設 10，最大 50' ],
+                'missing_alt' => [ 'type' => 'boolean', 'in' => 'query', 'description' => 'true 時只回傳替代文字為空的圖片' ],
+            ],
+        ],
+        [
+            'name' => 'update_media_alt', 'group' => '圖片上傳', 'method' => 'POST', 'path' => '/media/{media_id}/alt',
+            'summary' => '更新圖片替代文字', 'description' => '更新指定圖片的替代文字；寫入前應先用 list_media 核對媒體 ID、檔名與所屬文章或商品（需讀寫金鑰）。',
+            'scenario' => '為缺少替代文字的圖片補上精確、可讀且符合 SEO 的描述', 'prompt' => '請先使用 list_media 取得 missing_alt=true 的前 20 張圖片，列出媒體 ID、檔名、所屬內容與建議的繁體中文替代文字（20 字內）；等我確認後，才逐筆使用 update_media_alt 寫入，最後回報成功、失敗筆數與原因。',
+            'need_write' => true, 'available' => true,
+            'params' => [
+                'media_id' => [ 'type' => 'integer', 'in' => 'path', 'required' => true ],
+                'alt_text' => [ 'type' => 'string', 'in' => 'body', 'required' => true, 'description' => '精確描述圖片內容的繁體中文替代文字，建議 20 字內' ],
             ],
         ],
         [
@@ -461,6 +472,171 @@ function sac_get_tool_definitions() {
     ];
 }
 
+/**
+ * 後台指令模板集中管理。prompt 給常用指令卡片，tool_prompts 給功能總覽。
+ * 所有名稱均使用本連接器實際透過 tools/list 公開的 MCP 工具名稱。
+ */
+function sac_get_prompt_templates() {
+    return [
+        'quick' => [
+            'create_seo_post' => [
+                'label' => '撰寫 SEO 文章草稿',
+                'category' => '文章與 FAQ',
+                'prompt' => <<<'PROMPT'
+請使用本站 AI 連接器的 MCP 工具建立一篇 SEO 友善文章草稿，主題為「中秋節送禮推薦」。
+
+1. 先確認搜尋意圖為資訊比較，目標讀者為台灣正在挑選送禮商品的消費者；若網站已有相近文章，先使用 list_posts（search=中秋送禮、status=any、limit=10）列出文章 ID、標題與狀態，避免內容重複。
+2. 以繁體中文規劃原創內容：標題 60 字內、至少 3 個清楚小標題、正文資訊具體且不編造資料；自然使用「中秋送禮推薦」及相關關鍵字，不堆砌關鍵字或保證排名。
+3. 同時準備 excerpt（2 至 3 句）、seo_title（60 字內）、seo_description（120 至 160 字）、focus_keyword 與簡短可讀的 slug。
+4. 先列出文章架構、標題、摘要與 SEO 欄位給我確認，不要直接寫入。
+5. 我確認後才使用 create_post，status=draft 建立草稿；完成後回報文章 ID、預覽資訊，若失敗請回報原因。
+PROMPT,
+            ],
+            'optimize_post_seo' => [
+                'label' => '批次補齊文章 SEO',
+                'category' => 'SEO',
+                'prompt' => <<<'PROMPT'
+請使用本站 AI 連接器的 MCP 工具補齊已發佈文章的 SEO 欄位。
+
+1. 先使用 find_posts_missing_seo（limit=10）找出 SEO 描述為空的已發佈文章，列出文章 ID 與標題。
+2. 逐篇使用 get_post 與 get_post_seo 讀取正文、目前 SEO 欄位；不要改動已存在且內容合理的欄位。
+3. 依文章真實內容產生繁體中文 seo_title（60 字內、含主要關鍵字）、description（120 至 160 字）、focus_keyword 與 excerpt（2 至 3 句），避免誇大與關鍵字堆砌。
+4. 先用「文章 ID／原標題／建議 SEO 標題／建議描述／焦點關鍵字」表格給我確認，不要寫入。
+5. 我確認後才逐篇使用 update_post_seo；需要補 excerpt 時再使用 update_post。最後回報成功、失敗筆數及每筆失敗原因。
+PROMPT,
+            ],
+            'refresh_old_posts' => [
+                'label' => '更新舊文章內容',
+                'category' => '文章與 FAQ',
+                'prompt' => <<<'PROMPT'
+請使用本站 AI 連接器的 MCP 工具更新與「送禮」相關的舊文章。
+
+1. 使用 list_posts（search=送禮、status=publish、limit=10）列出文章 ID、標題與修改時間。
+2. 先讓我選擇文章；選定後使用 get_post 與 get_post_seo 讀取完整內容和 SEO 現況。
+3. 保留原有正確重點與網址代稱，只提出需要更新、刪除過時資訊或補充讀者疑問的內容；使用繁體中文、清楚小標題與自然關鍵字，不編造年份、價格或規格。
+4. 先列出修改摘要及完整草稿供我確認，不要直接寫入。
+5. 我確認後才使用 update_post 更新指定欄位；完成後回報文章 ID、實際更新欄位，失敗時說明原因。
+PROMPT,
+            ],
+            'update_faq' => [
+                'label' => '補文章常見問題',
+                'category' => '文章與 FAQ',
+                'prompt' => <<<'PROMPT'
+請使用本站 AI 連接器的 MCP 工具為文章 ID 123 補齊 FAQ。
+
+1. 使用 get_post（post_id=123）讀取文章內容，再使用 get_post_faq（post_id=123）取得現有 FAQ。
+2. 依文章內容與讀者搜尋意圖產生 3 題繁體中文問答；答案務必能由文章或已知事實支持，不編造資料。
+3. 必須保留原有有效題目，整理成 update_post_faq 所需的完整 faqs 陣列，每項包含 question 與 answer。
+4. 先列出完整新舊 FAQ 清單給我確認，不要寫入。
+5. 我確認後才使用 update_post_faq；完成後回報文章 ID、保留與新增題數，失敗時說明原因。
+PROMPT,
+            ],
+            'optimize_products' => [
+                'label' => '批次優化商品 SEO',
+                'category' => 'WooCommerce 商品',
+                'prompt' => <<<'PROMPT'
+請使用本站 AI 連接器的 MCP 工具檢查並優化已發佈商品的 SEO 內容。
+
+1. 使用 list_products（status=publish、limit=15）列出商品 ID、名稱、分類、價格與庫存，再逐筆使用 get_product 讀取說明、簡短說明、圖片與 SEO 現況。
+2. 只處理 SEO 標題、SEO 描述或簡短說明缺漏的商品；所有規格、價格與功效必須以現有真實資料為準。
+3. 產生繁體中文 seo_title（60 字內）、seo_description（120 至 160 字）、focus_keyword，以及僅在原欄位空白時提供 100 字內 short_description；自然使用商品名稱與核心關鍵字。
+4. 先列出「商品 ID／商品名稱／缺漏欄位／建議內容」給我確認，不要直接寫入。
+5. 我確認後才逐筆使用 update_product，且只傳需要更新的欄位。完成後回報成功、失敗商品數與原因。
+PROMPT,
+            ],
+            'create_product' => [
+                'label' => '建立 SEO 商品草稿',
+                'category' => 'WooCommerce 商品',
+                'prompt' => <<<'PROMPT'
+請使用本站 AI 連接器的 MCP 工具建立「中秋綜合禮盒」商品草稿，售價 880 元、庫存 20 件。
+
+1. 先使用 list_products（search=中秋綜合禮盒、status=any、limit=10）確認沒有重複商品，再使用 list_product_categories 列出可用分類。
+2. 依我提供的真實規格撰寫繁體中文 name、description、100 字內 short_description、seo_title（60 字內）、seo_description（120 至 160 字）、focus_keyword 與 slug；不可捏造成分、功效、尺寸或配送承諾。
+3. 若需要圖片，先使用 list_media 搜尋現有圖片，並提出 image_id 與 20 字內 image_alt 建議。
+4. 先列出準備寫入的全部欄位與分類給我確認，不要建立商品。
+5. 我確認後才使用 create_product，status=draft；完成後回報商品 ID、草稿狀態，失敗時回報原因。
+PROMPT,
+            ],
+            'media_alt' => [
+                'label' => '批次補圖片替代文字',
+                'category' => '圖片上傳',
+                'prompt' => <<<'PROMPT'
+請使用本站 AI 連接器的 MCP 工具補齊媒體庫圖片替代文字。
+
+1. 使用 list_media（missing_alt=true、limit=20）列出替代文字為空的圖片，包含媒體 ID、檔名、標題、所屬文章或商品。
+2. 依檔名、媒體標題及所屬內容判斷圖片用途；資訊不足時標記「需要人工確認」，不要猜測畫面內容。
+3. 為可判斷的圖片產生繁體中文 alt_text，20 字內、具描述性，不堆砌關鍵字，也不要使用「圖片」或「照片」等多餘開頭。
+4. 先列出「媒體 ID／檔名／所屬內容／建議替代文字」給我確認，不要寫入。
+5. 我確認後才逐筆使用 update_media_alt。完成後回報成功、略過、失敗筆數及原因。
+PROMPT,
+            ],
+            'low_stock' => [
+                'label' => '低庫存盤點與補貨',
+                'category' => '營運資料',
+                'prompt' => <<<'PROMPT'
+請使用本站 AI 連接器的 MCP 工具盤點低庫存商品。
+
+1. 使用 get_low_stock_products（threshold=5）列出庫存 5 件以下的商品 ID、名稱與目前庫存。
+2. 以表格列出結果並標示售罄商品；先不要修改任何庫存。
+3. 請我逐筆提供確認後的新庫存數量，不要自行假設補貨數量。
+4. 我確認後才逐筆使用 set_product_stock，傳入 product_id、stock_quantity，以及 stock_status（數量大於 0 為 instock，等於 0 為 outofstock）。
+5. 完成後回報成功、失敗筆數、更新前後數量與失敗原因。
+PROMPT,
+            ],
+            'coupon_campaign' => [
+                'label' => '建立促銷優惠券',
+                'category' => '優惠券管理',
+                'prompt' => <<<'PROMPT'
+請使用本站 AI 連接器的 MCP 工具建立促銷優惠券：代碼 MID100，購物車滿 1000 元折 100 元，總使用上限 50 次。
+
+1. 先使用 list_coupons（limit=100）確認 MID100 尚未存在，並列出任何相似代碼。
+2. 準備 create_coupon 參數：code=MID100、discount_type=fixed_cart、amount=100、min_spend=1000、usage_limit=50；若未提供到期日，請明確標示「無到期日」。
+3. 先將完整設定列給我確認，不要直接建立。
+4. 我確認後才使用 create_coupon；不可自行增加免運、限會員或其他未指定條件。
+5. 完成後回報優惠券 ID、代碼與實際設定；失敗時回報原因。
+PROMPT,
+            ],
+        ],
+        'tool_prompts' => [
+            'list_posts' => '請使用 list_posts，參數 status=draft、limit=10，列出文章 ID、標題、狀態與修改時間；只回傳清單，不要修改。',
+            'get_post' => '請使用 get_post，參數 post_id=123，完整列出標題、狀態與正文；不要修改，找不到時回報原因。',
+            'update_post' => '先使用 get_post 讀取 post_id=123，列出預計修改欄位給我確認；確認後才使用 update_post，只傳需要變更的欄位，完成後回報結果。',
+            'create_post' => '先產生繁體中文文章、excerpt、seo_title、seo_description、focus_keyword 與 slug 給我確認；確認後才使用 create_post，status=draft，並回報文章 ID。',
+            'get_post_faq' => '請使用 get_post_faq，參數 post_id=123，列出全部 question 與 answer；只查詢，不要修改。',
+            'update_post_faq' => '先使用 get_post_faq 讀取 post_id=123，保留有效舊題並列出完整 faqs 陣列；我確認後才使用 update_post_faq，完成後回報題數。',
+            'get_post_seo' => '請使用 get_post_seo，參數 post_id=123，列出 SEO 標題、描述與焦點關鍵字；只查詢，不要修改。',
+            'update_post_seo' => '先使用 get_post 與 get_post_seo 讀取 post_id=123，產生 60 字內標題及 120 至 160 字描述給我確認；確認後才使用 update_post_seo。',
+            'find_posts_missing_seo' => '請使用 find_posts_missing_seo，參數 limit=20，列出缺少 SEO 描述的已發佈文章 ID 與標題；只查詢，不要修改。',
+            'create_upload_link' => '先確認需要上傳的張數，再使用 create_upload_link，參數 ttl_minutes=30、max_files=5；回報連結、到期時間與張數上限。',
+            'check_upload_link' => '請使用 check_upload_link，傳入我提供的 token，列出已上傳媒體 ID 與狀態；不要修改。',
+            'set_featured_image' => '先使用 get_post 與 list_media 核對文章和圖片；列出 post_id、media_id 給我確認後才使用 set_featured_image，完成後回報結果。',
+            'list_media' => '請使用 list_media，參數 missing_alt=true、limit=20，列出媒體 ID、檔名、替代文字與所屬內容；只查詢，不要修改。',
+            'update_media_alt' => '先使用 list_media 核對 media_id 與所屬內容，提出 20 字內繁體中文 alt_text；我確認後才使用 update_media_alt，完成後回報結果。',
+            'list_menu' => '請使用 list_menu，先列出主選單項目 ID、文字、網址、順序與父項目；只查詢，不要修改。',
+            'update_menu_item' => '先使用 list_menu 找出正確 item_id，列出舊值與新值給我確認；確認後才使用 update_menu_item，完成後回報結果。',
+            'list_products' => '請使用 list_products，參數 status=publish、limit=10，列出商品 ID、名稱、價格、庫存與狀態；只查詢，不要修改。',
+            'get_product' => '請使用 get_product，參數 product_id=88，列出名稱、說明、價格、庫存、分類、圖片與 SEO 欄位；只查詢，不要修改。',
+            'create_product' => '先列出商品全部欄位與 SEO 內容給我確認；確認後才使用 create_product，status=draft，完成後回報商品 ID 與失敗原因。',
+            'update_product' => '先使用 get_product 核對 product_id=88，列出只需變更的欄位給我確認；確認後才使用 update_product，完成後回報實際更新欄位。',
+            'delete_product' => '先使用 get_product 核對 product_id=88 的名稱與狀態；我明確確認後才使用 delete_product 移入垃圾桶，完成後回報結果。',
+            'set_product_stock' => '先使用 get_product 核對 product_id=88 與目前庫存；我確認新數量後才使用 set_product_stock，完成後回報更新前後數量。',
+            'list_product_categories' => '請使用 list_product_categories，列出分類 ID、名稱、slug 與商品數；只查詢，不要修改。',
+            'get_orders_summary' => '請使用 get_orders_summary，參數 status=processing、reveal_pii=false，以表格回報訂單摘要並遮蔽個資；不要修改訂單。',
+            'get_low_stock_products' => '請使用 get_low_stock_products，參數 threshold=5，列出商品 ID、名稱與庫存；只查詢，不要修改。',
+            'get_revenue_report' => '請使用 get_revenue_report，參數 days=7，回報期間、完成訂單數與營收總額；只查詢，不要修改。',
+            'get_unread_form_submissions' => '請使用 get_unread_form_submissions，參數 reveal_pii=false，列出未讀送件 ID、日期與遮蔽後聯絡資料；不要標記已讀。',
+            'mark_form_submission_read' => '先列出 entry_id=45 的處理確認；我確認後才使用 mark_form_submission_read，完成後回報結果。',
+            'list_redirects' => '請使用 list_redirects，列出規則 ID、來源路徑、目標網址與狀態碼；只查詢，不要修改。',
+            'create_redirect' => '先使用 list_redirects 確認來源路徑未重複，列出 source_path、target_url、status_code=301 給我確認；確認後才使用 create_redirect。',
+            'delete_redirect' => '先使用 list_redirects 核對 redirect_id 與規則內容；我明確確認後才使用 delete_redirect，完成後回報結果。',
+            'list_coupons' => '請使用 list_coupons，參數 limit=20，列出優惠券 ID、代碼、類型、金額、到期日與使用狀況；只查詢，不要修改。',
+            'create_coupon' => '先使用 list_coupons 確認代碼未重複，列出 create_coupon 的全部設定給我確認；確認後才建立並回報優惠券 ID。',
+            'update_coupon' => '先使用 list_coupons 核對 coupon_id=123，列出舊值與新值給我確認；確認後才使用 update_coupon，只傳需要修改的欄位。',
+            'delete_coupon' => '先使用 list_coupons 核對 coupon_id=123 與代碼；我明確確認後才使用 delete_coupon 移入垃圾桶，完成後回報結果。',
+        ],
+    ];
+}
+
 function sac_build_gemini_tools_schema() {
     $defs = array_filter( sac_get_tool_definitions(), fn( $d ) => $d['available'] );
     $functions = [];
@@ -654,7 +830,7 @@ function sac_handle_mcp_request( WP_REST_Request $request ) {
                 'protocolVersion' => $protocol_version,
                 'capabilities' => [ 'tools' => new stdClass() ],
                 'serverInfo' => [ 'name' => get_bloginfo( 'name' ) . ' AI Connector', 'version' => WUTM_VERSION ],
-                'instructions' => '唯讀工具可查詢網站資料；修改網站內容的工具需讀寫金鑰，並須依連接平台的確認流程取得使用者同意。',
+                'instructions' => '唯讀工具可查詢網站資料。任何寫入操作都必須先用唯讀工具核對現況，列出預計修改的對象、欄位與內容，取得使用者明確確認後才呼叫寫入工具；完成後回報成功筆數、失敗筆數與失敗原因。修改網站內容需讀寫金鑰，且仍須遵循連接平台的確認流程。',
             ],
         ] );
     }
@@ -752,6 +928,7 @@ function sac_render_admin_page() {
     $openapi_url = esc_url( rest_url( SAC_NAMESPACE . '/openapi.json' ) );
     $gemini_schema = wp_json_encode( sac_build_gemini_tools_schema(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
     $defs = sac_get_tool_definitions();
+    $prompt_templates = sac_get_prompt_templates();
     $has_write_key = false;
     $first_write_key_masked = '';
     foreach ( $keys as $k => $data ) {
@@ -922,33 +1099,27 @@ function sac_render_admin_page() {
         <hr style="margin:30px 0;">
 
         <h2>常用指令：直接複製貼給 AI</h2>
-        <p>先用生活化的說法交辦即可。涉及文章、商品或優惠券時，先請 AI 查出正確編號；發佈或停用前再確認內容。</p>
+        <p>每份指令都已包含實際工具名稱、查詢條件、內容規格、人工確認與完成回報。複製後可直接貼到 Claude、ChatGPT 或 Perplexity；需要改主題、文章 ID 或商品 ID 時，再替換指令中的範例值。</p>
         <p><strong>SEO 寫作原則：</strong>先確認讀者需求與實際資料，再產出獨特標題、可讀的段落與小標題、自然摘要、SEO 標題與描述；避免關鍵字堆砌、重複內容、無依據的功效或排名保證。新內容預設先存草稿，由管理員審核。</p>
-        <?php
-        $sac_common_prompts = [
-            [ 'title' => '寫部落格文章', 'text' => '先確認「中秋節送禮推薦」的搜尋意圖與目標讀者，再用繁體中文撰寫原創文章，附清楚小標題、摘要、SEO 標題、SEO 描述與主要關鍵字。不要堆砌關鍵字或編造資料；先建立草稿讓我審核。' ],
-            [ 'title' => '建立 SEO 友善商品', 'text' => '先根據我提供的真實規格與照片，撰寫獨特商品名稱、完整說明、簡短說明、SEO 標題與描述及主圖替代文字，說明適用情境；不要捏造功效或規格，先存草稿。' ],
-            [ 'title' => '更新舊文章', 'text' => '搜尋網站裡關於「送禮」的文章，列出標題和編號；我選好後，幫我補充最新內容，原有重點要保留。' ],
-            [ 'title' => '補 SEO 描述', 'text' => '找出已發佈但還沒填 SEO 描述的文章，先列出前 10 篇；我指定文章後，幫我擬適合台灣讀者的描述。' ],
-            [ 'title' => '補文章常見問題', 'text' => '先讀文章 123 和原有 FAQ，再幫我新增 3 題讀者常問的問題；保留原有題目。' ],
-            [ 'title' => '商品補貨', 'text' => '幫我找出庫存剩 5 件以下的商品，列出名稱和庫存；先不要修改，我確認後再補貨。' ],
-            [ 'title' => '促銷優惠券', 'text' => '建立優惠券 MID100，訂單滿 1000 元折 100 元，總共限用 50 次；建立前先幫我確認代碼有沒有重複。' ],
-        ];
-        ?>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;max-width:1100px;">
-        <?php foreach ( $sac_common_prompts as $item ) : ?>
+        <?php foreach ( $prompt_templates['quick'] as $key => $item ) : ?>
             <div style="background:#fff;border:1px solid #ccd0d4;border-radius:6px;padding:14px;">
-                <strong><?php echo esc_html( $item['title'] ); ?></strong>
-                <p style="margin-bottom:8px;"><?php echo esc_html( $item['text'] ); ?></p>
-                <button type="button" class="button sac-quick-copy" data-prompt="<?php echo esc_attr( $item['text'] ); ?>">複製指令</button>
+                <strong><?php echo esc_html( $item['label'] ); ?></strong>
+                <span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:10px;background:#eef1f4;color:#50575e;font-size:11px;"><?php echo esc_html( $item['category'] ); ?></span>
+                <p style="margin-bottom:8px;color:#50575e;">包含查詢、內容規格、確認後寫入及結果回報。</p>
+                <button type="button" class="button sac-quick-copy" data-command-key="<?php echo esc_attr( $key ); ?>">複製完整指令</button>
+                <textarea class="sac-command-source" data-command-key="<?php echo esc_attr( $key ); ?>" hidden><?php echo esc_textarea( $item['prompt'] ); ?></textarea>
             </div>
         <?php endforeach; ?>
         </div>
         <script>
         document.querySelectorAll('.sac-quick-copy').forEach(function(btn) {
             btn.addEventListener('click', function() {
-                navigator.clipboard.writeText(btn.dataset.prompt).then(function() {
-                    var old = btn.textContent; btn.textContent = '已複製';
+                var key = btn.getAttribute('data-command-key');
+                var source = document.querySelector('.sac-command-source[data-command-key="' + key + '"]');
+                if (!source) return;
+                navigator.clipboard.writeText(source.value).then(function() {
+                    var old = btn.textContent; btn.textContent = '已複製完整指令';
                     setTimeout(function() { btn.textContent = old; }, 1200);
                 });
             });
@@ -981,7 +1152,9 @@ function sac_render_admin_page() {
                         <td><?php echo esc_html( $d['scenario'] ); ?></td>
                         <td>
                             <?php if ( $d['available'] ) : ?>
-                            <code style="cursor:pointer;display:block;padding:8px 10px;background:#f6f7f7;border:1px dashed #ccc;border-radius:4px;" onclick="navigator.clipboard.writeText(this.innerText.replace('📋 ','')); var t=this; var old=t.innerText; t.innerText='✅ 已複製到剪貼簿'; setTimeout(function(){t.innerText=old;},1200);">📋 <?php echo esc_html( $d['prompt'] ); ?></code>
+                            <?php $tool_prompt = $prompt_templates['tool_prompts'][ $d['name'] ] ?? $d['prompt']; ?>
+                            <button type="button" class="sac-tool-prompt-copy" style="width:100%;text-align:left;cursor:pointer;display:block;padding:8px 10px;background:#f6f7f7;border:1px dashed #ccc;border-radius:4px;color:#1d2327;" data-tool="<?php echo esc_attr( $d['name'] ); ?>">📋 <?php echo esc_html( $tool_prompt ); ?></button>
+                            <textarea class="sac-tool-prompt-source" data-tool="<?php echo esc_attr( $d['name'] ); ?>" hidden><?php echo esc_textarea( $tool_prompt ); ?></textarea>
                             <?php else : ?>
                                 <span style="color:#999;">此功能尚未啟用</span>
                             <?php endif; ?>
@@ -991,6 +1164,20 @@ function sac_render_admin_page() {
                 </tbody>
             </table>
         <?php endforeach; ?>
+
+        <script>
+        document.querySelectorAll('.sac-tool-prompt-copy').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var tool = btn.getAttribute('data-tool');
+                var source = document.querySelector('.sac-tool-prompt-source[data-tool="' + tool + '"]');
+                if (!source) return;
+                navigator.clipboard.writeText(source.value).then(function() {
+                    var old = btn.textContent; btn.textContent = '✅ 已複製到剪貼簿';
+                    setTimeout(function() { btn.textContent = old; }, 1200);
+                });
+            });
+        });
+        </script>
 
         <hr style="margin:30px 0;">
 
@@ -1266,19 +1453,58 @@ add_action( 'rest_api_init', function () {
         'callback' => function ( WP_REST_Request $req ) {
             $limit = min( (int) ( $req->get_param( 'limit' ) ?: 10 ), 50 );
             $search = $req->get_param( 'search' ) ?: '';
-            $cache_key = "media_{$search}_{$limit}";
-            $cached = sac_cache_get( $cache_key );
-            if ( $cached !== false ) return rest_ensure_response( $cached );
-            $query = new WP_Query( [
+            $missing_alt = filter_var( $req->get_param( 'missing_alt' ), FILTER_VALIDATE_BOOLEAN );
+            $cache_key = "media_{$search}_{$limit}_" . ( $missing_alt ? 'missing' : 'all' );
+            if ( ! $missing_alt ) {
+                $cached = sac_cache_get( $cache_key );
+                if ( $cached !== false ) return rest_ensure_response( $cached );
+            }
+            $query_args = [
                 'post_type' => 'attachment', 'post_status' => 'inherit', 'post_mime_type' => 'image',
                 's' => $search, 'posts_per_page' => $limit, 'orderby' => 'date', 'order' => 'DESC', 'no_found_rows' => true,
-            ] );
-            $result = array_map( fn( $a ) => [
-                'id' => $a->ID, 'title' => get_the_title( $a ), 'url' => wp_get_attachment_url( $a->ID ),
-                'thumbnail' => wp_get_attachment_image_url( $a->ID, 'thumbnail' ), 'uploaded' => $a->post_date,
-            ], $query->posts );
-            sac_cache_set( $cache_key, $result );
+            ];
+            if ( $missing_alt ) {
+                $query_args['meta_query'] = [
+                    'relation' => 'OR',
+                    [ 'key' => '_wp_attachment_image_alt', 'compare' => 'NOT EXISTS' ],
+                    [ 'key' => '_wp_attachment_image_alt', 'value' => '', 'compare' => '=' ],
+                ];
+            }
+            $query = new WP_Query( $query_args );
+            $result = array_map( function ( $a ) {
+                $parent_id = (int) $a->post_parent;
+                $file = get_attached_file( $a->ID );
+                return [
+                    'id' => $a->ID,
+                    'title' => get_the_title( $a ),
+                    'filename' => $file ? wp_basename( $file ) : '',
+                    'alt_text' => (string) get_post_meta( $a->ID, '_wp_attachment_image_alt', true ),
+                    'parent_id' => $parent_id,
+                    'parent_title' => $parent_id ? get_the_title( $parent_id ) : '',
+                    'url' => wp_get_attachment_url( $a->ID ),
+                    'thumbnail' => wp_get_attachment_image_url( $a->ID, 'thumbnail' ),
+                    'uploaded' => $a->post_date,
+                ];
+            }, $query->posts );
+            if ( ! $missing_alt ) sac_cache_set( $cache_key, $result );
             return rest_ensure_response( $result );
+        },
+    ] );
+
+    register_rest_route( SAC_NAMESPACE, '/media/(?P<id>\d+)/alt', [
+        'methods' => 'POST', 'permission_callback' => 'sac_permission_write',
+        'args' => [ 'alt_text' => [ 'required' => true, 'type' => 'string' ] ],
+        'callback' => function ( WP_REST_Request $req ) {
+            $media_id = (int) $req['id'];
+            if ( get_post_type( $media_id ) !== 'attachment' || strpos( (string) get_post_mime_type( $media_id ), 'image/' ) !== 0 ) {
+                return new WP_Error( 'sac_not_found', '找不到指定圖片', [ 'status' => 404 ] );
+            }
+            $alt_text = trim( wp_strip_all_tags( (string) $req->get_param( 'alt_text' ) ) );
+            if ( $alt_text === '' ) return new WP_Error( 'sac_invalid_alt', '替代文字不可為空', [ 'status' => 400 ] );
+            $alt_text = mb_substr( $alt_text, 0, 160 );
+            update_post_meta( $media_id, '_wp_attachment_image_alt', $alt_text );
+            sac_write_log( 'update_media_alt', '更新圖片替代文字', "媒體#{$media_id}：{$alt_text}", $req->get_header( 'x-sac-key' ) );
+            return rest_ensure_response( [ 'success' => true, 'media_id' => $media_id, 'alt_text' => $alt_text ] );
         },
     ] );
 
