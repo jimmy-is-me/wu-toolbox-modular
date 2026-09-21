@@ -12,7 +12,7 @@ add_action('admin_enqueue_scripts', function (): void {
     $id = (string) $screen->id;
     $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
     $is_wu_screen = $id === 'toplevel_page_wu-toolbox-modular'
-        || strpos($id, 'wu-toolbox-modular_page_wu-') === 0
+        || strpos($id, 'wu-toolbox-modular_page_') === 0
         || $page === 'wu-toolbox-modular'
         || strpos($page, 'wu-') === 0;
     if (!$is_wu_screen) return;

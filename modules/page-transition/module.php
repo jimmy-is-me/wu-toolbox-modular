@@ -860,10 +860,10 @@ if ( ! class_exists( 'Wumetax_Brand_Transition_v220' ) ) {
 
 
 
-			<div class="wrap wupt-admin">
+			<div class="wrap wutm-module-wrap wupt-admin">
 
 
-				<div class="wupt-admin-header">
+				<div class="wupt-admin-header wutm-module-header">
 
 					<h1>
 						Wumetax 轉場動畫
