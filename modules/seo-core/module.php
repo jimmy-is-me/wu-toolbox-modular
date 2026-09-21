@@ -164,6 +164,136 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 			return $out;
 		}
 
+		/** Return installed legacy SEO sources that can safely be imported on demand. */
+		private static function legacy_import_sources() {
+			return [
+				'yoast' => [
+					'label'     => 'Yoast SEO',
+					'available' => defined( 'WPSEO_VERSION' ) || is_array( get_option( 'wpseo_titles', false ) ),
+				],
+				'rank-math' => [
+					'label'     => 'Rank Math',
+					'available' => defined( 'RANK_MATH_VERSION' ) || is_array( get_option( 'rank-math-options-general', false ) ) || is_array( get_option( 'rank-math-options-titles', false ) ),
+				],
+			];
+		}
+
+		/**
+		 * Copy the commonly used global and per-content SEO values from a legacy plugin.
+		 * Existing legacy data is never deleted, so the import can be reviewed or repeated safely.
+		 */
+		private static function import_legacy_seo( $source ) {
+			$sources = self::legacy_import_sources();
+			if ( empty( $sources[ $source ]['available'] ) ) {
+				return new WP_Error( 'wumetax_seo_import_unavailable', '找不到可匯入的舊 SEO 設定。' );
+			}
+
+			$settings = self::settings();
+			$source_options = [];
+			$meta_map = [];
+			if ( 'yoast' === $source ) {
+				$source_options = (array) get_option( 'wpseo_titles', [] );
+				$global_map = [
+					'google_verify'      => [ 'googleverify' ],
+					'bing_verify'        => [ 'bingverify' ],
+					'organization_name'  => [ 'company_name', 'website_name' ],
+					'organization_alt_name' => [ 'alternate_website_name' ],
+				];
+				$meta_map = [
+					'_wu_seo_title'       => '_yoast_wpseo_title',
+					'_wu_seo_description' => '_yoast_wpseo_metadesc',
+					'_wu_seo_canonical'   => '_yoast_wpseo_canonical',
+					'_wu_seo_og_title'    => '_yoast_wpseo_opengraph-title',
+					'_wu_seo_og_desc'     => '_yoast_wpseo_opengraph-description',
+					'_wu_seo_og_image'    => '_yoast_wpseo_opengraph-image-id',
+				];
+			} else {
+				$source_options = array_merge( (array) get_option( 'rank-math-options-general', [] ), (array) get_option( 'rank-math-options-titles', [] ) );
+				$global_map = [
+					'google_verify'       => [ 'google_verify' ],
+					'bing_verify'         => [ 'bing_verify' ],
+					'organization_name'   => [ 'knowledgegraph_name', 'website_name' ],
+					'organization_alt_name' => [ 'knowledgegraph_alt_name' ],
+					'default_og_image'    => [ 'knowledgegraph_logo' ],
+				];
+				$meta_map = [
+					'_wu_seo_title'       => 'rank_math_title',
+					'_wu_seo_description' => 'rank_math_description',
+					'_wu_seo_canonical'   => 'rank_math_canonical_url',
+					'_wu_seo_og_title'    => 'rank_math_facebook_title',
+					'_wu_seo_og_desc'     => 'rank_math_facebook_description',
+					'_wu_seo_og_image'    => 'rank_math_facebook_image_id',
+				];
+			}
+
+			$imported_settings = 0;
+			foreach ( $global_map as $target => $keys ) {
+				foreach ( $keys as $key ) {
+					if ( ! empty( $source_options[ $key ] ) && is_scalar( $source_options[ $key ] ) ) {
+						$settings[ $target ] = 'default_og_image' === $target ? absint( $source_options[ $key ] ) : sanitize_text_field( $source_options[ $key ] );
+						$imported_settings++;
+						break;
+					}
+				}
+			}
+			update_option( self::OPTION_KEY, $settings );
+			self::$settings = null;
+
+			$posts = 0;
+			$fields = 0;
+			$page = 1;
+			do {
+				$query = new WP_Query( [
+					'post_type'      => self::supported_post_types(),
+					'post_status'    => 'any',
+					'posts_per_page' => 200,
+					'paged'          => $page,
+					'fields'         => 'ids',
+					'no_found_rows'  => false,
+				] );
+				foreach ( $query->posts as $post_id ) {
+					$post_fields = 0;
+					foreach ( $meta_map as $target => $legacy_key ) {
+						$value = get_post_meta( $post_id, $legacy_key, true );
+						if ( '' === $value || null === $value ) {
+							continue;
+						}
+						if ( '_wu_seo_canonical' === $target ) {
+							$value = esc_url_raw( $value );
+						} elseif ( '_wu_seo_og_image' === $target ) {
+							$value = absint( $value );
+						} else {
+							$value = sanitize_text_field( $value );
+						}
+						if ( '' === $value || 0 === $value ) {
+							continue;
+						}
+						update_post_meta( $post_id, $target, $value );
+						$post_fields++;
+					}
+
+					$robots = get_post_meta( $post_id, 'yoast' === $source ? '_yoast_wpseo_meta-robots-noindex' : 'rank_math_robots', true );
+					$robots = is_array( $robots ) ? $robots : [ $robots ];
+					if ( in_array( 'noindex', $robots, true ) || in_array( '1', $robots, true ) ) {
+						update_post_meta( $post_id, '_wu_seo_noindex', 1 );
+						$post_fields++;
+					}
+					if ( 'yoast' === $source && in_array( '1', [ get_post_meta( $post_id, '_yoast_wpseo_meta-robots-nofollow', true ) ], true ) ) {
+						update_post_meta( $post_id, '_wu_seo_nofollow', 1 );
+						$post_fields++;
+					} elseif ( 'rank-math' === $source && in_array( 'nofollow', $robots, true ) ) {
+						update_post_meta( $post_id, '_wu_seo_nofollow', 1 );
+						$post_fields++;
+					}
+					if ( $post_fields ) { $posts++; $fields += $post_fields; }
+				}
+				$page++;
+			} while ( $page <= (int) $query->max_num_pages );
+
+			wp_reset_postdata();
+			return [ 'label' => $sources[ $source ]['label'], 'settings' => $imported_settings, 'posts' => $posts, 'fields' => $fields ];
+		}
+
 		public static function admin_menu() {
 			add_submenu_page(
 				'wu-toolbox-modular',
@@ -669,8 +799,15 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 				return;
 			}
 
+			$import_result = null;
+			if ( isset( $_POST['wumetax_seo_import_source'] ) ) {
+				check_admin_referer( 'wumetax_seo_import', 'wumetax_seo_import_nonce' );
+				$import_result = self::import_legacy_seo( sanitize_key( wp_unslash( $_POST['wumetax_seo_import_source'] ) ) );
+			}
+
 			$s = self::settings();
 			$default_img = self::attachment_url( absint( $s['default_og_image'] ) );
+			$legacy_sources = self::legacy_import_sources();
 			?>
 			<div class="wrap wutm-module-wrap wu-seo-wrap">
 				<style>
@@ -683,11 +820,36 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 					.wu-seo-image-preview{width:260px;min-height:145px;border:1px dashed #c3c4c7;border-radius:10px;background:#f6f7f7;display:flex;align-items:center;justify-content:center;overflow:hidden;margin-bottom:10px;color:#72777c}
 					.wu-seo-image-preview img{max-width:100%;max-height:180px;display:block}
 					.wu-seo-toggle{display:flex;gap:10px;align-items:center;margin:0 0 10px}
+					.wu-seo-import-source,.wu-seo-verification-source{padding:16px 0;border-top:1px solid #eee}.wu-seo-import-source:first-of-type,.wu-seo-verification-source:first-child{border-top:0}.wu-seo-import-source p,.wu-seo-verification-source p{margin:7px 0;color:#50575e;line-height:1.6}.wu-seo-badge{display:inline-block;padding:2px 8px;border-radius:999px;background:#e7f5ec;color:#16733b;font-size:12px;font-weight:700}.wu-seo-badge.is-optional{background:#f0f0f1;color:#50575e}.wu-seo-verification-source ol{margin:8px 0 12px 20px;color:#50575e;line-height:1.7}
 					@media(max-width:760px){.wu-seo-grid{grid-template-columns:1fr}}
 				</style>
 
 				<h1>SEO 核心</h1>
 				<p class="wutm-module-subtitle">台灣繁中網站用的輕量 SEO 核心。前台不載入 JavaScript 或 CSS；設定完成度請至 <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::DASHBOARD_PAGE ) ); ?>">SEO 健檢</a> 查看。</p>
+
+				<?php if ( is_wp_error( $import_result ) ) : ?>
+					<div class="notice notice-error inline"><p><?php echo esc_html( $import_result->get_error_message() ); ?></p></div>
+				<?php elseif ( is_array( $import_result ) ) : ?>
+					<div class="notice notice-success inline"><p><?php echo esc_html( sprintf( '已從 %1$s 匯入 %2$d 項全站設定，以及 %3$d 篇內容的 %4$d 個 SEO 欄位。原外掛資料未被刪除。', $import_result['label'], $import_result['settings'], $import_result['posts'], $import_result['fields'] ) ); ?></p></div>
+				<?php endif; ?>
+
+				<div class="wu-seo-card">
+					<h2>匯入既有 SEO 設定</h2>
+					<p>若之前使用 Yoast SEO 或 Rank Math，可按一次將可對應的全站驗證、組織資料與文章／頁面的 SEO 欄位複製到 SEO 核心。只覆蓋來源已有值的欄位，原外掛與原資料都會保留。</p>
+					<?php $has_legacy_source = false; foreach ( $legacy_sources as $source_key => $source ) : if ( empty( $source['available'] ) ) { continue; } $has_legacy_source = true; ?>
+						<div class="wu-seo-import-source">
+							<strong><?php echo esc_html( $source['label'] ); ?></strong>
+							<p>偵測到既有資料，可立即匯入並於完成後顯示筆數。</p>
+							<form method="post">
+								<?php wp_nonce_field( 'wumetax_seo_import', 'wumetax_seo_import_nonce' ); ?>
+								<input type="hidden" name="wumetax_seo_import_source" value="<?php echo esc_attr( $source_key ); ?>">
+								<button type="submit" class="button button-secondary">從 <?php echo esc_html( $source['label'] ); ?> 匯入</button>
+							</form>
+						</div>
+					<?php endforeach; if ( ! $has_legacy_source ) : ?>
+						<p class="description">目前未偵測到 Yoast SEO 或 Rank Math 的既有設定；曾經使用過或啟用相關外掛後，這裡會提供匯入按鈕。</p>
+					<?php endif; ?>
+				</div>
 
 				<form method="post" action="options.php">
 					<?php settings_fields( 'wumetax_seo_core_group' ); ?>
@@ -733,10 +895,22 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 						</div>
 
 						<div class="wu-seo-grid">
-							<div class="wu-seo-label"><strong>網站驗證</strong><p>只填 verification token，不要貼整段 meta tag。</p></div>
+							<div class="wu-seo-label"><strong>網站驗證</strong><p>驗證碼不是發佈 SEO 的必要條件；填入後才能在搜尋平台查看收錄、錯誤與 Sitemap 狀態。只貼 verification token，不要貼整段 meta tag。</p></div>
 							<div>
-								<p><label>Google Search Console<br><input class="regular-text wu-seo-input" type="text" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[google_verify]" value="<?php echo esc_attr( $s['google_verify'] ); ?>"></label></p>
-								<p><label>Bing Webmaster Tools<br><input class="regular-text wu-seo-input" type="text" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[bing_verify]" value="<?php echo esc_attr( $s['bing_verify'] ); ?>"></label></p>
+								<div class="wu-seo-verification-source">
+									<strong>Google Search Console <span class="wu-seo-badge">選填・建議填入</span></strong>
+									<p>建議所有希望被 Google 搜尋到的網站填入；不填不會阻擋網站被收錄。</p>
+									<ol><li>開啟 Search Console，新增或選擇你的網站資源。</li><li>在「設定」或驗證流程選擇 <strong>HTML 標記</strong>。</li><li>複製 meta tag 中 <code>content="..."</code> 引號內的值，貼到下方後儲存，再回 Google 完成驗證。</li></ol>
+									<p><a href="https://search.google.com/search-console/about" target="_blank" rel="noopener noreferrer">開啟 Google Search Console ↗</a></p>
+									<label>Google verification token<br><input class="regular-text wu-seo-input" type="text" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[google_verify]" value="<?php echo esc_attr( $s['google_verify'] ); ?>" placeholder="例如：abc123..."></label>
+								</div>
+								<div class="wu-seo-verification-source">
+									<strong>Bing Webmaster Tools <span class="wu-seo-badge is-optional">選填</span></strong>
+									<p>若也想查看 Bing、Yahoo 等搜尋來源的收錄與問題，建議填入；不使用這些報表可留空。</p>
+									<ol><li>開啟 Bing Webmaster Tools，新增網站。</li><li>在驗證方式選擇 <strong>HTML Meta Tag</strong>。</li><li>複製 meta tag 的 <code>content="..."</code> 值，貼到下方後儲存，再回 Bing 驗證。</li></ol>
+									<p><a href="https://www.bing.com/webmasters/about" target="_blank" rel="noopener noreferrer">開啟 Bing Webmaster Tools ↗</a></p>
+									<label>Bing verification token<br><input class="regular-text wu-seo-input" type="text" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[bing_verify]" value="<?php echo esc_attr( $s['bing_verify'] ); ?>" placeholder="例如：abc123..."></label>
+								</div>
 							</div>
 						</div>
 

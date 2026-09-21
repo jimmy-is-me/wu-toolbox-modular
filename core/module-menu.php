@@ -32,6 +32,24 @@ add_action('admin_enqueue_scripts', function (): void {
  * as the dashboard cards. Modules may register their own pages, so we
  * normalize the existing submenu entries after all modules have loaded.
  */
+/** Compare a registered menu slug with either a plain slug or an admin URL. */
+function wutm_menu_slug_matches(string $entry_slug, string $needle): bool {
+    if ($entry_slug === $needle) return true;
+
+    $entry_query = wp_parse_url($entry_slug, PHP_URL_QUERY);
+    $needle_query = wp_parse_url($needle, PHP_URL_QUERY);
+    $entry_args = [];
+    $needle_args = [];
+    $entry_page = '';
+    $needle_page = '';
+    if (is_string($entry_query)) parse_str($entry_query, $entry_args);
+    if (is_string($needle_query)) parse_str($needle_query, $needle_args);
+    $entry_page = isset($entry_args['page']) ? (string) $entry_args['page'] : $entry_slug;
+    $needle_page = isset($needle_args['page']) ? (string) $needle_args['page'] : $needle;
+
+    return $entry_page === $needle_page;
+}
+
 add_action('admin_menu', function (): void {
     global $submenu;
     $parent = 'wu-toolbox-modular';
@@ -68,7 +86,7 @@ add_action('admin_menu', function (): void {
             }
             foreach ($entries as $index => $entry) {
                 $slug = (string) ($entry[2] ?? '');
-                if (isset($used[$index]) || !in_array($slug, $needles, true)) continue;
+                if (isset($used[$index]) || !array_filter($needles, static fn($needle) => wutm_menu_slug_matches($slug, $needle))) continue;
                 $entry[0] = $module['name'];
                 $group_entries[] = $entry;
                 $used[$index] = true;
@@ -76,7 +94,7 @@ add_action('admin_menu', function (): void {
             }
             foreach ((array) ($module['related_pages'] ?? []) as $related_slug) {
                 foreach ($entries as $index => $entry) {
-                    if (isset($used[$index]) || (string) ($entry[2] ?? '') !== (string) $related_slug) continue;
+                    if (isset($used[$index]) || !wutm_menu_slug_matches((string) ($entry[2] ?? ''), (string) $related_slug)) continue;
                     $group_entries[] = $entry;
                     $used[$index] = true;
                     break;
@@ -95,7 +113,7 @@ add_action('admin_menu', function (): void {
         if (!isset($used[$index])) $ordered[] = $entry;
     }
     $submenu[$parent] = $ordered;
-}, 999);
+}, 9999);
 
 /** Hide installer shortcuts without removing registered page access or native plugin menus. */
 add_action('admin_head', function (): void {
