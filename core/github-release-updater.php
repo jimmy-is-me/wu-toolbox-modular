@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+			<h4>2.7.7</h4><ul><li>AI 連接器改為純連線設定中心，移除擴充功能開關與卡片 icon；已拆分的轉址、優惠券等 AI 工具維持可用。</li><li>修正 AI 功能獨立頁缺少後台頁面標題，在 PHP 8.1 以上不再出現 strip_tags() 傳入 null 的棄用警告。</li><li>SEO 核心與頁面轉場動畫完整載入 WU Toolbox 共用後台樣式，統一標題列、內容卡片、邊框、圓角與響應式版面。</li></ul>
 			<h4>2.7.6</h4><ul><li>修正頁面轉場動畫設定頁標題顏色，並將 SEO 核心健檢與全站設定頁統一為 WU Toolbox 共用外觀及名稱。</li><li>移除編輯器 SEO 儲存提示框與特定網站用語，改用適用所有網站的動態檢查範圍說明。</li><li>由 SEO 核心接管 WordPress XML Sitemap 呈現層，加入品牌說明、響應式卡片表格與易讀網址樣式，保留原生 XML 結構與網址相容性。</li></ul>
 			<h4>2.7.5</h4><ul><li>AI 連接器改為統一的串接與安全設定中心，首頁卡片只保留連線、金鑰、IP 白名單與擴充設定。</li><li>新增 AI 文章與 FAQ、AI SEO、AI 圖片、AI 電商、AI 網站工具及 AI 操作紀錄卡片，既有工具依功能移至獨立頁面集中顯示。</li></ul>
             <h4>2.7.4</h4><ul><li>SEO Core 健檢、全站設定與頁面轉場動畫設定頁套用 WU Toolbox 共用後台版型，統一深色標題、內容卡片、間距、邊框與響應式顯示。</li><li>從 SEO 分類移除 Rank Math SEO 卡片，保留 Wumetax SEO Core。</li></ul>

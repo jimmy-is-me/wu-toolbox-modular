@@ -106,8 +106,16 @@ add_action( 'sac_cleanup_tokens', function () {
  */
 add_action( 'admin_menu', function () {
     add_submenu_page( 'wu-toolbox-modular', 'AI 連接器設定', 'AI 連接器', 'manage_options', 'site-ai-connector', 'sac_render_admin_page' );
-    add_submenu_page( null, 'AI 功能工具', 'AI 功能工具', 'manage_options', 'site-ai-tools', 'sac_render_tools_page' );
+    $tools_hook = add_submenu_page( null, 'AI 功能工具', 'AI 功能工具', 'manage_options', 'site-ai-tools', 'sac_render_tools_page' );
+    if ( $tools_hook ) {
+        add_action( 'load-' . $tools_hook, 'sac_prepare_tools_page_title' );
+    }
 } );
+
+/** Hidden AI tool pages do not have a parent menu title for WordPress to resolve. */
+function sac_prepare_tools_page_title() {
+    $GLOBALS['title'] = 'AI 功能工具';
+}
 
 /**
  * ============================================================
@@ -909,13 +917,6 @@ function sac_render_admin_page() {
                 echo '<div class="notice notice-success"><p>已更新 IP 白名單設定</p></div>';
             }
         }
-        if ( $_POST['sac_action'] === 'save_features' ) {
-            update_option( SAC_OPTION_FEATURES, [
-                'redirects' => ! empty( $_POST['sac_enable_redirects'] ),
-                'coupons' => ! empty( $_POST['sac_enable_coupons'] ),
-            ] );
-            echo '<div class="notice notice-success"><p>已更新擴充功能設定</p></div>';
-        }
         if ( $_POST['sac_action'] === 'clear_log' ) {
             update_option( SAC_LOG_OPTION, [] );
             echo '<div class="notice notice-success"><p>已清空操作紀錄</p></div>';
@@ -1085,19 +1086,6 @@ function sac_render_admin_page() {
             <textarea name="sac_ip_list" style="width:100%;max-width:500px;height:80px;"><?php echo esc_textarea( implode( "\n", $ip_allowlist['ips'] ?? [] ) ); ?></textarea>
             <p><button class="button button-primary">儲存設定</button></p>
         </form>
-
-        <hr style="margin:30px 0;">
-
-        <h2>擴充功能設定</h2>
-        <form method="post">
-            <?php wp_nonce_field( 'sac_admin_action' ); ?>
-            <input type="hidden" name="sac_action" value="save_features">
-            <p><label><input type="checkbox" name="sac_enable_redirects" value="1" <?php checked( sac_feature_enabled( 'redirects' ) ); ?>> 啟用轉址管理</label></p>
-            <p><label><input type="checkbox" name="sac_enable_coupons" value="1" <?php checked( sac_feature_enabled( 'coupons' ) ); ?>> 啟用 WooCommerce 優惠券管理</label></p>
-            <p><button class="button button-primary">儲存設定</button></p>
-        </form>
-        <p>轉址規則可透過 AI 工具新增或刪除。停用功能時，既有規則會保留，但不再執行轉址。</p>
-        <hr style="margin:30px 0;">
 
         <div class="sac-moved-features" hidden>
         <h2>常用指令：直接複製貼給 AI</h2>
@@ -2024,10 +2012,9 @@ add_action( 'template_redirect', function () {
     exit;
 } );
 
-/** 新功能預設啟用，可在後台停用。 */
+/** AI 工具已拆分為獨立卡片，連接器只管理連線設定；既有功能一律保持可用。 */
 function sac_feature_enabled( $feature ) {
-    $features = get_option( SAC_OPTION_FEATURES, [ 'redirects' => true, 'coupons' => true ] );
-    return ! empty( $features[ $feature ] );
+    return in_array( $feature, [ 'redirects', 'coupons' ], true );
 }
 
 function sac_feature_permission( $feature, $write, WP_REST_Request $request ) {

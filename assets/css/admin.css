@@ -55,6 +55,7 @@
 .wutm-module-header{margin:-24px -28px 24px!important;padding:20px 28px!important;border-radius:8px 8px 0 0!important;background:#1d2327!important;color:#fff!important}
 .wutm-module-header h1{margin:0 0 8px!important;color:#fff!important;font-size:21px!important;line-height:1.35!important}
 .wutm-module-header p{margin:0!important;color:#c3c4c7!important;line-height:1.65!important}
+.wutm-module-wrap .wupt-admin-card,.wutm-module-wrap .wu-seo-card{border-color:var(--wutm-wp-border)!important;border-radius:8px!important;box-shadow:0 1px 3px #00000012!important}
 @media(max-width:782px){.wutm-module-header{margin:-18px -16px 18px!important;padding:18px 16px!important}}
 .wutm-module-wrap .widefat{background:var(--wutm-wp-panel)!important;border-color:var(--wutm-wp-border)!important;color:var(--wutm-wp-text)!important}.wutm-module-wrap .widefat th{color:var(--wutm-wp-text)!important}.wutm-module-wrap .widefat td{color:var(--wutm-wp-muted)!important}.wutm-module-wrap label{color:var(--wutm-wp-text)}.wutm-module-wrap .updated{border-left-color:var(--wutm-wp-green)!important;background:#00a32a12!important;color:var(--wutm-wp-text)!important}
 .button,.button-secondary,.button-primary{border-radius:4px!important}

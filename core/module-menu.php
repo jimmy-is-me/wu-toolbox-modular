@@ -15,6 +15,7 @@ add_action('admin_enqueue_scripts', function (): void {
         || strpos($id, 'wu-toolbox-modular_page_') === 0
         || $page === 'wu-toolbox-modular'
         || strpos($page, 'wu-') === 0
+        || strpos($page, 'wumetax-') === 0
         || strpos($page, 'site-ai-') === 0;
     if (!$is_wu_screen) return;
 
