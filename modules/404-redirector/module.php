@@ -662,9 +662,9 @@ class WU_404_Redirector {
         // 標記為已發送
         self::$redirect_sent = true;
         
-        // Add a one-time flag so the destination page can politely explain the redirect.
+        // Use a short-lived, HTTP-only cookie so the destination URL stays clean.
         if ($this->get_option('show_notice', true)) {
-            $redirect_url = add_query_arg('wu_404_redirected', '1', $redirect_url);
+            setcookie('wu_404_redirect_notice', '1', time() + 15, COOKIEPATH ?: '/', COOKIE_DOMAIN, is_ssl(), true);
         }
 
         // 執行重新導向
@@ -816,9 +816,10 @@ class WU_404_Redirector {
      * @param int $limit 日誌保留數量上限
      */
     public function render_redirect_notice() {
-        if (empty($_GET['wu_404_redirected']) || !$this->get_option('show_notice', true)) {
+        if (empty($_COOKIE['wu_404_redirect_notice']) || !$this->get_option('show_notice', true)) {
             return;
         }
+        setcookie('wu_404_redirect_notice', '', time() - HOUR_IN_SECONDS, COOKIEPATH ?: '/', COOKIE_DOMAIN, is_ssl(), true);
         $redirect_type = $this->get_option('type', 'homepage');
         $target = $redirect_type === 'homepage' ? '網站首頁' : '指定頁面';
         ?>
@@ -828,9 +829,9 @@ class WU_404_Redirector {
             <button type="button" class="wu-404-visitor-notice__close" aria-label="關閉提示">×</button>
         </aside>
         <style>
-            .wu-404-visitor-notice{position:fixed;z-index:99999;right:24px;bottom:24px;max-width:420px;display:flex;gap:12px;align-items:flex-start;padding:16px 18px;background:#17232c;color:#fff;border:1px solid rgba(255,255,255,.15);border-radius:14px;box-shadow:0 16px 40px rgba(0,0,0,.24);font-size:14px;line-height:1.55}.wu-404-visitor-notice__icon{display:grid;place-items:center;flex:0 0 30px;width:30px;height:30px;background:#46bd7b;border-radius:50%;font-size:18px;font-weight:700}.wu-404-visitor-notice strong{display:block;font-size:15px}.wu-404-visitor-notice p{margin:3px 24px 0 0;color:#dce7eb}.wu-404-visitor-notice__close{position:absolute;top:7px;right:9px;border:0;background:transparent;color:#fff;cursor:pointer;font-size:20px;line-height:1}@media(max-width:600px){.wu-404-visitor-notice{right:14px;bottom:14px;left:14px;max-width:none}}
+            .wu-404-visitor-notice{position:fixed;z-index:99999;right:24px;bottom:24px;max-width:390px;display:flex;gap:10px;align-items:flex-start;padding:13px 16px;background:rgba(255,255,255,.76);color:#28343c;border:1px solid rgba(31,50,60,.12);border-radius:13px;box-shadow:0 10px 30px rgba(20,35,45,.12);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);font-size:13px;line-height:1.5;transition:opacity .35s ease,transform .35s ease}.wu-404-visitor-notice.is-leaving{opacity:0;transform:translateY(8px);pointer-events:none}.wu-404-visitor-notice__icon{display:grid;place-items:center;flex:0 0 26px;width:26px;height:26px;background:#dff5e8;color:#16834a;border-radius:50%;font-size:15px;font-weight:700}.wu-404-visitor-notice strong{display:block;font-size:14px}.wu-404-visitor-notice p{margin:2px 20px 0 0;color:#52616a}.wu-404-visitor-notice__close{position:absolute;top:6px;right:8px;border:0;background:transparent;color:#65737b;cursor:pointer;font-size:18px;line-height:1}@media(max-width:600px){.wu-404-visitor-notice{right:14px;bottom:14px;left:14px;max-width:none}}
         </style>
-        <script>document.querySelector('.wu-404-visitor-notice__close').addEventListener('click',function(){this.parentNode.remove();});</script>
+        <script>(function(){var notice=document.querySelector('.wu-404-visitor-notice');if(!notice)return;var close=function(){notice.classList.add('is-leaving');setTimeout(function(){notice.remove();},350)};notice.querySelector('.wu-404-visitor-notice__close').addEventListener('click',close);setTimeout(close,3000);}());</script>
         <?php
     }
 

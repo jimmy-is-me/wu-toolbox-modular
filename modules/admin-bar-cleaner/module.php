@@ -552,6 +552,18 @@ class WU_Admin_Bar_Cleaner {
         };
         add_action( 'admin_head-users.php',     $output_js );
         add_action( 'admin_head-user-edit.php', $output_js );
+        add_action( 'admin_head-user-new.php',  $output_js );
+
+        add_action( 'set_user_role', function( $user_id, $role ) use ( $disabled_roles ) {
+            if ( ! in_array( $role, $disabled_roles, true ) ) {
+                return;
+            }
+            $fallback = get_option( 'default_role', 'subscriber' );
+            if ( in_array( $fallback, $disabled_roles, true ) || ! get_role( $fallback ) ) {
+                $fallback = 'subscriber';
+            }
+            ( new WP_User( $user_id ) )->set_role( $fallback );
+        }, 20, 2 );
     }
 
     private function user_has_disabled_role( WP_User $user, array $disabled_roles ): bool {

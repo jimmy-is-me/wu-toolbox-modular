@@ -106,24 +106,6 @@ add_action( 'sac_cleanup_tokens', function () {
  */
 add_action( 'admin_menu', function () {
     add_submenu_page( 'wu-toolbox-modular', 'AI 連接器設定', 'AI 連接器', 'manage_options', 'site-ai-connector', 'sac_render_admin_page' );
-    $groups = [
-        'content'  => 'AI 文章與 FAQ',
-        'seo'      => 'AI SEO 工具',
-        'media'    => 'AI 圖片工具',
-        'commerce' => 'AI 電商工具',
-        'site'     => 'AI 網站工具',
-        'logs'     => 'AI 操作紀錄',
-    ];
-    foreach ( $groups as $group => $title ) {
-        $module_key = 'logs' === $group ? 'ai-operation-log' : 'ai-' . $group . '-tools';
-        if ( ! wutm_is_enabled( $module_key ) ) {
-            continue;
-        }
-        $tools_hook = add_submenu_page( 'wu-toolbox-modular', $title, $title, 'manage_options', 'site-ai-tools&group=' . $group, 'sac_render_tools_page' );
-        if ( $tools_hook ) {
-            add_action( 'load-' . $tools_hook, 'sac_prepare_tools_page_title' );
-        }
-    }
 } );
 
 /** Hidden AI tool pages do not have a parent menu title for WordPress to resolve. */
@@ -1275,6 +1257,12 @@ function sac_render_tools_page() {
     <style>.sac-tools-page{max-width:1240px}.sac-tools-card{margin:20px 0;padding:22px 24px;border:1px solid #dcdcde;border-radius:8px;background:#fff}.sac-tools-card h2{margin-top:0}.sac-prompt-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}.sac-prompt-card{padding:16px;border:1px solid #dcdcde;border-radius:8px;background:#f6f7f7}.sac-prompt-card p{color:#646970}.sac-tools-page .widefat{margin-top:14px}.sac-tools-page .widefat th,.sac-tools-page .widefat td{vertical-align:top}@media(max-width:782px){.sac-tools-page .widefat{display:block;overflow-x:auto}}</style>
     <script>document.querySelectorAll('.sac-copy').forEach(function(button){button.addEventListener('click',function(){var source=document.getElementById(button.dataset.copy);if(!source)return;navigator.clipboard.writeText(source.value).then(function(){var old=button.textContent;button.textContent='已複製';setTimeout(function(){button.textContent=old},1200)})})});</script>
     <?php
+}
+
+/** Render a separately registered AI tool module while reusing the connector's data layer. */
+function sac_render_tools_group( $group_key ) {
+    $_GET['group'] = sanitize_key( $group_key );
+    sac_render_tools_page();
 }
 
 // 寫入操作紀錄：只在真正修改資料時呼叫，包含好讀的動作名稱與參數摘要
