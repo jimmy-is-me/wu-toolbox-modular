@@ -26,6 +26,8 @@ add_action('plugins_loaded', function () use ($wutm_early_module_keys): void {
         $requires = $module['requires'] ?? '';
         if ($requires === 'woocommerce' && !class_exists('WooCommerce')) continue;
         if ($requires === 'translatepress' && !class_exists('TRP_Translate_Press')) continue;
+        $requires_module = (string) ($module['requires_module'] ?? '');
+        if ($requires_module !== '' && !wutm_is_enabled($requires_module)) continue;
         $file = WUTM_PATH . 'modules/' . $key . '/module.php';
         if (is_readable($file)) require_once $file;
     }

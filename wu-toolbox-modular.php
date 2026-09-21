@@ -3,7 +3,7 @@
  * Plugin Name: WU Toolbox Modular
  * Plugin URI: https://wumetax.com/
  * Description: WU Toolbox 的按需載入模組化版本。每項功能獨立，只有啟用後才會載入。
- * Version: 2.8.2
+ * Version: 2.8.3
  * Author: Wumetax
  * Author URI: https://wumetax.com/
  * License: GPL-2.0-or-later
@@ -14,7 +14,7 @@
 defined('ABSPATH') || exit;
 
 define('WUTM_FILE', __FILE__);
-define('WUTM_VERSION', '2.8.2');
+define('WUTM_VERSION', '2.8.3');
 define('WUTM_PATH', plugin_dir_path(__FILE__));
 define('WUTM_URL', plugin_dir_url(__FILE__));
 
@@ -115,9 +115,17 @@ add_action('wp_ajax_wutm_toggle_module', function () {
     if (!current_user_can('manage_options')) wp_send_json_error(['message' => 'forbidden'], 403);
 
     $key = sanitize_key(wp_unslash($_POST['module'] ?? ''));
-    if (!wutm_get_module($key)) wp_send_json_error(['message' => 'unknown_module'], 400);
+    $module = wutm_get_module($key);
+    if (!$module) wp_send_json_error(['message' => 'unknown_module'], 400);
 
     $enable = !empty($_POST['enabled']);
+    $requires_module = (string) ($module['requires_module'] ?? '');
+    if ($enable && $requires_module !== '' && !wutm_is_enabled($requires_module)) {
+        $required = wutm_get_module($requires_module);
+        wp_send_json_error([
+            'message' => '請先啟用「' . (string) ($required['name'] ?? $requires_module) . '」。',
+        ], 400);
+    }
     if ($enable && function_exists('wutm_license_is_valid') && !wutm_license_is_valid()) {
         wp_send_json_error([
             'message' => '請先完成 WU Toolbox 授權驗證，才能啟用新模組。',
@@ -126,5 +134,12 @@ add_action('wp_ajax_wutm_toggle_module', function () {
     }
 
     update_option(wutm_module_option($key), $enable ? 1 : 0, false);
+    if (!$enable) {
+        foreach (wutm_modules() as $dependent_key => $dependent_module) {
+            if (($dependent_module['requires_module'] ?? '') === $key) {
+                update_option(wutm_module_option($dependent_key), 0, false);
+            }
+        }
+    }
     wp_send_json_success(['module' => $key, 'enabled' => (bool) get_option(wutm_module_option($key))]);
 });

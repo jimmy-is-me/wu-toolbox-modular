@@ -51,6 +51,7 @@ class WU_Admin_Bar_Cleaner {
 
         $this->register_frontend_features();
         $this->register_admin_features();
+        $this->apply_user_role_restrictions();
     }
 
     // ===== 後台選單 =====
@@ -116,7 +117,7 @@ class WU_Admin_Bar_Cleaner {
     public function frontend_section_callback(): void {
         echo '<p>自訂前台網站的顯示內容和外觀設定。</p>';
         echo '<div style="background:#fff3cd;border-left:4px solid #ffc107;padding:12px 15px;margin:12px 0;border-radius:4px;">';
-        echo '<strong>⚠️ 安全提醒：</strong>JavaScript 防複製功能僅具備基本防禦能力，無法完全阻止技術使用者透過瀏覽器開發工具存取內容。';
+        echo '<strong>安全提醒：</strong>JavaScript 防複製功能僅具備基本防禦能力，無法完全阻止技術使用者透過瀏覽器開發工具存取內容。';
         echo '</div>';
     }
     public function user_roles_section_callback(): void {
@@ -178,7 +179,7 @@ class WU_Admin_Bar_Cleaner {
         $this->checkbox_field( 'wu_hide_wumetax_toolkit', '向其他管理員隱藏 WumetaxToolkit 外掛選單' );
         echo '<p class="description"><strong>當前管理員：</strong>ID: ' . (int) $current_user->ID . ' | Email: ' . esc_html( $current_user->user_email ) . '</p>';
         if ( $saved_id && $saved_id !== (int) $current_user->ID ) {
-            echo '<p class="description" style="color:#d63638;">⚠️ 此設定由管理員 ID: ' . $saved_id . ' 建立，其他管理員目前無法看到此選單。</p>';
+            echo '<p class="description" style="color:#d63638;">此設定由管理員 ID: ' . $saved_id . ' 建立，其他管理員目前無法看到此選單。</p>';
         }
     }
 
@@ -198,8 +199,14 @@ class WU_Admin_Bar_Cleaner {
 
     public function user_roles_management_callback(): void {
         $disabled_roles = (array) get_option( 'wu_disabled_user_roles', [] );
-        $wp_roles       = wp_roles();
-        $all_roles      = $wp_roles->get_names();
+        $wp_roles        = wp_roles();
+        $role_definitions = (array) get_option( 'wu_disabled_user_role_definitions', [] );
+        $all_roles       = $wp_roles->get_names();
+        foreach ( $role_definitions as $role_key => $definition ) {
+            if ( ! isset( $all_roles[ $role_key ] ) ) {
+                $all_roles[ $role_key ] = (string) ( $definition['name'] ?? $role_key );
+            }
+        }
 
         echo '<p><strong>偵測到 ' . count( $all_roles ) . ' 個使用者角色</strong>（subscriber、administrator 受保護，無法停用）</p>';
         echo '<p class="description">停用後，擁有此角色的帳號無法登入，也不能取得此角色的任何網站權限；同時會從角色指派清單隱藏。重新取消勾選即可恢復。</p>';
@@ -209,7 +216,8 @@ class WU_Admin_Bar_Cleaner {
             $is_protected = in_array( $role_key, self::PROTECTED_ROLES, true );
             $is_disabled  = ! empty( $disabled_roles[ $role_key ] );
             $role_obj     = get_role( $role_key );
-            $cap_count    = $role_obj ? count( $role_obj->capabilities ) : 0;
+            $capabilities = $role_obj ? $role_obj->capabilities : (array) ( $role_definitions[ $role_key ]['capabilities'] ?? [] );
+            $cap_count    = count( $capabilities );
 
             $border = $is_protected ? '2px solid #0073aa' : '1px solid #ddd';
             $bg     = $is_protected ? '#f0f6ff' : '#fff';
@@ -254,8 +262,9 @@ class WU_Admin_Bar_Cleaner {
         }
 
         // ✅ user_roles 白名單過濾
-        $wp_roles      = wp_roles();
-        $all_role_keys = array_keys( $wp_roles->get_names() );
+        $wp_roles        = wp_roles();
+        $role_definitions = (array) get_option( 'wu_disabled_user_role_definitions', [] );
+        $all_role_keys   = array_unique( array_merge( array_keys( $wp_roles->get_names() ), array_keys( $role_definitions ) ) );
         $raw_roles     = isset( $_POST['wu_disabled_user_roles'] ) && is_array( $_POST['wu_disabled_user_roles'] )
             ? $_POST['wu_disabled_user_roles']
             : [];
@@ -267,6 +276,24 @@ class WU_Admin_Bar_Cleaner {
                 $clean_roles[ $role_key ] = 1;
             }
         }
+        foreach ( array_keys( $clean_roles ) as $role_key ) {
+            if ( isset( $role_definitions[ $role_key ] ) ) {
+                continue;
+            }
+            $role = get_role( $role_key );
+            if ( $role ) {
+                $role_definitions[ $role_key ] = [
+                    'name'         => (string) ( $wp_roles->role_names[ $role_key ] ?? $role_key ),
+                    'capabilities' => (array) $role->capabilities,
+                ];
+            }
+        }
+        foreach ( array_keys( $role_definitions ) as $role_key ) {
+            if ( empty( $clean_roles[ $role_key ] ) ) {
+                unset( $role_definitions[ $role_key ] );
+            }
+        }
+        update_option( 'wu_disabled_user_role_definitions', $role_definitions, false );
         update_option( 'wu_disabled_user_roles', $clean_roles );
 
         // ✅ 修正：hide_wumetax_toolkit admin_id 只在儲存時處理，不在 admin_menu render 時寫入
@@ -291,7 +318,7 @@ class WU_Admin_Bar_Cleaner {
         if ( isset( $_POST['submit'] ) ) {
             check_admin_referer( 'wu_admin_bar_settings-options' );
             $this->save_settings_from_post();
-            echo '<div class="notice notice-success is-dismissible"><p>✅ 設定已儲存！變更已立即生效。</p></div>';
+            echo '<div class="notice notice-success is-dismissible"><p>設定已儲存！變更已立即生效。</p></div>';
         }
 
         $opts = [];
@@ -304,7 +331,7 @@ class WU_Admin_Bar_Cleaner {
             <h1>後台介面管理</h1>
 
             <div class="card" style="max-width:100%;">
-                <h2 style="margin-top:0;">📊 當前狀態</h2>
+                <h2 style="margin-top:0;">當前狀態</h2>
                 <table class="wu-status-table">
                     <thead><tr><th>項目</th><th>狀態</th></tr></thead>
                     <tbody>
@@ -441,7 +468,6 @@ class WU_Admin_Bar_Cleaner {
             add_action( 'admin_menu', [ $this, 'hide_wumetax_toolkit_menu' ], 999 );
         }
 
-        $this->apply_user_role_restrictions();
     }
 
     // ===== 功能實作 =====
@@ -516,6 +542,27 @@ class WU_Admin_Bar_Cleaner {
 
         $disabled_roles = array_keys( array_filter( $disabled_roles ) );
 
+        // 只在目前請求中移出角色註冊表，保留資料庫原始角色定義，取消停用即可完整恢復。
+        $wp_roles = wp_roles();
+        $role_definitions = (array) get_option( 'wu_disabled_user_role_definitions', [] );
+        $definitions_changed = false;
+        foreach ( $disabled_roles as $role_key ) {
+            if ( isset( $role_definitions[ $role_key ] ) || ! isset( $wp_roles->roles[ $role_key ] ) ) {
+                continue;
+            }
+            $role_definitions[ $role_key ] = [
+                'name'         => (string) ( $wp_roles->role_names[ $role_key ] ?? $role_key ),
+                'capabilities' => (array) ( $wp_roles->roles[ $role_key ]['capabilities'] ?? [] ),
+            ];
+            $definitions_changed = true;
+        }
+        if ( $definitions_changed ) {
+            update_option( 'wu_disabled_user_role_definitions', $role_definitions, false );
+        }
+        foreach ( $disabled_roles as $role_key ) {
+            unset( $wp_roles->roles[ $role_key ], $wp_roles->role_names[ $role_key ] );
+        }
+
         add_filter( 'authenticate', function( $user ) use ( $disabled_roles ) {
             if ( $user instanceof WP_User && $this->user_has_disabled_role( $user, $disabled_roles ) ) {
                 return new WP_Error( 'wu_disabled_user_role', '此使用者角色目前已停用，暫時無法登入。' );
@@ -531,13 +578,13 @@ class WU_Admin_Bar_Cleaner {
         }, 999, 4 );
 
         add_filter( 'editable_roles', function( array $roles ) use ( $disabled_roles ): array {
-            foreach ( array_keys( $disabled_roles ) as $role_key ) {
+            foreach ( $disabled_roles as $role_key ) {
                 unset( $roles[ $role_key ] );
             }
             return $roles;
         } );
 
-        $role_keys_json = wp_json_encode( array_keys( $disabled_roles ) );
+        $role_keys_json = wp_json_encode( $disabled_roles );
         $js = <<<JS
         (function($){
             var roles = {$role_keys_json};

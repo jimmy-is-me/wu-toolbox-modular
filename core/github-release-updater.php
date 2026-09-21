@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+			<h4>2.8.3</h4><ul><li>後台介面管理卡片恢復圖示，設定頁移除裝飾圖示。</li><li>停用角色改為全站即時移出 WordPress 角色註冊表，登入、權限與各角色選單都不再顯示；重新啟用可完整恢復。</li><li>知識庫整合 Quick Support 前台搜尋面板、精選內容與快捷連結，並新增「回到最上」顯示開關。</li><li>新增獨立「知識庫支援 AI 擴充」模組，支援 Gemini、Perplexity、OpenAI、知識庫上下文、防刷額度與使用紀錄。</li></ul>
 			<h4>2.8.2</h4><ul><li>404 重新導向提示改用一次性短暫 Cookie，網址不再出現參數；右下角提示改為透明乾淨風格，預設 3 秒自動消失。</li><li>補強停用使用者角色：新增使用者頁也會移除停用角色，且伺服器端會阻止重新指派停用角色並改回安全的預設角色。</li><li>AI 文章與 FAQ、AI SEO、AI 圖片、AI 電商、AI 網站與 AI 操作紀錄拆成六個獨立模組及各自子選單頁面，開啟後可正常進入。</li></ul>
 			<h4>2.8.1</h4><ul><li>AI 連接器啟用後，各 AI 工具卡片可分別開啟；已開啟的工具會各自顯示於左側「AI功能」子選單並可直接前往。</li><li>後台介面管理移除卡片 icon；停用使用者角色現在會實際拒絕該角色登入與權限存取，取消停用即可恢復。</li><li>404 重新導向新增預設開啟的訪客提示，導向後會清楚說明網址可能已調整；日誌保留數量預設改為 10 條。</li></ul>
 			<h4>2.8.0</h4><ul><li>SEO 核心的網站驗證新增 Google Search Console 與 Bing Webmaster Tools 的必要性說明、逐步設定教學及官方入口；Google 標示為建議填入，Bing 可依需求選填。</li><li>新增 Yoast SEO、Rank Math 的按需匯入：可複製既有網站驗證、組織資訊與文章／頁面的 SEO 標題、描述、Canonical、社群欄位及索引設定，且不會刪除原外掛資料。</li><li>修正 WU Toolbox 子選單重組，URL 型式的相關頁面與晚載入模組能維持在原功能分類，SEO 全站設定與郵件追蹤管理不再跑到其他分類。</li></ul>
