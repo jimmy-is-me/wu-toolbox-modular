@@ -47,6 +47,9 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 			add_filter( 'robots_txt', [ __CLASS__, 'filter_robots_txt' ], 20, 2 );
 			add_filter( 'wp_sitemaps_post_types', [ __CLASS__, 'filter_sitemap_post_types' ] );
 			add_filter( 'wp_sitemaps_taxonomies', [ __CLASS__, 'filter_sitemap_taxonomies' ] );
+			add_filter( 'wp_sitemaps_stylesheet_css', [ __CLASS__, 'filter_sitemap_stylesheet_css' ] );
+			add_filter( 'wp_sitemaps_stylesheet_content', [ __CLASS__, 'filter_sitemap_stylesheet_content' ] );
+			add_filter( 'wp_sitemaps_stylesheet_index_content', [ __CLASS__, 'filter_sitemap_stylesheet_content' ] );
 
 			// Core canonical 會與本外掛輸出重複，改由本外掛統一處理。
 			remove_action( 'wp_head', 'rel_canonical' );
@@ -199,7 +202,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 			if ( current_user_can( 'manage_options' ) ) {
 				wp_add_dashboard_widget(
 					'wumetax_seo_health_widget',
-					'Wumetax SEO｜台灣繁中健檢',
+					'SEO 核心',
 					[ __CLASS__, 'dashboard_widget' ]
 				);
 			}
@@ -477,7 +480,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 			$sitemap_ok = function_exists( 'wp_sitemaps_get_server' ) && $public;
 			$checks[] = self::audit_check(
 				'sitemap', 'XML Sitemap',
-				$sitemap_ok ? 'WordPress 原生 Sitemap 可使用：' . home_url( '/wp-sitemap.xml' ) : '目前無法確認 WordPress Sitemap 可公開使用。',
+				$sitemap_ok ? 'SEO 核心 Sitemap 可使用：' . home_url( '/wp-sitemap.xml' ) : '目前無法確認 XML Sitemap 可公開使用。',
 				$sitemap_ok ? 'pass' : 'fail', 6, home_url( '/wp-sitemap.xml' ), '開啟 Sitemap'
 			);
 
@@ -497,7 +500,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 			$checks[] = self::audit_check(
 				'content', '公開內容 SEO 可用率',
 				$content['total'] > 0
-					? sprintf( '只統計真正可在前台獨立開啟的已發佈內容，共 %d 篇；%d 篇已有可用標題、摘要與分享圖片（%d%%）。其中 %d 篇有自訂 SEO Title、%d 篇有自訂 Meta Description。Blocksy Content Blocks、範本與附件不計入。', $content['total'], $content['ready'], $coverage, $content['manual_title'], $content['manual_desc'] )
+					? sprintf( '只統計本站可在前台獨立開啟的已發佈內容，共 %d 篇；%d 篇已有可用標題、摘要與分享圖片（%d%%）。其中 %d 篇有自訂 SEO Title、%d 篇有自訂 Meta Description。不可公開瀏覽的內部內容、範本與附件不計入。', $content['total'], $content['ready'], $coverage, $content['manual_title'], $content['manual_desc'] )
 					: '目前沒有可被搜尋引擎直接開啟的已發佈內容可檢查。',
 				$status, 10, '', ''
 			);
@@ -545,8 +548,10 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 					.wu-seo-health{max-width:1240px;margin-top:24px}.wu-seo-health *{box-sizing:border-box}.wu-seo-health h1{font-size:28px;margin:0 0 7px}.wu-seo-health .lead{margin:0;color:#646970;line-height:1.7;max-width:980px}.wu-seo-top{display:grid;grid-template-columns:270px minmax(0,1fr);gap:18px;margin:24px 0}.wu-seo-card{background:#fff;border:1px solid #dcdcde;border-radius:14px;padding:22px;box-shadow:0 5px 22px rgba(0,0,0,.025)}.wu-animate{opacity:0;transform:translateY(8px);transition:opacity .28s ease,transform .28s ease}.wu-animate.is-visible{opacity:1;transform:translateY(0)}.wu-score-card{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:240px}.wu-score-ring{width:132px;height:132px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:conic-gradient(#4fa567 0%,#e8ece9 0);position:relative;box-shadow:0 12px 34px rgba(52,124,75,.08)}.wu-score-ring:before{content:"";position:absolute;inset:10px;background:#fff;border-radius:50%}.wu-score-number{position:relative;z-index:2;font-size:36px;font-weight:800;color:#171b19}.wu-score-card strong{font-size:16px;margin-top:14px}.wu-score-card small{display:block;color:#72777c;line-height:1.6;margin-top:5px}.wu-overview{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px}.wu-metric{background:#f7f9f8;border:1px solid transparent;border-radius:11px;padding:15px;transition:border-color .2s ease,transform .2s ease}.wu-metric:hover{border-color:#dce6df;transform:translateY(-1px)}.wu-metric b{display:block;font-size:25px;color:#171b19}.wu-metric span{font-size:12px;color:#646970}.wu-note{margin-top:16px;padding:12px 14px;border-radius:10px;background:#f0f7f2;color:#355441;line-height:1.65}.wu-conflict{margin:18px 0;padding:14px 16px;border-left:4px solid #d63638;background:#fff2f2;border-radius:8px}.wu-checks{overflow:hidden;padding:0}.wu-check{display:grid;grid-template-columns:112px minmax(0,1fr) auto;gap:15px;align-items:center;padding:17px 20px;border-bottom:1px solid #eee;transition:background .18s ease}.wu-check:hover{background:#fbfcfb}.wu-check:last-child{border-bottom:0}.wu-pill{display:inline-flex;justify-content:center;min-width:78px;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700}.wu-pill.pass{background:#edf8f0;color:#24733d}.wu-pill.partial{background:#fff7e5;color:#8b5e00}.wu-pill.fail{background:#fff0f0;color:#b32d2e}.wu-check h3{font-size:14px;margin:0 0 4px}.wu-check p{margin:0;color:#646970;line-height:1.55}.wu-content-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-top:28px}.wu-content-head h2{margin-bottom:5px}.wu-content-head p{margin:0;color:#646970}.wu-type-filters{display:flex;flex-wrap:wrap;gap:7px;justify-content:flex-end}.wu-type-filter{appearance:none;border:1px solid #d7ddd9;background:#fff;color:#425048;padding:6px 10px;border-radius:999px;font-size:12px;cursor:pointer;transition:.18s ease}.wu-type-filter:hover,.wu-type-filter.is-active{border-color:#4fa567;background:#edf8f0;color:#24733d}.wu-content-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:16px 0 12px}.wu-stat{background:#fff;border:1px solid #dcdcde;border-radius:12px;padding:17px;min-height:92px;transition:transform .2s ease,border-color .2s ease}.wu-stat:hover{transform:translateY(-2px);border-color:#cfdad3}.wu-stat b{display:block;font-size:25px;margin-bottom:4px}.wu-stat span{color:#646970;font-size:12px}.wu-scope-note{margin:0 0 22px;color:#646970;font-size:12px;line-height:1.6}.wu-issues{width:100%;border-collapse:collapse}.wu-issues th,.wu-issues td{text-align:left;padding:13px 14px;border-bottom:1px solid #eee;vertical-align:top}.wu-issues th{background:#f7f8f7;font-size:12px}.wu-issues td{background:#fff}.wu-issues tr{transition:opacity .16s ease}.wu-issues .wu-type-badge{display:inline-flex;margin-top:4px;padding:2px 7px;border-radius:999px;background:#f1f4f2;color:#66716b;font-size:10px}.wu-empty-filter{display:none;padding:22px;text-align:center;color:#72777c;background:#fff}.wu-help{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.wu-help h3{margin:0 0 8px;font-size:15px}.wu-help p{margin:0;color:#646970;line-height:1.7}.wu-help code{font-size:12px}@media(max-width:1050px){.wu-content-grid{grid-template-columns:repeat(3,1fr)}}@media(max-width:900px){.wu-seo-top{grid-template-columns:1fr}.wu-overview,.wu-help{grid-template-columns:1fr}.wu-content-head{align-items:flex-start;flex-direction:column}.wu-type-filters{justify-content:flex-start}.wu-check{grid-template-columns:90px 1fr}.wu-check .button{grid-column:2}.wu-issues{display:block;overflow-x:auto}}@media(max-width:620px){.wu-content-grid{grid-template-columns:repeat(2,1fr)}}@media(prefers-reduced-motion:reduce){.wu-animate,.wu-stat,.wu-metric,.wu-check{transition:none!important;transform:none!important}}
 				</style>
 
-				<h1>Wumetax SEO｜台灣繁中健檢</h1>
-				<p class="lead">用台灣繁體中文網站的實際設定需求來檢查，不做「關鍵字塞越多分數越高」的玩法。分數代表站內 SEO 設定完整度，不代表 Google 官方排名，也不是流量預測。</p>
+				<div class="wutm-module-header">
+					<h1>SEO 核心</h1>
+					<p class="lead">用台灣繁體中文網站的實際設定需求來檢查，不做「關鍵字塞越多分數越高」的玩法。分數代表站內 SEO 設定完整度，不代表 Google 官方排名，也不是流量預測。</p>
+				</div>
 
 				<?php if ( ! empty( $audit['conflicts'] ) ) : ?>
 					<div class="wu-conflict"><strong>偵測到其他 SEO 外掛：</strong> <?php echo esc_html( implode( '、', $audit['conflicts'] ) ); ?>。請避免同時輸出 Title、Meta Description、Canonical、OG 或 Schema，以免重複。</div>
@@ -565,7 +570,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 							<div class="wu-metric"><b class="wu-count" data-count="<?php echo esc_attr( $warn ); ?>">0</b><span>建議補充</span></div>
 							<div class="wu-metric"><b class="wu-count" data-count="<?php echo esc_attr( $bad ); ?>">0</b><span>需要處理</span></div>
 						</div>
-						<div class="wu-note"><strong>這版已把「公開內容」重新定義清楚：</strong>只統計真正可以在前台獨立開啟、而且已發佈的文章、頁面、Lab、客戶案例、支援文件等內容。Blocksy Content Blocks、範本、附件與內部元件不再計入，因此不會再出現把後台模板也算成 SEO 頁面的情況。</div>
+						<div class="wu-note"><strong>檢查範圍：</strong>只統計本站可在前台獨立開啟且已發佈的公開內容；不公開、不可獨立瀏覽的內容類型、範本與附件不納入計算。</div>
 						<p style="margin:16px 0 0;"><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SETTINGS_PAGE ) ); ?>">全站 SEO 設定</a> <a class="button" href="<?php echo esc_url( home_url( '/wp-sitemap.xml' ) ); ?>" target="_blank" rel="noopener">查看 Sitemap</a></p>
 					</div>
 				</div>
@@ -582,7 +587,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 				</div>
 
 				<div class="wu-content-head">
-					<div><h2>公開內容 SEO 狀況</h2><p>以下才是實際會被當成 SEO 頁面的已發佈內容。</p></div>
+					<div><h2>公開內容 SEO 狀況</h2><p>以下為本站可在前台獨立開啟的已發佈內容。</p></div>
 					<div class="wu-type-filters" id="wu-type-filters">
 						<button type="button" class="wu-type-filter is-active" data-type="all">全部 <?php echo esc_html( $content['total'] ); ?></button>
 						<?php foreach ( $content['type_stats'] as $type ) : ?>
@@ -683,8 +688,10 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 					@media(max-width:760px){.wu-seo-grid{grid-template-columns:1fr}}
 				</style>
 
-				<h1>Wumetax SEO Core</h1>
-				<p>台灣繁中網站用的輕量 SEO 核心。前台不載入 JavaScript 或 CSS；設定完成度請至 <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::DASHBOARD_PAGE ) ); ?>">SEO 健檢</a> 查看。</p>
+				<div class="wutm-module-header">
+					<h1>SEO 核心</h1>
+					<p>台灣繁中網站用的輕量 SEO 核心。前台不載入 JavaScript 或 CSS；設定完成度請至 <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::DASHBOARD_PAGE ) ); ?>">SEO 健檢</a> 查看。</p>
+				</div>
 
 				<form method="post" action="options.php">
 					<?php settings_fields( 'wumetax_seo_core_group' ); ?>
@@ -938,7 +945,6 @@ const TextControl=wp.components.TextControl;
 const TextareaControl=wp.components.TextareaControl;
 const ToggleControl=wp.components.ToggleControl;
 const Button=wp.components.Button;
-const Notice=wp.components.Notice;
 function stripHtml(value){const div=document.createElement('div');div.innerHTML=String(value||'');return (div.textContent||div.innerText||'').replace(/\s+/g,' ').trim();}
 function truncate(value,max){const a=Array.from(String(value||''));return a.length>max?a.slice(0,max-1).join('')+'…':a.join('');}
 function chars(value){return Array.from(String(value||'').replace(/\s+/g,'')).length;}
@@ -987,7 +993,6 @@ function App(){
      e('div',{className:'wu-seo-side-image'},imageUrl?e('img',{src:imageUrl,alt:''}):(computed.hasImage?'目前會使用精選圖片／全站預設分享圖':'尚未設定分享圖片')),
      e('div',{className:'wu-seo-side-row'},e(Button,{variant:'secondary',onClick:chooseImage},'選擇圖片'),parseInt(meta._wu_seo_og_image||0,10)>0?e(Button,{variant:'tertiary',onClick:function(){setMeta('_wu_seo_og_image',0);}},'移除'):null)
    ),
-   e(Notice,{status:'info',isDismissible:false},'SEO 欄位會跟文章一起儲存；不用另外按一次 SEO 儲存。'),
    e('div',{className:'wu-seo-side-links'},e(Button,{variant:'secondary',href:config.dashboardUrl},'SEO 健檢'),e(Button,{variant:'secondary',href:config.settingsUrl},'全站設定'))
  );
  return sidebar;
@@ -1721,6 +1726,54 @@ JS;
 				}
 			}
 			return $taxonomies;
+		}
+
+		public static function filter_sitemap_stylesheet_css( $css ) {
+			return $css . <<<'CSS'
+
+			:root{color-scheme:light}
+			body{margin:0;background:#f4f6f5;color:#1d2327;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans TC",sans-serif;line-height:1.65}
+			#sitemap{max-width:1180px;margin:42px auto;padding:0 24px}
+			#sitemap__header{position:relative;overflow:hidden;margin-bottom:24px;padding:30px 34px;border-radius:16px;background:linear-gradient(135deg,#18211d,#24372e);color:#fff;box-shadow:0 12px 35px rgba(25,55,40,.12)}
+			#sitemap__header:after{content:"SEO";position:absolute;right:28px;top:50%;transform:translateY(-50%);font-size:72px;font-weight:800;line-height:1;color:rgba(255,255,255,.06);letter-spacing:.04em}
+			#sitemap__header h1{position:relative;z-index:1;margin:0 0 8px;color:#fff;font-size:30px;line-height:1.3}
+			#sitemap__header p{position:relative;z-index:1;margin:4px 0;color:#d8e5dd}
+			#sitemap__header a{color:#aee6bf}
+			#sitemap__content{overflow:hidden;border:1px solid #dfe5e1;border-radius:16px;background:#fff;box-shadow:0 8px 28px rgba(22,45,33,.06)}
+			#sitemap__content>.text{margin:0;padding:18px 24px;border-bottom:1px solid #e8ece9;background:#f8faf9;color:#4b5d53;font-weight:600}
+			#sitemap__table{width:100%;border:0;border-collapse:collapse}
+			#sitemap__table tr th{padding:14px 18px;background:#edf4f0;color:#294437;font-size:13px;text-align:left}
+			#sitemap__table tr td{padding:15px 18px;border-top:1px solid #edf0ee;background:#fff;vertical-align:top}
+			#sitemap__table tr:nth-child(odd) td{background:#fbfcfb}
+			#sitemap__table tr:hover td{background:#f1f8f3}
+			#sitemap__table a{color:#176f3c;text-decoration:none;word-break:break-all}
+			#sitemap__table a:hover{text-decoration:underline}
+			@media(max-width:700px){#sitemap{margin:18px auto;padding:0 12px}#sitemap__header{padding:24px 20px;border-radius:12px}#sitemap__header h1{font-size:24px}#sitemap__header:after{display:none}#sitemap__content{overflow-x:auto;border-radius:12px}#sitemap__table{min-width:620px}}
+			@media(prefers-reduced-motion:reduce){#sitemap__table tr td{transition:none}}
+CSS;
+		}
+
+		public static function filter_sitemap_stylesheet_content( $xsl_content ) {
+			$site_name   = wp_strip_all_tags( get_bloginfo( 'name' ) );
+			$title       = esc_xml( ( $site_name ? $site_name . '｜' : '' ) . 'XML Sitemap' );
+			$description = esc_xml( '此 XML Sitemap 由 Wumetax SEO 核心產生，協助搜尋引擎發現本站公開內容。' );
+			$learn_more  = '<a href="' . esc_url( 'https://www.sitemaps.org/' ) . '">' . esc_xml( '了解 XML Sitemap' ) . '</a>';
+			$header      = '<div id="sitemap__header"><h1>' . $title . '</h1><p>' . $description . '</p><p>' . $learn_more . '</p></div>';
+
+			$xsl_content = preg_replace_callback(
+				'#<title>.*?</title>#s',
+				static function () use ( $title ) { return '<title>' . $title . '</title>'; },
+				$xsl_content,
+				1
+			);
+			$xsl_content = preg_replace_callback(
+				'#<div id="sitemap__header">.*?</div>#s',
+				static function () use ( $header ) { return $header; },
+				$xsl_content,
+				1
+			);
+
+			return $xsl_content;
 		}
 	}
 

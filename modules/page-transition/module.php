@@ -456,6 +456,7 @@ if ( ! class_exists( 'Wumetax_Brand_Transition_v220' ) ) {
 					0 0 8px;
 
 				font-size:28px;
+				color:#fff !important;
 			}
 
 
