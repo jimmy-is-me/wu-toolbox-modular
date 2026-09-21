@@ -193,10 +193,14 @@ function wutm_kb_ajax_search_handler() {
     if ( $q->have_posts() ) {
         while ( $q->have_posts() ) {
             $q->the_post();
+            $result_categories = wp_get_post_terms( get_the_ID(), 'skb_category', array( 'fields' => 'names' ) );
             $results[] = array(
                 'title'   => get_the_title(),
                 'link'    => get_permalink(),
                 'excerpt' => wp_strip_all_tags( get_the_excerpt() ),
+                'image'   => get_the_post_thumbnail_url( get_the_ID(), 'medium' ) ?: '',
+                'date'    => get_the_modified_date( 'Y-m-d' ),
+                'category'=> is_wp_error( $result_categories ) ? array() : $result_categories,
             );
         }
         wp_reset_postdata();
@@ -222,11 +226,11 @@ function wutm_kb_display_knowledge_base() {
     <style>
         .skb-wrap { --skb-primary: <?php echo esc_html( $s['primary_color'] ); ?>; }
         .skb-wrap * { box-sizing: border-box !important; }
-        .skb-wrap { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 1000px; margin: 0 auto; color: #333; }
+        .skb-wrap { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 1180px; margin: 0 auto; color: #1d2a23; }
 
         .skb-search-box {
             display: flex; align-items: center; background: #fff; padding: 10px;
-            border-radius: 10px; border: 1px solid #e2e8f0; box-shadow: 0 6px 16px rgba(0,0,0,0.06);
+            border-radius: 18px; border: 1px solid #dce8e0; box-shadow: 0 14px 38px rgba(26,62,39,.07);
             margin-bottom: 24px; gap: 10px; flex-wrap: wrap;
         }
         .skb-search-box input[type="text"] {
@@ -251,7 +255,9 @@ function wutm_kb_display_knowledge_base() {
         .skb-search-results-head h3 { margin: 0 !important; font-size: 18px !important; color: #2d3748 !important; }
         .skb-search-clear { background: none !important; border: none !important; color: #a0aec0 !important; cursor: pointer; font-size: 13px; text-decoration: underline; padding: 0 !important; }
         .skb-result-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
-        .skb-result-item { padding: 18px 20px; border: 1px solid #e2e8f0; border-radius: 10px; transition: 0.2s; }
+        .skb-result-item { display:grid;grid-template-columns:130px minmax(0,1fr);gap:22px;align-items:center;padding:18px 20px; border: 1px solid #e2e8f0; border-radius: 14px; transition: 0.2s; }
+        .skb-result-image,.skb-doc-thumb { width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:11px;background:#f1f5f2; }
+        .skb-result-meta,.skb-doc-meta { display:flex;gap:10px;flex-wrap:wrap;margin-bottom:7px;color:#829087;font-size:12px;font-weight:600; }
         .skb-result-item:hover { border-color: var(--skb-primary); box-shadow: 0 6px 14px rgba(0,0,0,0.04); transform: translateX(4px); }
         .skb-result-item a { text-decoration: none !important; font-size: 17px; color: #2d3748; font-weight: bold; box-shadow: none !important; display: block; }
         .skb-result-item p { margin: 8px 0 0 0; color: #718096; font-size: 14px; }
@@ -277,8 +283,11 @@ function wutm_kb_display_knowledge_base() {
         .skb-sidebar-list li { margin-bottom: 15px; }
         .skb-sidebar-list a { text-decoration: none !important; color: #4a5568 !important; font-size: 14px; box-shadow: none !important; transition: color 0.2s; }
         .skb-sidebar-list a:hover { color: var(--skb-primary) !important; }
+        .skb-recent-item { display:grid;grid-template-columns:72px minmax(0,1fr);gap:11px;align-items:center;margin-bottom:14px; }
+        .skb-recent-item img { width:72px;height:54px;object-fit:cover;border-radius:8px;background:#f1f5f2; }
 
         .skb-empty { text-align: center; padding: 40px 20px; background: #f8fafc; border-radius: 10px; color: #a0aec0; }
+        @media(max-width:600px){.skb-result-item{grid-template-columns:1fr}.skb-result-image{max-height:190px}.skb-search-box select,.skb-search-box button{width:100%}}
     </style>
 
     <div class="skb-wrap">
@@ -326,7 +335,12 @@ function wutm_kb_display_knowledge_base() {
                     <?php
                     $q = new WP_Query( array( 'post_type' => 'skb_doc', 'posts_per_page' => (int) $s['recent_count'] ) );
                     if ( $q->have_posts() ) {
-                        while ( $q->have_posts() ) { $q->the_post(); echo '<li><a href="'. esc_url( get_permalink() ) .'">'. esc_html( get_the_title() ) .'</a></li>'; }
+                        while ( $q->have_posts() ) { $q->the_post();
+                            $thumb = get_the_post_thumbnail_url( get_the_ID(), 'thumbnail' );
+                            echo '<li class="skb-recent-item">';
+                            echo $thumb ? '<img src="'. esc_url( $thumb ) .'" alt="" loading="lazy">' : '<span class="skb-doc-thumb" aria-hidden="true"></span>';
+                            echo '<a href="'. esc_url( get_permalink() ) .'">'. esc_html( get_the_title() ) .'</a></li>';
+                        }
                         wp_reset_postdata();
                     } else { echo '<li>無文件</li>'; }
                     ?>
@@ -352,11 +366,13 @@ function wutm_kb_display_knowledge_base() {
                 return $('<div>').text(str).html();
             }
 
+            var searchTimer = null;
+            var searchRequest = null;
             function runSearch(){
                 var keyword = $.trim($input.val());
                 var category = $category.val();
 
-                if ( keyword === '' ) {
+                if ( keyword === '' && category === '' ) {
                     $results.removeClass('is-active');
                     $defaultLayout.removeClass('is-hidden');
                     return;
@@ -367,7 +383,8 @@ function wutm_kb_display_knowledge_base() {
                 $resultsTitle.text('搜尋中...');
                 $resultsBody.html('<div class="skb-search-loading">搜尋中，請稍候...</div>');
 
-                $.post(skbAjax.url, {
+                if ( searchRequest ) searchRequest.abort();
+                searchRequest = $.post(skbAjax.url, {
                     action: 'skb_search',
                     nonce: skbAjax.nonce,
                     keyword: keyword,
@@ -378,7 +395,7 @@ function wutm_kb_display_knowledge_base() {
                         return;
                     }
                     var data = res.data;
-                    $resultsTitle.text('「' + data.keyword + '」的搜尋結果（' + data.count + '）');
+                    $resultsTitle.text((data.keyword ? '「' + data.keyword + '」' : '所選分類') + '的搜尋結果（' + data.count + '）');
 
                     if ( data.count === 0 ) {
                         $resultsBody.html('<div class="skb-search-empty">找不到符合的文件，換個關鍵字試試。</div>');
@@ -388,15 +405,20 @@ function wutm_kb_display_knowledge_base() {
                     var html = '<ul class="skb-result-list">';
                     data.results.forEach(function(item){
                         html += '<li class="skb-result-item">';
-                        html += '<a href="' + escapeHtml(item.link) + '">' + escapeHtml(item.title) + '</a>';
+                        if(item.image){html += '<img class="skb-result-image" src="'+escapeHtml(item.image)+'" alt="" loading="lazy">';}
+                        html += '<div class="skb-result-copy"><div class="skb-result-meta">';
+                        if(item.category&&item.category.length){html += '<span>'+escapeHtml(item.category.join('、'))+'</span>';}
+                        if(item.date){html += '<span>最後更新 '+escapeHtml(item.date)+'</span>';}
+                        html += '</div><a href="' + escapeHtml(item.link) + '">' + escapeHtml(item.title) + '</a>';
                         if ( item.excerpt ) {
                             html += '<p>' + escapeHtml(item.excerpt) + '</p>';
                         }
-                        html += '</li>';
+                        html += '</div></li>';
                     });
                     html += '</ul>';
                     $resultsBody.html(html);
-                }).fail(function(){
+                }).fail(function(xhr,status){
+                    if(status==='abort') return;
                     $resultsBody.html('<div class="skb-search-empty">搜尋發生錯誤，請稍後再試。</div>');
                 });
             }
@@ -406,9 +428,12 @@ function wutm_kb_display_knowledge_base() {
                 runSearch();
             });
 
-            $category.on('change', function(){
-                if ( $.trim($input.val()) !== '' ) runSearch();
+            $input.on('input', function(){
+                clearTimeout(searchTimer);
+                searchTimer = setTimeout(runSearch, 250);
             });
+
+            $category.on('change', runSearch);
 
             $clearBtn.on('click', function(){
                 $input.val('');
@@ -443,7 +468,7 @@ function wutm_kb_render_custom_layout() {
     $skb_home_url = $s['home_url'];
     ?>
     <style>
-        .skb-page { --skb-primary: <?php echo esc_html( $s['primary_color'] ); ?>; max-width: 1200px; margin: 40px auto; display: flex; gap: 40px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 0 20px; }
+        .skb-page { --skb-primary: <?php echo esc_html( $s['primary_color'] ); ?>; max-width: 1320px; margin: 48px auto; display: flex; gap: 48px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding: 0 28px; color:#1d2a23; }
 
         .skb-left-menu { width: 280px; flex-shrink: 0; background: #fff; border-right: 1px solid #edf2f7; padding-right: 20px; }
         .skb-left-menu h4 { margin-top: 0; color: #a0aec0; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
@@ -454,6 +479,12 @@ function wutm_kb_render_custom_layout() {
         }
         .skb-left-menu a:hover { background: #f7fafc; color: var(--skb-primary); }
         .skb-left-menu a.active { background: #f7fafc; color: var(--skb-primary); font-weight: bold; border-left-color: var(--skb-primary); }
+        .skb-toc { position:sticky;top:32px;margin-top:24px;padding:20px;border:1px solid #e2e8e4;border-radius:16px;background:#f8faf9; }
+        .skb-toc h4 { margin:0 0 13px;color:#1d2a23;font-size:14px;letter-spacing:0;text-transform:none; }
+        .skb-toc-list { list-style:none!important;margin:0!important;padding:0!important; }
+        .skb-toc-list li { margin:0!important; }
+        .skb-toc-list a { padding:7px 5px;margin:0;border:0;font-size:13px;line-height:1.45; }
+        .skb-toc-list .level-3 a { padding-left:17px; }.skb-toc-list .level-4 a { padding-left:29px; }
 
         .skb-main { flex: 1; min-width: 0; }
         .skb-breadcrumb { font-size: 14px; color: #718096; margin-bottom: 30px; background: #f7fafc; padding: 10px 15px; border-radius: 6px; display: inline-block; }
@@ -463,6 +494,8 @@ function wutm_kb_render_custom_layout() {
         .skb-article-meta { font-size: 13px; color: #a0aec0; margin-bottom: 30px; border-bottom: 1px solid #edf2f7; padding-bottom: 20px; }
         .skb-article-content { line-height: 1.8; color: #2d3748; font-size: 16px; }
         .skb-article-content img { max-width: 100%; height: auto; border-radius: 8px; margin: 20px 0; }
+        .skb-article-hero { width:100%;max-height:560px;object-fit:cover;border-radius:18px;margin:0 0 34px;display:block; }
+        .skb-article-content h2,.skb-article-content h3,.skb-article-content h4 { scroll-margin-top:32px; }
         .skb-article-content blockquote { border-left: 4px solid var(--skb-primary); background: #f7fafc; margin: 20px 0; padding: 12px 20px; color: #4a5568; }
         .skb-article-content code { background: #f1f5f9; color: #d53f8c; padding: 2px 6px; border-radius: 4px; font-size: 14px; }
         .skb-article-content pre { background: #2d3748; color: #e2e8f0; padding: 16px; border-radius: 8px; overflow-x: auto; }
@@ -475,14 +508,15 @@ function wutm_kb_render_custom_layout() {
         .skb-cat-header { text-align: center; padding: 40px; background: linear-gradient(135deg, color-mix(in srgb, var(--skb-primary) 8%, #f8fafc), #f8fafc); border-radius: 12px; margin-bottom: 40px; border: 1px solid #edf2f7; }
         .skb-cat-header h1 { margin: 10px 0 0 0; font-size: 36px; color: #2d3748; }
         .skb-doc-list { list-style: none; padding: 0; }
-        .skb-doc-list li { padding: 20px; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 15px; transition: 0.2s; }
+        .skb-doc-list li { display:grid;grid-template-columns:180px minmax(0,1fr);gap:24px;align-items:center;padding: 20px; border: 1px solid #e2e8f0; border-radius: 14px; margin-bottom: 15px; transition: 0.2s; }
+        .skb-doc-list img,.skb-doc-placeholder { width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:11px;background:#f1f5f2;display:block; }
         .skb-doc-list li:hover { border-color: var(--skb-primary); box-shadow: 0 6px 14px rgba(0,0,0,0.04); transform: translateX(5px); }
         .skb-doc-list a { text-decoration: none !important; font-size: 18px; color: #2d3748; font-weight: bold; box-shadow: none !important; display: block; }
         .skb-doc-list p { margin: 10px 0 0 0; color: #718096; font-size: 14px; }
 
         .skb-empty { text-align: center; padding: 40px 20px; background: #f8fafc; border-radius: 10px; color: #a0aec0; }
 
-        @media (max-width: 768px) { .skb-page { flex-direction: column; } .skb-left-menu { width: 100%; border-right: none; border-bottom: 1px solid #edf2f7; padding-bottom: 20px; } }
+        @media (max-width: 768px) { .skb-page { flex-direction: column;padding:0 18px;margin:28px auto; } .skb-left-menu { width: 100%; border-right: none; border-bottom: 1px solid #edf2f7; padding-bottom: 20px; } .skb-toc{position:relative;top:auto}.skb-doc-list li{grid-template-columns:1fr}.skb-doc-list img{max-height:220px} }
     </style>
 
     <div class="skb-page">
@@ -499,6 +533,12 @@ function wutm_kb_render_custom_layout() {
                 }
             }
             ?>
+            <?php if ( is_singular( 'skb_doc' ) ) : ?>
+                <nav class="skb-toc" id="skb-toc" aria-label="本頁目錄" hidden>
+                    <h4>本頁目錄</h4>
+                    <ol class="skb-toc-list" id="skb-toc-list"></ol>
+                </nav>
+            <?php endif; ?>
         </div>
 
         <div class="skb-main">
@@ -517,8 +557,10 @@ function wutm_kb_render_custom_layout() {
                 <ul class="skb-doc-list">
                     <?php while ( have_posts() ) : the_post(); ?>
                         <li>
+                            <?php if ( has_post_thumbnail() ) : the_post_thumbnail( 'medium_large', array( 'loading' => 'lazy' ) ); else : ?><span class="skb-doc-placeholder" aria-hidden="true"></span><?php endif; ?>
+                            <div><div class="skb-doc-meta"><span><?php echo esc_html( $term->name ); ?></span><span>最後更新 <?php echo esc_html( get_the_modified_date( 'Y-m-d' ) ); ?></span></div>
                             <a href="<?php the_permalink(); ?>"><?php the_title(); ?></a>
-                            <?php if(has_excerpt()) { echo '<p>'. esc_html( get_the_excerpt() ) .'</p>'; } ?>
+                            <?php if(has_excerpt()) { echo '<p>'. esc_html( get_the_excerpt() ) .'</p>'; } ?></div>
                         </li>
                     <?php endwhile; ?>
                 </ul>
@@ -545,6 +587,7 @@ function wutm_kb_render_custom_layout() {
                     <div class="skb-article-meta">
                         最後更新：<?php the_modified_date('Y-m-d'); ?>
                     </div>
+                    <?php if ( has_post_thumbnail() ) : the_post_thumbnail( 'full', array( 'class' => 'skb-article-hero', 'loading' => 'eager' ) ); endif; ?>
                     <div class="skb-article-content">
                         <?php the_content(); ?>
                     </div>
@@ -556,6 +599,24 @@ function wutm_kb_render_custom_layout() {
             <?php endif; ?>
         </div>
     </div>
+    <?php if ( is_singular( 'skb_doc' ) ) : ?>
+    <script>
+    document.addEventListener('DOMContentLoaded',function(){
+        const content=document.querySelector('.skb-article-content'),toc=document.getElementById('skb-toc'),list=document.getElementById('skb-toc-list');
+        if(!content||!toc||!list)return;
+        const headings=[...content.querySelectorAll('h2,h3,h4')];
+        if(!headings.length)return;
+        const used=new Set();
+        headings.forEach((heading,index)=>{
+            let id=heading.id||heading.textContent.trim().toLowerCase().replace(/[^\p{L}\p{N}]+/gu,'-').replace(/^-|-$/g,'')||'section-'+(index+1);
+            if(!heading.id){let unique=id,suffix=2;while(used.has(unique)||document.getElementById(unique)){unique=id+'-'+suffix++;}heading.id=unique;}
+            used.add(heading.id);
+            const li=document.createElement('li');li.className='level-'+heading.tagName.slice(1);const a=document.createElement('a');a.href='#'+heading.id;a.textContent=heading.textContent.trim();li.appendChild(a);list.appendChild(li);
+        });
+        toc.hidden=false;
+    });
+    </script>
+    <?php endif; ?>
     <?php
     get_footer();
 }
