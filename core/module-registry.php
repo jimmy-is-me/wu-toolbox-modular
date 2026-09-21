@@ -14,6 +14,7 @@ function wutm_modules(): array {
         'admin-bar-cleaner' => ['name' => '後台介面管理', 'description' => '管理 WordPress 管理列、後台頁尾、側邊選單、角色權限與顯示項目。', 'group' => '後台介面', 'icon' => '🎛️'],
         'audit-logger' => ['name' => '操作日誌', 'description' => '記錄使用者登入、文章、設定及其他重要後台活動，方便追查操作紀錄。', 'group' => '安全性', 'icon' => '📋'],
         'advanced-tracking-manager' => ['name' => '進階追蹤管理', 'description' => '管理 GA4、GTM、Google Ads、Meta Pixel 與診斷。', 'group' => '監控追蹤', 'icon' => '🎯'],
+        'seo-core' => ['name' => 'SEO 核心', 'description' => '台灣繁中網站用的輕量 SEO 核心，提供編輯器側欄、SEO 健檢、Title、Meta Description、Canonical、Open Graph、Schema 與 Sitemap 控制。', 'group' => 'SEO', 'icon' => '🔎', 'settings_page' => 'wumetax-seo-core', 'related_pages' => ['admin.php?page=wumetax-seo-core-settings']],
         'rank-math-seo' => ['name' => 'Rank Math SEO', 'description' => '快速安裝與啟用官方 Rank Math SEO 外掛。', 'group' => 'SEO', 'icon' => '📈', 'settings_page' => 'wu-rank-math-seo', 'tag' => '第三方外掛'],
         'auto-upload-images' => ['name' => '自動上傳圖片', 'description' => '儲存內容時將外部圖片匯入媒體庫並替換網址。', 'group' => '媒體工具', 'icon' => '🖼️'],
         'default-featured-image' => ['name' => '預設精選圖片', 'description' => '當內容未設定精選圖片時，自動顯示指定的預設圖片。', 'group' => '媒體工具', 'icon' => '🌄', 'settings_page' => 'wu-default-featured-image'],
@@ -104,7 +105,7 @@ function wutm_grouped_modules(): array {
     }
 
     $ordered = [];
-    foreach (['後台介面', '前台介面', '內容管理', 'AI功能', '效能優化'] as $group) {
+    foreach (['後台介面', '前台介面', '內容管理', 'SEO', 'AI功能', '效能優化'] as $group) {
         if (!isset($groups[$group])) continue;
         $ordered[$group] = $groups[$group];
         unset($groups[$group]);
