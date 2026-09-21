@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+			<h4>2.8.8</h4><ul><li>修正首頁商品短代碼在 WooCommerce 即將推出模式下未顯示內容的問題。</li><li>即將推出區塊現在會帶入 WooCommerce 預設樣板與「僅商店頁」狀態，確保可正確渲染。</li></ul>
 			<h4>2.8.7</h4><ul><li>新增「WC 紙片動畫」模組，可分別在購物車、結帳與訂單完成頁播放紙片動畫。</li><li>支援紙片數量、第二波、速度、重力、持續時間、阻力、顏色、層級與同分頁一次播放設定。</li><li>新增「電商優化工具」分類，固定顯示在電商支付工具後方。</li></ul>
 			<h4>2.8.6</h4><ul><li>首頁商品短代碼偵測 WooCommerce 即將推出模式時，改顯示 WooCommerce 原生 coming-soon 區塊。</li><li>新增「WC 即將推出修改」模組，可安全自訂原生即將推出頁面的標題與說明。</li></ul>
 			<h4>2.8.5</h4><ul><li>重新整理知識庫首頁、分類與文件前台版面，改善桌面與行動裝置閱讀體驗。</li><li>知識庫搜尋改為輸入即時 AJAX 搜尋，支援分類篩選、請求取消與即時結果數量。</li><li>搜尋結果、最新文件、分類文件與單一文件支援精選圖片顯示。</li><li>單一文件會依 H2～H4 標題自動建立側邊目錄與定位連結。</li></ul>

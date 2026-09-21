@@ -80,7 +80,14 @@ function wutm_hp_is_coming_soon(): bool {
 }
 function wutm_hp_coming_soon_html(): string {
     if ( ! function_exists( 'do_blocks' ) ) return '';
-    return (string) do_blocks( '<!-- wp:woocommerce/coming-soon /-->' );
+    // The WooCommerce block needs its selected pattern and store-only state.
+    // Rendering an attribute-free block can produce an empty wrapper on classic themes.
+    $attributes = array(
+        'comingSoonPatternId' => 'page-coming-soon-default',
+        'storeOnly'           => get_option( 'woocommerce_store_pages_only' ) === 'yes',
+    );
+    $block = '<!-- wp:woocommerce/coming-soon ' . wp_json_encode( $attributes ) . ' /-->';
+    return (string) do_blocks( $block );
 }
 function wutm_hp_ajax_products():void{
     $cols=max(1,min(6,absint($_POST['columns']??4)));$rows=max(1,min(20,absint($_POST['rows']??3)));$page=max(1,absint($_POST['product_page']??1));
