@@ -13,6 +13,7 @@
 if (!defined('ABSPATH')) exit;
 
 class WU_404_Redirector {
+    private const NOTICE_COOKIE = 'wutm_404_redirect_notice';
     
     /**
      * 選項前綴
@@ -28,6 +29,12 @@ class WU_404_Redirector {
      * 是否已發送重定向標記（防止重複重定向）
      */
     private static $redirect_sent = false;
+
+    /** Prevent duplicate output when both wp_body_open and wp_footer run. */
+    private $notice_rendered = false;
+
+    /** Whether the destination request has consumed a completed 404 redirect marker. */
+    private $notice_pending = false;
     
     public function __construct() {
         // 後台：載入管理介面
@@ -41,7 +48,9 @@ class WU_404_Redirector {
             add_action('template_redirect', array($this, 'handle_404_redirect'), 1);
         }
         if (!is_admin()) {
-            add_action('wp_footer', array($this, 'render_redirect_notice'));
+            add_action('template_redirect', array($this, 'prepare_redirect_notice'), 0);
+            add_action('wp_body_open', array($this, 'render_redirect_notice'), 1);
+            add_action('wp_footer', array($this, 'render_redirect_notice'), 1);
         }
     }
     
@@ -662,9 +671,16 @@ class WU_404_Redirector {
         // 標記為已發送
         self::$redirect_sent = true;
         
-        // Use a short-lived, HTTP-only cookie so the destination URL stays clean.
+        // Persist the completed redirect through the next request without changing the URL.
         if ($this->get_option('show_notice', true)) {
-            setcookie('wu_404_redirect_notice', '1', time() + 15, COOKIEPATH ?: '/', COOKIE_DOMAIN, is_ssl(), true);
+            setcookie(self::NOTICE_COOKIE, '1', array(
+                'expires'  => time() + MINUTE_IN_SECONDS,
+                'path'     => '/',
+                'domain'   => defined('COOKIE_DOMAIN') && COOKIE_DOMAIN ? COOKIE_DOMAIN : '',
+                'secure'   => is_ssl(),
+                'httponly' => true,
+                'samesite' => 'Lax',
+            ));
         }
 
         // 執行重新導向
@@ -810,16 +826,28 @@ class WU_404_Redirector {
         return false;
     }
     
-    /**
-     * 記錄 404 錯誤
-     * 
-     * @param int $limit 日誌保留數量上限
-     */
-    public function render_redirect_notice() {
-        if (empty($_COOKIE['wu_404_redirect_notice']) || !$this->get_option('show_notice', true)) {
+    /** Consume the completed-redirect marker before the destination starts output. */
+    public function prepare_redirect_notice() {
+        if (empty($_COOKIE[self::NOTICE_COOKIE]) || !$this->get_option('show_notice', true)) {
             return;
         }
-        setcookie('wu_404_redirect_notice', '', time() - HOUR_IN_SECONDS, COOKIEPATH ?: '/', COOKIE_DOMAIN, is_ssl(), true);
+        $this->notice_pending = true;
+        setcookie(self::NOTICE_COOKIE, '', array(
+            'expires'  => time() - HOUR_IN_SECONDS,
+            'path'     => '/',
+            'domain'   => defined('COOKIE_DOMAIN') && COOKIE_DOMAIN ? COOKIE_DOMAIN : '',
+            'secure'   => is_ssl(),
+            'httponly' => true,
+            'samesite' => 'Lax',
+        ));
+        unset($_COOKIE[self::NOTICE_COOKIE]);
+    }
+
+    public function render_redirect_notice() {
+        if ($this->notice_rendered || !$this->notice_pending) {
+            return;
+        }
+        $this->notice_rendered = true;
         $redirect_type = $this->get_option('type', 'homepage');
         $target = $redirect_type === 'homepage' ? '網站首頁' : '指定頁面';
         ?>

@@ -95,7 +95,7 @@ final class WUTM_Page_Cache {
 			return false;
 		}
 		foreach ( array_keys( $_COOKIE ) as $cookie_name ) {
-			if ( preg_match( '/^(?:wordpress_logged_in_|wordpress_sec_|wp-postpass_|comment_author_|woocommerce_items_in_cart|woocommerce_cart_hash|wp_woocommerce_session_)/', (string) $cookie_name ) ) {
+			if ( preg_match( '/^(?:wutm_404_redirect_notice|wordpress_logged_in_|wordpress_sec_|wp-postpass_|comment_author_|woocommerce_items_in_cart|woocommerce_cart_hash|wp_woocommerce_session_)/', (string) $cookie_name ) ) {
 				return false;
 			}
 		}

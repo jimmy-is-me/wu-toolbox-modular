@@ -37,6 +37,8 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 			return [
 				'panel_title'    => '立即獲得協助',
 				'panel_subtitle' => '搜尋客戶支援文件與網站知識文章，快速找到需要的資訊。',
+				'panel_color'    => '#4fa567',
+				'icon_color'     => '#ffffff',
 				'show_back_to_top' => 1,
 				'source_docs'    => 1,
 				'source_posts'   => 1,
@@ -217,10 +219,22 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 				$excerpt = get_post_field( 'post_content', $post_id );
 			}
 
-			$excerpt = wp_strip_all_tags( strip_shortcodes( (string) $excerpt ) );
-			$excerpt = preg_replace( '/\s+/u', ' ', $excerpt );
+			$excerpt = self::clean_display_text( $excerpt );
 
 			return wp_trim_words( trim( $excerpt ), $words, '…' );
+		}
+
+		/** Decode legacy and double-encoded entities before showing plain text. */
+		public static function clean_display_text( $text ) {
+			$text = strip_shortcodes( (string) $text );
+			for ( $i = 0; $i < 3; $i++ ) {
+				$decoded = html_entity_decode( $text, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+				if ( $decoded === $text ) break;
+				$text = $decoded;
+			}
+			$text = wp_strip_all_tags( $text );
+			$text = str_replace( "\xC2\xA0", ' ', $text );
+			return trim( (string) preg_replace( '/\s+/u', ' ', $text ) );
 		}
 
 		public static function build_result( $post_id ) {
@@ -240,7 +254,7 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 			if ( 'product' === get_post_type( $post_id ) && function_exists( 'wc_get_product' ) ) {
 				$product = wc_get_product( $post_id );
 				if ( $product ) {
-					$data['price'] = wp_strip_all_tags( $product->get_price_html() );
+					$data['price'] = self::clean_display_text( $product->get_price_html() );
 				}
 			}
 
@@ -407,6 +421,8 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 			$settings = [
 				'panel_title'     => sanitize_text_field( $input['panel_title'] ?? $defaults['panel_title'] ),
 				'panel_subtitle'  => sanitize_text_field( $input['panel_subtitle'] ?? $defaults['panel_subtitle'] ),
+				'panel_color'     => sanitize_hex_color( $input['panel_color'] ?? '' ) ?: $defaults['panel_color'],
+				'icon_color'      => sanitize_hex_color( $input['icon_color'] ?? '' ) ?: $defaults['icon_color'],
 				'show_back_to_top'=> ! empty( $input['show_back_to_top'] ) ? 1 : 0,
 				'source_docs'     => ! empty( $input['source_docs'] ) ? 1 : 0,
 				'source_posts'    => ! empty( $input['source_posts'] ) ? 1 : 0,
@@ -466,8 +482,11 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 			<style>
 			.wuqs-admin{max-width:1320px;margin:28px 20px 60px 0}.wuqs-admin *{box-sizing:border-box}.wuqs-head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:22px}.wuqs-head h1{margin:0 0 7px;font-size:28px}.wuqs-head p{margin:0;color:#646970}.wuqs-save{min-height:40px!important;padding:0 20px!important}.wuqs-notice{padding:13px 16px;margin-bottom:18px;background:#fff;border-left:4px solid #4fa567}.wuqs-card{background:#fff;border:1px solid #dcdcde;border-radius:12px;overflow:hidden;margin-bottom:20px}.wuqs-card-head{padding:18px 20px;background:#f7f8f7;border-bottom:1px solid #e6e8e7}.wuqs-card-head h2{margin:0 0 5px;font-size:17px}.wuqs-card-head p{margin:0;color:#72777c;font-size:12px}.wuqs-setting-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:20px}.wuqs-field label{display:block;font-weight:650;margin-bottom:7px}.wuqs-field input[type=text],.wuqs-field input[type=url],.wuqs-field input[type=number],.wuqs-field select{width:100%;min-height:40px}.wuqs-help{display:block;margin-top:6px;color:#777;font-size:12px;line-height:1.5}.wuqs-source-row{display:flex;gap:18px;flex-wrap:wrap;padding:20px}.wuqs-source{display:flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid #dfe4e1;border-radius:9px;background:#fbfcfb}.wuqs-bottom-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:20px}.wuqs-bottom-card{padding:16px;border:1px solid #e2e5e3;border-radius:10px;background:#fbfcfb}.wuqs-bottom-card h3{margin:0 0 12px;font-size:14px}.wuqs-bottom-card .wuqs-field{margin-bottom:11px}.wuqs-picker{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}.wuqs-panel{background:#fff;border:1px solid #dcdcde;border-radius:12px;overflow:hidden}.wuqs-panel-head{padding:18px 20px;background:#f7f8f7;border-bottom:1px solid #e5e5e5}.wuqs-panel-head h2{margin:0 0 5px;font-size:17px}.wuqs-panel-head p{margin:0;color:#72777c;font-size:12px}.wuqs-searchbox{padding:14px 16px;border-bottom:1px solid #e5e5e5}.wuqs-searchbox input{width:100%;min-height:40px}.wuqs-list{max-height:580px;overflow:auto}.wuqs-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:13px 16px;border-bottom:1px solid #ededed}.wuqs-item:last-child{border-bottom:0}.wuqs-item:hover{background:#fafcfa}.wuqs-title-sm{font-weight:650;color:#1d2327;margin-bottom:6px}.wuqs-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;color:#8a8f94;font-size:11px}.wuqs-badge{display:inline-flex;align-items:center;min-height:22px;padding:0 8px;border-radius:999px;background:#eef7f1;color:#347c4b;font-size:10px;font-weight:700}.wuqs-badge.article{background:#f0f2f1;color:#59635d}.wuqs-badge.product{background:#fff5e9;color:#9a5a00}.wuqs-selected-row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:11px;align-items:center;padding:13px 16px;border-bottom:1px solid #ededed}.wuqs-num{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:#eef7f1;color:#347c4b;font-size:11px;font-weight:700}.wuqs-actions-mini{display:flex;gap:5px}.wuqs-mini{width:30px;height:30px;border:1px solid #c3c4c7;border-radius:5px;background:#fff;cursor:pointer}.wuqs-mini:hover{border-color:#4fa567;color:#347c4b}.wuqs-remove:hover{border-color:#d63638;color:#d63638}.wuqs-empty{padding:45px 20px;text-align:center;color:#8a8f94}.wuqs-status{display:flex;align-items:center;gap:8px;padding:14px 20px;border-top:1px solid #eceeed;color:#646970;font-size:12px}.wuqs-dot{width:8px;height:8px;border-radius:50%;background:#4fa567}.wuqs-dot.off{background:#c3c4c7}@media(max-width:900px){.wuqs-setting-grid,.wuqs-bottom-grid,.wuqs-picker{grid-template-columns:1fr}.wuqs-head{flex-direction:column}}
 			</style>
+			<style>.wuqs-admin{max-width:1240px;margin:20px 0 0!important}.wuqs-admin>.wutm-module-subtitle{margin-bottom:18px}.wuqs-actions-bar{display:flex;justify-content:flex-end;margin:0 0 18px}.wuqs-card,.wuqs-panel{border-radius:8px}.wuqs-admin input[type=color]{width:72px;height:40px;padding:3px;border:1px solid #8c8f94;border-radius:4px;background:#fff}@media(max-width:782px){.wuqs-actions-bar{justify-content:stretch}.wuqs-actions-bar .button{width:100%}}</style>
 
-			<div class="wrap wuqs-admin">
+			<div class="wrap wutm-module-wrap sac-tools-page wuqs-admin">
+				<h1>Wumetax 快速支援</h1>
+				<p class="wutm-module-subtitle">設定搜尋來源、預設內容、面板色彩與底部三個快捷連結；AI 功能由獨立擴充模組加入。</p>
 				<?php if ( isset( $_GET['updated'] ) ) : ?>
 					<div class="wuqs-notice"><strong>已儲存。</strong> 前台快速支援已套用最新設定。</div>
 				<?php endif; ?>
@@ -477,16 +496,15 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 					<?php wp_nonce_field( 'wumetax_qs_save_v130' ); ?>
 					<input type="hidden" name="featured_ids" id="wuqs-featured-ids" value="<?php echo esc_attr( implode( ',', $selected_ids ) ); ?>">
 
-					<div class="wuqs-head">
-						<div><h1>Wumetax 快速支援</h1><p>設定搜尋來源、預設內容與底部三個快捷連結。AI 功能可由獨立擴充外掛加入。</p></div>
-						<button type="submit" class="button button-primary wuqs-save">儲存設定</button>
-					</div>
+					<div class="wuqs-actions-bar"><button type="submit" class="button button-primary wuqs-save">儲存設定</button></div>
 
 					<div class="wuqs-card">
 						<div class="wuqs-card-head"><h2>面板內容</h2><p>控制訪客打開快速支援時看到的標題與文字。</p></div>
 						<div class="wuqs-setting-grid">
 							<div class="wuqs-field"><label>標題</label><input type="text" name="settings[panel_title]" value="<?php echo esc_attr( $s['panel_title'] ); ?>"></div>
 							<div class="wuqs-field"><label>說明</label><input type="text" name="settings[panel_subtitle]" value="<?php echo esc_attr( $s['panel_subtitle'] ); ?>"></div>
+							<div class="wuqs-field"><label>面板顏色</label><input type="color" name="settings[panel_color]" value="<?php echo esc_attr( $s['panel_color'] ); ?>"><span class="wuqs-help">套用於面板標題區、搜尋按鈕與主要強調色。</span></div>
+							<div class="wuqs-field"><label>圖示顏色</label><input type="color" name="settings[icon_color]" value="<?php echo esc_attr( $s['icon_color'] ); ?>"><span class="wuqs-help">套用於右下角快速支援按鈕的圖示。</span></div>
 							<div class="wuqs-field"><label>預設顯示筆數</label><input type="number" min="1" max="30" name="settings[display_limit]" value="<?php echo esc_attr( $s['display_limit'] ); ?>"><span class="wuqs-help">若有手動挑選內容，會依下方順序顯示；沒有則顯示最新內容。</span></div>
 							<div class="wuqs-field"><label>搜尋結果上限</label><input type="number" min="1" max="30" name="settings[search_limit]" value="<?php echo esc_attr( $s['search_limit'] ); ?>"></div>
 							<div class="wuqs-field"><label><input type="checkbox" name="settings[show_back_to_top]" value="1" <?php checked( ! empty( $s['show_back_to_top'] ) ); ?>> 顯示「回到最上」按鈕</label><span class="wuqs-help">訪客向下捲動後顯示；關閉時只保留快速支援按鈕。</span></div>
@@ -606,6 +624,7 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 			?>
 			<style id="wumetax-quick-support-v130-css">
 			:root{--wuqs-green:#4fa567;--wuqs-green-dark:#347c4b;--wuqs-green-soft:#eef7f1;--wuqs-dark:#171b19;--wuqs-text:#39423d;--wuqs-muted:#758079;--wuqs-line:#e3e8e5}.wuqs-actions{position:fixed;z-index:99990;right:24px;bottom:24px;display:flex;flex-direction:column;align-items:flex-end;gap:11px}.wuqs-float{position:relative;display:flex;align-items:center;justify-content:center;padding:0;border-radius:50%;cursor:pointer;-webkit-tap-highlight-color:transparent;transition:.22s ease}.wuqs-float svg{width:21px;height:21px}.wuqs-float--top{width:48px;height:48px;border:1px solid rgba(52,124,75,.18);background:rgba(255,255,255,.97);color:var(--wuqs-green-dark);box-shadow:0 8px 25px rgba(27,52,36,.10)}.wuqs-float--top:hover{background:var(--wuqs-green-soft);transform:translateY(-2px)}#wuwqs-top{opacity:0;pointer-events:none;transform:translateY(8px) scale(.92)}#wuwqs-top.is-visible{opacity:1;pointer-events:auto;transform:none}.wuqs-float--support{width:58px;height:58px;border:4px solid rgba(255,255,255,.94);background:linear-gradient(145deg,#59b971,#3d9858 58%,#347c4b);color:#fff;box-shadow:0 12px 32px rgba(52,124,75,.28)}.wuqs-float--support:hover{transform:translateY(-3px) scale(1.025)}.wuqs-float--support.is-open{background:var(--wuqs-dark)}.wuqs-float--support::before{content:"";position:absolute;top:5px;right:5px;width:7px;height:7px;border:2px solid #fff;border-radius:50%;background:#8fe0a1}.wuqs-backdrop{position:fixed;z-index:99991;inset:0;background:rgba(17,22,19,.14);backdrop-filter:blur(3px);opacity:0;visibility:hidden;transition:.22s ease}.wuqs-backdrop.is-open{opacity:1;visibility:visible}.wuqs-panel{position:fixed;z-index:99992;right:24px;bottom:96px;display:flex;flex-direction:column;width:min(460px,calc(100vw - 32px));height:min(680px,calc(100dvh - 130px));max-height:calc(100dvh - 120px);border:1px solid rgba(23,27,25,.08);border-radius:25px;background:#fff;box-shadow:0 28px 90px rgba(22,35,27,.22);overflow:hidden;opacity:0;visibility:hidden;transform:translateY(18px) scale(.98);transform-origin:bottom right;transition:.24s ease}.wuqs-panel.is-open{opacity:1;visibility:visible;transform:none}.wuqs-header{position:relative;flex:0 0 auto;min-height:152px;padding:29px 30px 54px;overflow:hidden;background:linear-gradient(135deg,#43b66a,#4fa567 54%,#42975a);color:#fff}.wuqs-header::before,.wuqs-header::after{content:"";position:absolute;border-radius:50%;background:rgba(255,255,255,.085)}.wuqs-header::before{width:270px;height:270px;left:-90px;top:-170px}.wuqs-header::after{width:130px;height:130px;right:-24px;top:32px}.wuqs-header-inner{position:relative;z-index:2}.wuqs-title{margin:0 0 9px;color:#fff;font-size:22px;font-weight:750;line-height:1.35}.wuqs-subtitle{max-width:350px;margin:0;color:rgba(255,255,255,.92);font-size:13px;line-height:1.75}.wuqs-close{position:absolute;z-index:5;right:17px;top:17px;display:flex;align-items:center;justify-content:center;width:35px;height:35px;padding:0;border:1px solid rgba(255,255,255,.15);border-radius:50%;background:rgba(17,22,19,.12);color:#fff;cursor:pointer}.wuqs-close svg{width:16px;height:16px}.wuqs-search-wrap{position:relative;z-index:5;flex:0 0 auto;margin:-31px 18px 0}.wuqs-search{display:flex;align-items:center;height:62px;padding-left:21px;border:1px solid rgba(23,27,25,.07);border-radius:999px;background:#fff;box-shadow:0 10px 32px rgba(31,55,40,.10)}.wuqs-search input{flex:1;min-width:0;height:100%;padding:0;border:0!important;outline:0!important;background:transparent!important;box-shadow:none!important;color:var(--wuqs-dark);font-family:inherit;font-size:15px}.wuqs-search input::placeholder{color:#8b948e}.wuqs-search-button{display:flex;align-items:center;justify-content:center;flex:0 0 49px;width:49px;height:49px;margin-right:6px;padding:0;border:0;border-radius:50%;background:linear-gradient(145deg,#59b971,#3d9556);color:#fff;cursor:pointer}.wuqs-search-button svg{width:20px;height:20px}.wuqs-mode-tabs{display:flex;gap:7px;flex:0 0 auto;padding:12px 18px 0;background:#fff}.wuqs-mode-tab{flex:1;min-height:38px;border:1px solid var(--wuqs-line);border-radius:10px;background:#fff;color:var(--wuqs-text);font-size:12px;font-weight:700;cursor:pointer}.wuqs-mode-tab.is-active{border-color:#cce4d3;background:var(--wuqs-green-soft);color:var(--wuqs-green-dark)}.wuqs-view{flex:1 1 auto;min-height:0;display:none;position:relative;overflow:hidden}.wuqs-view.is-active{display:flex;flex-direction:column;min-height:0}.wuqs-content{flex:1;min-height:0;overflow-y:auto;padding:16px 18px 14px;background:#fff;scrollbar-width:thin;overscroll-behavior:contain}.wuqs-section-head{display:flex;align-items:center;justify-content:space-between;gap:15px;padding:7px 18px 13px;border-bottom:1px solid var(--wuqs-line)}.wuqs-section-title{margin:0;color:var(--wuqs-dark);font-size:17px;font-weight:750}.wuqs-section-count{color:var(--wuqs-muted);font-size:10px;font-weight:650}.wuqs-result{position:relative;display:block;padding:17px 50px 17px 18px;border-bottom:1px solid var(--wuqs-line);color:var(--wuqs-dark);text-decoration:none!important;transition:background .18s ease}.wuqs-result:hover{background:#f7faf8}.wuqs-result-meta{display:flex;align-items:center;flex-wrap:wrap;gap:7px;margin-bottom:7px}.wuqs-result-type{display:inline-flex;align-items:center;min-height:23px;padding:0 8px;border-radius:999px;font-size:9px;font-weight:750}.wuqs-result-type--doc{background:var(--wuqs-green-soft);color:var(--wuqs-green-dark)}.wuqs-result-type--article{background:#f0f2f1;color:#59635d}.wuqs-result-type--product{background:#fff4e7;color:#9b5c00}.wuqs-result-category{color:#8a948e;font-size:10px;font-weight:650}.wuqs-result-title{display:block;margin-bottom:6px;color:var(--wuqs-dark);font-size:15px;font-weight:700;line-height:1.55}.wuqs-result-price{display:block;margin:-1px 0 5px;color:#347c4b;font-size:12px;font-weight:700}.wuqs-result-excerpt{display:-webkit-box;overflow:hidden;margin:0;color:var(--wuqs-muted);font-size:13px;line-height:1.65;-webkit-line-clamp:2;-webkit-box-orient:vertical}.wuqs-result-arrow{position:absolute;right:19px;top:50%;display:flex;align-items:center;justify-content:center;width:27px;height:27px;border-radius:50%;background:var(--wuqs-green-soft);color:var(--wuqs-green-dark);font-size:19px;transform:translateY(-50%)}.wuqs-message{padding:45px 22px;text-align:center;color:var(--wuqs-muted);font-size:13px;line-height:1.8}.wuqs-loader{display:flex;align-items:center;justify-content:center;gap:7px;padding:48px 20px}.wuqs-loader span{width:7px;height:7px;border-radius:50%;background:var(--wuqs-green);animation:wuqs-loading 1s infinite ease-in-out}.wuqs-loader span:nth-child(2){animation-delay:.12s}.wuqs-loader span:nth-child(3){animation-delay:.24s}@keyframes wuqs-loading{0%,80%,100%{opacity:.3;transform:scale(.75)}40%{opacity:1;transform:scale(1)}}.wuqs-bottom{position:relative;z-index:10;flex:0 0 76px;width:100%;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));min-height:76px;border-top:1px solid var(--wuqs-line);background:rgba(255,255,255,.98);backdrop-filter:blur(12px)}.wuqs-bottom-link{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;color:var(--wuqs-text)!important;text-decoration:none!important;font-size:11px}.wuqs-bottom-link:hover{color:var(--wuqs-green-dark)!important}.wuqs-bottom-link svg{width:21px;height:21px}.wuqs-mode-tab:focus-visible,.wuqs-search-button:focus-visible,.wuqs-close:focus-visible,.wuqs-bottom-link:focus-visible,.wuqs-float:focus-visible{outline:2px solid #171b19;outline-offset:2px}@media(max-width:700px){.wuqs-actions{right:14px;bottom:calc(14px + env(safe-area-inset-bottom))}.wuqs-float--top{width:46px;height:46px}.wuqs-float--support{width:56px;height:56px}.wuqs-panel{left:8px;right:8px;bottom:calc(78px + env(safe-area-inset-bottom));width:auto;height:min(700px,calc(100dvh - 98px));max-height:calc(100dvh - 98px);border-radius:22px}.wuqs-header{min-height:146px;padding:27px 25px 50px}.wuqs-title{font-size:21px}.wuqs-search-wrap{margin:-30px 13px 0}.wuqs-mode-tabs{padding-left:13px;padding-right:13px}.wuqs-content{padding-left:13px;padding-right:13px}}
+			.wuqs-actions,#wuqs-panel{--wuqs-green:<?php echo esc_html( $s['panel_color'] ); ?>;--wuqs-green-dark:<?php echo esc_html( $s['panel_color'] ); ?>;--wuqs-icon:<?php echo esc_html( $s['icon_color'] ); ?>}.wuqs-float--support{background:var(--wuqs-green);color:var(--wuqs-icon)}.wuqs-header{background:var(--wuqs-green)}.wuqs-search-button{background:var(--wuqs-green);color:var(--wuqs-icon)}.wuqs-result-price{color:var(--wuqs-green-dark)}
 			</style>
 
 			<div class="wuqs-actions">
@@ -679,4 +698,3 @@ if ( ! function_exists( 'wumetax_quick_support_get_context' ) ) {
 		return [];
 	}
 }
-
