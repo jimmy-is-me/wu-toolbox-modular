@@ -75,6 +75,13 @@ function wutm_hp_products_html(WP_Query $query,int $cols):string{
     wp_reset_postdata();wc_reset_loop();
     return (string)ob_get_clean();
 }
+function wutm_hp_is_coming_soon(): bool {
+    return get_option( 'woocommerce_coming_soon' ) === 'yes';
+}
+function wutm_hp_coming_soon_html(): string {
+    if ( ! function_exists( 'do_blocks' ) ) return '';
+    return (string) do_blocks( '<!-- wp:woocommerce/coming-soon /-->' );
+}
 function wutm_hp_ajax_products():void{
     $cols=max(1,min(6,absint($_POST['columns']??4)));$rows=max(1,min(20,absint($_POST['rows']??3)));$page=max(1,absint($_POST['product_page']??1));
     $query=wutm_hp_product_query(wutm_hp_options(),$cols,$rows,$page);
@@ -84,6 +91,10 @@ add_action('wp_ajax_wutm_hp_products','wutm_hp_ajax_products');
 add_action('wp_ajax_nopriv_wutm_hp_products','wutm_hp_ajax_products');
 
 function wutm_hp_shortcode($atts):string{
+    if ( wutm_hp_is_coming_soon() ) {
+        $coming_soon = wutm_hp_coming_soon_html();
+        if ( $coming_soon !== '' ) return '<div class="wutm-home-products-coming-soon">' . $coming_soon . '</div>';
+    }
     $o=wutm_hp_options();$atts=shortcode_atts(['columns'=>$o['columns'],'rows'=>$o['rows'],'width'=>$o['width']],$atts,'wutm_home_products');$cols=max(1,min(6,absint($atts['columns'])));$rows=max(1,min(20,absint($atts['rows'])));$width=wutm_hp_css_size($atts['width'],'100%');
     $query=wutm_hp_product_query($o,$cols,$rows,1);$products=wutm_hp_products_html($query,$cols);$max_pages=max(1,(int)$query->max_num_pages);$uid=wp_unique_id('wutm-hp-');
     ob_start();?><div id="<?php echo esc_attr($uid);?>" class="wutm-home-products" data-columns="<?php echo $cols;?>" data-rows="<?php echo $rows;?>" data-page="1" data-pages="<?php echo $max_pages;?>" style="--wutm-hp-width:<?php echo esc_attr($width);?>;--wutm-hp-cols:<?php echo $cols;?>;--wutm-hp-accent:<?php echo esc_attr($o['accent']);?>;--wutm-hp-button-text:<?php echo esc_attr($o['button_text']);?>"><?php if($o['slides']):?><div class="wutm-hp-slider" data-speed="<?php echo max(2000,(int)$o['speed']*1000);?>" data-autoplay="<?php echo (int)$o['autoplay'];?>"><?php foreach($o['slides'] as $i=>$s):?><div class="wutm-hp-frame<?php echo $i===0?' is-active':'';?>"><?php if($s['link']):?><a href="<?php echo esc_url($s['link']);?>"><?php endif;?><picture><?php if($s['mobile']):?><source media="(max-width:767px)" srcset="<?php echo esc_url($s['mobile']);?>"><?php endif;?><img src="<?php echo esc_url($s['desktop']);?>" alt="" <?php echo $i?'loading="lazy"':'';?>></picture><?php if($s['link']):?></a><?php endif;?></div><?php endforeach;?><?php if(count($o['slides'])>1):?><button type="button" class="wutm-hp-prev" aria-label="上一張">‹</button><button type="button" class="wutm-hp-next" aria-label="下一張">›</button><?php endif;?></div><?php endif;?><?php if(trim(wp_strip_all_tags($o['middle_content']))!==''):?><div class="wutm-hp-middle"><?php echo do_shortcode(wpautop(wp_kses_post($o['middle_content'])));?></div><?php endif;?><div class="wutm-hp-products<?php echo $o['show_cart']?'':' hide-cart';?>"><?php echo $products;?></div><?php if($o['show_more']):?><div class="wutm-hp-more" data-mode="<?php echo esc_attr($o['more_mode']);?>"><?php if($o['more_mode']==='link'):?><a href="<?php echo esc_url($o['more_url']);?>"><?php echo esc_html($o['more_text']);?></a><?php elseif($o['more_mode']==='load_more'&&$max_pages>1):?><button type="button" class="wutm-hp-more-button"><?php echo esc_html($o['more_text']);?></button><?php elseif($o['more_mode']==='pagination'&&$max_pages>1):?><nav class="wutm-hp-pagination" aria-label="商品分頁"><span class="wutm-hp-page-numbers"></span></nav><?php endif;?></div><?php endif;?></div>

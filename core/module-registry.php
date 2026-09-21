@@ -4,6 +4,7 @@ defined('ABSPATH') || exit;
 function wutm_modules(): array {
     return [
         'missing-product-images' => ['name' => '遺失商品圖片修復', 'description' => '掃描商品描述，從來源站補回本站遺失的同路徑圖片。', 'group' => '特殊工具', 'icon' => '🩹', 'requires' => 'woocommerce', 'settings_page' => 'wu-missing-product-images'],
+        'wc-coming-soon-customizer' => ['name' => 'WC 即將推出修改', 'description' => '自訂 WooCommerce 即將推出頁面的標題與說明，並保留 WooCommerce 原生頁面與可見性設定。', 'group' => '特殊工具', 'icon' => '🚀', 'requires' => 'woocommerce', 'settings_page' => 'wu-wc-coming-soon-customizer'],
         'layout-inspector' => ['name' => '版面檢查器', 'description' => '讓管理員從前台管理列掃描 Section 與 Container 寬度、標示異常區塊並複製完整報告，可設定版面基準寬度與容許誤差。', 'group' => '特殊工具', 'icon' => '📐', 'settings_page' => 'wu-layout-inspector'],
         'wp-downgrade' => ['name' => 'WP Downgrade', 'description' => '快速安裝與啟用官方 WP Downgrade 外掛。', 'group' => '特殊工具', 'icon' => '⏪', 'tag' => '第三方外掛', 'settings_page' => 'wu-wp-downgrade'],
         'wordfence' => ['name' => 'Wordfence', 'description' => '快速安裝與啟用官方 Wordfence 外掛。', 'group' => '安全性', 'icon' => '🛡️', 'tag' => '第三方外掛', 'settings_page' => 'wu-wordfence'],

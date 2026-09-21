@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+			<h4>2.8.6</h4><ul><li>首頁商品短代碼偵測 WooCommerce 即將推出模式時，改顯示 WooCommerce 原生 coming-soon 區塊。</li><li>新增「WC 即將推出修改」模組，可安全自訂原生即將推出頁面的標題與說明。</li></ul>
 			<h4>2.8.5</h4><ul><li>重新整理知識庫首頁、分類與文件前台版面，改善桌面與行動裝置閱讀體驗。</li><li>知識庫搜尋改為輸入即時 AJAX 搜尋，支援分類篩選、請求取消與即時結果數量。</li><li>搜尋結果、最新文件、分類文件與單一文件支援精選圖片顯示。</li><li>單一文件會依 H2～H4 標題自動建立側邊目錄與定位連結。</li></ul>
 			<h4>2.8.4</h4><ul><li>404 導向提示改為在目的頁請求開始時可靠消耗一次性標記，支援頁首與頁尾輸出，並讓內建頁面快取略過該次請求。</li><li>知識庫支援 AI 擴充移至 AI 操作紀錄後方，新增「需先開啟知識庫功能」標籤。</li><li>Quick Support 新增面板顏色與圖示顏色設定，並修正商品價格、描述中的重複 HTML entities 與空白亂碼。</li><li>Quick Support 與 AI 擴充設定頁改用和 AI 文章工具一致的共用模組版型。</li></ul>
 			<h4>2.8.3</h4><ul><li>後台介面管理卡片恢復圖示，設定頁移除裝飾圖示。</li><li>停用角色改為全站即時移出 WordPress 角色註冊表，登入、權限與各角色選單都不再顯示；重新啟用可完整恢復。</li><li>知識庫整合 Quick Support 前台搜尋面板、精選內容與快捷連結，並新增「回到最上」顯示開關。</li><li>新增獨立「知識庫支援 AI 擴充」模組，支援 Gemini、Perplexity、OpenAI、知識庫上下文、防刷額度與使用紀錄。</li></ul>
