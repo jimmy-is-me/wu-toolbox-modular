@@ -1,3 +1,4 @@
+<?php
 /**
  * Plugin Name: Wumetax Media Folders
  * Description: Virtual folders for the WordPress Media Library. Nested folders, drag & drop, colors, stars, rename, delete, undo, Media Library + media modal support. Files never move on disk.
