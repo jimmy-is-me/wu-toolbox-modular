@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+			<h4>2.9.7</h4><ul><li>修正短代碼綁定頁面的「編輯」連結：首頁商品區塊、常見問題、退換貨政策與隱私權政策現在會直接開啟 WordPress 區塊編輯器。</li><li>各模組設定頁保留「編輯已綁定頁面」按鈕，並繼續顯示已綁定頁面的狀態標記。</li></ul>
 			<h4>2.9.6</h4><ul><li>修正 SEO 核心預設社群分享圖片按鈕的載入時機，媒體庫可正常開啟並儲存圖片。</li><li>首頁 Popup 加入圖片輪播與設計版型模式，支援隨機活動、延遲、自動關閉、工作階段控制與 PopUp Roulette 風格設定。</li><li>統一 Toolbox 模組設定頁外觀，並讓 WooCommerce 即將推出文字繼承網站字體。</li></ul>
 			<h4>2.9.5</h4><ul><li>修正 SEO 核心預設社群分享圖片的媒體選擇器，並將 Google Search Console 驗證與公開內容 SEO 可用率改為不計分的資訊。</li><li>WC 即將推出修改改為純文字翻譯，不再改變原生頁面的字體、底色或外框。</li><li>多語言管理移除翻譯匯出／匯入入口，聚焦語言數量解鎖與設定概覽。</li></ul>
 			<h4>2.9.4</h4><ul><li>修正首頁商品短代碼的即將推出畫面空白問題，原生 WooCommerce Coming Soon 區塊會帶入所需內容。</li><li>首頁彈出視窗設定頁統一為 Toolbox 介面，新增隨機活動、延遲、自動關閉與同工作階段只顯示一次設定。</li></ul>
