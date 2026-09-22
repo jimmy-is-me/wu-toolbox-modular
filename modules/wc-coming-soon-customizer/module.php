@@ -1,93 +1,88 @@
 <?php
 /**
  * Module: wc-coming-soon-customizer
- * Customizes WooCommerce's native coming-soon page text without replacing its block or visibility controls.
+ * Customizes WooCommerce's native coming-soon page when store-only visibility is enabled.
  */
+
 defined( 'ABSPATH' ) || exit;
 
 final class WUTM_WC_Coming_Soon_Customizer {
-    private const OPTION = 'wutm_wc_coming_soon_customizer';
+    private const TAB_ID = 'site-visibility';
+    private const MARKER_ID = 'wutm_cs_section_title';
+    private const LEGACY_OPTION = 'wutm_wc_coming_soon_customizer';
+    private const OPT_ENABLED = 'wutm_cs_enabled';
+    private const OPT_TITLE = 'wutm_cs_custom_title';
+    private const OPT_MESSAGE = 'wutm_cs_custom_message';
+    private const OPT_STYLE_ENABLED = 'wutm_cs_style_enabled';
+    private const OPT_BG_COLOR = 'wutm_cs_bg_color';
+    private const OPT_TEXT_COLOR = 'wutm_cs_text_color';
+    private const OPT_ACCENT_COLOR = 'wutm_cs_accent_color';
+    private const OPT_CARD_WIDTH = 'wutm_cs_card_width';
+    private const OPT_RADIUS = 'wutm_cs_radius';
+    private const HOME_PRODUCTS_SHORTCODES = [ 'wutm_home_products', 'custom_home_products' ];
+    private $settings_cache = null;
+    private $legacy_cache = null;
 
     public function __construct() {
-        add_action( 'admin_init', [ $this, 'register_settings' ] );
-        add_action( 'admin_menu', [ $this, 'add_menu' ] );
-        add_action( 'template_redirect', [ $this, 'start_text_replacement' ], 1 );
+        add_filter( 'woocommerce_get_settings_' . self::TAB_ID, [ $this, 'inject_settings_fields' ], 20, 2 );
+        add_action( 'woocommerce_settings_save_' . self::TAB_ID, [ $this, 'after_settings_saved' ], 90 );
+        add_action( 'woocommerce_admin_field_wutm_cs_notice', [ $this, 'render_notice_field' ] );
+        add_action( 'admin_enqueue_scripts', [ $this, 'admin_assets' ] );
+        add_action( 'wp_loaded', [ $this, 'register_frontend_hooks' ], 999 );
     }
 
-    public function defaults(): array {
-        return [
-            'enabled' => 1,
-            'title'   => 'Coming Soon',
-            'message' => 'We are preparing our store and will launch soon.',
-        ];
-    }
-
+    private function defaults(): array { return [ 'enabled' => 1, 'title' => 'Coming Soon', 'message' => 'We are preparing our store and will launch soon.', 'style_enabled' => 1, 'bg_color' => '#ffffff', 'text_color' => '#12233f', 'accent_color' => '#2a63c9', 'card_width' => '640px', 'radius' => '18' ]; }
+    private function legacy_settings(): array { if ( null === $this->legacy_cache ) { $value = get_option( self::LEGACY_OPTION, [] ); $this->legacy_cache = is_array( $value ) ? $value : []; } return $this->legacy_cache; }
+    private function value( string $option, string $legacy_key, $default ) { $sentinel = '__wutm_cs_missing__'; $value = get_option( $option, $sentinel ); if ( $value !== $sentinel ) return $value; $legacy = $this->legacy_settings(); return array_key_exists( $legacy_key, $legacy ) ? $legacy[ $legacy_key ] : $default; }
     private function settings(): array {
-        return wp_parse_args( (array) get_option( self::OPTION, [] ), $this->defaults() );
+        if ( null !== $this->settings_cache ) return $this->settings_cache;
+        $d = $this->defaults(); $yes = static function ( $value ): int { return in_array( $value, [ 'yes', '1', 1, true ], true ) ? 1 : 0; };
+        $this->settings_cache = [
+            'enabled' => $yes( $this->value( self::OPT_ENABLED, 'enabled', 'yes' ) ),
+            'title' => (string) $this->value( self::OPT_TITLE, 'title', $d['title'] ), 'message' => (string) $this->value( self::OPT_MESSAGE, 'message', $d['message'] ),
+            'style_enabled' => $yes( $this->value( self::OPT_STYLE_ENABLED, 'style_enabled', 'yes' ) ),
+            'bg_color' => (string) $this->value( self::OPT_BG_COLOR, 'bg_color', $d['bg_color'] ), 'text_color' => (string) $this->value( self::OPT_TEXT_COLOR, 'text_color', $d['text_color'] ),
+            'accent_color' => (string) $this->value( self::OPT_ACCENT_COLOR, 'accent_color', $d['accent_color'] ), 'card_width' => (string) $this->value( self::OPT_CARD_WIDTH, 'card_width', $d['card_width'] ), 'radius' => (string) $this->value( self::OPT_RADIUS, 'radius', $d['radius'] ),
+        ];
+        return $this->settings_cache;
     }
 
-    public function register_settings(): void {
-        register_setting( 'wutm_wc_coming_soon_group', self::OPTION, [
-            'type' => 'array',
-            'sanitize_callback' => function ( $input ): array {
-                $input = is_array( $input ) ? $input : [];
-                return [
-                    'enabled' => empty( $input['enabled'] ) ? 0 : 1,
-                    'title'   => sanitize_text_field( $input['title'] ?? '' ),
-                    'message' => sanitize_textarea_field( $input['message'] ?? '' ),
-                ];
-            },
-            'default' => $this->defaults(),
-        ] );
+    public function admin_assets( $hook ): void { if ( 'woocommerce_page_wc-settings' !== $hook || ( $_GET['tab'] ?? '' ) !== self::TAB_ID ) return; wp_enqueue_style( 'wp-color-picker' ); wp_enqueue_script( 'wp-color-picker' ); wp_add_inline_script( 'wp-color-picker', 'jQuery(function($){$(".wutm-wc-coming-soon-color").wpColorPicker();});' ); }
+    public function inject_settings_fields( array $settings, $section ): array {
+        if ( '' !== $section || ! current_user_can( 'manage_woocommerce' ) ) return $settings;
+        foreach ( $settings as $field ) if ( ( $field['id'] ?? '' ) === self::MARKER_ID ) return $settings;
+        $o = $this->settings();
+        $fields = [
+            [ 'title' => '即將推出頁客製化', 'type' => 'title', 'id' => self::MARKER_ID, 'desc' => $this->status_description() ], [ 'type' => 'wutm_cs_notice', 'id' => 'wutm_cs_apply_rule_notice' ],
+            [ 'title' => '啟用文字替換', 'id' => self::OPT_ENABLED, 'type' => 'checkbox', 'default' => $o['enabled'] ? 'yes' : 'no', 'desc' => '替換 WooCommerce 原生即將推出頁的預設標題與說明文字' ],
+            [ 'title' => '標題', 'id' => self::OPT_TITLE, 'type' => 'text', 'css' => 'width:400px;max-width:100%;', 'default' => $o['title'] ], [ 'title' => '說明文字', 'id' => self::OPT_MESSAGE, 'type' => 'textarea', 'css' => 'width:520px;max-width:100%;height:90px;', 'default' => $o['message'] ],
+            [ 'title' => '啟用卡片式外觀', 'id' => self::OPT_STYLE_ENABLED, 'type' => 'checkbox', 'default' => $o['style_enabled'] ? 'yes' : 'no', 'desc' => '套用置中卡片樣式；不使用淡入、位移或其他進場動畫' ],
+            [ 'title' => '卡片背景色', 'id' => self::OPT_BG_COLOR, 'type' => 'text', 'class' => 'wutm-wc-coming-soon-color', 'css' => 'width:110px;', 'default' => $o['bg_color'] ], [ 'title' => '文字顏色', 'id' => self::OPT_TEXT_COLOR, 'type' => 'text', 'class' => 'wutm-wc-coming-soon-color', 'css' => 'width:110px;', 'default' => $o['text_color'] ], [ 'title' => '強調色（連結）', 'id' => self::OPT_ACCENT_COLOR, 'type' => 'text', 'class' => 'wutm-wc-coming-soon-color', 'css' => 'width:110px;', 'default' => $o['accent_color'] ],
+            [ 'title' => '卡片寬度', 'id' => self::OPT_CARD_WIDTH, 'type' => 'text', 'css' => 'width:120px;', 'placeholder' => '640px', 'default' => $o['card_width'], 'desc' => '例如：640px、80%、42rem' ], [ 'title' => '圓角（px）', 'id' => self::OPT_RADIUS, 'type' => 'number', 'css' => 'width:100px;', 'default' => $o['radius'], 'custom_attributes' => [ 'min' => '0', 'max' => '48', 'step' => '1' ] ], [ 'type' => 'sectionend', 'id' => 'wutm_cs_section_end' ],
+        ];
+        $after = null; foreach ( $settings as $index => $field ) if ( ( $field['type'] ?? '' ) === 'sectionend' ) $after = $index;
+        if ( null === $after ) return array_merge( $settings, $fields ); array_splice( $settings, $after + 1, 0, $fields ); return $settings;
     }
-
-    public function add_menu(): void {
-        add_submenu_page( 'wu-toolbox-modular', 'WC 即將推出修改', 'WC 即將推出修改', 'manage_woocommerce', 'wu-wc-coming-soon-customizer', [ $this, 'render_admin_page' ] );
+    private function status_description(): string { if ( $this->is_customizer_active() ) return '目前條件符合：已選擇「即將推出」，且已開啟「僅套用至商店頁面」。本區設定與首頁商品簡碼會自動生效。'; if ( get_option( 'woocommerce_coming_soon' ) === 'yes' ) return '目前尚未套用：已選擇「即將推出」，但「僅套用至商店頁面」尚未開啟。'; return '目前尚未套用：請先選擇「即將推出」，並開啟「僅套用至商店頁面」。'; }
+    public function render_notice_field( $value ): void { $active = $this->is_customizer_active(); $color = $active ? '#46b450' : '#dba617'; $bg = $active ? '#f0f8f1' : '#fff8e5'; echo '<tr valign="top"><th scope="row" class="titledesc">套用條件</th><td class="forminp"><div style="max-width:760px;padding:12px 14px;border-left:4px solid ' . esc_attr( $color ) . ';background:' . esc_attr( $bg ) . ';line-height:1.7"><strong>本功能只有在上方同時設定：</strong><br>① 選擇「即將推出」<br>② 開啟「僅套用至商店頁面」<br><br>兩個條件都成立時，才會套用這裡的文字／外觀設定，並自動讓首頁商品簡碼顯示即將推出內容。</div></td></tr>'; }
+    public function after_settings_saved(): void { if ( ! current_user_can( 'manage_woocommerce' ) || ! wp_verify_nonce( $_POST['_wpnonce'] ?? '', 'woocommerce-settings' ) ) return; $this->sanitize_saved_options(); $this->settings_cache = null; $this->legacy_cache = null; add_action( 'shutdown', [ $this, 'purge_caches' ], 999 ); }
+    private function sanitize_saved_options(): void {
+        foreach ( [ self::OPT_ENABLED, self::OPT_STYLE_ENABLED ] as $option ) update_option( $option, get_option( $option, 'no' ) === 'yes' ? 'yes' : 'no', false );
+        update_option( self::OPT_TITLE, sanitize_text_field( get_option( self::OPT_TITLE, '' ) ), false ); update_option( self::OPT_MESSAGE, sanitize_textarea_field( get_option( self::OPT_MESSAGE, '' ) ), false );
+        foreach ( [ self::OPT_BG_COLOR => '#ffffff', self::OPT_TEXT_COLOR => '#12233f', self::OPT_ACCENT_COLOR => '#2a63c9' ] as $option => $fallback ) update_option( $option, sanitize_hex_color( get_option( $option, $fallback ) ) ?: $fallback, false );
+        $width = trim( (string) get_option( self::OPT_CARD_WIDTH, '640px' ) ); update_option( self::OPT_CARD_WIDTH, preg_match( '/^\d+(?:\.\d+)?(?:px|%|vw|rem|em)$/', $width ) ? $width : '640px', false ); update_option( self::OPT_RADIUS, (string) max( 0, min( 48, absint( get_option( self::OPT_RADIUS, 18 ) ) ) ), false );
     }
-
-    public function render_admin_page(): void {
-        if ( ! current_user_can( 'manage_woocommerce' ) ) return;
-        $settings = $this->settings();
-        $is_coming_soon = get_option( 'woocommerce_coming_soon' ) === 'yes';
-        ?>
-        <div class="wrap wutm-module-wrap wutm-wc-coming-soon-admin">
-            <h1>WC 即將推出修改</h1>
-            <p class="wutm-module-subtitle">保留 WooCommerce 原生「即將推出」頁面與網站可見性設定，只替換頁面中的預設標題與說明文字。</p>
-            <div class="notice <?php echo $is_coming_soon ? 'notice-success' : 'notice-warning'; ?> inline"><p><?php echo $is_coming_soon ? '目前 WooCommerce 已啟用即將推出模式，儲存後會套用下方文字。' : '目前 WooCommerce 未啟用即將推出模式。請到 WooCommerce → 設定 → 網站可見度開啟後再使用。'; ?></p></div>
-            <form method="post" action="options.php" class="wutm-wc-coming-soon-form">
-                <?php settings_fields( 'wutm_wc_coming_soon_group' ); ?>
-                <section class="wutm-wc-coming-soon-card">
-                    <h2>顯示文字</h2>
-                    <label class="wutm-wc-coming-soon-toggle"><input type="checkbox" name="<?php echo esc_attr( self::OPTION ); ?>[enabled]" value="1" <?php checked( ! empty( $settings['enabled'] ) ); ?>> 啟用文字替換</label>
-                    <label>標題<input type="text" name="<?php echo esc_attr( self::OPTION ); ?>[title]" value="<?php echo esc_attr( $settings['title'] ); ?>" maxlength="160"></label>
-                    <label>說明<textarea name="<?php echo esc_attr( self::OPTION ); ?>[message]" rows="3" maxlength="500"><?php echo esc_textarea( $settings['message'] ); ?></textarea></label>
-                    <p class="description">留空即保留 WooCommerce 目前的原始文字。此模組只在訪客看到即將推出頁時處理，不會影響後台或 WooCommerce 的頁面編輯功能。</p>
-                </section>
-                <?php submit_button( '儲存設定' ); ?>
-            </form>
-        </div>
-        <style>.wutm-wc-coming-soon-admin{max-width:980px}.wutm-wc-coming-soon-card{margin-top:18px;padding:22px;border:1px solid #dcdcde;border-radius:8px;background:#fff}.wutm-wc-coming-soon-card h2{margin:0 0 18px;padding-bottom:10px;border-bottom:1px solid #e5e7eb;font-size:17px}.wutm-wc-coming-soon-card label{display:block;max-width:680px;margin:16px 0;font-weight:600}.wutm-wc-coming-soon-card input[type=text],.wutm-wc-coming-soon-card textarea{display:block;width:100%;margin-top:7px}.wutm-wc-coming-soon-toggle{display:flex!important;gap:8px;align-items:center}.wutm-wc-coming-soon-toggle input{margin:0!important}</style>
-        <?php
+    private function is_customizer_active(): bool { return get_option( 'woocommerce_coming_soon' ) === 'yes' && get_option( 'woocommerce_store_pages_only' ) === 'yes'; }
+    public function register_frontend_hooks(): void { if ( is_admin() || wp_doing_ajax() || wp_doing_cron() || ! $this->is_customizer_active() || current_user_can( 'manage_woocommerce' ) ) return; $this->override_home_product_shortcodes(); $s = $this->settings(); if ( $s['enabled'] && ( $s['title'] !== '' || $s['message'] !== '' ) ) add_action( 'template_redirect', [ $this, 'start_text_replacement' ], 0 ); if ( $s['style_enabled'] ) add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_frontend_style' ], 1 ); }
+    private function override_home_product_shortcodes(): void { foreach ( self::HOME_PRODUCTS_SHORTCODES as $tag ) { if ( shortcode_exists( $tag ) ) { remove_shortcode( $tag ); add_shortcode( $tag, [ $this, 'render_coming_soon_shortcode' ] ); } } }
+    public function render_coming_soon_shortcode( $atts = [], $content = null, $tag = '' ): string { $s = $this->settings(); $d = $this->defaults(); $title = $s['title'] !== '' ? $s['title'] : $d['title']; $message = $s['message'] !== '' ? $s['message'] : $d['message']; return '<div class="wutm-home-products wutm-home-products--coming-soon"><h2 class="wutm-hp-coming-soon__title">' . esc_html( $title ) . '</h2><p class="wutm-hp-coming-soon__message">' . esc_html( $message ) . '</p></div>'; }
+    public function start_text_replacement(): void { $s = $this->settings(); ob_start( static function ( $html ) use ( $s ) { $replace = []; if ( $s['title'] !== '' ) $replace = [ '大事即將發生' => $s['title'], 'Something big is coming' => $s['title'], 'Coming soon' => $s['title'] ]; if ( $s['message'] !== '' ) $replace += [ '有大事要發生了！ 我們正在籌備商店中，很快就會推出！' => $s['message'], '有大事要發生了！我們正在籌備商店中，很快就會推出！' => $s['message'], 'We are working on our store and will be back soon.' => $s['message'] ]; return $replace ? str_replace( array_keys( $replace ), array_values( $replace ), $html ) : $html; } ); }
+    public function enqueue_frontend_style(): void {
+        $s = $this->settings(); $width = preg_match( '/^\d+(?:\.\d+)?(?:px|%|vw|rem|em)$/', $s['card_width'] ) ? $s['card_width'] : '640px'; $radius = max( 0, min( 48, absint( $s['radius'] ) ) );
+        $css = '.wp-block-woocommerce-coming-soon,.wp-block-woocommerce-coming-soon *,.wutm-home-products--coming-soon,.wutm-home-products--coming-soon *{animation:none!important;transition:none!important}.wp-block-woocommerce-coming-soon{display:flex!important;align-items:center;justify-content:center;min-height:100vh;padding:40px 20px;box-sizing:border-box;background:#f2f4f7}.wp-block-woocommerce-coming-soon .wp-block-cover{min-height:auto!important}.wp-block-woocommerce-coming-soon .wp-block-cover__inner-container,.wp-block-woocommerce-coming-soon .wp-block-group,.wutm-home-products--coming-soon{width:100%;max-width:' . esc_attr( $width ) . ';margin:0 auto;background:' . esc_attr( $s['bg_color'] ) . ';color:' . esc_attr( $s['text_color'] ) . ';border-radius:' . $radius . 'px;padding:48px 40px;box-shadow:0 18px 48px rgba(0,0,0,.10);text-align:center;box-sizing:border-box}.wp-block-woocommerce-coming-soon h1,.wp-block-woocommerce-coming-soon h2,.wp-block-woocommerce-coming-soon p{color:' . esc_attr( $s['text_color'] ) . '!important}.wp-block-woocommerce-coming-soon h1,.wp-block-woocommerce-coming-soon h2,.wutm-hp-coming-soon__title{font-size:clamp(28px,5vw,42px);margin:0 0 18px;font-weight:700}.wp-block-woocommerce-coming-soon p,.wutm-hp-coming-soon__message{font-size:16px;line-height:1.7;margin:0}.wp-block-woocommerce-coming-soon a{color:' . esc_attr( $s['accent_color'] ) . '!important}.wutm-home-products--coming-soon{margin:60px auto}.wutm-hp-coming-soon__title,.wutm-hp-coming-soon__message{color:' . esc_attr( $s['text_color'] ) . '}@media(max-width:767px){.wp-block-woocommerce-coming-soon .wp-block-cover__inner-container,.wp-block-woocommerce-coming-soon .wp-block-group,.wutm-home-products--coming-soon{padding:36px 22px}}';
+        wp_register_style( 'wutm-wc-coming-soon-style', false, [], null ); wp_enqueue_style( 'wutm-wc-coming-soon-style' ); wp_add_inline_style( 'wutm-wc-coming-soon-style', $css );
     }
-
-    public function start_text_replacement(): void {
-        if ( is_admin() || current_user_can( 'manage_woocommerce' ) || ! $this->is_coming_soon() ) return;
-        $settings = $this->settings();
-        if ( empty( $settings['enabled'] ) || ( $settings['title'] === '' && $settings['message'] === '' ) ) return;
-        ob_start( function ( $html ) use ( $settings ): string {
-            $replace = [];
-            if ( $settings['title'] !== '' ) $replace['大事即將發生'] = $settings['title'];
-            if ( $settings['message'] !== '' ) {
-                $replace['有大事要發生了！ 我們正在籌備商店中，很快就會推出！'] = $settings['message'];
-                $replace['有大事要發生了！我們正在籌備商店中，很快就會推出！'] = $settings['message'];
-            }
-            return str_replace( array_keys( $replace ), array_values( $replace ), $html );
-        } );
-    }
-
-    private function is_coming_soon(): bool {
-        return get_option( 'woocommerce_coming_soon' ) === 'yes';
-    }
+    public function purge_caches(): void { static $done = false; if ( $done ) return; $done = true; if ( function_exists( 'rocket_clean_domain' ) ) rocket_clean_domain(); if ( function_exists( 'wp_cache_clear_cache' ) ) wp_cache_clear_cache(); if ( function_exists( 'w3tc_flush_all' ) ) w3tc_flush_all(); if ( function_exists( 'sg_cachepress_purge_cache' ) ) sg_cachepress_purge_cache(); if ( class_exists( 'Cache_Enabler' ) && is_callable( [ 'Cache_Enabler', 'clear_complete_cache' ] ) ) Cache_Enabler::clear_complete_cache(); if ( class_exists( '\\FlyingPress\\Purge' ) && is_callable( [ '\\FlyingPress\\Purge', 'purge_everything' ] ) ) \FlyingPress\Purge::purge_everything(); do_action( 'litespeed_purge_all' ); do_action( 'wutm_wc_coming_soon_after_purge_cache' ); }
 }
-
-new WUTM_WC_Coming_Soon_Customizer();
+function wutm_wc_coming_soon_customizer_init(): WUTM_WC_Coming_Soon_Customizer { static $instance = null; if ( null === $instance ) $instance = new WUTM_WC_Coming_Soon_Customizer(); return $instance; }
+wutm_wc_coming_soon_customizer_init();
