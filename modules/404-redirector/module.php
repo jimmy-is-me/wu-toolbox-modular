@@ -13,7 +13,6 @@
 if (!defined('ABSPATH')) exit;
 
 class WU_404_Redirector {
-    private const NOTICE_COOKIE = 'wutm_404_redirect_notice';
     
     /**
      * 選項前綴
@@ -30,11 +29,6 @@ class WU_404_Redirector {
      */
     private static $redirect_sent = false;
 
-    /** Prevent duplicate output when both wp_body_open and wp_footer run. */
-    private $notice_rendered = false;
-
-    /** Whether the destination request has consumed a completed 404 redirect marker. */
-    private $notice_pending = false;
     
     public function __construct() {
         // 後台：載入管理介面
@@ -46,11 +40,6 @@ class WU_404_Redirector {
         // 前台：如果啟用了 404 重新導向，則執行相關動作
         if (!is_admin() && $this->get_option('enabled', false)) {
             add_action('template_redirect', array($this, 'handle_404_redirect'), 1);
-        }
-        if (!is_admin()) {
-            add_action('template_redirect', array($this, 'prepare_redirect_notice'), 0);
-            add_action('wp_body_open', array($this, 'render_redirect_notice'), 1);
-            add_action('wp_footer', array($this, 'render_redirect_notice'), 1);
         }
     }
     
@@ -315,9 +304,9 @@ class WU_404_Redirector {
                    name="<?php echo esc_attr($this->option_prefix . 'show_notice'); ?>"
                    value="1"
                    <?php checked(1, $value); ?> />
-            找不到這個頁面，網址可能已調整，已幫您自動導向目標頁面
+            404 時顯示模糊化提示，倒數 1 秒後自動導向目標頁面
         </label>
-        <p class="description">預設開啟，且與「啟用 404 重新導向」一同使用。提示只會在實際發生 404 並完成導向後顯示一次。</p>
+        <p class="description">預設開啟，且與「啟用 404 重新導向」一同使用。只會在實際發生 404 時於原頁面顯示一次，倒數結束後才導向。</p>
         <?php
     }
     
@@ -671,16 +660,16 @@ class WU_404_Redirector {
         // 標記為已發送
         self::$redirect_sent = true;
         
-        // Persist the completed redirect through the next request without changing the URL.
+        // Show the interstitial on the actual 404 response, then redirect in one second.
+        // This avoids a cookie-based notice that can be lost to page caches or fast redirects.
         if ($this->get_option('show_notice', true)) {
-            setcookie(self::NOTICE_COOKIE, '1', array(
-                'expires'  => time() + MINUTE_IN_SECONDS,
-                'path'     => '/',
-                'domain'   => defined('COOKIE_DOMAIN') && COOKIE_DOMAIN ? COOKIE_DOMAIN : '',
-                'secure'   => is_ssl(),
-                'httponly' => true,
-                'samesite' => 'Lax',
-            ));
+            nocache_headers();
+            $redirect_type = $this->get_option('type', 'homepage');
+            $target = $redirect_type === 'homepage' ? '網站首頁' : '指定頁面';
+            add_action('wp_footer', function () use ($redirect_url, $target) {
+                $this->render_redirect_interstitial($redirect_url, $target);
+            }, PHP_INT_MAX);
+            return;
         }
 
         // 執行重新導向
@@ -826,40 +815,14 @@ class WU_404_Redirector {
         return false;
     }
     
-    /** Consume the completed-redirect marker before the destination starts output. */
-    public function prepare_redirect_notice() {
-        if (empty($_COOKIE[self::NOTICE_COOKIE]) || !$this->get_option('show_notice', true)) {
-            return;
-        }
-        $this->notice_pending = true;
-        setcookie(self::NOTICE_COOKIE, '', array(
-            'expires'  => time() - HOUR_IN_SECONDS,
-            'path'     => '/',
-            'domain'   => defined('COOKIE_DOMAIN') && COOKIE_DOMAIN ? COOKIE_DOMAIN : '',
-            'secure'   => is_ssl(),
-            'httponly' => true,
-            'samesite' => 'Lax',
-        ));
-        unset($_COOKIE[self::NOTICE_COOKIE]);
-    }
-
-    public function render_redirect_notice() {
-        if ($this->notice_rendered || !$this->notice_pending) {
-            return;
-        }
-        $this->notice_rendered = true;
-        $redirect_type = $this->get_option('type', 'homepage');
-        $target = $redirect_type === 'homepage' ? '網站首頁' : '指定頁面';
+    /** Render the one-second overlay on the original 404 page before navigating away. */
+    private function render_redirect_interstitial($redirect_url, $target) {
         ?>
-        <aside class="wu-404-visitor-notice" role="status" aria-live="polite">
-            <span class="wu-404-visitor-notice__icon" aria-hidden="true">↗</span>
-            <div><strong>已協助您找到方向</strong><p>找不到這個頁面，網址可能已調整，已幫您自動導向<?php echo esc_html($target); ?>。</p></div>
-            <button type="button" class="wu-404-visitor-notice__close" aria-label="關閉提示">×</button>
-        </aside>
-        <style>
-            .wu-404-visitor-notice{position:fixed;z-index:99999;right:24px;bottom:24px;max-width:390px;display:flex;gap:10px;align-items:flex-start;padding:13px 16px;background:rgba(255,255,255,.76);color:#28343c;border:1px solid rgba(31,50,60,.12);border-radius:13px;box-shadow:0 10px 30px rgba(20,35,45,.12);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);font-size:13px;line-height:1.5;transition:opacity .35s ease,transform .35s ease}.wu-404-visitor-notice.is-leaving{opacity:0;transform:translateY(8px);pointer-events:none}.wu-404-visitor-notice__icon{display:grid;place-items:center;flex:0 0 26px;width:26px;height:26px;background:#dff5e8;color:#16834a;border-radius:50%;font-size:15px;font-weight:700}.wu-404-visitor-notice strong{display:block;font-size:14px}.wu-404-visitor-notice p{margin:2px 20px 0 0;color:#52616a}.wu-404-visitor-notice__close{position:absolute;top:6px;right:8px;border:0;background:transparent;color:#65737b;cursor:pointer;font-size:18px;line-height:1}@media(max-width:600px){.wu-404-visitor-notice{right:14px;bottom:14px;left:14px;max-width:none}}
-        </style>
-        <script>(function(){var notice=document.querySelector('.wu-404-visitor-notice');if(!notice)return;var close=function(){notice.classList.add('is-leaving');setTimeout(function(){notice.remove();},350)};notice.querySelector('.wu-404-visitor-notice__close').addEventListener('click',close);setTimeout(close,3000);}());</script>
+        <section class="wu-404-redirect-overlay" role="alertdialog" aria-live="assertive" aria-label="404 重新導向提示">
+            <div class="wu-404-redirect-dialog"><span class="wu-404-redirect-icon" aria-hidden="true">↗</span><h2>找不到這個頁面</h2><p>網址可能已調整，正在帶您前往<?php echo esc_html($target); ?>。</p><p class="wu-404-redirect-countdown"><b id="wu-404-redirect-seconds">1</b> 秒後自動導向</p></div>
+        </section>
+        <style>.wu-404-redirect-overlay{position:fixed;z-index:2147483647;inset:0;display:grid;place-items:center;padding:24px;background:rgba(20,28,34,.35);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);animation:wu404fade .16s ease-out}.wu-404-redirect-dialog{width:min(420px,100%);padding:32px;border:1px solid rgba(255,255,255,.44);border-radius:20px;background:rgba(255,255,255,.93);box-shadow:0 24px 72px rgba(0,0,0,.24);text-align:center;color:#203039}.wu-404-redirect-icon{display:grid;place-items:center;width:48px;height:48px;margin:0 auto 16px;border-radius:50%;background:#def5e7;color:#16834a;font-size:25px;font-weight:700}.wu-404-redirect-dialog h2{margin:0 0 9px;font-size:22px}.wu-404-redirect-dialog p{margin:0;color:#52616a;line-height:1.7}.wu-404-redirect-countdown{margin-top:14px!important;color:#16834a!important;font-size:14px;font-weight:700}.wu-404-redirect-countdown b{font-size:18px}@keyframes wu404fade{from{opacity:0}to{opacity:1}}</style>
+        <script>(function(){var target=<?php echo wp_json_encode(esc_url_raw($redirect_url)); ?>,seconds=document.getElementById('wu-404-redirect-seconds');setTimeout(function(){if(seconds)seconds.textContent='0';window.location.replace(target);},1000);}());</script>
         <?php
     }
 
