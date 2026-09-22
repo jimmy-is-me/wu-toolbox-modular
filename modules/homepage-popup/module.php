@@ -1,41 +1,122 @@
 <?php
-/** Module: homepage-popup. Lightweight, cache-safe homepage promotion popup. */
-defined( 'ABSPATH' ) || exit;
+defined('ABSPATH') || exit;
 
-add_action( 'admin_menu', static function (): void { add_submenu_page( 'wu-toolbox-modular', '首頁彈出視窗', '首頁彈出視窗', 'manage_options', 'wu-homepage-popup', 'wutm_homepage_popup_settings' ); }, 30 );
-add_action( 'admin_init', 'wutm_homepage_popup_register' );
+/**
+ * 首頁彈出視窗模組。
+ * 從 WM Homepage Popup 改為 WU Toolbox 模組格式，所有函式與選項皆使用 wutm_ 前綴避免衝突。
+ */
+add_action('admin_menu', 'wutm_homepage_popup_menu', 30);
+function wutm_homepage_popup_menu(): void {
+    add_submenu_page('wu-toolbox-modular', '首頁彈出視窗', '首頁彈出視窗', 'manage_options', 'wu-homepage-popup', 'wutm_homepage_popup_settings');
+}
+add_action('admin_init', 'wutm_homepage_popup_register');
 function wutm_homepage_popup_register(): void {
-    register_setting( 'wutm_homepage_popup_group', 'wutm_popup_enabled', [ 'sanitize_callback' => 'absint' ] );
-    register_setting( 'wutm_homepage_popup_group', 'wutm_popup_slides', [ 'sanitize_callback' => 'wutm_popup_slides_sanitize' ] );
-    register_setting( 'wutm_homepage_popup_group', 'wutm_popup_display_mode', [ 'sanitize_callback' => 'wutm_popup_mode_sanitize' ] );
-    register_setting( 'wutm_homepage_popup_group', 'wutm_popup_delay', [ 'sanitize_callback' => 'wutm_popup_seconds_sanitize' ] );
-    register_setting( 'wutm_homepage_popup_group', 'wutm_popup_auto_close', [ 'sanitize_callback' => 'wutm_popup_seconds_sanitize' ] );
-    register_setting( 'wutm_homepage_popup_group', 'wutm_popup_once_session', [ 'sanitize_callback' => 'absint' ] );
+    register_setting('wutm_homepage_popup_group', 'wutm_popup_enabled', ['sanitize_callback' => 'absint']);
+    register_setting('wutm_homepage_popup_group', 'wutm_popup_slides', ['sanitize_callback' => 'wutm_homepage_popup_sanitize_slides']);
 }
-function wutm_popup_mode_sanitize( $value ): string { return in_array( $value, [ 'slider', 'random' ], true ) ? $value : 'slider'; }
-function wutm_popup_seconds_sanitize( $value ): int { return min( 60, max( 0, absint( $value ) ) ); }
-function wutm_popup_slides_sanitize( $input ): array {
-    $clean = []; foreach ( is_array( $input ) ? $input : [] as $slide ) { if ( is_array( $slide ) ) $clean[] = [ 'image_id' => absint( $slide['image_id'] ?? 0 ), 'description' => sanitize_textarea_field( $slide['description'] ?? '' ), 'link' => esc_url_raw( $slide['link'] ?? '' ), 'link_target' => ( $slide['link_target'] ?? '' ) === '_blank' ? '_blank' : '_self' ]; } return $clean;
+function wutm_homepage_popup_sanitize_slides($input): array {
+    if (!is_array($input)) return [];
+    $clean = [];
+    foreach ($input as $slide) {
+        if (!is_array($slide)) continue;
+        $clean[] = [
+            'image_id' => absint($slide['image_id'] ?? 0),
+            'description' => sanitize_textarea_field($slide['description'] ?? ''),
+            'link' => esc_url_raw($slide['link'] ?? ''),
+            'link_target' => (($slide['link_target'] ?? '') === '_blank') ? '_blank' : '_self',
+        ];
+    }
+    return $clean;
 }
-add_action( 'admin_enqueue_scripts', static function (): void { if ( sanitize_key( wp_unslash( $_GET['page'] ?? '' ) ) === 'wu-homepage-popup' ) { wp_enqueue_media(); wp_enqueue_script( 'jquery' ); } } );
-
+add_action('admin_enqueue_scripts', 'wutm_homepage_popup_assets');
+function wutm_homepage_popup_assets(string $hook): void {
+    $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
+    if ($page !== 'wu-homepage-popup') return;
+    wp_enqueue_media();
+    wp_enqueue_script('jquery');
+}
 function wutm_homepage_popup_settings(): void {
-    if ( ! current_user_can( 'manage_options' ) ) return;
-    $slides = get_option( 'wutm_popup_slides', [] ); if ( ! is_array( $slides ) || ! $slides ) $slides = [ [ 'image_id' => 0, 'description' => '', 'link' => '', 'link_target' => '_self' ] ];
-    $enabled = (bool) get_option( 'wutm_popup_enabled', 0 ); $mode = wutm_popup_mode_sanitize( get_option( 'wutm_popup_display_mode', 'slider' ) ); $delay = wutm_popup_seconds_sanitize( get_option( 'wutm_popup_delay', 0 ) ); $close = wutm_popup_seconds_sanitize( get_option( 'wutm_popup_auto_close', 5 ) ); $once = (bool) get_option( 'wutm_popup_once_session', 1 ); ?>
-    <div class="wrap wutm-wrap wutm-module-settings wutm-popup-admin"><header class="wutm-header"><div><span class="wutm-header-kicker">HOMEPAGE EXPERIENCE</span><h1>首頁彈出視窗</h1><p>以圖片、連結與清楚的顯示規則建立不干擾的首頁活動視窗。</p></div><span class="wutm-version">v<?php echo esc_html( WUTM_VERSION ); ?></span></header><form method="post" action="options.php"><?php settings_fields( 'wutm_homepage_popup_group' ); ?>
-      <section class="wutm-panel wutm-popup-status"><h2>啟用狀態</h2><label class="wutm-popup-switch"><input type="hidden" name="wutm_popup_enabled" value="0"><input type="checkbox" name="wutm_popup_enabled" value="1" <?php checked( $enabled ); ?>><span></span><strong><?php echo esc_html( $enabled ? '首頁彈出視窗已啟用' : '首頁彈出視窗未啟用' ); ?></strong></label><p class="description">內容只會在首頁啟用後以輕量請求載入，不會影響其他頁面。</p></section>
-      <section class="wutm-panel"><h2>顯示方式</h2><div class="wutm-popup-mode-grid"><label class="wutm-popup-mode"><input type="radio" name="wutm_popup_display_mode" value="slider" <?php checked( $mode, 'slider' ); ?>><span><strong>多張輪播</strong><small>顯示所有圖片，可手動切換。</small></span></label><label class="wutm-popup-mode"><input type="radio" name="wutm_popup_display_mode" value="random" <?php checked( $mode, 'random' ); ?>><span><strong>隨機活動</strong><small>每次開啟從圖片中隨機挑選一張。</small></span></label></div><div class="wutm-popup-fields"><label>延遲顯示（秒）<input type="number" min="0" max="60" name="wutm_popup_delay" value="<?php echo esc_attr( $delay ); ?>"></label><label>自動關閉（秒，0 為不自動關閉）<input type="number" min="0" max="60" name="wutm_popup_auto_close" value="<?php echo esc_attr( $close ); ?>"></label><label class="wutm-popup-check"><input type="hidden" name="wutm_popup_once_session" value="0"><input type="checkbox" name="wutm_popup_once_session" value="1" <?php checked( $once ); ?>> 同一瀏覽工作階段只顯示一次</label></div></section>
-      <section class="wutm-panel"><div class="wutm-popup-section-heading"><div><h2>活動圖片</h2><p class="description">參考 PopUp Roulette 的流程：每張圖片可獨立設定說明與點擊連結。</p></div><button type="button" class="button button-secondary" id="wutm-popup-add">＋ 新增圖片</button></div><div id="wutm-popup-slides"><?php foreach ( $slides as $i => $slide ) { wutm_popup_slide_editor( $i, $slide ); } ?></div></section><?php submit_button( '儲存設定' ); ?></form></div>
-    <style>.wutm-popup-admin .wutm-panel{max-width:1120px}.wutm-popup-status{border-left:4px solid #2271b1}.wutm-popup-switch{display:flex;gap:12px;align-items:center}.wutm-popup-switch input{position:absolute;opacity:0}.wutm-popup-switch span{width:42px;height:24px;border-radius:99px;background:#8c8f94;position:relative}.wutm-popup-switch span:after{content:"";position:absolute;width:18px;height:18px;border-radius:50%;background:#fff;top:3px;left:3px;transition:.18s}.wutm-popup-switch input:checked+span{background:#2271b1}.wutm-popup-switch input:checked+span:after{left:21px}.wutm-popup-mode-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}.wutm-popup-mode{cursor:pointer}.wutm-popup-mode input{position:absolute;opacity:0}.wutm-popup-mode span{display:block;padding:16px 18px;border:1px solid #dcdcde;border-radius:10px;background:#fff}.wutm-popup-mode input:checked+span{border-color:#2271b1;box-shadow:0 0 0 1px #2271b1;background:#f0f6fc}.wutm-popup-mode strong,.wutm-popup-mode small{display:block}.wutm-popup-mode small{margin-top:5px;color:#646970}.wutm-popup-fields{display:flex;flex-wrap:wrap;gap:16px;margin-top:18px;align-items:end}.wutm-popup-fields label{display:grid;gap:6px;font-weight:600}.wutm-popup-fields input[type=number]{width:132px}.wutm-popup-fields .wutm-popup-check{display:block;font-weight:400;padding:8px 0}.wutm-popup-section-heading,.wutm-popup-slide-head{display:flex;gap:16px;align-items:center;justify-content:space-between}.wutm-popup-section-heading h2{margin-bottom:4px}.wutm-popup-slide{border:1px solid #dcdcde;border-radius:10px;padding:20px;margin:16px 0 0;background:#fff}.wutm-popup-slide-head{border-bottom:1px solid #f0f0f1;padding-bottom:14px}.wutm-popup-slide-grid{display:grid;grid-template-columns:220px minmax(0,1fr);gap:24px;padding-top:18px}.wutm-popup-preview,.wutm-popup-empty{width:200px;height:128px;border-radius:8px;object-fit:cover;background:#f6f7f7}.wutm-popup-empty{place-items:center;color:#646970;border:1px dashed #c3c4c7}.wutm-popup-copy{display:grid;gap:12px}.wutm-popup-copy label{display:grid;gap:6px;font-weight:600}.wutm-popup-copy textarea,.wutm-popup-copy input{width:100%;font-weight:400}.wutm-popup-copy .wutm-popup-check{display:block;font-weight:400}@media(max-width:782px){.wutm-popup-mode-grid,.wutm-popup-slide-grid{grid-template-columns:1fr}.wutm-popup-section-heading{align-items:flex-start;flex-direction:column}}</style>
-    <script>jQuery(function($){function reindex(){$('#wutm-popup-slides .wutm-popup-slide').each(function(i){$(this).find('.wutm-popup-slide-title').text('第 '+(i+1)+' 張');$(this).find('[name]').each(function(){var n=$(this).attr('name');if(n)$(this).attr('name',n.replace(/\[\d+\]/,'['+i+']'));});});}function bind($s){$s.find('.wutm-popup-remove').on('click',function(){if($('#wutm-popup-slides .wutm-popup-slide').length>1){$s.remove();reindex();}});$s.find('.wutm-popup-upload').on('click',function(){var f=wp.media({title:'選擇圖片',button:{text:'使用圖片'},multiple:false});f.on('select',function(){var a=f.state().get('selection').first().toJSON();$s.find('.wutm-popup-image-id').val(a.id);$s.find('.wutm-popup-preview').attr('src',a.url).show();$s.find('.wutm-popup-empty').hide();$s.find('.wutm-popup-clear').prop('disabled',false);});f.open();});$s.find('.wutm-popup-clear').on('click',function(){$s.find('.wutm-popup-image-id').val('0');$s.find('.wutm-popup-preview').hide();$s.find('.wutm-popup-empty').css('display','grid');$(this).prop('disabled',true);});}$('#wutm-popup-slides .wutm-popup-slide').each(function(){bind($(this));});$('#wutm-popup-add').on('click',function(){var $n=$('#wutm-popup-slides .wutm-popup-slide').first().clone();$n.find('input,textarea').val('');$n.find('.wutm-popup-image-id').val('0');$n.find('.wutm-popup-preview').hide();$n.find('.wutm-popup-empty').css('display','grid');$n.find('.wutm-popup-clear').prop('disabled',true);$('#wutm-popup-slides').append($n);reindex();bind($n);});});</script><?php
+    if (!current_user_can('manage_options')) return;
+    $enabled = (bool) get_option('wutm_popup_enabled', 0);
+    $slides = get_option('wutm_popup_slides', []);
+    if (!is_array($slides) || !$slides) $slides = [['image_id' => 0, 'description' => '', 'link' => '', 'link_target' => '_self']];
+    ?>
+    <div class="wrap wutm-wrap wutm-module-settings">
+      <header class="wutm-header"><div><h1><?php echo esc_html__('首頁彈出視窗', 'wu-toolbox-modular'); ?></h1><p><?php echo esc_html__('設定首頁載入時顯示的圖文彈出視窗。', 'wu-toolbox-modular'); ?></p></div><span>v<?php echo esc_html(WUTM_VERSION); ?></span></header>
+      <form method="post" action="options.php">
+        <?php settings_fields('wutm_homepage_popup_group'); ?>
+        <section class="wutm-panel">
+          <h2><?php echo esc_html__('基本設定', 'wu-toolbox-modular'); ?></h2>
+          <p><input type="hidden" name="wutm_popup_enabled" value="0"><label><input type="checkbox" name="wutm_popup_enabled" value="1" <?php checked($enabled); ?>> <?php echo esc_html__('在首頁啟用彈出視窗', 'wu-toolbox-modular'); ?></label></p>
+          <p class="description"><?php echo esc_html__('設定儲存後前台立即生效；內容會透過 AJAX 載入，不受整頁快取影響。', 'wu-toolbox-modular'); ?></p>
+        </section>
+        <section class="wutm-panel">
+          <h2><?php echo esc_html__('幻燈片內容', 'wu-toolbox-modular'); ?></h2>
+          <p class="description"><?php echo esc_html__('可新增多張圖片，每張可設定說明文字與點擊連結。', 'wu-toolbox-modular'); ?></p>
+          <div id="wutm-popup-slides">
+          <?php foreach ($slides as $i => $slide):
+              $id = absint($slide['image_id'] ?? 0);
+              $url = $id ? wp_get_attachment_image_url($id, 'medium') : '';
+          ?>
+            <div class="wutm-popup-slide" style="border:1px solid #dcdcde;border-radius:8px;padding:24px;margin:0 0 16px;background:#fff;">
+              <p><strong><?php echo esc_html(sprintf(__('第 %d 張', 'wu-toolbox-modular'), $i + 1)); ?></strong> <button type="button" class="button-link-delete wutm-popup-remove" style="float:right;"><?php echo esc_html__('移除', 'wu-toolbox-modular'); ?></button></p>
+              <p><img class="wutm-popup-preview" src="<?php echo esc_url($url); ?>" style="max-width:220px;display:<?php echo $url ? 'block' : 'none'; ?>;margin-bottom:8px;"></p>
+              <input type="hidden" class="wutm-popup-image-id" name="wutm_popup_slides[<?php echo $i; ?>][image_id]" value="<?php echo esc_attr($id); ?>">
+              <p><button type="button" class="button wutm-popup-upload"><?php echo esc_html__('選擇圖片', 'wu-toolbox-modular'); ?></button> <button type="button" class="button wutm-popup-clear" <?php disabled(!$url); ?>><?php echo esc_html__('移除圖片', 'wu-toolbox-modular'); ?></button></p>
+              <p><label><?php echo esc_html__('說明文字', 'wu-toolbox-modular'); ?><br><textarea class="large-text" rows="2" name="wutm_popup_slides[<?php echo $i; ?>][description]"><?php echo esc_textarea($slide['description'] ?? ''); ?></textarea></label></p>
+              <p><label><?php echo esc_html__('點擊連結網址', 'wu-toolbox-modular'); ?><br><input class="regular-text" type="url" name="wutm_popup_slides[<?php echo $i; ?>][link]" value="<?php echo esc_attr($slide['link'] ?? ''); ?>" placeholder="https://"></label>
+              <label style="margin-left:12px;"><input type="checkbox" name="wutm_popup_slides[<?php echo $i; ?>][link_target]" value="_blank" <?php checked($slide['link_target'] ?? '_self', '_blank'); ?>> <?php echo esc_html__('新分頁開啟', 'wu-toolbox-modular'); ?></label></p>
+            </div>
+          <?php endforeach; ?>
+          </div>
+          <p><button type="button" class="button" id="wutm-popup-add"><?php echo esc_html__('＋ 新增圖片', 'wu-toolbox-modular'); ?></button></p>
+        </section>
+        <?php submit_button(__('儲存設定', 'wu-toolbox-modular')); ?>
+      </form>
+    </div>
+    <script>
+    jQuery(function($){
+      function reindex(){ $('#wutm-popup-slides .wutm-popup-slide').each(function(i){ $(this).find('strong').text('<?php echo esc_js(__('第', 'wu-toolbox-modular')); ?> '+(i+1)+' <?php echo esc_js(__('張', 'wu-toolbox-modular')); ?>'); $(this).find('[name]').each(function(){ var n=$(this).attr('name'); if(n) $(this).attr('name',n.replace(/\[\d+\]/,'['+i+']')); }); }); }
+      function bind(ctx){
+        ctx.find('.wutm-popup-remove').on('click',function(){ if($('#wutm-popup-slides .wutm-popup-slide').length>1){$(this).closest('.wutm-popup-slide').remove();reindex();} });
+        ctx.find('.wutm-popup-upload').on('click',function(){ var b=$(this), f=wp.media({title:'<?php echo esc_js(__('選擇圖片', 'wu-toolbox-modular')); ?>',button:{text:'<?php echo esc_js(__('使用圖片', 'wu-toolbox-modular')); ?>'},multiple:false}); f.on('select',function(){var a=f.state().get('selection').first().toJSON();b.closest('.wutm-popup-slide').find('.wutm-popup-image-id').val(a.id);b.closest('.wutm-popup-slide').find('.wutm-popup-preview').attr('src',a.url).show();b.closest('.wutm-popup-slide').find('.wutm-popup-clear').prop('disabled',false);});f.open();});
+        ctx.find('.wutm-popup-clear').on('click',function(){var s=$(this).closest('.wutm-popup-slide');s.find('.wutm-popup-image-id').val('0');s.find('.wutm-popup-preview').hide();$(this).prop('disabled',true);});
+      }
+      $('#wutm-popup-slides .wutm-popup-slide').each(function(){bind($(this));});
+      $('#wutm-popup-add').on('click',function(){var n=$('#wutm-popup-slides .wutm-popup-slide').first().clone();n.find('input,textarea').val('');n.find('.wutm-popup-image-id').val('0');n.find('.wutm-popup-preview').hide();n.find('.wutm-popup-clear').prop('disabled',true);$('#wutm-popup-slides').append(n);reindex();bind(n);});
+    });
+    </script>
+    <?php
 }
-function wutm_popup_slide_editor( int $i, array $slide ): void { $id = absint( $slide['image_id'] ?? 0 ); $url = $id ? wp_get_attachment_image_url( $id, 'medium' ) : ''; ?>
-  <article class="wutm-popup-slide"><div class="wutm-popup-slide-head"><strong class="wutm-popup-slide-title">第 <?php echo esc_html( $i + 1 ); ?> 張</strong><button type="button" class="button-link-delete wutm-popup-remove">移除</button></div><div class="wutm-popup-slide-grid"><div><img class="wutm-popup-preview" src="<?php echo esc_url( $url ); ?>" alt="" style="display:<?php echo $url ? 'block' : 'none'; ?>"><span class="wutm-popup-empty" style="display:<?php echo $url ? 'none' : 'grid'; ?>">尚未選擇圖片</span><input type="hidden" class="wutm-popup-image-id" name="wutm_popup_slides[<?php echo esc_attr( $i ); ?>][image_id]" value="<?php echo esc_attr( $id ); ?>"><p><button type="button" class="button button-secondary wutm-popup-upload">選擇圖片</button> <button type="button" class="button-link-delete wutm-popup-clear" <?php disabled( ! $url ); ?>>移除圖片</button></p></div><div class="wutm-popup-copy"><label>說明文字<textarea rows="3" name="wutm_popup_slides[<?php echo esc_attr( $i ); ?>][description]"><?php echo esc_textarea( $slide['description'] ?? '' ); ?></textarea></label><label>點擊連結網址<input type="url" name="wutm_popup_slides[<?php echo esc_attr( $i ); ?>][link]" value="<?php echo esc_attr( $slide['link'] ?? '' ); ?>" placeholder="https://"></label><label class="wutm-popup-check"><input type="checkbox" name="wutm_popup_slides[<?php echo esc_attr( $i ); ?>][link_target]" value="_blank" <?php checked( $slide['link_target'] ?? '_self', '_blank' ); ?>> 新分頁開啟</label></div></div></article><?php }
-
-add_action( 'wp_ajax_wutm_homepage_popup_data', 'wutm_homepage_popup_ajax' ); add_action( 'wp_ajax_nopriv_wutm_homepage_popup_data', 'wutm_homepage_popup_ajax' );
-function wutm_homepage_popup_ajax(): void { if ( ! get_option( 'wutm_popup_enabled', 0 ) ) wp_send_json( [ 'show' => false ] ); $slides = []; foreach ( (array) get_option( 'wutm_popup_slides', [] ) as $slide ) { $url = ( $id = absint( $slide['image_id'] ?? 0 ) ) ? wp_get_attachment_image_url( $id, 'large' ) : ''; if ( $url ) $slides[] = [ 'image_url' => $url, 'description' => sanitize_text_field( $slide['description'] ?? '' ), 'link' => esc_url_raw( $slide['link'] ?? '' ), 'link_target' => ( $slide['link_target'] ?? '' ) === '_blank' ? '_blank' : '_self' ]; } wp_send_json( [ 'show' => ! empty( $slides ), 'slides' => $slides, 'mode' => wutm_popup_mode_sanitize( get_option( 'wutm_popup_display_mode', 'slider' ) ), 'delay' => wutm_popup_seconds_sanitize( get_option( 'wutm_popup_delay', 0 ) ), 'autoClose' => wutm_popup_seconds_sanitize( get_option( 'wutm_popup_auto_close', 5 ) ), 'once' => (bool) get_option( 'wutm_popup_once_session', 1 ) ] ); }
-add_action( 'wp_footer', 'wutm_homepage_popup_frontend' );
-function wutm_homepage_popup_frontend(): void { if ( ! is_front_page() || ! get_option( 'wutm_popup_enabled', 0 ) ) return; ?>
-<style>#wutm-popup-overlay{display:none;position:fixed;inset:0;z-index:99998;align-items:center;justify-content:center;padding:20px;background:rgba(10,18,30,.66);backdrop-filter:blur(3px)}#wutm-popup-overlay.active{display:flex}#wutm-popup-box{position:relative;width:min(92vw,760px);max-height:90vh;overflow:hidden;border-radius:16px;background:#fff;box-shadow:0 20px 60px rgba(0,0,0,.35)}#wutm-popup-close{position:absolute;top:10px;right:10px;z-index:2;width:34px;height:34px;border:0;border-radius:50%;background:rgba(255,255,255,.92);font-size:25px;line-height:1;cursor:pointer}.wutm-popup-slide-front{display:none}.wutm-popup-slide-front.active{display:block}.wutm-popup-slide-front a{display:block;line-height:0}.wutm-popup-slide-front img{display:block;width:100%;max-height:65vh;object-fit:contain;background:#f6f7f7}.wutm-popup-desc{margin:0;padding:14px 20px;text-align:center;color:#3c434a}.wutm-popup-dots{display:flex;justify-content:center;gap:8px;padding:10px 0 14px}.wutm-popup-dot{width:8px;height:8px;border:0;border-radius:50%;background:#c3c4c7;cursor:pointer}.wutm-popup-dot.active{background:#2271b1}.wutm-popup-arrow{position:absolute;top:50%;z-index:2;width:38px;height:38px;border:0;border-radius:50%;background:rgba(255,255,255,.92);font-size:24px;line-height:1;cursor:pointer}.wutm-popup-prev{left:12px}.wutm-popup-next{right:12px}@media(prefers-reduced-motion:reduce){#wutm-popup-overlay{backdrop-filter:none}}</style><div id="wutm-popup-overlay" aria-hidden="true"><div id="wutm-popup-box" role="dialog" aria-modal="true" aria-label="網站活動"><button type="button" id="wutm-popup-close" aria-label="關閉">×</button><div id="wutm-popup-slider"></div><div id="wutm-popup-dots" class="wutm-popup-dots"></div></div></div>
-<script>(function(){document.addEventListener('DOMContentLoaded',function(){var key='wutm-homepage-popup-seen',o=document.getElementById('wutm-popup-overlay'),s=document.getElementById('wutm-popup-slider'),d=document.getElementById('wutm-popup-dots'),c=0,t;function hide(){o.classList.remove('active');if(t)clearTimeout(t)}function go(i){var es=s.querySelectorAll('.wutm-popup-slide-front'),ds=d.querySelectorAll('.wutm-popup-dot');es[c].classList.remove('active');if(ds[c])ds[c].classList.remove('active');c=(i+es.length)%es.length;es[c].classList.add('active');if(ds[c])ds[c].classList.add('active')}function show(x){if(x.once&&sessionStorage.getItem(key))return;var a=x.slides;if(x.mode==='random')a=[a[Math.floor(Math.random()*a.length)]];a.forEach(function(v,i){var e=document.createElement('div'),w=document.createElement(v.link?'a':'div'),im=document.createElement('img');e.className='wutm-popup-slide-front'+(!i?' active':'');if(v.link){w.href=v.link;w.target=v.link_target||'_self';if(w.target==='_blank')w.rel='noopener'}im.src=v.image_url;im.alt=v.description||'';w.appendChild(im);e.appendChild(w);if(v.description){var p=document.createElement('p');p.className='wutm-popup-desc';p.textContent=v.description;e.appendChild(p)}s.appendChild(e)});if(a.length>1){['‹','›'].forEach(function(z,i){var b=document.createElement('button');b.className='wutm-popup-arrow '+(i?'wutm-popup-next':'wutm-popup-prev');b.textContent=z;b.onclick=function(){go(c+(i?1:-1))};s.appendChild(b)});a.forEach(function(_,i){var q=document.createElement('button');q.className='wutm-popup-dot'+(!i?' active':'');q.onclick=function(){go(i)};d.appendChild(q)})}o.classList.add('active');if(x.once)sessionStorage.setItem(key,'1');if(x.autoClose>0)t=setTimeout(hide,x.autoClose*1000)}fetch('<?php echo esc_url( admin_url( 'admin-ajax.php?action=wutm_homepage_popup_data' ) ); ?>',{credentials:'same-origin'}).then(function(r){return r.json()}).then(function(x){if(x.show)setTimeout(function(){show(x)},x.delay*1000)}).catch(function(){});document.getElementById('wutm-popup-close').onclick=hide;o.onclick=function(e){if(e.target===o)hide()};document.addEventListener('keydown',function(e){if(e.key==='Escape')hide()});});})();</script><?php }
+add_action('wp_ajax_wutm_homepage_popup_data', 'wutm_homepage_popup_ajax');
+add_action('wp_ajax_nopriv_wutm_homepage_popup_data', 'wutm_homepage_popup_ajax');
+function wutm_homepage_popup_ajax(): void {
+    if (!get_option('wutm_popup_enabled', 0)) wp_send_json(['show' => false]);
+    $slides = get_option('wutm_popup_slides', []);
+    $out = [];
+    foreach (is_array($slides) ? $slides : [] as $slide) {
+        $id = absint($slide['image_id'] ?? 0);
+        $url = $id ? wp_get_attachment_image_url($id, 'large') : '';
+        if ($url) $out[] = ['image_url' => $url, 'description' => sanitize_text_field($slide['description'] ?? ''), 'link' => esc_url_raw($slide['link'] ?? ''), 'link_target' => (($slide['link_target'] ?? '') === '_blank') ? '_blank' : '_self'];
+    }
+    wp_send_json(['show' => !empty($out), 'slides' => $out]);
+}
+add_action('wp_footer', 'wutm_homepage_popup_frontend');
+function wutm_homepage_popup_frontend(): void {
+    if (!is_front_page()) return;
+    $url = admin_url('admin-ajax.php');
+    ?>
+    <style>
+    #wutm-popup-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:99998;align-items:center;justify-content:center}
+    #wutm-popup-overlay.active{display:flex} #wutm-popup-box{position:relative;width:90vw;max-width:800px;max-height:90vh;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 6px 36px rgba(0,0,0,.38)}
+    #wutm-popup-close{position:absolute;top:10px;right:14px;width:34px;height:34px;line-height:34px;text-align:center;font-size:24px;cursor:pointer;color:#333;background:rgba(255,255,255,.85);border-radius:50%;z-index:2}
+    #wutm-popup-slider{position:relative;overflow:hidden}.wutm-popup-slide-front{display:none}.wutm-popup-slide-front.active{display:block}.wutm-popup-slide-front a{display:block;line-height:0}.wutm-popup-slide-front img{width:100%;max-height:65vh;object-fit:contain;display:block}.wutm-popup-desc{padding:16px 22px;margin:0;text-align:center;color:#444}.wutm-popup-dots{display:flex;justify-content:center;gap:8px;padding:10px 0 14px}.wutm-popup-dot{width:10px;height:10px;border-radius:50%;background:#ccc;cursor:pointer}.wutm-popup-dot.active{background:#555}.wutm-popup-arrow{position:absolute;top:50%;transform:translateY(-50%);border:0;border-radius:50%;width:36px;height:36px;font-size:22px;cursor:pointer;background:rgba(255,255,255,.75);z-index:2}.wutm-popup-prev{left:10px}.wutm-popup-next{right:10px}
+    </style>
+    <div id="wutm-popup-overlay"><div id="wutm-popup-box"><span id="wutm-popup-close">&times;</span><div id="wutm-popup-slider"></div><div id="wutm-popup-dots" class="wutm-popup-dots" style="display:none"></div></div></div>
+    <script>
+    (function(){document.addEventListener('DOMContentLoaded',function(){var o=document.getElementById('wutm-popup-overlay'),s=document.getElementById('wutm-popup-slider'),d=document.getElementById('wutm-popup-dots'),c=0;
+      fetch('<?php echo esc_url($url); ?>?action=wutm_homepage_popup_data&_='+Date.now(),{cache:'no-store'}).then(function(r){return r.json()}).then(function(x){if(!x.show)return;x.slides.forEach(function(v,i){var e=document.createElement('div');e.className='wutm-popup-slide-front'+(!i?' active':'');var w=document.createElement(v.link?'a':'div');if(v.link){w.href=v.link;w.target=v.link_target||'_self'}var im=document.createElement('img');im.src=v.image_url;w.appendChild(im);e.appendChild(w);if(v.description){var p=document.createElement('p');p.className='wutm-popup-desc';p.textContent=v.description;e.appendChild(p)}s.appendChild(e)});
+      if(x.slides.length>1){var p=document.createElement('button'),n=document.createElement('button');p.className='wutm-popup-arrow wutm-popup-prev';p.innerHTML='&#8249;';n.className='wutm-popup-arrow wutm-popup-next';n.innerHTML='&#8250;';s.append(p,n);x.slides.forEach(function(_,i){var q=document.createElement('span');q.className='wutm-popup-dot'+(!i?' active':'');q.onclick=function(){go(i)};d.appendChild(q)});d.style.display='flex';function go(i){var es=s.querySelectorAll('.wutm-popup-slide-front'),ds=d.querySelectorAll('.wutm-popup-dot');es[c].classList.remove('active');ds[c].classList.remove('active');c=(i+x.slides.length)%x.slides.length;es[c].classList.add('active');ds[c].classList.add('active')}p.onclick=function(){go(c-1)};n.onclick=function(){go(c+1)}}o.classList.add('active')}).catch(function(){});document.getElementById('wutm-popup-close').onclick=function(){o.classList.remove('active')};o.onclick=function(e){if(e.target===o)o.classList.remove('active')}})})();
+    </script>
+    <?php
+}
