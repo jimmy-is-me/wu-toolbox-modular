@@ -47,7 +47,7 @@ function wutm_modules(): array {
         'loco-translate' => ['name' => 'Loco Translate', 'description' => '快速安裝與啟用官方 Loco Translate 外掛。', 'group' => '網站翻譯', 'icon' => '🌏', 'tag' => '第三方外掛', 'settings_page' => 'wu-loco-translate'],
         'go-live-update-urls' => ['name' => '網站網址更新', 'description' => '將資料庫中的舊網址安全替換為新網址，支援核心資料表與序列化資料。', 'group' => '內容管理', 'icon' => '🔁'],
         'global-text-replace' => ['name' => '全站文字取代', 'description' => '搜尋並安全批次取代文章、商品、設定與 Meta 文字。', 'group' => '特殊工具', 'icon' => '🔎'],
-        'homepage-popup' => ['name' => '首頁彈出視窗', 'description' => '在首頁顯示可設定圖片、文字與連結的彈出幻燈片。', 'group' => '前台介面', 'icon' => '🖼️'],
+        'homepage-popup' => ['name' => '首頁 Popup 彈出視窗', 'description' => '參考 PopUp Roulette，在首頁顯示可設定圖片、文字、連結、隨機輪播與顯示時機的 Popup。', 'group' => '前台介面', 'icon' => '🖼️'],
         'error-monitor' => ['name' => '錯誤監控', 'description' => '記錄 PHP 錯誤、例外與致命錯誤，協助診斷網站問題。', 'group' => '監控追蹤', 'icon' => '🧯'],
         'disable-comments' => ['name' => '留言停用', 'description' => '停用網站留言、Pingback 與後台留言入口。', 'group' => '安全性', 'icon' => '🚫'],
         'dashboard-status' => ['name' => '儀表板狀態', 'description' => '顯示網域、SSL、PHP、WordPress、磁碟、網站健康與維護服務狀態。', 'group' => '後台介面', 'icon' => '📊'],

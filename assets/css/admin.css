@@ -272,3 +272,23 @@ body[class*="wu-toolbox_page_"] .button,body[class*="wu-toolbox_page_"] .button-
 
 /* 第三方外掛標籤與快速安裝入口。 */
 .wutm-third-party-installer{max-width:780px;padding:24px!important}.wutm-third-party-installer h2{margin-top:0}.wutm-status-success{color:#008a20}.wutm-status-warning{color:#b26200}
+
+/* v2.9.6: align every Toolbox module screen with the compact 301 settings frame. */
+body[class*="wu-toolbox_page_"] #wpbody-content>.wutm-wrap,
+body[class*="wu-toolbox_page_"] #wpbody-content>.wutm-module-wrap,
+body[class*="wu-toolbox_page_"] #wpbody-content>.wrap{
+  width:auto!important;max-width:1180px!important;margin:20px 20px 0 0!important;padding:24px 28px 36px!important;
+  border:1px solid #c3c4c7!important;border-radius:8px!important;background:#fff!important;box-shadow:0 1px 3px #00000018!important;
+}
+body[class*="wu-toolbox_page_"] #wpbody-content>.wutm-wrap .wutm-header{
+  margin:-24px -28px 20px!important;padding:20px 28px!important;min-height:0!important;border-radius:8px 8px 0 0!important;background:#1d2327!important;box-shadow:none!important;
+}
+body[class*="wu-toolbox_page_"] #wpbody-content>.wutm-wrap .wutm-header:after{display:none!important}
+body[class*="wu-toolbox_page_"] .wutm-panel,
+body[class*="wu-toolbox_page_"] .wu-info-panel,
+body[class*="wu-toolbox_page_"] [class$="-card"]{border-radius:10px!important;box-shadow:none!important}
+.wutm-popup-admin .wutm-panel{max-width:1120px;margin:20px 0;padding:22px;border:1px solid #dcdcde;border-radius:10px;background:#fff}
+.wutm-popup-design{margin-top:18px;padding:18px;border:1px solid #dcdcde;border-radius:8px;background:#f6f7f7}
+.wutm-popup-design-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:16px}
+.wutm-popup-design-grid label{display:grid;gap:6px;font-weight:600}.wutm-popup-design-grid input{width:100%}
+@media(max-width:782px){body[class*="wu-toolbox_page_"] #wpbody-content>.wutm-wrap,body[class*="wu-toolbox_page_"] #wpbody-content>.wutm-module-wrap,body[class*="wu-toolbox_page_"] #wpbody-content>.wrap{margin:12px 10px 0 0!important;padding:18px 16px 28px!important}.wutm-popup-design-grid{grid-template-columns:1fr}}

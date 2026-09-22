@@ -937,10 +937,11 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 				const removeBtn=document.getElementById('wu-seo-default-image-remove');
 				const idInput=document.getElementById('wu-seo-default-image-id');
 				const preview=document.getElementById('wu-seo-default-image-preview');
-				if(!selectBtn||!removeBtn||!idInput||!preview||typeof wp==='undefined'||!wp.media){return;}
+				if(!selectBtn||!removeBtn||!idInput||!preview){return;}
 				let frame=null;
 				selectBtn.addEventListener('click',function(e){
 					e.preventDefault();
+					if(typeof window.wp==='undefined'||!window.wp.media){window.alert('媒體庫尚未載入，請重新整理頁面後再試。');return;}
 					if(frame){frame.open();return;}
 					frame=wp.media({title:'選擇預設社群分享圖片',button:{text:'使用這張圖片'},library:{type:'image'},multiple:false});
 					frame.on('select',function(){
