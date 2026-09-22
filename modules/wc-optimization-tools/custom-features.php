@@ -300,16 +300,10 @@ function wutm_wc_custom_render_attribute_as_tags( $html, $args ) {
 			}
 			$tag_id = $id . '_' . sanitize_title( $value );
 			?>
-			<span class="wutm-wc-custom-variation-tag-item">
-				<input type="radio"
-					class="wutm-wc-custom-variation-tag-radio"
-					name="wutm_variation_tag_<?php echo esc_attr( $id ); ?>"
-					id="<?php echo esc_attr( $tag_id ); ?>"
-					value="<?php echo esc_attr( $value ); ?>"
-					<?php checked( $selected, $value ); ?> />
-				<label for="<?php echo esc_attr( $tag_id ); ?>" class="wutm-wc-custom-variation-tag-label">
+			<span class="wutm-wc-custom-variation-tag-item<?php echo $selected === $value ? ' is-selected' : ''; ?>">
+				<button type="button" class="wutm-wc-custom-variation-tag-button" data-value="<?php echo esc_attr( $value ); ?>" aria-pressed="<?php echo $selected === $value ? 'true' : 'false'; ?>">
 					<?php echo esc_html( $term_name ); ?>
-				</label>
+				</button>
 			</span>
 		<?php endforeach; ?>
 	</div>
@@ -346,32 +340,27 @@ jQuery( function ( $ ) {
             var $tags = $( this ), $select = selectForTags( $tags );
             if ( ! $select.length ) return;
             var selected = String( $select.val() || '' );
-            $tags.find( '.wutm-wc-custom-variation-tag-radio' ).each( function () {
-                var $radio = $( this ), value = String( $radio.val() );
-                var $item = $radio.closest( '.wutm-wc-custom-variation-tag-item' );
+            $tags.find( '.wutm-wc-custom-variation-tag-button' ).each( function () {
+                var $button = $( this ), value = String( $button.data( 'value' ) );
+                var $item = $button.closest( '.wutm-wc-custom-variation-tag-item' );
                 var $option = $select.find( 'option' ).filter( function () { return String( $( this ).val() ) === value; } ).first();
                 var disabled = ! $option.length || $option.prop( 'disabled' ) || $option.hasClass( 'disabled' );
-                $radio.prop( 'disabled', disabled ).prop( 'checked', ! disabled && value === selected );
+                $button.prop( 'disabled', disabled ).attr( 'aria-pressed', ! disabled && value === selected ? 'true' : 'false' );
                 $item.toggleClass( 'is-disabled', disabled ).toggleClass( 'is-selected', ! disabled && value === selected );
             } );
         } );
     }
 
-    $( document ).on( 'click', '.wutm-wc-custom-variation-tag-label', function ( event ) {
+    $( document ).on( 'click', '.wutm-wc-custom-variation-tag-button', function ( event ) {
         event.preventDefault();
-        var $radio = $( this ).siblings( '.wutm-wc-custom-variation-tag-radio' );
-        if ( $radio.prop( 'disabled' ) ) return;
-        var $tags = $radio.closest( '.wutm-wc-custom-variation-tags' );
+        var $button = $( this );
+        if ( $button.prop( 'disabled' ) ) return;
+        var $tags = $button.closest( '.wutm-wc-custom-variation-tags' );
         var $select = selectForTags( $tags );
         if ( ! $select.length ) return;
-        $radio.prop( 'checked', true );
-        $select.val( $radio.val() ).trigger( 'change' );
+        $select.val( String( $button.data( 'value' ) ) ).trigger( 'change' );
         $select.closest( '.variations_form' ).trigger( 'check_variations' );
         syncTags( $select.closest( '.variations_form' ) );
-    } );
-
-    $( document ).on( 'change', '.wutm-wc-custom-variation-tag-radio', function () {
-        $( this ).siblings( '.wutm-wc-custom-variation-tag-label' ).trigger( 'click' );
     } );
     $( document ).on( 'change found_variation show_variation hide_variation reset_data woocommerce_update_variation_values', '.variations_form', function () { syncTags( $( this ) ); } );
     $( '.variations_form' ).each( function () { syncTags( $( this ) ); } );
@@ -393,22 +382,24 @@ function wutm_wc_custom_variation_tag_style() {
 	<style>
 	.wutm-wc-custom-variation-tags { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 12px; }
 	.wutm-wc-custom-variation-tag-item { position: relative; }
-	.wutm-wc-custom-variation-tag-item input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
-	.wutm-wc-custom-variation-tag-label {
+	.wutm-wc-custom-variation-tag-button {
 		display: inline-block;
 		padding: 6px 16px;
 		border: 1px solid #ccc;
 		border-radius: 4px;
 		cursor: pointer;
 		font-size: 14px;
+		font: inherit;
+		color: inherit;
+		background: #fff;
 		transition: all 0.15s ease-in-out;
 	}
-	.wutm-wc-custom-variation-tag-item.is-selected .wutm-wc-custom-variation-tag-label {
+	.wutm-wc-custom-variation-tag-item.is-selected .wutm-wc-custom-variation-tag-button {
 		border-color: #333;
 		background: #333;
 		color: #fff;
 	}
-	.wutm-wc-custom-variation-tag-item.is-disabled .wutm-wc-custom-variation-tag-label {
+	.wutm-wc-custom-variation-tag-item.is-disabled .wutm-wc-custom-variation-tag-button {
 		opacity: 0.4;
 		text-decoration: line-through;
 		cursor: not-allowed;

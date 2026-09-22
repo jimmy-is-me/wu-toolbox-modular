@@ -819,6 +819,17 @@ function wumf_admin_css() {
             left:var(--wumf-panel-width)!important;
             inset-inline-start:var(--wumf-panel-width)!important;
         }
+        /* WP 6.8+ wraps the grid in attachments-wrapper. Shift that wrapper too,
+           otherwise the folder panel sits on top of the first media columns. */
+        .attachments-browser.wumf-has-folders > .attachments-wrapper{
+            box-sizing:border-box!important;
+            margin-left:var(--wumf-panel-width)!important;
+            width:calc(100% - var(--wumf-panel-width))!important;
+        }
+        .attachments-browser.wumf-has-folders > .attachments-wrapper > .attachments{
+            left:0!important;
+            inset-inline-start:0!important;
+        }
         .wumf-panel{
             position:absolute;
             left:0;
