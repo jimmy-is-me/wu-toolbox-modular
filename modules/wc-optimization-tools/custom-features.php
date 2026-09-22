@@ -288,7 +288,7 @@ function wutm_wc_custom_render_attribute_as_tags( $html, $args ) {
 
 	ob_start();
 	?>
-	<div class="wutm-wc-custom-variation-tags" data-attribute_name="<?php echo esc_attr( $name ); ?>">
+	<div class="wutm-wc-custom-variation-tags" data-attribute-name="<?php echo esc_attr( $name ); ?>">
 		<?php foreach ( $options as $option ) :
 			if ( $is_taxonomy ) {
 				$term      = get_term_by( 'slug', $option, $attribute );
@@ -303,7 +303,7 @@ function wutm_wc_custom_render_attribute_as_tags( $html, $args ) {
 			<span class="wutm-wc-custom-variation-tag-item">
 				<input type="radio"
 					class="wutm-wc-custom-variation-tag-radio"
-					name="<?php echo esc_attr( $name ); ?>"
+					name="wutm_variation_tag_<?php echo esc_attr( $id ); ?>"
 					id="<?php echo esc_attr( $tag_id ); ?>"
 					value="<?php echo esc_attr( $value ); ?>"
 					<?php checked( $selected, $value ); ?> />
@@ -316,7 +316,9 @@ function wutm_wc_custom_render_attribute_as_tags( $html, $args ) {
 	<?php
 	$tags_html = ob_get_clean();
 	$hidden_select = preg_replace( '/<select/', '<select style="display:none;" aria-hidden="true"', $html, 1 );
-	return $tags_html . $hidden_select;
+	// WooCommerce must keep its original select as the value source. Render it first
+	// so variation scripts can always resolve it before the visual tag controls.
+	return $hidden_select . $tags_html;
 }
 
 /**
@@ -332,56 +334,49 @@ function wutm_wc_custom_enqueue_variation_tag_script() {
 		return;
 	}
 
-    // 加上 \$ 避免 PHP 將 JS 變數當作 PHP 變數報錯
-    $script = "
-    jQuery( function ( $ ) {
-        // 1. 點擊按鈕變更時
-        $( document ).on( 'change', '.wutm-wc-custom-variation-tag-radio', function () {
-            var \$radio   = $( this );
-            var \$wrap    = \$radio.closest( '.wutm-wc-custom-variation-tags' );
-            var value    = \$radio.val();
-            // 尋找同一個層級下的 select (WooCommerce 原生下拉選單)
-            var \$select  = \$wrap.parent().find( 'select' );
+    $script = <<<'JS'
+jQuery( function ( $ ) {
+    function selectForTags( $tags ) {
+        var name = $tags.attr( 'data-attribute-name' );
+        return $tags.closest( '.variations_form' ).find( 'select[name="' + name.replace( /([\\[\\]\\.\\:])/g, '\\$1' ) + '"]' ).first();
+    }
 
-            if ( \$select.length ) {
-                \$select.val( value ).trigger( 'change' );
-            }
-
-            \$wrap.find( '.wutm-wc-custom-variation-tag-item' ).removeClass( 'is-selected' );
-            \$radio.closest( '.wutm-wc-custom-variation-tag-item' ).addClass( 'is-selected' );
-        } );
-
-        // 2. 監聽清除按鈕 (reset_data)
-        $( document ).on( 'reset_data', '.variations_form', function () {
-            $( this ).find( '.wutm-wc-custom-variation-tag-radio' ).prop( 'checked', false );
-            $( this ).find( '.wutm-wc-custom-variation-tag-item' ).removeClass( 'is-selected' );
-        } );
-
-        // 3. 監聽 WooCommerce 屬性狀態更新 (缺貨、停用等)
-        $( document ).on( 'woocommerce_update_variation_values', function ( e ) {
-            $( e.target ).find( '.wutm-wc-custom-variation-tags' ).each( function () {
-                var \$wrap   = $( this );
-                var \$select = \$wrap.parent().find( 'select' );
-
-                \$wrap.find( '.wutm-wc-custom-variation-tag-radio' ).each( function () {
-                    var \$radio  = $( this );
-                    var val     = \$radio.val();
-                    var \$option = \$radio.closest( '.wutm-wc-custom-variation-tag-item' );
-
-                    // 檢查對應的 option 是否存在且沒有被 disable
-                    var \$selectOption = \$select.find( 'option[value=\"' + val + '\"]' );
-                    if ( \$selectOption.length === 0 || \$selectOption.prop('disabled') || \$selectOption.hasClass('disabled') ) {
-                        \$radio.prop( 'disabled', true );
-                        \$option.addClass( 'is-disabled' );
-                    } else {
-                        \$radio.prop( 'disabled', false );
-                        \$option.removeClass( 'is-disabled' );
-                    }
-                } );
+    function syncTags( $form ) {
+        $form.find( '.wutm-wc-custom-variation-tags' ).each( function () {
+            var $tags = $( this ), $select = selectForTags( $tags );
+            if ( ! $select.length ) return;
+            var selected = String( $select.val() || '' );
+            $tags.find( '.wutm-wc-custom-variation-tag-radio' ).each( function () {
+                var $radio = $( this ), value = String( $radio.val() );
+                var $item = $radio.closest( '.wutm-wc-custom-variation-tag-item' );
+                var $option = $select.find( 'option' ).filter( function () { return String( $( this ).val() ) === value; } ).first();
+                var disabled = ! $option.length || $option.prop( 'disabled' ) || $option.hasClass( 'disabled' );
+                $radio.prop( 'disabled', disabled ).prop( 'checked', ! disabled && value === selected );
+                $item.toggleClass( 'is-disabled', disabled ).toggleClass( 'is-selected', ! disabled && value === selected );
             } );
         } );
+    }
+
+    $( document ).on( 'click', '.wutm-wc-custom-variation-tag-label', function ( event ) {
+        event.preventDefault();
+        var $radio = $( this ).siblings( '.wutm-wc-custom-variation-tag-radio' );
+        if ( $radio.prop( 'disabled' ) ) return;
+        var $tags = $radio.closest( '.wutm-wc-custom-variation-tags' );
+        var $select = selectForTags( $tags );
+        if ( ! $select.length ) return;
+        $radio.prop( 'checked', true );
+        $select.val( $radio.val() ).trigger( 'change' );
+        $select.closest( '.variations_form' ).trigger( 'check_variations' );
+        syncTags( $select.closest( '.variations_form' ) );
     } );
-    ";
+
+    $( document ).on( 'change', '.wutm-wc-custom-variation-tag-radio', function () {
+        $( this ).siblings( '.wutm-wc-custom-variation-tag-label' ).trigger( 'click' );
+    } );
+    $( document ).on( 'change found_variation show_variation hide_variation reset_data woocommerce_update_variation_values', '.variations_form', function () { syncTags( $( this ) ); } );
+    $( '.variations_form' ).each( function () { syncTags( $( this ) ); } );
+} );
+JS;
 
 	wp_add_inline_script( 'wc-add-to-cart-variation', $script, 'after' );
 }

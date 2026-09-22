@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+			<h4>3.0.2</h4><ul><li>媒體庫管理改採完整的 Wumetax Media Folders 資料夾核心，支援巢狀資料夾、拖放、多選移動、顏色、收藏、重新命名、刪除與復原，並在媒體庫與媒體選取視窗一致運作。</li><li>Toolbox 的媒體庫管理頁改為快速入口與簡潔操作總覽，資料夾管理回歸媒體庫畫面。</li><li>修正可變商品的屬性標籤：點擊會可靠同步 WooCommerce 原生選項，變體價格、缺貨狀態與清除功能會即時更新。</li></ul>
 			<h4>3.0.1</h4><ul><li>首頁 Popup 模組已完整還原為 v2.9.0 版本。</li><li>媒體資料夾改採不干擾 WordPress 原生媒體網格的側欄佈局；建立、切換資料夾後不再出現空白，並強化圖片拖曳與完成回饋。</li><li>WC 即將推出的文字替換範圍僅限 WooCommerce 原生即將推出區塊，不再影響 FAQ 短代碼內容。</li></ul>
 			<h4>3.0.0</h4><ul><li>新增「AI 翻譯（TranslatePress）」模組，支援 Gemini、Claude、Perplexity 與 OpenAI 的全站掃描、批次翻譯、排程、進度、快取、日誌及 CSV 匯入／匯出。</li><li>模組需先安裝並啟用 TranslatePress，設定頁保留完整原始功能並套用 Toolbox 統一外觀。</li></ul>
 			<h4>2.9.9</h4><ul><li>媒體庫管理改為直接整合 WordPress 媒體庫與媒體選取視窗，不再於 Toolbox 設定頁管理分類。</li><li>新增資料夾側欄、建立、重新命名、刪除、資料夾篩選，以及將已選取媒體拖放至資料夾分類。</li></ul>
