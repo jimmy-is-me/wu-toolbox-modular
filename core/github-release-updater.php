@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+			<h4>3.0.0</h4><ul><li>新增「AI 翻譯（TranslatePress）」模組，支援 Gemini、Claude、Perplexity 與 OpenAI 的全站掃描、批次翻譯、排程、進度、快取、日誌及 CSV 匯入／匯出。</li><li>模組需先安裝並啟用 TranslatePress，設定頁保留完整原始功能並套用 Toolbox 統一外觀。</li></ul>
 			<h4>2.9.9</h4><ul><li>媒體庫管理改為直接整合 WordPress 媒體庫與媒體選取視窗，不再於 Toolbox 設定頁管理分類。</li><li>新增資料夾側欄、建立、重新命名、刪除、資料夾篩選，以及將已選取媒體拖放至資料夾分類。</li></ul>
 			<h4>2.9.8</h4><ul><li>依需求將首頁 Popup 模組完整還原為 v2.9.5 的正式版本，保留既有圖片輪播、隨機顯示、延遲、自動關閉與工作階段控制。</li></ul>
 			<h4>2.9.7</h4><ul><li>修正短代碼綁定頁面的「編輯」連結：首頁商品區塊、常見問題、退換貨政策與隱私權政策現在會直接開啟 WordPress 區塊編輯器。</li><li>各模組設定頁保留「編輯已綁定頁面」按鈕，並繼續顯示已綁定頁面的狀態標記。</li></ul>

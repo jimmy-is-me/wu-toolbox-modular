@@ -19,6 +19,7 @@ function wutm_modules(): array {
         'ai-site-tools' => ['name' => 'AI 網站工具', 'description' => '集中查看選單與轉址管理等網站維護工具，依連接器權限安全操作。', 'group' => 'AI功能', 'icon' => '🧰', 'navigation' => true, 'parent_module' => 'site-ai-connector', 'settings_page' => 'wu-ai-site-tools'],
         'ai-operation-log' => ['name' => 'AI 操作紀錄', 'description' => '獨立查看 AI 實際完成的新增、修改與刪除紀錄，方便追蹤寫入結果。', 'group' => 'AI功能', 'icon' => '📜', 'navigation' => true, 'parent_module' => 'site-ai-connector', 'settings_page' => 'wu-ai-operation-log'],
         'knowledge-base-ai' => ['name' => '知識庫支援 AI 擴充', 'description' => '為知識庫快速支援加入 AI 助理，支援 Gemini、Perplexity、OpenAI、網站內容上下文、額度限制與使用紀錄。', 'group' => 'AI功能', 'icon' => '🧠', 'badge' => '需先開啟知識庫功能', 'requires_module' => 'knowledge-base', 'settings_page' => 'wumetax-quick-support-ai'],
+        'ai-translate-translatepress' => ['name' => 'AI 翻譯（TranslatePress）', 'description' => '使用 Gemini、Claude、Perplexity 或 OpenAI 進行 TranslatePress 全站掃描、批次翻譯、進度管理與 CSV 匯入／匯出。', 'group' => 'AI功能', 'icon' => '🌐', 'requires' => 'translatepress', 'settings_url' => 'options-general.php?page=wu-ai-translate'],
         '404-redirector' => ['name' => '404 重新導向', 'description' => '將 404 錯誤導向首頁或指定頁面。', 'group' => '內容管理', 'icon' => '🔀'],
         'smart-301-redirects' => ['name' => '301 指向', 'description' => '建立可快取的 301 永久轉址規則，支援站內／外部目標、萬用字元與命中統計。', 'group' => '內容管理', 'icon' => '↗️', 'settings_page' => 'wu-smart-301-redirects'],
         'admin-bar-cleaner' => ['name' => '後台介面管理', 'description' => '管理 WordPress 管理列、後台頁尾、側邊選單、角色權限與顯示項目。', 'group' => '後台介面', 'icon' => '🎛️'],
