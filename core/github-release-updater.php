@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+			<h4>2.9.9</h4><ul><li>媒體庫管理改為直接整合 WordPress 媒體庫與媒體選取視窗，不再於 Toolbox 設定頁管理分類。</li><li>新增資料夾側欄、建立、重新命名、刪除、資料夾篩選，以及將已選取媒體拖放至資料夾分類。</li></ul>
 			<h4>2.9.8</h4><ul><li>依需求將首頁 Popup 模組完整還原為 v2.9.5 的正式版本，保留既有圖片輪播、隨機顯示、延遲、自動關閉與工作階段控制。</li></ul>
 			<h4>2.9.7</h4><ul><li>修正短代碼綁定頁面的「編輯」連結：首頁商品區塊、常見問題、退換貨政策與隱私權政策現在會直接開啟 WordPress 區塊編輯器。</li><li>各模組設定頁保留「編輯已綁定頁面」按鈕，並繼續顯示已綁定頁面的狀態標記。</li></ul>
 			<h4>2.9.6</h4><ul><li>修正 SEO 核心預設社群分享圖片按鈕的載入時機，媒體庫可正常開啟並儲存圖片。</li><li>首頁 Popup 加入圖片輪播與設計版型模式，支援隨機活動、延遲、自動關閉、工作階段控制與 PopUp Roulette 風格設定。</li><li>統一 Toolbox 模組設定頁外觀，並讓 WooCommerce 即將推出文字繼承網站字體。</li></ul>

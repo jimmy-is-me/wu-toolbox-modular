@@ -22,6 +22,10 @@ final class WUTM_Media_Library_Manager {
         add_action('pre_get_posts', [__CLASS__, 'filter_media_query']);
         add_action('admin_enqueue_scripts', [__CLASS__, 'media_grid_assets']);
         add_action('wp_ajax_wutm_media_folder_assign', [__CLASS__, 'ajax_assign_attachment']);
+        add_action('wp_ajax_wutm_media_folder_create_inline', [__CLASS__, 'ajax_create_folder']);
+        add_action('wp_ajax_wutm_media_folder_rename_inline', [__CLASS__, 'ajax_rename_folder']);
+        add_action('wp_ajax_wutm_media_folder_delete_inline', [__CLASS__, 'ajax_delete_folder']);
+        add_filter('ajax_query_attachments_args', [__CLASS__, 'filter_ajax_attachments']);
         add_filter('attachment_fields_to_edit', [__CLASS__, 'attachment_folder_field'], 10, 2);
         add_filter('attachment_fields_to_save', [__CLASS__, 'save_attachment_folder'], 10, 2);
     }
@@ -53,8 +57,15 @@ final class WUTM_Media_Library_Manager {
             '媒體庫管理',
             'manage_options',
             self::SLUG,
-            [__CLASS__, 'page']
+            [__CLASS__, 'open_media_library']
         );
+    }
+
+    /** The module entry is now a shortcut only: folders are managed in Media Library. */
+    public static function open_media_library(): void {
+        if (!current_user_can('upload_files')) wp_die('權限不足', 403);
+        wp_safe_redirect(admin_url('upload.php?mode=grid'));
+        exit;
     }
 
     private static function folder_terms(): array {
@@ -202,7 +213,7 @@ final class WUTM_Media_Library_Manager {
     }
 
     public static function media_grid_assets(string $hook): void {
-        if ($hook !== 'upload.php' || !current_user_can('upload_files')) {
+        if (!in_array($hook, ['upload.php', 'post.php', 'post-new.php', 'media-new.php'], true) || !current_user_can('upload_files')) {
             return;
         }
 
@@ -210,6 +221,8 @@ final class WUTM_Media_Library_Manager {
             return [
                 'id' => (int) $term->term_id,
                 'name' => $term->name,
+                'parent' => (int) $term->parent,
+                'count' => (int) $term->count,
                 'prefix' => str_repeat('— ', max(0, count(get_ancestors($term->term_id, self::TAXONOMY)))),
             ];
         }, self::folder_terms());
@@ -219,7 +232,9 @@ final class WUTM_Media_Library_Manager {
         $script = 'window.WUTMMediaFolders = ' . wp_json_encode([
             'folders' => $folders,
             'nonce' => wp_create_nonce('wutm_media_folder_assign'),
+            'manageNonce' => wp_create_nonce('wutm_media_folder_manage'),
             'ajaxUrl' => admin_url('admin-ajax.php'),
+            'screen' => $hook,
         ]) . ';' . "\n" . <<<'JS'
 (function ($) {
     'use strict';
@@ -320,6 +335,33 @@ final class WUTM_Media_Library_Manager {
 }(jQuery));
 JS;
         wp_add_inline_script('media-views', $script, 'after');
+        wp_add_inline_style('common', '#wutm-media-folder-dnd{display:none!important}.wutm-media-folder-sidebar{box-sizing:border-box;width:218px;padding:14px 10px;border:1px solid #dcdcde;border-radius:6px;background:#fff;color:#1d2327;font-size:13px}.wutm-media-folder-sidebar h2{margin:0 0 12px;font-size:16px}.wutm-media-folder-sidebar-head{display:flex;gap:6px;margin-bottom:10px}.wutm-media-folder-sidebar-head .button{flex:1;text-align:center}.wutm-media-folder-tree{margin:0;padding:0;list-style:none}.wutm-media-folder-tree li{display:flex;align-items:center;gap:3px;min-height:30px}.wutm-media-folder-node{flex:1;overflow:hidden;border:0;background:transparent;text-align:left;white-space:nowrap;text-overflow:ellipsis;cursor:pointer}.wutm-media-folder-node.is-active{color:#2271b1;font-weight:700}.wutm-media-folder-node.is-over{outline:2px dashed #2271b1;background:#f0f6fc}.wutm-media-folder-count{color:#646970}.wutm-media-folder-menu{border:0;background:transparent;color:#50575e;cursor:pointer;font-size:18px;line-height:1}.media-frame .wutm-media-folder-sidebar{position:absolute;z-index:10;top:0;bottom:0;left:0;overflow:auto;border-width:0 1px 0 0;border-radius:0}.media-frame .media-frame-content{left:218px}.attachments-browser.wutm-folders-ready{display:grid;grid-template-columns:218px minmax(0,1fr);gap:18px}.attachments-browser.wutm-folders-ready>.wutm-media-folder-sidebar{grid-row:1 / span 2}.attachments-browser.wutm-folders-ready .media-toolbar,.attachments-browser.wutm-folders-ready .attachments{grid-column:2}@media(max-width:782px){.media-frame .wutm-media-folder-sidebar{width:175px}.media-frame .media-frame-content{left:175px}.attachments-browser.wutm-folders-ready{grid-template-columns:1fr}.attachments-browser.wutm-folders-ready>.wutm-media-folder-sidebar{grid-row:auto;width:100%}.attachments-browser.wutm-folders-ready .media-toolbar,.attachments-browser.wutm-folders-ready .attachments{grid-column:auto}');
+        $sidebar_script = <<<'JS'
+(function ($) {
+    'use strict';
+    var cfg = window.WUTMMediaFolders || {}, active = '';
+    function request(action, data) { return $.post(cfg.ajaxUrl, $.extend({action: action, nonce: cfg.manageNonce}, data || {})); }
+    function selectedIds(fallback) { var ids = []; $('.attachments .attachment.selected,.attachments .attachment.details').each(function(){var id=parseInt($(this).data('id') || $(this).attr('data-id'),10);if(id&&ids.indexOf(id)<0)ids.push(id);}); if (!ids.length && fallback) ids.push(fallback); return ids; }
+    function sidebar() { return $('<aside>', {'class':'wutm-media-folder-sidebar', 'aria-label':'媒體資料夾'}); }
+    function tree($root) {
+        var $list = $('<ul>', {'class':'wutm-media-folder-tree'}), folders = cfg.folders || [];
+        function node(id, name, count, depth) { var $li=$('<li>').css('padding-left',(depth*14)+'px'), $button=$('<button>',{type:'button','class':'wutm-media-folder-node','data-folder':String(id),text:name}), $count=$('<span>',{'class':'wutm-media-folder-count',text:count ? String(count) : ''}); if(String(id)===String(active))$button.addClass('is-active'); $li.append($button,$count); if(id) $li.append($('<button>',{type:'button','class':'wutm-media-folder-menu','data-folder':String(id),'aria-label':'管理資料夾',text:'⋯'})); $list.append($li); }
+        node('', '所有媒體', '', 0); node('unassigned', '未分類', '', 0);
+        (function walk(parent, depth){folders.filter(function(f){return Number(f.parent||0)===parent;}).forEach(function(f){node(f.id,f.name,f.count,depth);walk(f.id,depth+1);});})(0,0);
+        $root.append($list);
+    }
+    function render($target) { if(!$target.length || $target.find('.wutm-media-folder-sidebar').length)return; var $side=sidebar(),$head=$('<div>',{'class':'wutm-media-folder-sidebar-head'}); $head.append($('<button>',{type:'button','class':'button button-secondary wutm-folder-new',text:'＋ 新增資料夾'})); $side.append($('<h2>',{text:'媒體資料夾'}),$head); tree($side); if($target.hasClass('media-frame'))$target.append($side);else{$target.addClass('wutm-folders-ready').prepend($side);} }
+    function refreshMedia(folder) { active=folder; var frame=window.wp&&wp.media&&wp.media.frame, library=frame&&frame.content&&frame.content.get('library'); if(library&&library.props){library.props.set('wutm_media_folder_filter',folder);library.props.set('paged',1);if(library.collection&&library.collection.props){library.collection.props.set('wutm_media_folder_filter',folder);library.collection.more();}} else {var url=new URL(window.location.href);if(folder)url.searchParams.set('wutm_media_folder_filter',folder);else url.searchParams.delete('wutm_media_folder_filter');window.location.href=url.toString();} }
+    function initialize(){render($('.media-frame').first());render($('.attachments-browser').first());}
+    $(initialize); $(document).on('click','.media-frame .media-frame-router a,.media-frame .media-frame-menu-item',function(){setTimeout(initialize,80);}); setTimeout(initialize,500);setTimeout(initialize,1500);
+    $(document).on('click','.wutm-media-folder-node',function(){refreshMedia($(this).data('folder'));});
+    $(document).on('click','.wutm-folder-new',function(){var name=window.prompt('資料夾名稱');if(!name)return;request('wutm_media_folder_create_inline',{name:name,parent:active&&active!=='unassigned'?active:0}).done(function(r){if(!r||!r.success){window.alert((r&&r.data&&r.data.message)||'無法建立資料夾。');return;}cfg.folders.push(r.data.folder);$('.wutm-media-folder-sidebar').remove();initialize();});});
+    $(document).on('click','.wutm-media-folder-menu',function(e){e.stopPropagation();var id=$(this).data('folder'),folder=(cfg.folders||[]).filter(function(f){return Number(f.id)===Number(id);})[0],choice=window.prompt('輸入新名稱重新命名；輸入 DELETE 刪除資料夾。',folder?folder.name:'');if(choice===null)return;if(choice==='DELETE'){if(!window.confirm('刪除資料夾不會刪除媒體檔案，確定嗎？'))return;request('wutm_media_folder_delete_inline',{folder_id:id}).done(function(r){if(r&&r.success){cfg.folders=cfg.folders.filter(function(f){return Number(f.id)!==Number(id);});$('.wutm-media-folder-sidebar').remove();initialize();}else window.alert((r&&r.data&&r.data.message)||'無法刪除資料夾。');});}else if(choice.trim()){request('wutm_media_folder_rename_inline',{folder_id:id,name:choice}).done(function(r){if(r&&r.success){folder.name=r.data.name;$('.wutm-media-folder-sidebar').remove();initialize();}else window.alert((r&&r.data&&r.data.message)||'無法重新命名資料夾。');});}});
+    $(document).on('dragstart','.attachments .attachment',function(e){var ids=selectedIds(parseInt($(this).data('id')||$(this).attr('data-id'),10));if(e.originalEvent.dataTransfer)e.originalEvent.dataTransfer.setData('text/plain',ids.join(','));});
+    $(document).on('dragover','.wutm-media-folder-node',function(e){e.preventDefault();$(this).addClass('is-over');}).on('dragleave','.wutm-media-folder-node',function(){$(this).removeClass('is-over');}).on('drop','.wutm-media-folder-node',function(e){e.preventDefault();var $node=$(this),folder=$node.data('folder');if(folder==='unassigned')folder=0;if(folder==='')return;var ids=String(e.originalEvent.dataTransfer.getData('text/plain')||'').split(',').map(Number).filter(Boolean);if(!ids.length)return;var next=function(){var id=ids.shift();if(!id){$node.removeClass('is-over');return;}$.post(cfg.ajaxUrl,{action:'wutm_media_folder_assign',nonce:cfg.nonce,attachment_id:id,folder_id:folder}).always(next);};next();});
+}(jQuery));
+JS;
+        wp_add_inline_script('media-views', $sidebar_script, 'after');
     }
 
     public static function ajax_assign_attachment(): void {
@@ -336,6 +378,55 @@ JS;
         $folder_id = self::valid_folder_id($_POST['folder_id'] ?? 0);
         wp_set_object_terms($attachment_id, $folder_id ? [$folder_id] : [], self::TAXONOMY, false);
         wp_send_json_success(['folder_id' => $folder_id]);
+    }
+
+    /** Add the chosen folder to attachment queries made by the media modal. */
+    public static function filter_ajax_attachments(array $query): array {
+        $selected = isset($_REQUEST['query']['wutm_media_folder_filter']) ? sanitize_text_field(wp_unslash($_REQUEST['query']['wutm_media_folder_filter'])) : '';
+        if ($selected === '') return $query;
+        $tax_query = isset($query['tax_query']) && is_array($query['tax_query']) ? $query['tax_query'] : [];
+        if ($selected === 'unassigned') {
+            $tax_query[] = ['taxonomy' => self::TAXONOMY, 'operator' => 'NOT EXISTS'];
+        } elseif ($folder_id = self::valid_folder_id($selected)) {
+            $tax_query[] = ['taxonomy' => self::TAXONOMY, 'field' => 'term_id', 'terms' => [$folder_id], 'include_children' => true];
+        }
+        if ($tax_query) $query['tax_query'] = $tax_query;
+        return $query;
+    }
+
+    private static function verify_folder_manager_request(): void {
+        if (!current_user_can('manage_options')) wp_send_json_error(['message' => '權限不足。'], 403);
+        check_ajax_referer('wutm_media_folder_manage', 'nonce');
+    }
+
+    public static function ajax_create_folder(): void {
+        self::verify_folder_manager_request();
+        $name = sanitize_text_field(wp_unslash($_POST['name'] ?? ''));
+        if ($name === '') wp_send_json_error(['message' => '請輸入資料夾名稱。'], 400);
+        $result = wp_insert_term($name, self::TAXONOMY, ['parent' => self::valid_folder_id($_POST['parent'] ?? 0)]);
+        if (is_wp_error($result)) wp_send_json_error(['message' => $result->get_error_message()], 400);
+        $term = get_term((int) $result['term_id'], self::TAXONOMY);
+        wp_send_json_success(['folder' => ['id' => (int) $term->term_id, 'name' => $term->name, 'parent' => (int) $term->parent, 'count' => 0]]);
+    }
+
+    public static function ajax_rename_folder(): void {
+        self::verify_folder_manager_request();
+        $folder_id = self::valid_folder_id($_POST['folder_id'] ?? 0);
+        $name = sanitize_text_field(wp_unslash($_POST['name'] ?? ''));
+        if (!$folder_id || $name === '') wp_send_json_error(['message' => '資料夾或名稱無效。'], 400);
+        $result = wp_update_term($folder_id, self::TAXONOMY, ['name' => $name]);
+        if (is_wp_error($result)) wp_send_json_error(['message' => $result->get_error_message()], 400);
+        wp_send_json_success(['name' => $name]);
+    }
+
+    public static function ajax_delete_folder(): void {
+        self::verify_folder_manager_request();
+        $folder_id = self::valid_folder_id($_POST['folder_id'] ?? 0);
+        if (!$folder_id) wp_send_json_error(['message' => '找不到資料夾。'], 404);
+        $children = get_terms(['taxonomy' => self::TAXONOMY, 'hide_empty' => false, 'parent' => $folder_id, 'number' => 1]);
+        if (!is_wp_error($children) && $children) wp_send_json_error(['message' => '請先處理子資料夾，再刪除資料夾。'], 400);
+        if (!wp_delete_term($folder_id, self::TAXONOMY)) wp_send_json_error(['message' => '無法刪除資料夾。'], 400);
+        wp_send_json_success();
     }
 
     private static function attachment_folder_id(int $attachment_id): int {
