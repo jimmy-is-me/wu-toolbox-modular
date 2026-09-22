@@ -4,7 +4,7 @@ defined('ABSPATH') || exit;
 function wutm_modules(): array {
     return [
         'missing-product-images' => ['name' => '遺失商品圖片修復', 'description' => '掃描商品描述，從來源站補回本站遺失的同路徑圖片。', 'group' => '特殊工具', 'icon' => '🩹', 'requires' => 'woocommerce', 'settings_page' => 'wu-missing-product-images'],
-        'wc-coming-soon-customizer' => ['name' => 'WC 即將推出修改', 'description' => '自訂 WooCommerce 即將推出頁面的文字與卡片外觀，只在即將推出與僅商店頁同時啟用時套用。', 'group' => '特殊工具', 'icon' => '🚀', 'requires' => 'woocommerce', 'settings_url' => 'admin.php?page=wc-settings&tab=site-visibility'],
+        'wc-coming-soon-customizer' => ['name' => 'WC 即將推出修改', 'description' => '翻譯 WooCommerce 原生即將推出頁面的標題與說明，不改變網站原有字體或版面。', 'group' => '特殊工具', 'icon' => '🚀', 'requires' => 'woocommerce', 'settings_url' => 'admin.php?page=wc-settings&tab=site-visibility'],
         'wc-confetti' => ['name' => 'WC 紙片動畫', 'description' => '在購物車、結帳與訂單完成頁播放可自訂的雙側紙片動畫。', 'group' => '電商優化工具', 'icon' => '🎉', 'requires' => 'woocommerce', 'settings_page' => 'wu-wc-confetti'],
         'layout-inspector' => ['name' => '版面檢查器', 'description' => '讓管理員從前台管理列掃描 Section 與 Container 寬度、標示異常區塊並複製完整報告，可設定版面基準寬度與容許誤差。', 'group' => '特殊工具', 'icon' => '📐', 'settings_page' => 'wu-layout-inspector'],
         'wp-downgrade' => ['name' => 'WP Downgrade', 'description' => '快速安裝與啟用官方 WP Downgrade 外掛。', 'group' => '特殊工具', 'icon' => '⏪', 'tag' => '第三方外掛', 'settings_page' => 'wu-wp-downgrade'],
@@ -42,7 +42,7 @@ function wutm_modules(): array {
         'custom-cursor' => ['name' => '自訂網站鼠標', 'description' => '在桌面裝置顯示極簡圓環鼠標，支援連結互動、點擊效果、文字欄位切換及圓環、中心點與互動顏色設定。', 'group' => '前台介面', 'icon' => '🖱️', 'settings_page' => 'wu-custom-cursor'],
         'page-transition' => ['name' => '頁面轉場動畫', 'description' => '站內正常換頁時顯示可自訂品牌色、Logo 與文字的全螢幕轉場動畫；自動略過 WooCommerce AJAX、外部連結、下載與同頁錨點。', 'group' => '前台介面', 'icon' => '✨', 'settings_page' => 'wu-page-transition'],
         'translatepress' => ['name' => 'TranslatePress', 'description' => '快速安裝與啟用官方 TranslatePress 外掛。', 'group' => '網站翻譯', 'icon' => '🌐', 'tag' => '第三方外掛', 'settings_page' => 'wu-translatepress'],
-        'translatepress-addons' => ['name' => '多語言管理', 'description' => '強化 TranslatePress 的語言切換、自動偵測與前台設定。', 'group' => '網站翻譯', 'icon' => '🌐', 'requires' => 'translatepress'],
+        'translatepress-addons' => ['name' => '多語言管理', 'description' => '解除 TranslatePress 語言數量限制，集中查看目前語言與模組運作狀態。', 'group' => '網站翻譯', 'icon' => '🌐', 'requires' => 'translatepress'],
         'gtranslate' => ['name' => 'GTranslate', 'description' => '快速安裝與啟用官方 GTranslate 外掛。', 'group' => '網站翻譯', 'icon' => '🌍', 'tag' => '第三方外掛', 'settings_page' => 'wu-gtranslate'],
         'loco-translate' => ['name' => 'Loco Translate', 'description' => '快速安裝與啟用官方 Loco Translate 外掛。', 'group' => '網站翻譯', 'icon' => '🌏', 'tag' => '第三方外掛', 'settings_page' => 'wu-loco-translate'],
         'go-live-update-urls' => ['name' => '網站網址更新', 'description' => '將資料庫中的舊網址安全替換為新網址，支援核心資料表與序列化資料。', 'group' => '內容管理', 'icon' => '🔁'],

@@ -614,35 +614,16 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 				$sitemap_ok ? 'pass' : 'fail', 6, home_url( '/wp-sitemap.xml' ), '開啟 Sitemap'
 			);
 
-			$google_ok = '' !== trim( (string) $s['google_verify'] );
-			$checks[] = self::audit_check(
-				'google', 'Google Search Console 驗證',
-				$google_ok ? '已填入 Search Console 驗證 token。' : '尚未填入 Google Search Console HTML meta 驗證 token。',
-				$google_ok ? 'pass' : 'partial', 5, $settings_url, '設定 Google 驗證'
-			);
-
 			$org_ok = '' !== trim( (string) $s['organization_name'] );
 			$checks[] = self::audit_check( 'organization', 'Organization 資訊', $org_ok ? '組織名稱已設定：' . $s['organization_name'] : '尚未設定組織名稱。', $org_ok ? 'pass' : 'partial', 3, $settings_url, '補充組織資料' );
 
-			$content  = self::content_audit_stats();
-			$coverage = (int) $content['coverage'];
-			$status   = $coverage >= 90 ? 'pass' : ( $coverage >= 70 ? 'partial' : 'fail' );
-			$checks[] = self::audit_check(
-				'content', '公開內容 SEO 可用率',
-				$content['total'] > 0
-					? sprintf( '只統計本站可在前台獨立開啟的已發佈內容，共 %d 篇；%d 篇已有可用標題、摘要與分享圖片（%d%%）。其中 %d 篇有自訂 SEO Title、%d 篇有自訂 Meta Description。不可公開瀏覽的內部內容、範本與附件不計入。', $content['total'], $content['ready'], $coverage, $content['manual_title'], $content['manual_desc'] )
-					: '目前沒有可被搜尋引擎直接開啟的已發佈內容可檢查。',
-				$status, 10, '', ''
-			);
+			$content = self::content_audit_stats();
 
 			$total_weight = 0.0;
 			$earned = 0.0;
 			foreach ( $checks as $check ) {
 				$total_weight += $check['weight'];
 				$factor = 'pass' === $check['status'] ? 1 : ( 'partial' === $check['status'] ? 0.5 : 0 );
-				if ( 'content' === $check['key'] ) {
-					$factor = max( 0, min( 1, $coverage / 90 ) );
-				}
 				$earned += $check['weight'] * $factor;
 			}
 			$score = $total_weight > 0 ? (int) round( ( $earned / $total_weight ) * 100 ) : 100;
@@ -689,7 +670,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 					<div class="wu-seo-card wu-score-card wu-animate">
 						<div class="wu-score-ring" id="wu-seo-score-ring" data-score="<?php echo esc_attr( $score ); ?>"><div class="wu-score-number" id="wu-seo-score-number">0</div></div>
 						<strong>網站 SEO 設定完整度</strong>
-						<small>技術基礎、台灣語系、首頁資訊、分享資料與真正公開內容的 SEO 可用率。</small>
+						<small>技術基礎、台灣語系、首頁資訊與分享資料；不以驗證方式或內容統計計分。</small>
 					</div>
 					<div class="wu-seo-card wu-animate">
 						<h2 style="margin-top:0;">目前狀況</h2>
@@ -798,6 +779,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 			if ( ! current_user_can( 'manage_options' ) ) {
 				return;
 			}
+			wp_enqueue_media();
 
 			$import_result = null;
 			if ( isset( $_POST['wumetax_seo_import_source'] ) ) {
@@ -898,9 +880,9 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 							<div class="wu-seo-label"><strong>網站驗證</strong><p>驗證碼不是發佈 SEO 的必要條件；填入後才能在搜尋平台查看收錄、錯誤與 Sitemap 狀態。只貼 verification token，不要貼整段 meta tag。</p></div>
 							<div>
 								<div class="wu-seo-verification-source">
-									<strong>Google Search Console <span class="wu-seo-badge">選填・建議填入</span></strong>
-									<p>建議所有希望被 Google 搜尋到的網站填入；不填不會阻擋網站被收錄。</p>
-									<ol><li>開啟 Search Console，新增或選擇你的網站資源。</li><li>在「設定」或驗證流程選擇 <strong>HTML 標記</strong>。</li><li>複製 meta tag 中 <code>content="..."</code> 引號內的值，貼到下方後儲存，再回 Google 完成驗證。</li></ol>
+									<strong>Google Search Console <span class="wu-seo-badge is-optional">選填</span></strong>
+									<p>這是「HTML 標記」驗證方式的選填欄位，不影響 SEO 健檢分數或網站收錄。若網域已透過 DNS、GA4、Google 帳號等方式驗證，無須填入 token。</p>
+									<ol><li>僅在需要使用 HTML 標記驗證時才填寫。</li><li>複製 meta tag 中 <code>content="..."</code> 引號內的值後儲存。</li></ol>
 									<p><a href="https://search.google.com/search-console/about" target="_blank" rel="noopener noreferrer">開啟 Google Search Console ↗</a></p>
 									<label>Google verification token<br><input class="regular-text wu-seo-input" type="text" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[google_verify]" value="<?php echo esc_attr( $s['google_verify'] ); ?>" placeholder="例如：abc123..."></label>
 								</div>
