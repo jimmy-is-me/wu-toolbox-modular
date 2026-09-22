@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+			<h4>2.9.4</h4><ul><li>修正首頁商品短代碼的即將推出畫面空白問題，原生 WooCommerce Coming Soon 區塊會帶入所需內容。</li><li>首頁彈出視窗設定頁統一為 Toolbox 介面，新增隨機活動、延遲、自動關閉與同工作階段只顯示一次設定。</li></ul>
 			<h4>2.9.3</h4><ul><li>首頁商品短代碼的即將推出內容改為直接渲染 WooCommerce 原生 <code>woocommerce/coming-soon</code> 區塊，不再自行重建版面。</li></ul>
 			<h4>2.9.2</h4><ul><li>首頁商品短代碼的即將推出內容改用與 WooCommerce 原生 Coming Soon 相同的區塊結構與類別，字型、卡片與置中版面會與全部商品頁一致。</li></ul>
 			<h4>2.9.1</h4><ul><li>WC 即將推出修改改採新版 WooCommerce 網站可見度整合：獨立欄位儲存、條件提示、卡片外觀與安全快取清除。</li><li>只在「即將推出」與「僅套用至商店頁面」同時啟用時套用，首頁商品短代碼會同步顯示即將推出內容。</li></ul>

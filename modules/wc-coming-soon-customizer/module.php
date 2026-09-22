@@ -76,10 +76,25 @@ final class WUTM_WC_Coming_Soon_Customizer {
     public function register_frontend_hooks(): void { if ( is_admin() || wp_doing_ajax() || wp_doing_cron() || ! $this->is_customizer_active() || current_user_can( 'manage_woocommerce' ) ) return; $this->override_home_product_shortcodes(); $s = $this->settings(); if ( $s['enabled'] && ( $s['title'] !== '' || $s['message'] !== '' ) ) add_action( 'template_redirect', [ $this, 'start_text_replacement' ], 0 ); if ( $s['style_enabled'] ) add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_frontend_style' ], 1 ); }
     private function override_home_product_shortcodes(): void { foreach ( self::HOME_PRODUCTS_SHORTCODES as $tag ) { if ( shortcode_exists( $tag ) ) { remove_shortcode( $tag ); add_shortcode( $tag, [ $this, 'render_coming_soon_shortcode' ] ); } } }
     public function render_coming_soon_shortcode( $atts = [], $content = null, $tag = '' ): string {
-        // Render WooCommerce's actual block instead of recreating its markup in the homepage shortcode.
-        // The native block owns its pattern, typography, responsive spacing and future WooCommerce updates.
+        // WooCommerce's coming-soon block is a container block. A self-closing instance
+        // has no inner blocks on the frontend, so give the native block its default content.
         if ( ! function_exists( 'do_blocks' ) ) return '';
-        return (string) do_blocks( '<!-- wp:woocommerce/coming-soon {"storeOnly":true} /-->' );
+        $settings = $this->settings();
+        $title = $settings['enabled'] && $settings['title'] !== '' ? $settings['title'] : 'Coming Soon';
+        $message = $settings['enabled'] && $settings['message'] !== '' ? $settings['message'] : 'We are preparing our store and will launch soon.';
+        $block = '<!-- wp:woocommerce/coming-soon {"storeOnly":true} -->'
+            . '<div class="wp-block-woocommerce-coming-soon woocommerce-coming-soon-store-only">'
+            . '<!-- wp:group {"layout":{"type":"constrained"}} -->'
+            . '<div class="wp-block-group">'
+            . '<!-- wp:heading {"textAlign":"center","level":1} -->'
+            . '<h1 class="wp-block-heading has-text-align-center">' . esc_html( $title ) . '</h1>'
+            . '<!-- /wp:heading -->'
+            . '<!-- wp:paragraph {"align":"center"} -->'
+            . '<p class="has-text-align-center">' . esc_html( $message ) . '</p>'
+            . '<!-- /wp:paragraph -->'
+            . '</div><!-- /wp:group -->'
+            . '</div><!-- /wp:woocommerce/coming-soon -->';
+        return (string) do_blocks( $block );
     }
     public function start_text_replacement(): void { $s = $this->settings(); ob_start( static function ( $html ) use ( $s ) { $replace = []; if ( $s['title'] !== '' ) $replace = [ '大事即將發生' => $s['title'], 'Something big is coming' => $s['title'], 'Coming soon' => $s['title'] ]; if ( $s['message'] !== '' ) $replace += [ '有大事要發生了！ 我們正在籌備商店中，很快就會推出！' => $s['message'], '有大事要發生了！我們正在籌備商店中，很快就會推出！' => $s['message'], 'We are working on our store and will be back soon.' => $s['message'] ]; return $replace ? str_replace( array_keys( $replace ), array_values( $replace ), $html ) : $html; } ); }
     public function enqueue_frontend_style(): void {
