@@ -76,11 +76,10 @@ final class WUTM_WC_Coming_Soon_Customizer {
     public function register_frontend_hooks(): void { if ( is_admin() || wp_doing_ajax() || wp_doing_cron() || ! $this->is_customizer_active() || current_user_can( 'manage_woocommerce' ) ) return; $this->override_home_product_shortcodes(); $s = $this->settings(); if ( $s['enabled'] && ( $s['title'] !== '' || $s['message'] !== '' ) ) add_action( 'template_redirect', [ $this, 'start_text_replacement' ], 0 ); if ( $s['style_enabled'] ) add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_frontend_style' ], 1 ); }
     private function override_home_product_shortcodes(): void { foreach ( self::HOME_PRODUCTS_SHORTCODES as $tag ) { if ( shortcode_exists( $tag ) ) { remove_shortcode( $tag ); add_shortcode( $tag, [ $this, 'render_coming_soon_shortcode' ] ); } } }
     public function render_coming_soon_shortcode( $atts = [], $content = null, $tag = '' ): string {
-        $s = $this->settings(); $d = $this->defaults();
-        $title = $s['title'] !== '' ? $s['title'] : $d['title']; $message = $s['message'] !== '' ? $s['message'] : $d['message'];
-        // Use the same block structure and classes as WooCommerce's native Coming Soon page.
-        // This lets the active theme apply exactly the same heading and text typography.
-        return '<div class="wp-block-woocommerce-coming-soon woocommerce-coming-soon-store-only wutm-home-products--coming-soon" data-block-name="woocommerce/coming-soon" data-store-only="true"><div class="wp-block-group is-vertical is-content-justification-center is-nowrap is-layout-flex"><h1 class="wp-block-heading">' . esc_html( $title ) . '</h1><p>' . esc_html( $message ) . '</p></div></div>';
+        // Render WooCommerce's actual block instead of recreating its markup in the homepage shortcode.
+        // The native block owns its pattern, typography, responsive spacing and future WooCommerce updates.
+        if ( ! function_exists( 'do_blocks' ) ) return '';
+        return (string) do_blocks( '<!-- wp:woocommerce/coming-soon {"storeOnly":true} /-->' );
     }
     public function start_text_replacement(): void { $s = $this->settings(); ob_start( static function ( $html ) use ( $s ) { $replace = []; if ( $s['title'] !== '' ) $replace = [ '大事即將發生' => $s['title'], 'Something big is coming' => $s['title'], 'Coming soon' => $s['title'] ]; if ( $s['message'] !== '' ) $replace += [ '有大事要發生了！ 我們正在籌備商店中，很快就會推出！' => $s['message'], '有大事要發生了！我們正在籌備商店中，很快就會推出！' => $s['message'], 'We are working on our store and will be back soon.' => $s['message'] ]; return $replace ? str_replace( array_keys( $replace ), array_values( $replace ), $html ) : $html; } ); }
     public function enqueue_frontend_style(): void {
