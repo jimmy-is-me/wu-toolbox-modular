@@ -304,9 +304,9 @@ class WU_404_Redirector {
                    name="<?php echo esc_attr($this->option_prefix . 'show_notice'); ?>"
                    value="1"
                    <?php checked(1, $value); ?> />
-            404 時顯示模糊化提示，倒數 1 秒後自動導向目標頁面
+            404 時顯示模糊化提示，倒數 3 秒後自動導向目標頁面
         </label>
-        <p class="description">預設開啟，且與「啟用 404 重新導向」一同使用。只會在實際發生 404 時於原頁面顯示一次，倒數結束後才導向。</p>
+        <p class="description">預設開啟，且與「啟用 404 重新導向」一同使用。只會在實際發生 404 時於原頁面顯示一次，倒數 3 秒結束後才導向。</p>
         <?php
     }
     
@@ -660,7 +660,7 @@ class WU_404_Redirector {
         // 標記為已發送
         self::$redirect_sent = true;
         
-        // Show the interstitial on the actual 404 response, then redirect in one second.
+        // Show the interstitial on the actual 404 response, then redirect after three seconds.
         // This avoids a cookie-based notice that can be lost to page caches or fast redirects.
         if ($this->get_option('show_notice', true)) {
             nocache_headers();
@@ -815,14 +815,14 @@ class WU_404_Redirector {
         return false;
     }
     
-    /** Render the one-second overlay on the original 404 page before navigating away. */
+    /** Render the lightweight three-second overlay on the original 404 page before navigating away. */
     private function render_redirect_interstitial($redirect_url, $target) {
         ?>
         <section class="wu-404-redirect-overlay" role="alertdialog" aria-live="assertive" aria-label="404 重新導向提示">
-            <div class="wu-404-redirect-dialog"><span class="wu-404-redirect-icon" aria-hidden="true">↗</span><h2>找不到這個頁面</h2><p>網址可能已調整，正在帶您前往<?php echo esc_html($target); ?>。</p><p class="wu-404-redirect-countdown"><b id="wu-404-redirect-seconds">1</b> 秒後自動導向</p></div>
+            <div class="wu-404-redirect-dialog"><span class="wu-404-redirect-icon" aria-hidden="true">↗</span><h2>找不到這個頁面</h2><p>網址可能已調整，正在帶您前往<?php echo esc_html($target); ?>。</p><p class="wu-404-redirect-countdown"><span id="wu-404-redirect-seconds">3</span> 秒後自動導向</p></div>
         </section>
-        <style>.wu-404-redirect-overlay{position:fixed;z-index:2147483647;inset:0;display:grid;place-items:center;padding:24px;background:rgba(20,28,34,.35);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);animation:wu404fade .16s ease-out}.wu-404-redirect-dialog{width:min(420px,100%);padding:32px;border:1px solid rgba(255,255,255,.44);border-radius:20px;background:rgba(255,255,255,.93);box-shadow:0 24px 72px rgba(0,0,0,.24);text-align:center;color:#203039}.wu-404-redirect-icon{display:grid;place-items:center;width:48px;height:48px;margin:0 auto 16px;border-radius:50%;background:#def5e7;color:#16834a;font-size:25px;font-weight:700}.wu-404-redirect-dialog h2{margin:0 0 9px;font-size:22px}.wu-404-redirect-dialog p{margin:0;color:#52616a;line-height:1.7}.wu-404-redirect-countdown{margin-top:14px!important;color:#16834a!important;font-size:14px;font-weight:700}.wu-404-redirect-countdown b{font-size:18px}@keyframes wu404fade{from{opacity:0}to{opacity:1}}</style>
-        <script>(function(){var target=<?php echo wp_json_encode(esc_url_raw($redirect_url)); ?>,seconds=document.getElementById('wu-404-redirect-seconds');setTimeout(function(){if(seconds)seconds.textContent='0';window.location.replace(target);},1000);}());</script>
+        <style>.wu-404-redirect-overlay{position:fixed;z-index:2147483647;inset:0;display:grid;place-items:center;padding:24px;background:rgba(20,28,34,.32);backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px)}.wu-404-redirect-dialog{width:min(420px,100%);padding:32px;border:1px solid rgba(255,255,255,.44);border-radius:20px;background:rgba(255,255,255,.94);box-shadow:0 18px 48px rgba(0,0,0,.18);text-align:center;color:#203039}.wu-404-redirect-icon{display:grid;place-items:center;width:46px;height:46px;margin:0 auto 16px;border-radius:50%;background:#def5e7;color:#16834a;font-size:24px;font-weight:500}.wu-404-redirect-dialog h2{margin:0 0 9px;font-size:22px;font-weight:500}.wu-404-redirect-dialog p{margin:0;color:#52616a;line-height:1.7;font-weight:400}.wu-404-redirect-countdown{margin-top:14px!important;color:#16834a!important;font-size:14px;font-weight:400}.wu-404-redirect-countdown span{font-size:18px;font-weight:500}</style>
+        <script>(function(){var target=<?php echo wp_json_encode(esc_url_raw($redirect_url)); ?>,seconds=document.getElementById('wu-404-redirect-seconds'),remaining=3;var timer=setInterval(function(){remaining--;if(seconds)seconds.textContent=remaining;if(remaining<=0){clearInterval(timer);window.location.replace(target);}},1000);}());</script>
         <?php
     }
 

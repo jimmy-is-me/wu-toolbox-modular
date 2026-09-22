@@ -263,20 +263,22 @@ function wutm_kb_display_knowledge_base() {
         .skb-result-item p { margin: 8px 0 0 0; color: #718096; font-size: 14px; }
         .skb-search-loading, .skb-search-empty { text-align: center; padding: 30px 20px; color: #a0aec0; background: #f8fafc; border-radius: 10px; }
 
-        .skb-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 40px; }
+        .skb-layout { display: grid; grid-template-columns:minmax(0,1fr) 250px; gap: 34px; }
         .skb-layout.is-hidden { display: none; }
         @media (max-width: 768px) { .skb-layout { grid-template-columns: 1fr; } }
 
-        .skb-categories { display: flex; flex-direction: column; gap: 15px; }
+        .skb-categories { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px; }
         .skb-card {
-            background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 20px 22px;
-            display: flex; align-items: center; justify-content: space-between; text-decoration: none !important; color: #333;
-            transition: all 0.25s ease; box-shadow: 0 2px 6px rgba(0,0,0,0.03); border-left: 4px solid var(--skb-primary);
+            position:relative;min-height:174px;overflow:hidden;background:linear-gradient(145deg,#fff,#f4faf6);border:1px solid #e1ece5;border-radius:18px;padding:25px 24px;
+            display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;text-decoration:none!important;color:#333;
+            transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;box-shadow:0 8px 24px rgba(23,54,35,.045);
         }
-        .skb-card:hover { box-shadow: 0 10px 24px rgba(0,0,0,0.08); transform: translateY(-3px); }
-        .skb-card-info h3 { margin: 0 0 5px 0 !important; font-size: 18px !important; color: #2d3748 !important; font-weight:bold; }
-        .skb-card-info p { margin: 0 !important; font-size: 13px !important; color: #718096 !important; }
-        .skb-card-count { font-size: 13px; color: #fff; background: var(--skb-primary); padding: 4px 12px; border-radius: 20px; font-weight: 600; flex-shrink: 0; }
+        .skb-card::after{content:"";position:absolute;right:-42px;bottom:-58px;width:145px;height:145px;border-radius:50%;background:color-mix(in srgb,var(--skb-primary) 10%,transparent);transition:transform .25s ease;}
+        .skb-card:hover { border-color:var(--skb-primary);box-shadow:0 15px 34px rgba(23,54,35,.12);transform:translateY(-4px); }
+        .skb-card:hover::after{transform:scale(1.15)}
+        .skb-card-top{position:relative;z-index:1;display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px}.skb-card-index{display:grid;place-items:center;width:42px;height:42px;border-radius:13px;background:#edf7f0;color:var(--skb-primary);font-size:12px;font-weight:800;letter-spacing:.06em}.skb-card-count{color:#809087;font-size:12px;font-weight:650}
+        .skb-card-info{position:relative;z-index:1}.skb-card-info h3 { margin:0 0 8px!important;font-size:22px!important;color:#17251d!important;font-weight:750;line-height:1.3; }
+        .skb-card-info p { margin:0!important;font-size:13px!important;color:#68786f!important;line-height:1.65; }.skb-card-arrow{position:relative;z-index:1;align-self:flex-end;color:var(--skb-primary);font-size:20px;font-weight:700}
 
         .skb-sidebar-list h3 { font-size: 18px !important; margin: 0 0 15px 0 !important; color: #2d3748 !important; border-bottom: 2px solid #edf2f7; padding-bottom: 10px; }
         .skb-sidebar-list ul { list-style: none !important; padding: 0 !important; margin: 0 !important; }
@@ -287,7 +289,7 @@ function wutm_kb_display_knowledge_base() {
         .skb-recent-item img { width:72px;height:54px;object-fit:cover;border-radius:8px;background:#f1f5f2; }
 
         .skb-empty { text-align: center; padding: 40px 20px; background: #f8fafc; border-radius: 10px; color: #a0aec0; }
-        @media(max-width:600px){.skb-result-item{grid-template-columns:1fr}.skb-result-image{max-height:190px}.skb-search-box select,.skb-search-box button{width:100%}}
+        @media(max-width:760px){.skb-categories{grid-template-columns:1fr}}@media(max-width:600px){.skb-result-item{grid-template-columns:1fr}.skb-result-image{max-height:190px}.skb-search-box select,.skb-search-box button{width:100%}}
     </style>
 
     <div class="skb-wrap">
@@ -316,11 +318,11 @@ function wutm_kb_display_knowledge_base() {
             <div class="skb-categories">
                 <?php
                 if ( ! empty( $terms ) && ! is_wp_error( $terms ) ) {
-                    foreach ( $terms as $term ) {
+                    foreach ( $terms as $index => $term ) {
                         $link = get_term_link( $term );
                         echo '<a href="'. esc_url($link) .'" class="skb-card">';
-                        echo '<div class="skb-card-info"><h3>'. esc_html($term->name) .'</h3><p>知識庫文件分類</p></div>';
-                        echo '<div class="skb-card-count">'. esc_html($term->count) .'</div>';
+                        echo '<div class="skb-card-top"><span class="skb-card-index">'. esc_html( str_pad( (string) ( $index + 1 ), 2, '0', STR_PAD_LEFT ) ) .'</span><span class="skb-card-count">'. esc_html($term->count) .' 篇文件</span></div>';
+                        echo '<div class="skb-card-info"><h3>'. esc_html($term->name) .'</h3><p>查看此分類的知識庫文件與操作說明。</p></div><span class="skb-card-arrow" aria-hidden="true">→</span>';
                         echo '</a>';
                     }
                 } else {
@@ -505,8 +507,7 @@ function wutm_kb_render_custom_layout() {
         .skb-article-content table th { background: #f7fafc; }
         .skb-article-footer-note { margin-top: 40px; padding: 16px 20px; background: #f7fafc; border-radius: 8px; color: #718096; font-size: 14px; }
 
-        .skb-cat-header { text-align: center; padding: 40px; background: linear-gradient(135deg, color-mix(in srgb, var(--skb-primary) 8%, #f8fafc), #f8fafc); border-radius: 12px; margin-bottom: 40px; border: 1px solid #edf2f7; }
-        .skb-cat-header h1 { margin: 10px 0 0 0; font-size: 36px; color: #2d3748; }
+        .skb-page--category{display:block;max-width:1180px}.skb-page--category .skb-main{width:100%}.skb-category-nav{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin:0 0 30px}.skb-category-link{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:64px;padding:14px 16px;border:1px solid #e2ece5;border-radius:13px;background:#fff;color:#314138!important;text-decoration:none!important;box-shadow:none!important;transition:.18s ease}.skb-category-link:hover{border-color:var(--skb-primary);color:var(--skb-primary)!important;box-shadow:0 8px 18px rgba(28,67,42,.08);transform:translateY(-2px)}.skb-category-link.active{border-color:var(--skb-primary);background:color-mix(in srgb,var(--skb-primary) 8%,#fff);color:var(--skb-primary)!important}.skb-category-link small{display:block;margin-top:3px;color:#8a988f;font-size:11px}.skb-category-link .skb-category-arrow{font-size:18px;font-weight:700}.skb-category-heading{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin:0 0 18px;padding-bottom:14px;border-bottom:1px solid #e7eeea}.skb-category-heading h1{margin:0;color:#1d2a23;font-size:30px;line-height:1.3}.skb-category-heading p{margin:0;color:#819087;font-size:13px}
         .skb-doc-list { list-style: none; padding: 0; }
         .skb-doc-list li { display:grid;grid-template-columns:180px minmax(0,1fr);gap:24px;align-items:center;padding: 20px; border: 1px solid #e2e8f0; border-radius: 14px; margin-bottom: 15px; transition: 0.2s; }
         .skb-doc-list img,.skb-doc-placeholder { width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:11px;background:#f1f5f2;display:block; }
@@ -519,7 +520,8 @@ function wutm_kb_render_custom_layout() {
         @media (max-width: 768px) { .skb-page { flex-direction: column;padding:0 18px;margin:28px auto; } .skb-left-menu { width: 100%; border-right: none; border-bottom: 1px solid #edf2f7; padding-bottom: 20px; } .skb-toc{position:relative;top:auto}.skb-doc-list li{grid-template-columns:1fr}.skb-doc-list img{max-height:220px} }
     </style>
 
-    <div class="skb-page">
+    <div class="skb-page<?php echo is_tax( 'skb_category' ) ? ' skb-page--category' : ''; ?>">
+        <?php if ( is_singular( 'skb_doc' ) ) : ?>
         <div class="skb-left-menu">
             <h4>目錄導覽</h4>
             <a href="<?php echo esc_url( $skb_home_url ); ?>">回知識庫首頁</a>
@@ -540,6 +542,7 @@ function wutm_kb_render_custom_layout() {
                 </nav>
             <?php endif; ?>
         </div>
+        <?php endif; ?>
 
         <div class="skb-main">
             <?php if ( is_tax('skb_category') ) : ?>
@@ -549,10 +552,12 @@ function wutm_kb_render_custom_layout() {
                     <a href="<?php echo esc_url($skb_home_url); ?>">知識庫首頁</a> / <?php echo esc_html($term->name); ?>
                 </div>
                 <?php endif; ?>
-                <div class="skb-cat-header">
-                    <h1><?php echo esc_html($term->name); ?></h1>
-                    <p style="color:#718096; margin-top:10px;"><?php echo esc_html($term->count); ?> 份文件</p>
-                </div>
+                <nav class="skb-category-nav" aria-label="文件分類">
+                    <?php foreach ( $terms as $category_term ) : $category_link = get_term_link( $category_term ); if ( is_wp_error( $category_link ) ) continue; ?>
+                    <a class="skb-category-link<?php echo (int) $category_term->term_id === (int) $term->term_id ? ' active' : ''; ?>" href="<?php echo esc_url( $category_link ); ?>"><span><strong><?php echo esc_html( $category_term->name ); ?></strong><small><?php echo esc_html( $category_term->count ); ?> 篇文件</small></span><span class="skb-category-arrow" aria-hidden="true">→</span></a>
+                    <?php endforeach; ?>
+                </nav>
+                <div class="skb-category-heading"><h1><?php echo esc_html($term->name); ?></h1><p><?php echo esc_html($term->count); ?> 篇文件</p></div>
                 <?php if ( have_posts() ) : ?>
                 <ul class="skb-doc-list">
                     <?php while ( have_posts() ) : the_post(); ?>

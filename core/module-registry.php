@@ -20,6 +20,7 @@ function wutm_modules(): array {
         'ai-operation-log' => ['name' => 'AI 操作紀錄', 'description' => '獨立查看 AI 實際完成的新增、修改與刪除紀錄，方便追蹤寫入結果。', 'group' => 'AI功能', 'icon' => '📜', 'navigation' => true, 'parent_module' => 'site-ai-connector', 'settings_page' => 'wu-ai-operation-log'],
         'knowledge-base-ai' => ['name' => '知識庫支援 AI 擴充', 'description' => '為知識庫快速支援加入 AI 助理，支援 Gemini、Perplexity、OpenAI、網站內容上下文、額度限制與使用紀錄。', 'group' => 'AI功能', 'icon' => '🧠', 'badge' => '需先開啟知識庫功能', 'requires_module' => 'knowledge-base', 'settings_page' => 'wumetax-quick-support-ai'],
         '404-redirector' => ['name' => '404 重新導向', 'description' => '將 404 錯誤導向首頁或指定頁面。', 'group' => '內容管理', 'icon' => '🔀'],
+        'smart-301-redirects' => ['name' => '301 指向', 'description' => '建立可快取的 301 永久轉址規則，支援站內／外部目標、萬用字元與命中統計。', 'group' => '內容管理', 'icon' => '↗️', 'settings_page' => 'wu-smart-301-redirects'],
         'admin-bar-cleaner' => ['name' => '後台介面管理', 'description' => '管理 WordPress 管理列、後台頁尾、側邊選單、角色權限與顯示項目。', 'group' => '後台介面', 'icon' => '🎛️'],
         'audit-logger' => ['name' => '操作日誌', 'description' => '記錄使用者登入、文章、設定及其他重要後台活動，方便追查操作紀錄。', 'group' => '安全性', 'icon' => '📋'],
         'advanced-tracking-manager' => ['name' => '進階追蹤管理', 'description' => '管理 GA4、GTM、Google Ads、Meta Pixel 與診斷。', 'group' => '監控追蹤', 'icon' => '🎯'],
