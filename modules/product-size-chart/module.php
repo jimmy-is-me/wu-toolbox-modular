@@ -157,8 +157,10 @@ function render_size_chart_tab_content() {
         // 輸出專屬 CSS 樣式
         echo '<style>
             .custom-size-chart-title {
-                font-size: 1.3em; /* 調整此處數值來改變標題大小 */
-                margin-bottom: 15px;
+                font-size: 1.3em !important;
+                font-weight: 700;
+                line-height: 1.4;
+                margin: 0 0 16px !important;
                 color: #333;
             }
             .custom-size-chart-container {
