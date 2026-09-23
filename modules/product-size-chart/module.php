@@ -160,8 +160,9 @@ function wutm_product_size_chart_render_tab_content() {
     if ( ! empty( $size_chart ) ) {
         // 輸出專屬 CSS 樣式
         echo '<style>
-            .wutm-product-specs { position:relative; display:block; float:none; clear:both; width:100%; max-width:100%; margin:0; padding:0; box-sizing:border-box; }
-            .wutm-product-specs .wutm-product-specs-title { display:block!important; position:static!important; inset:auto!important; float:none!important; clear:both!important; width:100%!important; max-width:100%!important; box-sizing:border-box!important; transform:none!important; text-align:left; margin:0 0 16px!important; padding:0!important; font-size:1.3em!important; font-weight:700; line-height:1.4; color:#333; }
+            .wutm-product-specs { width:100%; margin:0 0 30px; color:#333; box-sizing:border-box; }
+            .wutm-product-specs, .wutm-product-specs * { box-sizing:border-box; }
+            .wutm-product-specs .wutm-product-specs-title { margin:0 0 16px!important; color:#333; font-size:1.3em!important; font-weight:700; line-height:1.4; }
             .custom-size-chart-container {
                 max-width:100%; overflow-x: auto; /* 支援手機版橫向滑動 */
                 margin-top: 1em;

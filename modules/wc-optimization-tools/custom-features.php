@@ -273,7 +273,7 @@ function wutm_wc_custom_render_attribute_as_tags( $html, $args ) {
 	$attribute = isset( $args['attribute'] ) ? $args['attribute'] : '';
 	$product   = isset( $args['product'] ) ? $args['product'] : null;
 	$options   = isset( $args['options'] ) ? $args['options'] : array();
-	$name      = isset( $args['name'] ) ? $args['name'] : 'attribute_' . sanitize_title( $attribute );
+	$name      = ! empty( $args['name'] ) ? $args['name'] : 'attribute_' . sanitize_title( $attribute );
 	$id        = isset( $args['id'] ) ? $args['id'] : sanitize_title( $attribute );
 	$selected  = isset( $args['selected'] ) ? $args['selected'] : ( isset( $_REQUEST[ $name ] ) ? wc_clean( wp_unslash( $_REQUEST[ $name ] ) ) : '' );
 	$is_taxonomy = 0 === strpos( $attribute, 'pa_' );
@@ -331,8 +331,15 @@ function wutm_wc_custom_enqueue_variation_tag_script() {
     $script = <<<'JS'
 jQuery( function ( $ ) {
     function selectForTags( $tags ) {
+        // WooCommerce renders the original select immediately before these tags.
+        // Some product attributes pass an empty name argument, so use that select
+        // directly instead of building a selector from data-attribute-name.
+        var $select = $tags.prev( 'select' );
+        if ( $select.length ) return $select;
         var name = $tags.attr( 'data-attribute-name' );
-        return $tags.closest( '.variations_form' ).find( 'select[name="' + name.replace( /([\\[\\]\\.\\:])/g, '\\$1' ) + '"]' ).first();
+        return $tags.closest( '.variations_form' ).find( 'select' ).filter( function () {
+            return this.name === name;
+        } ).first();
     }
 
     function syncTags( $form ) {
