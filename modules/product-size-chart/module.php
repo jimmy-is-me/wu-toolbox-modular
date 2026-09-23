@@ -1,157 +1,161 @@
 <?php
 
-// 1. 在 WooCommerce 商品編輯頁面新增「尺寸表」Meta Box
-add_action( 'add_meta_boxes', 'add_custom_size_chart_meta_box' );
-function add_custom_size_chart_meta_box() {
+// 1. WooCommerce 商品規格表設定：欄位可改名、增減。
+function wutm_product_size_chart_default_columns() {
+    return array(
+        'size'     => array( 'label' => '尺寸' ),
+        'shoulder' => array( 'label' => '肩寬' ),
+        'chest'    => array( 'label' => '胸圍' ),
+        'hem'      => array( 'label' => '下擺' ),
+        'length'   => array( 'label' => '衣長' ),
+    );
+}
+add_action( 'add_meta_boxes_product', 'wutm_product_size_chart_add_meta_box' );
+add_action( 'add_meta_boxes_product', 'wutm_product_size_chart_remove_legacy_meta_box', PHP_INT_MAX );
+function wutm_product_size_chart_remove_legacy_meta_box() {
+    remove_meta_box( 'custom_size_chart', 'product', 'normal' );
+}
+add_action( 'init', function () {
+    if ( function_exists( 'save_custom_size_chart_data' ) ) {
+        remove_action( 'woocommerce_process_product_meta', 'save_custom_size_chart_data' );
+    }
+    if ( function_exists( 'add_size_chart_product_tab' ) ) {
+        remove_filter( 'woocommerce_product_tabs', 'add_size_chart_product_tab' );
+    }
+}, PHP_INT_MAX );
+function wutm_product_size_chart_add_meta_box() {
     add_meta_box(
-        'custom_size_chart',      // Meta Box ID
-        '商品尺寸表設定',         // 標題
-        'render_custom_size_chart_meta_box', // 回呼函式
-        'product',                // 顯示於商品頁
-        'normal',                 // 位置
-        'default'                 // 優先權
+        'wutm_product_size_chart_box',
+        '商品規格表設定',
+        'wutm_product_size_chart_render_meta_box',
+        'product',
+        'normal',
+        'default'
     );
 }
 
-// 渲染後台 Meta Box 的 HTML 與 JavaScript
-function render_custom_size_chart_meta_box( $post ) {
-    wp_nonce_field( 'save_custom_size_chart', 'custom_size_chart_nonce' );
-    
-    // 取得已儲存的尺寸表資料
-    $size_chart = get_post_meta( $post->ID, '_custom_size_chart', true );
-    if ( ! is_array( $size_chart ) ) {
-        $size_chart = array();
-    }
+function wutm_product_size_chart_render_meta_box( $post ) {
+    wp_nonce_field( 'wutm_product_size_chart_save', 'wutm_product_size_chart_nonce' );
+    $rows = get_post_meta( $post->ID, '_custom_size_chart', true );
+    $columns = get_post_meta( $post->ID, '_custom_size_chart_columns', true );
+    if ( ! is_array( $rows ) ) $rows = array();
+    if ( ! is_array( $columns ) || empty( $columns ) ) $columns = wutm_product_size_chart_default_columns();
     ?>
-    <table id="size-chart-table" style="width: 100%; text-align: left; border-collapse: collapse;">
-        <thead>
-            <tr>
-                <th>尺寸</th>
-                <th>肩寬</th>
-                <th>胸圍</th>
-                <th>下擺</th>
-                <th>衣長</th>
-                <th>操作</th>
-            </tr>
-        </thead>
-        <tbody>
-            <?php if ( ! empty( $size_chart ) ) : ?>
-                <?php foreach ( $size_chart as $row ) : ?>
-                    <tr>
-                        <td><input type="text" name="size_chart_size[]" value="<?php echo esc_attr( $row['size'] ); ?>" /></td>
-                        <td><input type="text" name="size_chart_shoulder[]" value="<?php echo esc_attr( $row['shoulder'] ); ?>" /></td>
-                        <td><input type="text" name="size_chart_chest[]" value="<?php echo esc_attr( $row['chest'] ); ?>" /></td>
-                        <td><input type="text" name="size_chart_hem[]" value="<?php echo esc_attr( $row['hem'] ); ?>" /></td>
-                        <td><input type="text" name="size_chart_length[]" value="<?php echo esc_attr( $row['length'] ); ?>" /></td>
-                        <td><button type="button" class="button remove-size-row">刪除</button></td>
-                    </tr>
-                <?php endforeach; ?>
-            <?php else : ?>
-                <!-- 預設留空一列 -->
-                <tr>
-                    <td><input type="text" name="size_chart_size[]" value="" placeholder="例如: S" /></td>
-                    <td><input type="text" name="size_chart_shoulder[]" value="" /></td>
-                    <td><input type="text" name="size_chart_chest[]" value="" /></td>
-                    <td><input type="text" name="size_chart_hem[]" value="" /></td>
-                    <td><input type="text" name="size_chart_length[]" value="" /></td>
-                    <td><button type="button" class="button remove-size-row">刪除</button></td>
-                </tr>
-            <?php endif; ?>
-        </tbody>
-    </table>
-    <p>
-        <button type="button" class="button button-primary" id="add-size-row">新增尺寸列</button>
-    </p>
-
-    <script type="text/javascript">
-        jQuery(document).ready(function($) {
-            // 新增列
-            $('#add-size-row').on('click', function(e) {
-                e.preventDefault();
-                var newRow = '<tr>' +
-                    '<td><input type="text" name="size_chart_size[]" value="" /></td>' +
-                    '<td><input type="text" name="size_chart_shoulder[]" value="" /></td>' +
-                    '<td><input type="text" name="size_chart_chest[]" value="" /></td>' +
-                    '<td><input type="text" name="size_chart_hem[]" value="" /></td>' +
-                    '<td><input type="text" name="size_chart_length[]" value="" /></td>' +
-                    '<td><button type="button" class="button remove-size-row">刪除</button></td>' +
-                    '</tr>';
-                $('#size-chart-table tbody').append(newRow);
-            });
-
-            // 刪除列
-            $(document).on('click', '.remove-size-row', function(e) {
-                e.preventDefault();
-                $(this).closest('tr').remove();
-            });
-        });
-    </script>
+    <div class="wutm-size-chart-admin">
+        <p class="description">欄位名稱可直接修改，也可新增或移除欄位；每列填寫商品對應的規格資料。</p>
+        <div class="wutm-size-chart-table-wrap">
+            <table id="wutm-size-chart-table" class="widefat striped">
+                <thead><tr>
+                    <?php foreach ( $columns as $key => $column ) : $label = is_array( $column ) ? ( $column['label'] ?? '' ) : $column; ?>
+                        <th class="wutm-size-chart-column" data-column-key="<?php echo esc_attr( $key ); ?>">
+                            <label class="screen-reader-text" for="wutm-size-chart-label-<?php echo esc_attr( $key ); ?>">欄位名稱</label>
+                            <input id="wutm-size-chart-label-<?php echo esc_attr( $key ); ?>" type="text" name="size_chart_columns[<?php echo esc_attr( $key ); ?>][label]" value="<?php echo esc_attr( $label ); ?>" placeholder="欄位名稱" required>
+                            <button type="button" class="button-link-delete wutm-size-chart-remove-column">移除欄位</button>
+                        </th>
+                    <?php endforeach; ?>
+                    <th class="wutm-size-chart-actions">操作</th>
+                </tr></thead>
+                <tbody>
+                    <?php if ( $rows ) : foreach ( $rows as $row_index => $row ) : if ( ! is_array( $row ) ) continue; ?>
+                        <tr>
+                            <?php foreach ( $columns as $key => $column ) : ?>
+                                <td data-column-key="<?php echo esc_attr( $key ); ?>"><input type="text" name="size_chart_rows[<?php echo esc_attr( $row_index ); ?>][<?php echo esc_attr( $key ); ?>]" value="<?php echo esc_attr( $row[ $key ] ?? '' ); ?>"></td>
+                            <?php endforeach; ?>
+                            <td class="wutm-size-chart-actions"><button type="button" class="button wutm-size-chart-remove-row">刪除</button></td>
+                        </tr>
+                    <?php endforeach; else : ?>
+                        <tr>
+                            <?php foreach ( $columns as $key => $column ) : ?><td data-column-key="<?php echo esc_attr( $key ); ?>"><input type="text" name="size_chart_rows[0][<?php echo esc_attr( $key ); ?>]" value=""></td><?php endforeach; ?>
+                            <td class="wutm-size-chart-actions"><button type="button" class="button wutm-size-chart-remove-row">刪除</button></td>
+                        </tr>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+        <p class="wutm-size-chart-controls"><button type="button" class="button" id="wutm-size-chart-add-column">新增規格欄位</button> <button type="button" class="button" id="wutm-size-chart-add-row">新增資料列</button></p>
+    </div>
     <style>
-        #size-chart-table th, #size-chart-table td { padding: 8px; border-bottom: 1px solid #ddd; }
-        #size-chart-table input[type="text"] { width: 100%; max-width: 100px; }
+        .wutm-size-chart-table-wrap{overflow-x:auto}.wutm-size-chart-admin table{min-width:760px;border-collapse:collapse}.wutm-size-chart-admin th,.wutm-size-chart-admin td{padding:10px;vertical-align:top}.wutm-size-chart-admin th input{width:100%;min-width:100px}.wutm-size-chart-admin td input{width:100%;min-width:80px}.wutm-size-chart-admin .wutm-size-chart-remove-column{display:block;margin-top:6px}.wutm-size-chart-admin .wutm-size-chart-actions{width:86px;min-width:86px}.wutm-size-chart-controls{display:flex;gap:8px;flex-wrap:wrap}
     </style>
+    <script>
+    jQuery(function($){
+        var $table=$('#wutm-size-chart-table'), $head=$table.find('thead tr'), $body=$table.find('tbody');
+        var rowIndex=$body.find('tr').length, columnIndex=0;
+        function keys(){return $head.find('.wutm-size-chart-column').map(function(){return String($(this).data('column-key'));}).get();}
+        function reindexRows(){ $body.find('tr').each(function(index){$(this).find('input').each(function(){var key=$(this).closest('td').data('column-key');$(this).attr('name','size_chart_rows['+index+']['+key+']');});});rowIndex=$body.find('tr').length; }
+        $('#wutm-size-chart-add-column').on('click',function(){
+            columnIndex++; var key='custom_'+Date.now()+'_'+columnIndex;
+            var $th=$('<th>',{'class':'wutm-size-chart-column','data-column-key':key});
+            $('<input>',{type:'text',name:'size_chart_columns['+key+'][label]',placeholder:'欄位名稱',required:true}).appendTo($th);
+            $('<button>',{type:'button','class':'button-link-delete wutm-size-chart-remove-column',text:'移除欄位'}).appendTo($th);
+            $th.insertBefore($head.find('.wutm-size-chart-actions'));
+            $body.find('tr').each(function(){ $('<td>',{'data-column-key':key}).append($('<input>',{type:'text',name:'size_chart_rows['+$body.find('tr').index(this)+']['+key+']'})).insertBefore($(this).find('.wutm-size-chart-actions')); });
+        });
+        $('#wutm-size-chart-add-row').on('click',function(){var $row=$('<tr>');keys().forEach(function(key){$('<td>',{'data-column-key':key}).append($('<input>',{type:'text',name:'size_chart_rows['+rowIndex+']['+key+']'})).appendTo($row);});$('<td>',{'class':'wutm-size-chart-actions'}).append($('<button>',{type:'button','class':'button wutm-size-chart-remove-row',text:'刪除'})).appendTo($row);$body.append($row);rowIndex++;});
+        $table.on('click','.wutm-size-chart-remove-column',function(){var key=$(this).closest('th').data('column-key');if(keys().length<=1){window.alert('至少保留一個規格欄位。');return;}$(this).closest('th').remove();$body.find('td[data-column-key="'+key+'"]').remove();});
+        $table.on('click','.wutm-size-chart-remove-row',function(){$(this).closest('tr').remove();reindexRows();});
+    });
+    </script>
     <?php
 }
 
-// 2. 儲存尺寸表資料
-add_action( 'woocommerce_process_product_meta', 'save_custom_size_chart_data' );
-function save_custom_size_chart_data( $post_id ) {
-    // 檢查 nonce 確保安全性
-    if ( ! isset( $_POST['custom_size_chart_nonce'] ) || ! wp_verify_nonce( $_POST['custom_size_chart_nonce'], 'save_custom_size_chart' ) ) {
-        return;
+// 2. 儲存可編輯欄位與每項商品的規格資料。
+add_action( 'woocommerce_process_product_meta', 'wutm_product_size_chart_save_data' );
+function wutm_product_size_chart_save_data( $post_id ) {
+    if ( ! isset( $_POST['wutm_product_size_chart_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['wutm_product_size_chart_nonce'] ) ), 'wutm_product_size_chart_save' ) ) return;
+    if ( ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) || wp_is_post_autosave( $post_id ) || wp_is_post_revision( $post_id ) || ! current_user_can( 'edit_post', $post_id ) ) return;
+
+    $posted_columns = isset( $_POST['size_chart_columns'] ) && is_array( $_POST['size_chart_columns'] ) ? wp_unslash( $_POST['size_chart_columns'] ) : array();
+    $columns = array();
+    foreach ( $posted_columns as $key => $column ) {
+        $key = sanitize_key( $key );
+        $label = is_array( $column ) ? sanitize_text_field( $column['label'] ?? '' ) : '';
+        if ( '' !== $key && '' !== $label ) $columns[ $key ] = array( 'label' => $label );
     }
+    if ( empty( $columns ) ) $columns = array( 'spec' => array( 'label' => '規格' ) );
 
-    if ( isset( $_POST['size_chart_size'] ) ) {
-        $sizes     = $_POST['size_chart_size'];
-        $shoulders = $_POST['size_chart_shoulder'];
-        $chests    = $_POST['size_chart_chest'];
-        $hems      = $_POST['size_chart_hem'];
-        $lengths   = $_POST['size_chart_length'];
-
-        $size_chart_data = array();
-        
-        // 迴圈處理每一列
-        for ( $i = 0; $i < count( $sizes ); $i++ ) {
-            // 只要「尺寸」欄位有填寫才儲存
-            if ( ! empty( trim( $sizes[$i] ) ) ) {
-                $size_chart_data[] = array(
-                    'size'     => sanitize_text_field( $sizes[$i] ),
-                    'shoulder' => sanitize_text_field( $shoulders[$i] ),
-                    'chest'    => sanitize_text_field( $chests[$i] ),
-                    'hem'      => sanitize_text_field( $hems[$i] ),
-                    'length'   => sanitize_text_field( $lengths[$i] )
-                );
-            }
+    $posted_rows = isset( $_POST['size_chart_rows'] ) && is_array( $_POST['size_chart_rows'] ) ? wp_unslash( $_POST['size_chart_rows'] ) : array();
+    $rows = array();
+    foreach ( $posted_rows as $posted_row ) {
+        if ( ! is_array( $posted_row ) ) continue;
+        $row = array();
+        $has_value = false;
+        foreach ( $columns as $key => $column ) {
+            $value = isset( $posted_row[ $key ] ) && is_scalar( $posted_row[ $key ] ) ? sanitize_text_field( $posted_row[ $key ] ) : '';
+            $row[ $key ] = $value;
+            if ( '' !== trim( $value ) ) $has_value = true;
         }
-        // 更新資料
-        update_post_meta( $post_id, '_custom_size_chart', $size_chart_data );
-    } else {
-        // 如果全部清空則刪除資料
-        delete_post_meta( $post_id, '_custom_size_chart' );
+        if ( $has_value ) $rows[] = $row;
     }
+
+    update_post_meta( $post_id, '_custom_size_chart_columns', $columns );
+    if ( $rows ) update_post_meta( $post_id, '_custom_size_chart', $rows );
+    else delete_post_meta( $post_id, '_custom_size_chart' );
 }
 
 // 3. 前台顯示商品尺寸表 (新增至商品頁籤)
-add_filter( 'woocommerce_product_tabs', 'add_size_chart_product_tab' );
-function add_size_chart_product_tab( $tabs ) {
+add_filter( 'woocommerce_product_tabs', 'wutm_product_size_chart_add_product_tab' );
+function wutm_product_size_chart_add_product_tab( $tabs ) {
     global $post;
     $size_chart = get_post_meta( $post->ID, '_custom_size_chart', true );
     
     // 如果有尺寸表資料，才顯示頁籤
     if ( ! empty( $size_chart ) && is_array( $size_chart ) ) {
         $tabs['size_chart_tab'] = array(
-            'title'    => '尺寸表',
+            'title'    => '商品規格',
             'priority' => 50,
-            'callback' => 'render_size_chart_tab_content'
+            'callback' => 'wutm_product_size_chart_render_tab_content'
         );
     }
     return $tabs;
 }
 
 // 渲染前台尺寸表內容
-function render_size_chart_tab_content() {
+function wutm_product_size_chart_render_tab_content() {
     global $post;
     $size_chart = get_post_meta( $post->ID, '_custom_size_chart', true );
+    $columns = get_post_meta( $post->ID, '_custom_size_chart_columns', true );
+    if ( ! is_array( $columns ) || empty( $columns ) ) $columns = wutm_product_size_chart_default_columns();
 
     if ( ! empty( $size_chart ) ) {
         // 輸出專屬 CSS 樣式
@@ -205,26 +209,23 @@ function render_size_chart_tab_content() {
         </style>';
 
         // 應用新的 CSS 類別來縮小標題
-        echo '<h2 class="custom-size-chart-title">商品尺寸表</h2>';
+        echo '<h2 class="custom-size-chart-title">商品規格表</h2>';
         
         echo '<div class="custom-size-chart-container">';
         echo '<table class="custom-size-chart-table">';
         echo '<thead><tr>';
-        echo '<th>尺寸</th>';
-        echo '<th>肩寬</th>';
-        echo '<th>胸圍</th>';
-        echo '<th>下擺</th>';
-        echo '<th>衣長</th>';
+        foreach ( $columns as $column ) {
+            $label = is_array( $column ) ? ( $column['label'] ?? '' ) : $column;
+            echo '<th>' . esc_html( $label ) . '</th>';
+        }
         echo '</tr></thead>';
         echo '<tbody>';
         
         foreach ( $size_chart as $row ) {
             echo '<tr>';
-            echo '<td>' . esc_html( $row['size'] ) . '</td>';
-            echo '<td>' . esc_html( $row['shoulder'] ) . '</td>';
-            echo '<td>' . esc_html( $row['chest'] ) . '</td>';
-            echo '<td>' . esc_html( $row['hem'] ) . '</td>';
-            echo '<td>' . esc_html( $row['length'] ) . '</td>';
+            foreach ( $columns as $key => $column ) {
+                echo '<td>' . esc_html( $row[ $key ] ?? '' ) . '</td>';
+            }
             echo '</tr>';
         }
         
@@ -232,21 +233,21 @@ function render_size_chart_tab_content() {
         echo '</div>';
         
         // 單位提示
-        echo '<span class="custom-size-chart-note">* 尺寸單位為公分(cm)，手工測量可能存在些許誤差。</span>';
+        echo '<span class="custom-size-chart-note">商品規格欄位與資料依商品編輯頁設定顯示。</span>';
     }
 }
 /* Toolbox overview page. Product-specific size data is managed in each product editor. */
 add_action( 'admin_menu', 'wutm_product_size_chart_menu', 30 );
 function wutm_product_size_chart_menu() {
-    add_submenu_page( 'wu-toolbox-modular', '商品尺寸表', '商品尺寸表', 'manage_woocommerce', 'wu-product-size-chart', 'wutm_product_size_chart_settings_page' );
+    add_submenu_page( 'wu-toolbox-modular', '商品規格表', '商品規格表', 'manage_woocommerce', 'wu-product-size-chart', 'wutm_product_size_chart_settings_page' );
 }
 function wutm_product_size_chart_settings_page() {
     if ( ! current_user_can( 'manage_woocommerce' ) ) return;
     ?>
     <div class="wrap wutm-module-wrap wutm-product-size-chart-overview">
-        <header class="wutm-header"><div><h1>商品尺寸表</h1><p>在每個 WooCommerce 商品編輯頁建立專屬尺寸資料，前台會自動顯示「尺寸表」頁籤。</p></div><span>v<?php echo esc_html( WUTM_VERSION ); ?></span></header>
-        <section class="wutm-panel"><h2>快速開始</h2><ol><li>開啟任一商品的編輯頁。</li><li>在「商品尺寸表設定」填入尺寸、肩寬、胸圍、下擺及衣長。</li><li>更新商品後，顧客會在商品頁看到美化後的尺寸表頁籤。</li></ol><p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'edit.php?post_type=product' ) ); ?>">前往商品列表</a></p></section>
-        <section class="wutm-panel"><h2>顯示規則</h2><p>只要商品至少有一列尺寸資料，就會顯示尺寸表。尺寸單位為公分（cm），表格在手機上可左右滑動閱讀。</p></section>
+        <header class="wutm-header"><div><h1>商品規格表</h1><p>為每項商品自訂規格欄位與內容，前台以響應式表格呈現。</p></div><span>v<?php echo esc_html( WUTM_VERSION ); ?></span></header>
+        <section class="wutm-panel"><h2>快速開始</h2><ol><li>開啟任一 WooCommerce 商品編輯頁。</li><li>修改欄位名稱，或新增、移除要顯示的規格欄位。</li><li>填寫各列資料並更新商品，前台商品頁籤會依設定顯示規格表。</li></ol><p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'edit.php?post_type=product' ) ); ?>">前往商品列表</a></p></section>
+        <section class="wutm-panel"><h2>顯示方式</h2><p>欄位與每列內容皆依商品個別設定；表格在手機上可左右滑動閱讀。</p></section>
     </div>
     <?php
 }

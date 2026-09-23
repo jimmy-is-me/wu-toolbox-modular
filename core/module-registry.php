@@ -94,7 +94,7 @@ function wutm_modules(): array {
         'transients-manager' => ['name' => 'Transients 管理', 'description' => '查看、搜尋及清理 WordPress Transients 過期暫存資料。', 'group' => '效能優化', 'icon' => '🧹'],
         'user-switcher' => ['name' => '使用者切換', 'description' => '管理員可快速切換會員帳號進行權限、訂單與前台功能測試。', 'group' => '後台介面', 'icon' => '🔄'],
         'wc-optimization-tools' => ['name' => 'WC優化工具', 'description' => '台灣地址、訂單備註、電子發票、一頁式結帳、Enter 新增商品屬性、按鈕標籤規格及虛擬商品自動完成。', 'group' => '電商優化工具', 'icon' => '🛠️', 'requires' => 'woocommerce'],
-        'product-size-chart' => ['name' => '商品尺寸表', 'description' => '在商品編輯頁建立肩寬、胸圍、下擺與衣長尺寸資料，前台自動顯示清楚易讀的尺寸表。', 'group' => '電商優化工具', 'icon' => '📏', 'requires' => 'woocommerce', 'settings_page' => 'wu-product-size-chart'],
+        'product-size-chart' => ['name' => '商品規格表', 'description' => '為每項商品自訂規格表欄位名稱與內容，可自由新增或移除欄位，並在前台以響應式表格呈現。', 'group' => '電商優化工具', 'icon' => '📋', 'requires' => 'woocommerce', 'settings_page' => 'wu-product-size-chart'],
         'product-faq' => ['name' => '商品問答 FAQ', 'description' => '在商品編輯頁管理問答與展開模式，並在商品頁籤以易讀的手風琴或獨立展開方式顯示。', 'group' => '電商優化工具', 'icon' => '❔', 'requires' => 'woocommerce', 'settings_page' => 'wu-product-faq'],
         'shipping-optimization-tools' => ['name' => '運送優化功能', 'description' => '管理台灣離島配送與 7-11 超商物流，支援運費、免運門檻、免運折價券、手動填寫、綠界電子地圖、門市資料及訂單辨識。', 'group' => '電商工具', 'icon' => '🚚', 'requires' => 'woocommerce', 'settings_page' => 'wu-shipping-optimization-tools'],
         'free-shipping-notice' => ['name' => '免運門檻提示', 'description' => '統一設定單一費率、自行取貨與 7-11 超商物流的免運門檻；支援免運折價券、尚差金額與已達免運提示，折價券與新會員優惠都會計入小計。', 'group' => '電商工具', 'icon' => '🚚', 'requires' => 'woocommerce', 'settings_page' => 'wu-free-shipping-notice'],

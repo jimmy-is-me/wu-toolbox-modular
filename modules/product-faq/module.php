@@ -25,6 +25,24 @@ if ( ! defined( 'ABSPATH' ) ) {
  * ========================================================= */
 
 add_action( 'add_meta_boxes_product', 'wutm_product_faq_add_meta_box' );
+add_action( 'add_meta_boxes_product', 'wutm_product_faq_remove_legacy_meta_box', PHP_INT_MAX );
+function wutm_product_faq_remove_legacy_meta_box() {
+    // Keep the old Code Snippets copy from appearing as a second FAQ panel.
+    remove_meta_box( 'custom_product_faq', 'product', 'normal' );
+}
+add_action( 'admin_init', function () {
+    if ( function_exists( 'custom_faq_save_data' ) ) {
+        remove_action( 'save_post_product', 'custom_faq_save_data' );
+    }
+}, PHP_INT_MAX );
+add_action( 'init', function () {
+    if ( function_exists( 'custom_faq_add_product_tab' ) ) {
+        remove_filter( 'woocommerce_product_tabs', 'custom_faq_add_product_tab' );
+    }
+    if ( function_exists( 'custom_faq_front_assets' ) ) {
+        remove_action( 'wp_enqueue_scripts', 'custom_faq_front_assets' );
+    }
+}, PHP_INT_MAX );
 
 function wutm_product_faq_add_meta_box() {
     add_meta_box(
