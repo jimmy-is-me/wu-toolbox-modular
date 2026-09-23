@@ -387,7 +387,7 @@ function wutm_product_faq_save_data( $post_id ) {
 }
 
 /* =========================================================
- * 3. 前台：新增「產品問答」商品頁籤
+ * 3. 前台：新增「商品問與答」商品頁籤
  * ========================================================= */
 
 add_filter(
@@ -426,7 +426,7 @@ function wutm_product_faq_add_product_tab( $tabs ) {
             '' !== trim( (string) $row['question'] )
         ) {
             $tabs['faq_tab'] = array(
-                'title'    => '產品問答',
+                'title'    => esc_html__( '商品問與答', 'wu-toolbox-modular' ),
                 'priority' => 60,
                 'callback' => 'wutm_product_faq_render_tab_content',
             );
@@ -522,7 +522,7 @@ function wutm_product_faq_render_tab_content() {
     ?>
 
     <div class="wutm-product-faq-front">
-        <h2 class="wutm-product-faq-title">產品問答</h2>
+        <h2 class="wutm-product-faq-title"><?php echo esc_html__( '商品問與答', 'wu-toolbox-modular' ); ?></h2>
 
         <div
             class="wutm-product-faq-container"

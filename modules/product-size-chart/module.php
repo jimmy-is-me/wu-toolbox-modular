@@ -75,7 +75,7 @@ function wutm_product_size_chart_render_meta_box( $post ) {
         <p class="wutm-size-chart-controls"><button type="button" class="button" id="wutm-size-chart-add-column">新增規格欄位</button> <button type="button" class="button" id="wutm-size-chart-add-row">新增資料列</button></p>
     </div>
     <style>
-        .wutm-size-chart-table-wrap{overflow-x:auto}.wutm-size-chart-admin table{min-width:760px;border-collapse:collapse}.wutm-size-chart-admin th,.wutm-size-chart-admin td{padding:10px;vertical-align:top}.wutm-size-chart-admin th input{width:100%;min-width:100px}.wutm-size-chart-admin td input{width:100%;min-width:80px}.wutm-size-chart-admin .wutm-size-chart-remove-column{display:block;margin-top:6px}.wutm-size-chart-admin .wutm-size-chart-actions{width:86px;min-width:86px}.wutm-size-chart-controls{display:flex;gap:8px;flex-wrap:wrap}
+        .wutm-size-chart-table-wrap{max-width:100%;overflow-x:auto}.wutm-size-chart-admin table{width:100%;min-width:900px;table-layout:fixed;border-collapse:collapse}.wutm-size-chart-admin th,.wutm-size-chart-admin td{padding:10px;vertical-align:top;box-sizing:border-box}.wutm-size-chart-admin th input,.wutm-size-chart-admin td input{display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box}.wutm-size-chart-admin .wutm-size-chart-remove-column{display:block;margin-top:6px;max-width:100%;white-space:nowrap}.wutm-size-chart-admin .wutm-size-chart-actions{width:88px;min-width:88px}.wutm-size-chart-controls{display:flex;gap:8px;flex-wrap:wrap}
     </style>
     <script>
     jQuery(function($){
@@ -160,15 +160,10 @@ function wutm_product_size_chart_render_tab_content() {
     if ( ! empty( $size_chart ) ) {
         // 輸出專屬 CSS 樣式
         echo '<style>
-            .custom-size-chart-title {
-                font-size: 1.3em !important;
-                font-weight: 700;
-                line-height: 1.4;
-                margin: 0 0 16px !important;
-                color: #333;
-            }
+            .wutm-product-specs { position:relative; display:block; float:none; clear:both; width:100%; max-width:100%; margin:0; padding:0; box-sizing:border-box; }
+            .wutm-product-specs .wutm-product-specs-title { display:block!important; position:static!important; inset:auto!important; float:none!important; clear:both!important; width:100%!important; max-width:100%!important; box-sizing:border-box!important; transform:none!important; text-align:left; margin:0 0 16px!important; padding:0!important; font-size:1.3em!important; font-weight:700; line-height:1.4; color:#333; }
             .custom-size-chart-container {
-                overflow-x: auto; /* 支援手機版橫向滑動 */
+                max-width:100%; overflow-x: auto; /* 支援手機版橫向滑動 */
                 margin-top: 1em;
                 margin-bottom: 1em;
             }
@@ -208,8 +203,8 @@ function wutm_product_size_chart_render_tab_content() {
             }
         </style>';
 
-        // 應用新的 CSS 類別來縮小標題
-        echo '<h2 class="custom-size-chart-title">商品規格表</h2>';
+        echo '<div class="wutm-product-specs">';
+        echo '<h2 class="wutm-product-specs-title">' . esc_html__( '商品規格表', 'wu-toolbox-modular' ) . '</h2>';
         
         echo '<div class="custom-size-chart-container">';
         echo '<table class="custom-size-chart-table">';
@@ -230,6 +225,7 @@ function wutm_product_size_chart_render_tab_content() {
         }
         
         echo '</tbody></table>';
+        echo '</div>';
         echo '</div>';
         
         // 單位提示
