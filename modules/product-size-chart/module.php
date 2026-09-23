@@ -226,10 +226,9 @@ function wutm_product_size_chart_render_tab_content() {
         
         echo '</tbody></table>';
         echo '</div>';
-        echo '</div>';
-        
         // 單位提示
         echo '<span class="custom-size-chart-note">商品規格欄位與資料依商品編輯頁設定顯示。</span>';
+        echo '</div>';
     }
 }
 /* Toolbox overview page. Product-specific size data is managed in each product editor. */

@@ -178,7 +178,7 @@ class WU_WooCommerce_Optimizer {
         return $this->mode === 'commerce' ? array(
             'wu_woo_taiwan_address' => array('台灣地址選單優化', 'taiwan_address_callback'),
             'wu_woo_enable_order_comments' => array('啟用訂單備註欄位', 'enable_order_comments_callback'),
-            'wu_woo_enable_einvoice' => array('啟用電子發票功能', 'enable_einvoice_callback'),
+            'wu_woo_enable_einvoice' => array('啟用發票資訊功能', 'enable_einvoice_callback'),
             'wutm_wc_onepage_checkout' => array('啟用一頁式結帳', 'onepage_checkout_callback'),
             'wutm_wc_attr_enter_add' => array('按 Enter 新增屬性數值', 'attribute_enter_add_callback'),
             'wutm_wc_variation_tags' => array('按鈕標籤顯示可變屬性', 'variation_tags_callback'),
@@ -252,7 +252,7 @@ class WU_WooCommerce_Optimizer {
     public function enable_einvoice_callback() {
         $value = get_option('wu_woo_enable_einvoice', false);
         echo '<input type="checkbox" id="wu_woo_enable_einvoice" name="wu_woo_enable_einvoice" value="1" ' . checked(1, $value, false) . ' />';
-        echo '<label for="wu_woo_enable_einvoice">啟用電子發票功能</label>';
+        echo '<label for="wu_woo_enable_einvoice">啟用發票資訊功能</label>';
         echo '<p class="description"><strong>僅顯示資訊，無任何發票服務串接。</strong> 啟用後只會在結帳頁收集個人、公司或捐贈資訊並儲存於訂單，不會自動開立、上傳或作廢電子發票。</p>';
     }
 

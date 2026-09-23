@@ -367,7 +367,16 @@ jQuery( function ( $ ) {
 } );
 JS;
 
-	wp_add_inline_script( 'wc-add-to-cart-variation', $script, 'after' );
+	// Inline variation handlers require WooCommerce's delegated variation script.
+	if ( wp_script_is( 'wc-add-to-cart-variation', 'registered' ) ) {
+		wp_enqueue_script( 'wc-add-to-cart-variation' );
+		wp_add_inline_script( 'wc-add-to-cart-variation', $script, 'after' );
+	} else {
+		// Keep custom tags functional on themes that deregistered the standard handle.
+		wp_register_script( 'wutm-variation-tags', '', array( 'jquery' ), defined( 'WUTM_VERSION' ) ? WUTM_VERSION : null, true );
+		wp_enqueue_script( 'wutm-variation-tags' );
+		wp_add_inline_script( 'wutm-variation-tags', $script, 'after' );
+	}
 }
 
 add_action( 'wp_head', 'wutm_wc_custom_variation_tag_style' );
@@ -427,4 +436,24 @@ function wutm_wc_custom_auto_complete_virtual_orders( $needs_processing, $produc
 
 	// 其他常態實體商品回傳原本的值
 	return $needs_processing;
+}
+
+// WooCommerce normally completes fully virtual/downloadable orders at payment.
+// Explicitly complete only paid orders that contain exclusively virtual or downloadable items.
+add_filter( 'woocommerce_payment_complete_order_status', 'wutm_wc_custom_complete_virtual_order_status', 20, 3 );
+function wutm_wc_custom_complete_virtual_order_status( $status, $order_id, $order ) {
+	if ( ! wutm_wc_custom_is_virtual_order_autocomplete_enabled() || ! $order instanceof WC_Order || ! $order->is_paid() ) {
+		return $status;
+	}
+	$items = $order->get_items();
+	if ( empty( $items ) ) {
+		return $status;
+	}
+	foreach ( $items as $item ) {
+		$product = is_object( $item ) && is_callable( array( $item, 'get_product' ) ) ? $item->get_product() : false;
+		if ( ! $product || ( ! $product->is_virtual() && ! $product->is_downloadable() ) ) {
+			return $status;
+		}
+	}
+	return 'completed';
 }
