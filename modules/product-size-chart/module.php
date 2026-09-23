@@ -160,17 +160,15 @@ function wutm_product_size_chart_render_tab_content() {
     if ( ! empty( $size_chart ) ) {
         // 輸出專屬 CSS 樣式
         echo '<style>
-            .wutm-product-specs { width:100%; min-width:0; margin:0 0 30px; color:#333; box-sizing:border-box; }
-            .wutm-product-specs, .wutm-product-specs * { box-sizing:border-box; }
+            .wutm-product-specs { margin:0 0 30px; color:#333; }
             .wutm-product-specs .wutm-product-specs-title { margin:0 0 16px!important; color:#333; font-size:1.3em!important; font-weight:700; line-height:1.4; }
             .custom-size-chart-container {
-                width:100%; min-width:0; max-width:100%; overflow-x:auto; /* 僅表格區域左右滑動 */
+                overflow-x:auto; /* 沿用原尺寸表容器，欄位過多時左右滑動 */
                 margin-top: 1em;
                 margin-bottom: 1em;
             }
             .custom-size-chart-table {
-                width: max-content;
-                min-width: 100%;
+                width: 100%;
                 border-collapse: collapse;
                 text-align: center;
                 font-size: 1em;
@@ -178,7 +176,6 @@ function wutm_product_size_chart_render_tab_content() {
                 border: 1px solid #eaeaea;
             }
             .custom-size-chart-table th {
-                min-width: 112px;
                 background-color: #f7f7f7;
                 color: #333;
                 font-weight: 600;
