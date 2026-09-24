@@ -83,7 +83,7 @@ function wutm_product_size_chart_render_meta_box( $post ) {
         </div>
         <div class="wutm-size-chart-note-editor">
             <h3>規格表圖片（選填）</h3>
-            <p class="description">可從媒體庫選擇或上傳一張圖片，顯示於前台規格表與備註下方。</p>
+            <p class="description">可從媒體庫選擇或上傳一張圖片，顯示於前台規格表與備註下方。建議先壓縮圖片再上傳，以縮短商品頁載入時間。</p>
             <input type="hidden" id="wutm-size-chart-image-id" name="wutm_size_chart_image_id" value="<?php echo esc_attr( $image_id ); ?>">
             <div id="wutm-size-chart-image-preview"><?php if ( $image_id ) echo wp_get_attachment_image( $image_id, 'medium' ); ?></div>
             <p><button type="button" class="button" id="wutm-size-chart-select-image">選擇圖片</button> <button type="button" class="button" id="wutm-size-chart-remove-image"<?php echo $image_id ? '' : ' hidden'; ?>>移除圖片</button></p>
@@ -267,7 +267,7 @@ function wutm_product_size_chart_render_tab_content() {
         if ( is_string( $note ) && '' !== trim( $note ) ) {
             echo '<div class="custom-size-chart-note">' . wp_kses_post( $note ) . '</div>';
         }
-        if ( $image_id ) echo '<div class="custom-size-chart-image" style="margin-top:16px;max-width:100%;overflow:hidden">' . wp_get_attachment_image( $image_id, 'full', false, array( 'style' => 'max-width:100%;height:auto;' ) ) . '</div>';
+        if ( $image_id ) echo '<div class="custom-size-chart-image" style="margin-top:16px;max-width:100%;overflow:hidden">' . wp_get_attachment_image( $image_id, 'large', false, array( 'loading' => 'lazy', 'style' => 'max-width:100%;height:auto;' ) ) . '</div>';
         echo '</div>';
     }
 }

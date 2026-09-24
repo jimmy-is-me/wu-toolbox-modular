@@ -1207,8 +1207,9 @@ function sac_render_admin_page() {
 
         <hr style="margin:30px 0;">
 
-        <h2>📜 最近操作紀錄（僅記錄寫入動作）</h2>
-        <p style="font-size:13px;color:#666;">只有「新增／修改／刪除」這類會改變網站內容的動作才會記錄，單純查詢不會顯示在這裡，讓紀錄更精簡好讀。</p>
+        <h2>📜 最近操作紀錄（寫入工具）</h2>
+        <p style="font-size:13px;color:#666;">記錄寫入工具的成功與失敗結果；單純查詢不會顯示在這裡。</p>
+        <p class="notice notice-warning" style="padding:10px;">安全性提醒：v3.1.6 升級時已永久清除舊版紀錄中的明文摘要與金鑰前綴，無法還原。這是刻意保護敏感資料的單向遷移，並非資料異常。</p>
         <table class="widefat striped" style="max-width:1100px;">
             <thead><tr><th>時間</th><th>工具／動作</th><th>目標</th><th>結果／失敗原因</th><th>SEO 欄位</th><th>金鑰識別碼</th></tr></thead>
             <tbody>
@@ -1268,7 +1269,7 @@ function sac_render_tools_page() {
         <p class="wutm-module-subtitle">工具由 AI 連接器統一提供；金鑰、平台串接、IP 白名單與權限請到 <a href="<?php echo esc_url( $connector_url ); ?>">AI 連接器設定</a> 管理。</p>
         <?php if ( 'logs' === $group_key ) :
             $logs = array_slice( array_reverse( get_option( SAC_LOG_OPTION, [] ) ), 0, 100 ); ?>
-            <div class="sac-tools-card"><h2>最近寫入操作</h2><p>只記錄真正改變網站內容的新增、修改與刪除；唯讀查詢不會列入。</p>
+            <div class="sac-tools-card"><h2>最近寫入操作</h2><p>記錄寫入工具的成功與失敗結果；唯讀查詢不會列入。</p><p class="notice notice-warning" style="padding:10px;">安全性提醒：v3.1.6 升級時已永久清除舊版紀錄中的明文摘要與金鑰前綴，無法還原。這是刻意保護敏感資料的單向遷移，並非資料異常。</p>
             <table class="widefat striped"><thead><tr><th>時間</th><th>工具／動作</th><th>目標</th><th>結果／失敗原因</th><th>SEO 欄位</th><th>金鑰識別碼</th></tr></thead><tbody>
             <?php if ( ! $logs ) : ?><tr><td colspan="6">目前沒有任何寫入操作紀錄</td></tr><?php else : foreach ( $logs as $log ) : ?>
                 <tr><td><?php echo esc_html( $log['time'] ?? '' ); ?></td><td><strong><?php echo esc_html( $log['tool'] ?? $log['action'] ?? '' ); ?></strong></td><td><?php echo esc_html( ( $log['target_type'] ?? 'legacy' ) . ' #' . ( $log['target_id'] ?? 0 ) ); ?></td><td><?php echo esc_html( isset( $log['success'] ) ? ( $log['success'] ? '成功' : '失敗：' . ( $log['failure_reason'] ?? 'request_failed' ) ) : '舊版紀錄' ); ?></td><td><?php echo esc_html( implode( ', ', $log['seo_fields'] ?? [] ) ); ?></td><td><code><?php echo esc_html( $log['key_id'] ?? '舊版無識別碼' ); ?></code></td></tr>
@@ -1299,11 +1300,6 @@ function sac_render_tools_page() {
 function sac_render_tools_group( $group_key ) {
     $_GET['group'] = sanitize_key( $group_key );
     sac_render_tools_page();
-}
-
-// Legacy callback calls are retained for compatibility; the central REST audit writes once.
-function sac_write_log( $tool_name, $display_name, $detail, $key ) {
-    // Never persist caller-supplied details or any reversible portion of a key.
 }
 
 function sac_audit_key_id( $key ) {
@@ -1438,7 +1434,6 @@ add_action( 'rest_api_init', function () {
             update_post_meta( $post_id, '_sac_faq_list', $clean );
             sac_sync_faq_schema( $post_id, $clean );
             delete_transient( 'sac_c_' . md5( "faq_{$post_id}" ) );
-            sac_write_log( 'update_post_faq', '整組覆蓋 FAQ', "文章#{$post_id}，共 " . count( $clean ) . ' 題', $req->get_header( 'x-sac-key' ) );
             return rest_ensure_response( [ 'success' => true, 'post_id' => $post_id, 'faqs' => $clean ] );
         },
     ] );
@@ -1481,7 +1476,6 @@ add_action( 'rest_api_init', function () {
             ], true );
             if ( is_wp_error( $post_id ) ) return $post_id;
             sac_apply_seo_request( $post_id, $req, true, $req->get_param( 'title' ), $excerpt );
-            sac_write_log( 'create_post', '新增文章草稿', "文章#{$post_id}：" . sanitize_text_field( $req->get_param( 'title' ) ), $req->get_header( 'x-sac-key' ) );
             return rest_ensure_response( [ 'success' => true, 'post_id' => $post_id, 'seo' => sac_get_seo_fields( $post_id ) ] );
         },
     ] );
@@ -1510,7 +1504,6 @@ add_action( 'rest_api_init', function () {
             $result = wp_update_post( $update, true );
             if ( is_wp_error( $result ) ) return $result;
             if ( sac_apply_seo_request( $post_id, $req ) ) $changed_fields[] = 'SEO';
-            sac_write_log( 'update_post', '修改文章', "文章#{$post_id}，更新：" . implode( '、', $changed_fields ), $req->get_header( 'x-sac-key' ) );
             return rest_ensure_response( [ 'success' => true, 'post_id' => $post_id, 'seo' => sac_get_seo_fields( $post_id ) ] );
         },
     ] );
@@ -1530,7 +1523,6 @@ add_action( 'rest_api_init', function () {
             $post_id = (int) $req['id'];
             if ( ! get_post( $post_id ) ) return new WP_Error( 'sac_not_found', '文章不存在', [ 'status' => 404 ] );
             sac_update_seo_fields( $post_id, $req->get_params() );
-            sac_write_log( 'update_post_seo', '修改 SEO', "文章#{$post_id}", $req->get_header( 'x-sac-key' ) );
             return rest_ensure_response( [ 'success' => true, 'post_id' => $post_id, 'seo' => sac_get_seo_fields( $post_id ) ] );
         },
     ] );
@@ -1578,7 +1570,6 @@ add_action( 'rest_api_init', function () {
             $tokens = get_option( SAC_OPTION_UPLOAD_TOKENS, [] );
             $tokens[ $token ] = [ 'expires' => time() + $ttl_minutes * 60, 'max_files' => $max_files, 'used' => 0, 'media_ids' => [] ];
             update_option( SAC_OPTION_UPLOAD_TOKENS, $tokens );
-            sac_write_log( 'create_upload_link', '產生上傳連結', "效期 {$ttl_minutes} 分鐘，上限 {$max_files} 張", $req->get_header( 'x-sac-key' ) );
             return rest_ensure_response( [ 'upload_url' => add_query_arg( 'sac_token', $token, home_url( '/sac-upload/' ) ), 'expires_in_minutes' => $ttl_minutes, 'max_files' => $max_files ] );
         },
     ] );
@@ -1598,7 +1589,6 @@ add_action( 'rest_api_init', function () {
             $post_id = (int) $req['id']; $media_id = (int) $req->get_param( 'media_id' );
             if ( ! get_post( $post_id ) || ! get_post( $media_id ) ) return new WP_Error( 'sac_not_found', '文章或媒體不存在', [ 'status' => 404 ] );
             set_post_thumbnail( $post_id, $media_id );
-            sac_write_log( 'set_featured_image', '設定精選圖片', "文章#{$post_id} → 媒體#{$media_id}", $req->get_header( 'x-sac-key' ) );
             return rest_ensure_response( [ 'success' => true ] );
         },
     ] );
@@ -1658,7 +1648,6 @@ add_action( 'rest_api_init', function () {
             if ( $alt_text === '' ) return new WP_Error( 'sac_invalid_alt', '替代文字不可為空', [ 'status' => 400 ] );
             $alt_text = mb_substr( $alt_text, 0, 160 );
             update_post_meta( $media_id, '_wp_attachment_image_alt', $alt_text );
-            sac_write_log( 'update_media_alt', '更新圖片替代文字', "媒體#{$media_id}：{$alt_text}", $req->get_header( 'x-sac-key' ) );
             return rest_ensure_response( [ 'success' => true, 'media_id' => $media_id, 'alt_text' => $alt_text ] );
         },
     ] );
@@ -1684,7 +1673,6 @@ add_action( 'rest_api_init', function () {
             if ( get_post_type( $item_id ) !== 'nav_menu_item' ) return new WP_Error( 'sac_not_found', '選單項目不存在', [ 'status' => 404 ] );
             if ( $req->get_param( 'title' ) !== null ) wp_update_post( [ 'ID' => $item_id, 'post_title' => sanitize_text_field( $req->get_param( 'title' ) ) ] );
             if ( $req->get_param( 'url' ) !== null ) update_post_meta( $item_id, '_menu_item_url', esc_url_raw( $req->get_param( 'url' ) ) );
-            sac_write_log( 'update_menu_item', '修改選單項目', "項目#{$item_id}", $req->get_header( 'x-sac-key' ) );
             return rest_ensure_response( [ 'success' => true ] );
         },
     ] );
@@ -1747,7 +1735,6 @@ add_action( 'rest_api_init', function () {
             $summary = $req->get_param( 'short_description' ) ?: sac_seo_summary( $req->get_param( 'description' ) ?: '' );
             sac_apply_seo_request( $product_id, $req, true, $req->get_param( 'name' ), $summary );
             sac_apply_image_alt( $req );
-            sac_write_log( 'create_product', '新增商品', "商品#{$product_id}：" . sanitize_text_field( $req->get_param( 'name' ) ), $req->get_header( 'x-sac-key' ) );
             return rest_ensure_response( [ 'success' => true, 'product_id' => $product_id, 'seo' => sac_get_seo_fields( $product_id ) ] );
         },
     ] );
@@ -1789,7 +1776,6 @@ add_action( 'rest_api_init', function () {
             if ( ! empty( $categories ) && is_array( $categories ) ) sac_set_product_categories( $product->get_id(), $categories );
             if ( sac_apply_seo_request( $product->get_id(), $req ) ) $changed_fields[] = 'SEO';
             if ( sac_apply_image_alt( $req ) ) $changed_fields[] = '圖片替代文字';
-            sac_write_log( 'update_product', '修改商品', "商品#{$product->get_id()}，更新：" . implode( '、', $changed_fields ), $req->get_header( 'x-sac-key' ) );
             return rest_ensure_response( [ 'success' => true, 'product' => sac_format_product( wc_get_product( $product->get_id() ) ), 'seo' => sac_get_seo_fields( $product->get_id() ) ] );
         },
     ] );
@@ -1801,7 +1787,6 @@ add_action( 'rest_api_init', function () {
             $product_id = (int) $req['id'];
             if ( ! wc_get_product( $product_id ) ) return new WP_Error( 'sac_not_found', '商品不存在', [ 'status' => 404 ] );
             wp_trash_post( $product_id );
-            sac_write_log( 'delete_product', '刪除商品（移入垃圾桶）', "商品#{$product_id}", $req->get_header( 'x-sac-key' ) );
             return rest_ensure_response( [ 'success' => true, 'product_id' => $product_id, 'note' => '已移入垃圾桶，可在後台還原' ] );
         },
     ] );
@@ -1818,7 +1803,6 @@ add_action( 'rest_api_init', function () {
             $status = $req->get_param( 'stock_status' ) ?: ( $qty > 0 ? 'instock' : 'outofstock' );
             $product->set_stock_status( sanitize_text_field( $status ) );
             $product->save();
-            sac_write_log( 'set_product_stock', '調整庫存', "商品#{$product->get_id()}，庫存改為 {$qty}", $req->get_header( 'x-sac-key' ) );
             return rest_ensure_response( [ 'success' => true, 'product_id' => $product->get_id(), 'stock_quantity' => $qty, 'stock_status' => $status ] );
         },
     ] );
@@ -1908,7 +1892,6 @@ add_action( 'rest_api_init', function () {
             $entry_id = (int) $req['id'];
             if ( get_post_type( $entry_id ) !== SAC_FORM_CPT ) return new WP_Error( 'sac_not_found', '表單送件不存在', [ 'status' => 404 ] );
             update_post_meta( $entry_id, '_sac_read', '1' );
-            sac_write_log( 'mark_form_submission_read', '標記表單已讀', "送件#{$entry_id}", $req->get_header( 'x-sac-key' ) );
             return rest_ensure_response( [ 'success' => true ] );
         },
     ] );
@@ -2291,7 +2274,6 @@ add_action( 'rest_api_init', function () {
             $id = 'r_' . wp_generate_password( 12, false, false );
             $redirects[ $id ] = [ 'id' => $id, 'source_path' => $source, 'target_url' => $target, 'status_code' => $status, 'created' => current_time( 'mysql' ) ];
             update_option( SAC_OPTION_REDIRECTS, $redirects, false );
-            sac_write_log( 'create_redirect', '新增轉址', "{$source} → {$target}", $req->get_header( 'x-sac-key' ) );
             return rest_ensure_response( [ 'success' => true, 'redirect' => $redirects[ $id ] ] );
         },
     ] );
@@ -2304,7 +2286,6 @@ add_action( 'rest_api_init', function () {
             $source = $redirects[ $id ]['source_path'];
             unset( $redirects[ $id ] );
             update_option( SAC_OPTION_REDIRECTS, $redirects, false );
-            sac_write_log( 'delete_redirect', '刪除轉址', $source, $req->get_header( 'x-sac-key' ) );
             return rest_ensure_response( [ 'success' => true ] );
         },
     ] );
@@ -2339,7 +2320,6 @@ add_action( 'rest_api_init', function () {
                 $id = $coupon->save();
             } catch ( Exception $e ) { return sac_coupon_error( $e->getMessage() ); }
             if ( ! $id ) return sac_coupon_error( '優惠券建立失敗' );
-            sac_write_log( 'create_coupon', '新增優惠券', $code, $req->get_header( 'x-sac-key' ) );
             return rest_ensure_response( [ 'success' => true, 'coupon' => sac_coupon_result( $coupon ) ] );
         },
     ] );
@@ -2355,7 +2335,6 @@ add_action( 'rest_api_init', function () {
                 if ( is_wp_error( $valid ) ) return $valid;
                 $coupon->save();
             } catch ( Exception $e ) { return sac_coupon_error( $e->getMessage() ); }
-            sac_write_log( 'update_coupon', '修改優惠券', $coupon->get_code(), $req->get_header( 'x-sac-key' ) );
             return rest_ensure_response( [ 'success' => true, 'coupon' => sac_coupon_result( $coupon ) ] );
         },
     ] );
@@ -2367,7 +2346,6 @@ add_action( 'rest_api_init', function () {
             if ( get_post_type( $id ) !== 'shop_coupon' || get_post_status( $id ) === 'trash' ) return new WP_Error( 'sac_not_found', '優惠券不存在', [ 'status' => 404 ] );
             $code = get_the_title( $id );
             if ( ! wp_trash_post( $id ) ) return sac_coupon_error( '優惠券無法移入垃圾桶' );
-            sac_write_log( 'delete_coupon', '停用優惠券', $code, $req->get_header( 'x-sac-key' ) );
             return rest_ensure_response( [ 'success' => true, 'coupon_id' => $id ] );
         },
     ] );
