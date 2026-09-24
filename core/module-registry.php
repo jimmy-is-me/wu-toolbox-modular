@@ -105,7 +105,6 @@ function wutm_modules(): array {
         'member-loyalty' => ['name' => '會員點數與階級', 'description' => '整合消費點數、結帳折抵、會員分級、專屬權益與 CRM；階級點數倍率會自動套用至點數回饋。', 'group' => '電商工具', 'icon' => '🏆', 'requires' => 'woocommerce', 'settings_page' => 'wu-member-loyalty', 'legacy_sources' => ['member-points', 'member-tiers']],
         'product-scheduled-unpublish' => ['name' => '商品排程下架', 'description' => '在商品編輯頁設定下架時間，到期後自動轉為草稿，並於商品列表顯示及排序排程。', 'group' => '電商工具', 'icon' => '🕒', 'requires' => 'woocommerce', 'settings_url' => 'edit.php?post_type=product'],
         'ecpay-tools' => ['name' => '綠界金流/物流/電子發票工具', 'description' => '整合綠界付款、超商與宅配物流及電子發票。需設定商店資料並完成測試。', 'group' => '電商支付工具', 'icon' => '💳', 'requires' => 'woocommerce'],
-        'esun-payment' => ['name' => '玉山銀行金流工具', 'description' => '玉山信用卡一次付清與分期付款，沿用銀行交易驗證流程。', 'group' => '電商支付工具', 'icon' => '🏦', 'requires' => 'woocommerce'],
         'shopcom-integration' => ['name' => '美安串接', 'description' => '整合 SHOP.COM RID／Click_ID 追蹤、訂單成立與取消回傳、佣金計算、商品 XML Feed 與 HPOS 訂單狀態。', 'group' => '專業工具', 'icon' => '🔗', 'requires' => 'woocommerce', 'settings_url' => 'admin.php?page=wc-settings&tab=shopcom'],
     ];
 }
