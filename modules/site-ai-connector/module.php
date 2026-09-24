@@ -22,6 +22,7 @@ define( 'SAC_OPTION_UPLOAD_TOKENS', 'sac_upload_tokens' );
 define( 'SAC_LOG_OPTION', 'sac_operation_log' );
 define( 'SAC_OPTION_IP_ALLOWLIST', 'sac_ip_allowlist' );
 define( 'SAC_OPTION_ALLOW_PUBLISH', 'sac_ai_allow_publish' );
+define( 'SAC_OPTION_ALLOW_COUPON_PUBLISH', 'sac_ai_allow_coupon_publish' );
 define( 'SAC_FORM_CPT', 'sac_form_entry' );
 define( 'SAC_CACHE_TTL', 60 ); // 唯讀查詢快取秒數，降低重複對話造成的資料庫負擔
 define( 'SAC_OPTION_FEATURES', 'sac_features' );
@@ -443,14 +444,14 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'list_coupons', 'group' => '優惠券管理', 'method' => 'GET', 'path' => '/wc/coupons',
-            'summary' => '列出優惠券', 'description' => '列出優惠券代碼、折扣與使用狀況。',
+            'summary' => '列出優惠券', 'description' => '列出已啟用及草稿優惠券的代碼、狀態、折扣與使用狀況。',
             'scenario' => '檢查目前優惠券', 'prompt' => '列出目前的優惠券代碼、折扣金額和到期日',
             'need_write' => false, 'available' => $has_wc && sac_feature_enabled( 'coupons' ),
             'params' => [ 'limit' => [ 'type' => 'integer', 'in' => 'query', 'description' => '1 至 100，預設 20' ] ],
         ],
         [
             'name' => 'create_coupon', 'group' => '優惠券管理', 'method' => 'POST', 'path' => '/wc/coupons',
-            'summary' => '新增優惠券', 'description' => '新增 WooCommerce 優惠券。',
+            'summary' => '新增優惠券', 'description' => '新增 WooCommerce 優惠券；預設存為草稿，僅管理員開啟 AI 優惠券直接生效權限後才會立即啟用。',
             'scenario' => '建立活動折扣碼', 'prompt' => '建立優惠券 MID100，訂單滿 1000 元折 100 元，總共限用 50 次',
             'need_write' => true, 'available' => $has_wc && sac_feature_enabled( 'coupons' ),
             'params' => [
@@ -464,7 +465,7 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'update_coupon', 'group' => '優惠券管理', 'method' => 'POST', 'path' => '/wc/coupons/{coupon_id}',
-            'summary' => '修改優惠券', 'description' => '修改金額、到期日或使用上限。到期日給空字串可清除。',
+            'summary' => '修改優惠券', 'description' => '修改金額、到期日或使用上限。到期日給空字串可清除；修改已啟用的優惠券須先由管理員開啟直接生效權限。',
             'scenario' => '延長活動或調整折扣', 'prompt' => '優惠券 123 的使用上限改成 50 次，其他設定不變',
             'need_write' => true, 'available' => $has_wc && sac_feature_enabled( 'coupons' ),
             'params' => [
@@ -942,6 +943,7 @@ function sac_render_admin_page() {
         }
         if ( $_POST['sac_action'] === 'save_publish_policy' ) {
             update_option( SAC_OPTION_ALLOW_PUBLISH, ! empty( $_POST['sac_allow_publish'] ) );
+            update_option( SAC_OPTION_ALLOW_COUPON_PUBLISH, ! empty( $_POST['sac_allow_coupon_publish'] ) );
             echo '<div class="notice notice-success"><p>已更新 AI 發布限制</p></div>';
         }
         if ( $_POST['sac_action'] === 'clear_log' ) {
@@ -1115,11 +1117,12 @@ function sac_render_admin_page() {
         </form>
 
         <h2>AI 寫入限制</h2>
-        <p>新增文章與商品預設為草稿；關閉直接發布時，寫入工具指定 publish 會在伺服器端被拒絕。此設定沿用現有唯讀／讀寫金鑰權限。</p>
+        <p>新增文章、商品與優惠券預設為草稿；未開啟對應權限時，AI 不可直接讓內容或優惠券生效。此設定沿用現有唯讀／讀寫金鑰權限。</p>
         <form method="post">
             <?php wp_nonce_field( 'sac_admin_action' ); ?>
             <input type="hidden" name="sac_action" value="save_publish_policy">
             <label><input type="checkbox" name="sac_allow_publish" value="1" <?php checked( (bool) get_option( SAC_OPTION_ALLOW_PUBLISH, false ) ); ?>> 允許 AI 工具直接發布文章與商品</label>
+            <p><label><input type="checkbox" name="sac_allow_coupon_publish" value="1" <?php checked( (bool) get_option( SAC_OPTION_ALLOW_COUPON_PUBLISH, false ) ); ?>> 允許 AI 工具直接啟用新增優惠券，並修改已啟用的優惠券</label></p>
             <p><button class="button button-primary">儲存設定</button></p>
         </form>
 
@@ -2246,6 +2249,7 @@ function sac_apply_coupon_fields( WC_Coupon $coupon, WP_REST_Request $req, $crea
 function sac_coupon_result( WC_Coupon $coupon ) {
     return [
         'id' => $coupon->get_id(), 'code' => $coupon->get_code(),
+        'status' => $coupon->get_status(),
         'discount_type' => $coupon->get_discount_type(), 'amount' => $coupon->get_amount(),
         'expiry_date' => $coupon->get_date_expires() ? $coupon->get_date_expires()->date( 'Y-m-d' ) : null,
         'usage_count' => $coupon->get_usage_count(), 'usage_limit' => $coupon->get_usage_limit(),
@@ -2295,7 +2299,7 @@ add_action( 'rest_api_init', function () {
         'callback' => function ( WP_REST_Request $req ) {
             if ( ! class_exists( 'WooCommerce' ) ) return new WP_Error( 'sac_no_wc', 'WooCommerce 未啟用', [ 'status' => 400 ] );
             $limit = max( 1, min( 100, (int) ( $req->get_param( 'limit' ) ?: 20 ) ) );
-            $ids = get_posts( [ 'post_type' => 'shop_coupon', 'post_status' => 'publish', 'posts_per_page' => $limit, 'fields' => 'ids', 'no_found_rows' => true ] );
+            $ids = get_posts( [ 'post_type' => 'shop_coupon', 'post_status' => [ 'publish', 'draft' ], 'posts_per_page' => $limit, 'fields' => 'ids', 'no_found_rows' => true ] );
             $result = [];
             foreach ( $ids as $id ) {
                 $coupon = new WC_Coupon( $id );
@@ -2311,10 +2315,14 @@ add_action( 'rest_api_init', function () {
             if ( ! class_exists( 'WooCommerce' ) ) return new WP_Error( 'sac_no_wc', 'WooCommerce 未啟用', [ 'status' => 400 ] );
             $code = wc_format_coupon_code( (string) $req->get_param( 'code' ) );
             if ( $code === '' ) return sac_coupon_error( '優惠券代碼不可為空' );
-            if ( wc_get_coupon_id_by_code( $code ) ) return sac_coupon_error( '優惠券代碼已存在' );
+            // WooCommerce only looks up published coupons; also prevent duplicate draft codes.
+            global $wpdb;
+            $existing_id = $wpdb->get_var( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'shop_coupon' AND post_status <> 'trash' AND LOWER(post_title) = LOWER(%s) LIMIT 1", $code ) );
+            if ( $existing_id ) return sac_coupon_error( '優惠券代碼已存在' );
             try {
                 $coupon = new WC_Coupon();
                 $coupon->set_code( $code );
+                $coupon->set_status( get_option( SAC_OPTION_ALLOW_COUPON_PUBLISH, false ) ? 'publish' : 'draft' );
                 $valid = sac_apply_coupon_fields( $coupon, $req, true );
                 if ( is_wp_error( $valid ) ) return $valid;
                 $id = $coupon->save();
@@ -2329,6 +2337,9 @@ add_action( 'rest_api_init', function () {
             if ( ! class_exists( 'WooCommerce' ) ) return new WP_Error( 'sac_no_wc', 'WooCommerce 未啟用', [ 'status' => 400 ] );
             $id = (int) $req['id'];
             if ( get_post_type( $id ) !== 'shop_coupon' || get_post_status( $id ) === 'trash' ) return new WP_Error( 'sac_not_found', '優惠券不存在', [ 'status' => 404 ] );
+            if ( get_post_status( $id ) === 'publish' && ! get_option( SAC_OPTION_ALLOW_COUPON_PUBLISH, false ) ) {
+                return new WP_Error( 'sac_coupon_publish_blocked', '修改已啟用的優惠券前，須由管理員在後台開啟 AI 優惠券直接生效權限', [ 'status' => 403 ] );
+            }
             try {
                 $coupon = new WC_Coupon( $id );
                 $valid = sac_apply_coupon_fields( $coupon, $req );
