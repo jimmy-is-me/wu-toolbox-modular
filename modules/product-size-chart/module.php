@@ -38,6 +38,7 @@ function wutm_product_size_chart_render_meta_box( $post ) {
     wp_nonce_field( 'wutm_product_size_chart_save', 'wutm_product_size_chart_nonce' );
     $rows = get_post_meta( $post->ID, '_custom_size_chart', true );
     $columns = get_post_meta( $post->ID, '_custom_size_chart_columns', true );
+    $note = get_post_meta( $post->ID, '_custom_size_chart_note', true );
     if ( ! is_array( $rows ) ) $rows = array();
     if ( ! is_array( $columns ) || empty( $columns ) ) $columns = wutm_product_size_chart_default_columns();
     ?>
@@ -73,9 +74,15 @@ function wutm_product_size_chart_render_meta_box( $post ) {
             </table>
         </div>
         <p class="wutm-size-chart-controls"><button type="button" class="button" id="wutm-size-chart-add-column">新增規格欄位</button> <button type="button" class="button" id="wutm-size-chart-add-row">新增資料列</button></p>
+        <div class="wutm-size-chart-note-editor">
+            <h3>規格表備註</h3>
+            <p class="description">選填；儲存後會顯示在前台規格表下方。可使用粗體、連結與項目清單等基本格式。</p>
+            <?php wp_editor( (string) $note, 'wutm_size_chart_note', array( 'textarea_name' => 'wutm_size_chart_note', 'textarea_rows' => 4, 'teeny' => true, 'media_buttons' => false, 'quicktags' => true, 'tinymce' => array( 'toolbar1' => 'bold,italic,underline,bullist,numlist,link,unlink,undo,redo', 'toolbar2' => '' ) ) ); ?>
+        </div>
     </div>
     <style>
         .wutm-size-chart-table-wrap{max-width:100%;overflow-x:auto}.wutm-size-chart-admin table{width:100%;min-width:900px;table-layout:fixed;border-collapse:collapse}.wutm-size-chart-admin th,.wutm-size-chart-admin td{padding:10px;vertical-align:top;box-sizing:border-box}.wutm-size-chart-admin th input,.wutm-size-chart-admin td input{display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box}.wutm-size-chart-admin .wutm-size-chart-remove-column{display:block;margin-top:6px;max-width:100%;white-space:nowrap}.wutm-size-chart-admin .wutm-size-chart-actions{width:88px;min-width:88px}.wutm-size-chart-controls{display:flex;gap:8px;flex-wrap:wrap}
+        .wutm-size-chart-note-editor{margin-top:22px;padding-top:16px;border-top:1px solid #dcdcde}.wutm-size-chart-note-editor h3{margin-top:0}.wutm-size-chart-note-editor .wp-editor-wrap{max-width:100%}
     </style>
     <script>
     jQuery(function($){
@@ -131,6 +138,12 @@ function wutm_product_size_chart_save_data( $post_id ) {
     update_post_meta( $post_id, '_custom_size_chart_columns', $columns );
     if ( $rows ) update_post_meta( $post_id, '_custom_size_chart', $rows );
     else delete_post_meta( $post_id, '_custom_size_chart' );
+
+    $note = isset( $_POST['wutm_size_chart_note'] ) && is_string( $_POST['wutm_size_chart_note'] )
+        ? wp_kses_post( wp_unslash( $_POST['wutm_size_chart_note'] ) )
+        : '';
+    if ( '' !== trim( wp_strip_all_tags( $note ) ) ) update_post_meta( $post_id, '_custom_size_chart_note', $note );
+    else delete_post_meta( $post_id, '_custom_size_chart_note' );
 }
 
 // 3. 前台顯示商品尺寸表 (新增至商品頁籤)
@@ -155,6 +168,7 @@ function wutm_product_size_chart_render_tab_content() {
     global $post;
     $size_chart = get_post_meta( $post->ID, '_custom_size_chart', true );
     $columns = get_post_meta( $post->ID, '_custom_size_chart_columns', true );
+    $note = get_post_meta( $post->ID, '_custom_size_chart_note', true );
     if ( ! is_array( $columns ) || empty( $columns ) ) $columns = wutm_product_size_chart_default_columns();
 
     if ( ! empty( $size_chart ) ) {
@@ -226,8 +240,9 @@ function wutm_product_size_chart_render_tab_content() {
         
         echo '</tbody></table>';
         echo '</div>';
-        // 單位提示
-        echo '<span class="custom-size-chart-note">商品規格欄位與資料依商品編輯頁設定顯示。</span>';
+        if ( is_string( $note ) && '' !== trim( $note ) ) {
+            echo '<div class="custom-size-chart-note">' . wp_kses_post( $note ) . '</div>';
+        }
         echo '</div>';
     }
 }
