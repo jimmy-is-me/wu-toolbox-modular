@@ -35,10 +35,12 @@ function wutm_product_size_chart_add_meta_box() {
 }
 
 function wutm_product_size_chart_render_meta_box( $post ) {
+    wp_enqueue_media();
     wp_nonce_field( 'wutm_product_size_chart_save', 'wutm_product_size_chart_nonce' );
     $rows = get_post_meta( $post->ID, '_custom_size_chart', true );
     $columns = get_post_meta( $post->ID, '_custom_size_chart_columns', true );
     $note = get_post_meta( $post->ID, '_custom_size_chart_note', true );
+    $image_id = absint( get_post_meta( $post->ID, '_custom_size_chart_image_id', true ) );
     if ( ! is_array( $rows ) ) $rows = array();
     if ( ! is_array( $columns ) || empty( $columns ) ) $columns = wutm_product_size_chart_default_columns();
     ?>
@@ -79,6 +81,13 @@ function wutm_product_size_chart_render_meta_box( $post ) {
             <p class="description">選填；儲存後會顯示在前台規格表下方。可使用粗體、連結與項目清單等基本格式。</p>
             <?php wp_editor( (string) $note, 'wutm_size_chart_note', array( 'textarea_name' => 'wutm_size_chart_note', 'textarea_rows' => 4, 'teeny' => true, 'media_buttons' => false, 'quicktags' => true, 'tinymce' => array( 'toolbar1' => 'bold,italic,underline,bullist,numlist,link,unlink,undo,redo', 'toolbar2' => '' ) ) ); ?>
         </div>
+        <div class="wutm-size-chart-note-editor">
+            <h3>規格表圖片（選填）</h3>
+            <p class="description">可從媒體庫選擇或上傳一張圖片，顯示於前台規格表與備註下方。</p>
+            <input type="hidden" id="wutm-size-chart-image-id" name="wutm_size_chart_image_id" value="<?php echo esc_attr( $image_id ); ?>">
+            <div id="wutm-size-chart-image-preview"><?php if ( $image_id ) echo wp_get_attachment_image( $image_id, 'medium' ); ?></div>
+            <p><button type="button" class="button" id="wutm-size-chart-select-image">選擇圖片</button> <button type="button" class="button" id="wutm-size-chart-remove-image"<?php echo $image_id ? '' : ' hidden'; ?>>移除圖片</button></p>
+        </div>
     </div>
     <style>
         .wutm-size-chart-table-wrap{max-width:100%;overflow-x:auto}.wutm-size-chart-admin table{width:100%;min-width:900px;table-layout:fixed;border-collapse:collapse}.wutm-size-chart-admin th,.wutm-size-chart-admin td{padding:10px;vertical-align:top;box-sizing:border-box}.wutm-size-chart-admin th input,.wutm-size-chart-admin td input{display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box}.wutm-size-chart-admin .wutm-size-chart-remove-column{display:block;margin-top:6px;max-width:100%;white-space:nowrap}.wutm-size-chart-admin .wutm-size-chart-actions{width:88px;min-width:88px}.wutm-size-chart-controls{display:flex;gap:8px;flex-wrap:wrap}
@@ -86,6 +95,15 @@ function wutm_product_size_chart_render_meta_box( $post ) {
     </style>
     <script>
     jQuery(function($){
+        var imageFrame;
+        $('#wutm-size-chart-select-image').on('click',function(){
+            if (!imageFrame) {
+                imageFrame=wp.media({title:'選擇規格表圖片',button:{text:'使用此圖片'},library:{type:'image'},multiple:false});
+                imageFrame.on('select',function(){var item=imageFrame.state().get('selection').first().toJSON();$('#wutm-size-chart-image-id').val(item.id);$('#wutm-size-chart-image-preview').empty().append($('<img>',{src:(item.sizes && item.sizes.medium ? item.sizes.medium.url : item.url),alt:'',style:'max-width:300px;height:auto;'}));$('#wutm-size-chart-remove-image').prop('hidden',false);});
+            }
+            imageFrame.open();
+        });
+        $('#wutm-size-chart-remove-image').on('click',function(){$('#wutm-size-chart-image-id').val('');$('#wutm-size-chart-image-preview').empty();$(this).prop('hidden',true);});
         var $table=$('#wutm-size-chart-table'), $head=$table.find('thead tr'), $body=$table.find('tbody');
         var rowIndex=$body.find('tr').length, columnIndex=0;
         function keys(){return $head.find('.wutm-size-chart-column').map(function(){return String($(this).data('column-key'));}).get();}
@@ -144,6 +162,9 @@ function wutm_product_size_chart_save_data( $post_id ) {
         : '';
     if ( '' !== trim( wp_strip_all_tags( $note ) ) ) update_post_meta( $post_id, '_custom_size_chart_note', $note );
     else delete_post_meta( $post_id, '_custom_size_chart_note' );
+    $image_id = isset( $_POST['wutm_size_chart_image_id'] ) ? absint( wp_unslash( $_POST['wutm_size_chart_image_id'] ) ) : 0;
+    if ( $image_id && wp_attachment_is_image( $image_id ) ) update_post_meta( $post_id, '_custom_size_chart_image_id', $image_id );
+    else delete_post_meta( $post_id, '_custom_size_chart_image_id' );
 }
 
 // 3. 前台顯示商品尺寸表 (新增至商品頁籤)
@@ -169,6 +190,7 @@ function wutm_product_size_chart_render_tab_content() {
     $size_chart = get_post_meta( $post->ID, '_custom_size_chart', true );
     $columns = get_post_meta( $post->ID, '_custom_size_chart_columns', true );
     $note = get_post_meta( $post->ID, '_custom_size_chart_note', true );
+    $image_id = absint( get_post_meta( $post->ID, '_custom_size_chart_image_id', true ) );
     if ( ! is_array( $columns ) || empty( $columns ) ) $columns = wutm_product_size_chart_default_columns();
 
     if ( ! empty( $size_chart ) ) {
@@ -245,6 +267,7 @@ function wutm_product_size_chart_render_tab_content() {
         if ( is_string( $note ) && '' !== trim( $note ) ) {
             echo '<div class="custom-size-chart-note">' . wp_kses_post( $note ) . '</div>';
         }
+        if ( $image_id ) echo '<div class="custom-size-chart-image" style="margin-top:16px;max-width:100%;overflow:hidden">' . wp_get_attachment_image( $image_id, 'full', false, array( 'style' => 'max-width:100%;height:auto;' ) ) . '</div>';
         echo '</div>';
     }
 }
