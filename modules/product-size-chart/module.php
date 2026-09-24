@@ -214,6 +214,8 @@ function wutm_product_size_chart_render_tab_content() {
                 color: #888;
                 margin-top: 10px;
                 display: block;
+                white-space: pre-line;
+                line-height: 1.7;
             }
         </style>';
 
