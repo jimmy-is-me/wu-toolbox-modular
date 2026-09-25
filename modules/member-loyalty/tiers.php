@@ -1069,7 +1069,8 @@ final class WC_Membership_Tiers {
         if ( ! $tier || floatval( $tier->discount_percent ) <= 0 ) return;
 
         $subtotal = $cart->get_subtotal();
-        $discount = round( $subtotal * ( floatval( $tier->discount_percent ) / 100 ), 2 );
+        // The fee itself must be a whole TWD amount, not just rounded at payment time.
+        $discount = min( (int) floor( $subtotal ), (int) round( $subtotal * ( floatval( $tier->discount_percent ) / 100 ), 0 ) );
         if ( $discount > 0 ) {
             $cart->add_fee( sprintf( '%s 專屬折扣', $tier->name ), -$discount, false );
         }

@@ -8,10 +8,15 @@ const WUTM_NMD_RESET_ALLOWED = '_wutm_new_member_discount_reset_allowed';
 const WUTM_NMD_ORDER_RESET = '_wutm_new_member_discount_from_reset';
 
 function wutm_nmd_defaults(): array { return ['enabled'=>1,'minimum'=>500,'discount'=>100,'notice'=>1]; }
-function wutm_nmd_options(): array { return wp_parse_args((array)get_option('wutm_new_member_discount',[]),wutm_nmd_defaults()); }
+function wutm_nmd_options(): array {
+    $options = wp_parse_args((array)get_option('wutm_new_member_discount',[]),wutm_nmd_defaults());
+    // Normalize older fractional settings before displaying or applying a fee.
+    $options['discount'] = max(0,(int)round((float)$options['discount'],0));
+    return $options;
+}
 function wutm_nmd_sanitize($input): array {
     $input=is_array($input)?$input:[];
-    return ['enabled'=>empty($input['enabled'])?0:1,'minimum'=>max(0,(float)($input['minimum']??500)),'discount'=>max(0,(float)($input['discount']??100)),'notice'=>empty($input['notice'])?0:1];
+    return ['enabled'=>empty($input['enabled'])?0:1,'minimum'=>max(0,(float)($input['minimum']??500)),'discount'=>max(0,(int)round((float)($input['discount']??100),0)),'notice'=>empty($input['notice'])?0:1];
 }
 function wutm_nmd_eligible(int $user_id): bool {
     if(!$user_id||metadata_exists('user',$user_id,WUTM_NMD_USED))return false;
@@ -24,7 +29,7 @@ function wutm_nmd_cart_discount_amount($cart = null): float {
     if (!$cart || !($cart instanceof WC_Cart) || !is_user_logged_in()) return 0.0;
     $o = wutm_nmd_options();
     if (!$o['enabled'] || $o['discount'] <= 0 || $cart->get_subtotal() < $o['minimum'] || !wutm_nmd_eligible(get_current_user_id())) return 0.0;
-    return min((float) $o['discount'], (float) $cart->get_subtotal());
+    return (float) min((int) $o['discount'], (int) floor((float) $cart->get_subtotal()));
 }
 function wutm_nmd_log_entries($value):array{
     if(is_string($value)){$decoded=json_decode($value,true);if(is_array($decoded))$value=$decoded;}
