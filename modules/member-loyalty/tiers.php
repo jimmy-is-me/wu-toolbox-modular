@@ -247,7 +247,7 @@ final class WC_Membership_Tiers {
         add_shortcode( 'wmt_progress', array( $this, 'wmt_shortcode_progress' ) );
 
         // 前台：折扣 / 免運 / 動態價格 / 購物車提醒
-        add_filter( 'woocommerce_cart_calculate_fees', array( $this, 'wmt_apply_tier_discount_fee' ) );
+        add_filter( 'woocommerce_cart_calculate_fees', array( $this, 'wmt_apply_tier_discount_fee' ), 20 );
         add_filter( 'woocommerce_package_rates', array( $this, 'wmt_force_free_shipping' ), 100, 2 );
         add_filter( 'woocommerce_get_price_html', array( $this, 'wmt_show_vip_price_html' ), 20, 2 );
         add_action( 'woocommerce_before_cart', array( $this, 'wmt_cart_upgrade_notice' ) );
@@ -413,17 +413,17 @@ final class WC_Membership_Tiers {
             'level'                    => intval( $_POST['level'] ?? 0 ),
             'badge_url'                => esc_url_raw( $_POST['badge_url'] ?? '' ),
             'is_default'               => isset( $_POST['is_default'] ) ? 1 : 0,
-            'single_amount'            => floatval( $_POST['single_amount'] ?? 0 ),
-            'cum_amount'               => floatval( $_POST['cum_amount'] ?? 0 ),
-            'cum_amount_days'          => intval( $_POST['cum_amount_days'] ?? 365 ),
-            'cum_count'                => intval( $_POST['cum_count'] ?? 0 ),
-            'cum_count_days'           => intval( $_POST['cum_count_days'] ?? 180 ),
-            'valid_days'               => intval( $_POST['valid_days'] ?? 365 ),
-            'renewal_amount'           => floatval( $_POST['renewal_amount'] ?? 0 ),
-            'discount_percent'         => floatval( $_POST['discount_percent'] ?? 0 ),
-            'points_multiplier'        => floatval( $_POST['points_multiplier'] ?? 1 ),
-            'birthday_coupon_amount'   => floatval( $_POST['birthday_coupon_amount'] ?? 0 ),
-            'free_shipping_per_month'  => intval( $_POST['free_shipping_per_month'] ?? 0 ),
+            'single_amount'            => max( 0, floatval( $_POST['single_amount'] ?? 0 ) ),
+            'cum_amount'               => max( 0, floatval( $_POST['cum_amount'] ?? 0 ) ),
+            'cum_amount_days'          => max( 0, intval( $_POST['cum_amount_days'] ?? 365 ) ),
+            'cum_count'                => max( 0, intval( $_POST['cum_count'] ?? 0 ) ),
+            'cum_count_days'           => max( 0, intval( $_POST['cum_count_days'] ?? 180 ) ),
+            'valid_days'               => min( 36500, max( 0, intval( $_POST['valid_days'] ?? 365 ) ) ),
+            'renewal_amount'           => max( 0, floatval( $_POST['renewal_amount'] ?? 0 ) ),
+            'discount_percent'         => min( 100, max( 0, floatval( $_POST['discount_percent'] ?? 0 ) ) ),
+            'points_multiplier'        => min( 100, max( 0, floatval( $_POST['points_multiplier'] ?? 1 ) ) ),
+            'birthday_coupon_amount'   => max( 0, floatval( $_POST['birthday_coupon_amount'] ?? 0 ) ),
+            'free_shipping_per_month'  => max( 0, intval( $_POST['free_shipping_per_month'] ?? 0 ) ),
             'free_shipping_always'     => isset( $_POST['free_shipping_always'] ) ? 1 : 0,
             'status'                   => isset( $_POST['status'] ) ? 1 : 0,
             'updated_at'               => current_time( 'mysql' ),
@@ -580,7 +580,16 @@ final class WC_Membership_Tiers {
     }
 
     public function wmt_get_user_current_tier( $user_id ) {
+        static $expiry_checked = array();
         $row = $this->wmt_get_user_tier_row( $user_id );
+        // Reconcile an expired tier on first read in this request, rather than
+        // granting expired benefits until the next daily cron. Expiry uses the
+        // same site-local DATETIME format used when assigning the tier.
+        if ( $row && ! empty( $row->expires_at ) && $row->expires_at <= current_time( 'mysql' ) && empty( $expiry_checked[ (int) $user_id ] ) ) {
+            $expiry_checked[ (int) $user_id ] = true;
+            $this->wmt_recalculate_user( (int) $user_id );
+            $row = $this->wmt_get_user_tier_row( $user_id );
+        }
         if ( $row ) {
             $tier = $this->wmt_get_tier( $row->tier_id );
             if ( $tier ) return $tier;
@@ -595,12 +604,13 @@ final class WC_Membership_Tiers {
 
     private function wmt_assign_tier( $user_id, $tier_id, $valid_days, $reason = 'auto', $is_manual = false ) {
         global $wpdb;
+        $valid_days = min( 36500, max( 0, absint( $valid_days ) ) );
         $current = $this->wmt_get_user_tier_row( $user_id );
         $from_tier_id = $current ? $current->tier_id : null;
 
         $expires_at = null;
         if ( $valid_days > 0 ) {
-            $expires_at = date( 'Y-m-d H:i:s', strtotime( "+{$valid_days} days", current_time( 'timestamp' ) ) );
+            $expires_at = current_datetime()->modify( '+' . absint( $valid_days ) . ' days' )->format( 'Y-m-d H:i:s' );
         }
 
         $data = array(
@@ -827,7 +837,7 @@ final class WC_Membership_Tiers {
         $tiers = $this->wmt_get_all_tiers( true );
         if ( empty( $tiers ) ) return;
 
-        $now_ts = current_time( 'timestamp' );
+        $now = current_time( 'mysql' );
         $default_tier = $this->wmt_get_default_tier();
 
         usort( $tiers, function ( $a, $b ) { return $b->level <=> $a->level; } );
@@ -855,14 +865,14 @@ final class WC_Membership_Tiers {
             return;
         }
 
-        if ( $current_row && $current_row->expires_at && strtotime( $current_row->expires_at ) > $now_ts ) {
+        if ( $current_row && $current_row->expires_at && $current_row->expires_at > $now ) {
             return;
         }
         if ( $current_row && ! $current_row->expires_at ) {
             return;
         }
 
-        if ( $current_tier && $current_row && $current_row->expires_at && strtotime( $current_row->expires_at ) <= $now_ts ) {
+        if ( $current_tier && $current_row && $current_row->expires_at && $current_row->expires_at <= $now ) {
             $renew_amount = floatval( $current_tier->renewal_amount );
             $window_days = intval( $current_tier->cum_amount_days ) > 0 ? intval( $current_tier->cum_amount_days ) : 365;
             $spent = $this->wmt_get_cumulative_amount( $user_id, $window_days );
@@ -915,7 +925,7 @@ final class WC_Membership_Tiers {
 
     public function wmt_get_cumulative_amount( $user_id, $days ) {
         global $wpdb;
-        $since = date( 'Y-m-d H:i:s', strtotime( "-{$days} days", current_time( 'timestamp' ) ) );
+        $since = current_datetime()->modify( '-' . absint( $days ) . ' days' )->format( 'Y-m-d H:i:s' );
         $sum = $wpdb->get_var( $wpdb->prepare(
             "SELECT SUM(amount) FROM {$this->wmt_table_orders()} WHERE user_id = %d AND status = 'counted' AND order_date >= %s",
             $user_id, $since
@@ -925,7 +935,7 @@ final class WC_Membership_Tiers {
 
     public function wmt_get_cumulative_count( $user_id, $days ) {
         global $wpdb;
-        $since = date( 'Y-m-d H:i:s', strtotime( "-{$days} days", current_time( 'timestamp' ) ) );
+        $since = current_datetime()->modify( '-' . absint( $days ) . ' days' )->format( 'Y-m-d H:i:s' );
         $cnt = $wpdb->get_var( $wpdb->prepare(
             "SELECT COUNT(*) FROM {$this->wmt_table_orders()} WHERE user_id = %d AND status = 'counted' AND order_date >= %s",
             $user_id, $since
@@ -1055,7 +1065,7 @@ final class WC_Membership_Tiers {
 
     public function wmt_filter_points_multiplier( $multiplier, $user_id ) {
         $tier = $this->wmt_get_user_current_tier( $user_id );
-        return $tier ? floatval( $tier->points_multiplier ) : $multiplier;
+        return $tier ? min( 100, max( 0, (float) $tier->points_multiplier ) ) : max( 0, (float) $multiplier );
     }
 
     /* =================================================================
@@ -1066,11 +1076,18 @@ final class WC_Membership_Tiers {
         if ( is_admin() && ! defined( 'DOING_AJAX' ) ) return;
         if ( ! is_user_logged_in() ) return;
         $tier = $this->wmt_get_user_current_tier( get_current_user_id() );
-        if ( ! $tier || floatval( $tier->discount_percent ) <= 0 ) return;
+        if ( ! $tier ) return;
+        $discount_percent = min( 100, max( 0, (float) ( $tier->discount_percent ?? 0 ) ) );
+        if ( $discount_percent <= 0 ) return;
 
-        $subtotal = $cart->get_subtotal();
-        // The fee itself must be a whole TWD amount, not just rounded at payment time.
-        $discount = min( (int) floor( $subtotal ), (int) round( $subtotal * ( floatval( $tier->discount_percent ) / 100 ), 0 ) );
+        $available = function_exists( 'wutm_loyalty_discountable_amount' )
+            ? wutm_loyalty_discountable_amount( $cart )
+            : max( 0, (float) $cart->get_subtotal() - (float) $cart->get_discount_total() );
+        // Coupons are applied first. Tier discount is the first automatic fee;
+        // it is rounded now and cannot exceed the remaining merchandise value.
+        $discount = function_exists( 'wutm_loyalty_whole_discount' )
+            ? wutm_loyalty_whole_discount( $available, $available * ( $discount_percent / 100 ) )
+            : min( (int) floor( $available ), (int) round( $available * ( $discount_percent / 100 ), 0 ) );
         if ( $discount > 0 ) {
             $cart->add_fee( sprintf( '%s 專屬折扣', $tier->name ), -$discount, false );
         }
@@ -1094,7 +1111,8 @@ final class WC_Membership_Tiers {
 
         $regular = (float) $product->get_price();
         if ( $regular <= 0 ) return $price_html;
-        $vip_price = $regular * ( 1 - floatval( $tier->discount_percent ) / 100 );
+        $vip_discount_percent = min( 100, max( 0, (float) ( $tier->discount_percent ?? 0 ) ) );
+        $vip_price = max( 0, (int) round( $regular * ( 1 - $vip_discount_percent / 100 ), 0 ) );
 
         return $price_html . sprintf(
             '<br/><span class="wmt-vip-price">%s 專屬價：%s</span>',

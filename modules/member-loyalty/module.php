@@ -7,6 +7,8 @@
 
 defined('ABSPATH') || exit;
 
+require_once __DIR__ . '/promotion-policy.php';
+
 require_once __DIR__ . '/points.php';
 require_once __DIR__ . '/tiers.php';
 

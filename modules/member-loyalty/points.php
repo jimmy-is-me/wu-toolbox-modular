@@ -150,7 +150,9 @@ final class WC_Member_Points_Rewards {
         add_action( 'woocommerce_before_order_notes', array( $this, 'wcmp_render_points_box' ) );
         add_action( 'wp_ajax_wcmp_apply_points', array( $this, 'wcmp_ajax_apply_points' ) );
         add_action( 'wp_ajax_nopriv_wcmp_apply_points', array( $this, 'wcmp_ajax_apply_points' ) );
-        add_filter( 'woocommerce_cart_calculate_fees', array( $this, 'wcmp_apply_points_fee' ) );
+        // Run after tier and new-member fees so points use only the remaining
+        // merchandise value and remain the final Toolbox discount.
+        add_filter( 'woocommerce_cart_calculate_fees', array( $this, 'wcmp_apply_points_fee' ), 40 );
 
         add_action( 'woocommerce_checkout_order_processed', array( $this, 'wcmp_on_order_created' ), 10, 3 );
         add_action( 'woocommerce_order_status_completed', array( $this, 'wcmp_on_order_completed' ) );
@@ -193,7 +195,14 @@ final class WC_Member_Points_Rewards {
 
     public function wcmp_get_settings() {
         $settings = get_option( self::OPTION_KEY, array() );
-        return wp_parse_args( $settings, $this->wcmp_default_settings() );
+        $settings = wp_parse_args( $settings, $this->wcmp_default_settings() );
+        $settings['earn_ratio'] = min( 1000000000, max( 0.01, (float) $settings['earn_ratio'] ) );
+        $settings['redeem_ratio'] = min( 1000, max( 0.01, (float) $settings['redeem_ratio'] ) );
+        $settings['max_redeem_percent'] = min( 100, max( 0, (float) $settings['max_redeem_percent'] ) );
+        $settings['min_order_amount'] = max( 0, (float) $settings['min_order_amount'] );
+        $settings['max_points_per_order'] = max( 0, (int) $settings['max_points_per_order'] );
+        $settings['expire_days'] = max( 0, (int) $settings['expire_days'] );
+        return $settings;
     }
 
     private function wcmp_points_enabled() {
@@ -233,7 +242,7 @@ final class WC_Member_Points_Rewards {
 
     public function wcmp_get_balance( $user_id ) {
         $balance = get_user_meta( $user_id, 'wcmp_points_balance', true );
-        return $balance === '' ? 0 : intval( $balance );
+        return $balance === '' ? 0 : max( 0, intval( $balance ) );
     }
 
     private function wcmp_set_balance( $user_id, $balance ) {
@@ -250,7 +259,7 @@ final class WC_Member_Points_Rewards {
             $days = is_null( $expire_days_override ) ? intval( $settings['expire_days'] ) : intval( $expire_days_override );
             $expires_at = null;
             if ( $days > 0 ) {
-                $expires_at = date( 'Y-m-d H:i:s', strtotime( "+{$days} days", current_time( 'timestamp' ) ) );
+                $expires_at = current_datetime()->modify( '+' . absint( $days ) . ' days' )->format( 'Y-m-d H:i:s' );
             }
 
             $wpdb->insert( $this->wcmp_table(), array(
@@ -358,7 +367,7 @@ final class WC_Member_Points_Rewards {
     public function wcmp_get_expiring_soon( $user_id, $days = 30 ) {
         global $wpdb;
         $now = current_time( 'mysql' );
-        $until = date( 'Y-m-d H:i:s', strtotime( "+{$days} days", current_time( 'timestamp' ) ) );
+        $until = current_datetime()->modify( '+' . max( 0, absint( $days ) ) . ' days' )->format( 'Y-m-d H:i:s' );
         return $wpdb->get_results( $wpdb->prepare(
             "SELECT DATE(expires_at) as expire_date, SUM(remaining) as pts
              FROM {$this->wcmp_table()}
@@ -440,7 +449,7 @@ final class WC_Member_Points_Rewards {
 
     public function wcmp_calc_discount_amount( $points ) {
         $settings = $this->wcmp_get_settings();
-        return (int) round( $points * floatval( $settings['redeem_ratio'] ), 0 );
+        return max( 0, (int) round( max( 0, (int) $points ) * floatval( $settings['redeem_ratio'] ), 0 ) );
     }
 
     public function wcmp_calc_earn_points( $eligible_amount ) {
@@ -459,6 +468,9 @@ final class WC_Member_Points_Rewards {
 
     private function wcmp_get_eligible_amount_from_cart() {
         if ( ! WC()->cart ) return 0;
+        if ( function_exists( 'wutm_loyalty_discountable_amount' ) ) {
+            return wutm_loyalty_discountable_amount( WC()->cart, false );
+        }
         $subtotal = WC()->cart->get_subtotal();
         $coupon_discount = WC()->cart->get_discount_total();
         $points_discount = $this->wcmp_calc_discount_amount( $this->wcmp_get_session_points() );
@@ -466,6 +478,9 @@ final class WC_Member_Points_Rewards {
     }
 
     private function wcmp_get_eligible_amount_from_order( $order ) {
+        if ( function_exists( 'wutm_loyalty_order_discountable_amount' ) ) {
+            return wutm_loyalty_order_discountable_amount( $order );
+        }
         $subtotal = $order->get_subtotal();
         $coupon_discount = $order->get_discount_total();
         $points_discount = floatval( $order->get_meta( '_wcmp_points_discount' ) );
@@ -666,12 +681,16 @@ final class WC_Member_Points_Rewards {
 
         // WooCommerce recalculates fees repeatedly. Revalidate against the latest
         // cart value without recursively subtracting the points fee itself.
-        $eligible = max( 0, (float) $cart->get_subtotal() - (float) $cart->get_discount_total() );
+        $eligible = function_exists( 'wutm_loyalty_discountable_amount' )
+            ? wutm_loyalty_discountable_amount( $cart )
+            : max( 0, (float) $cart->get_subtotal() - (float) $cart->get_discount_total() );
         $points = min( $points, $this->wcmp_calc_max_usable_points( get_current_user_id(), $eligible ) );
         $this->wcmp_set_session_points( $points );
         if ( $points <= 0 ) return;
 
-        $discount = $this->wcmp_calc_discount_amount( $points );
+        $discount = function_exists( 'wutm_loyalty_whole_discount' )
+            ? wutm_loyalty_whole_discount( $eligible, $this->wcmp_calc_discount_amount( $points ) )
+            : min( (int) floor( $eligible ), $this->wcmp_calc_discount_amount( $points ) );
         if ( $discount <= 0 ) {
             $this->wcmp_set_session_points( 0 );
             return;
@@ -711,13 +730,49 @@ final class WC_Member_Points_Rewards {
         if ( $points <= 0 ) return;
 
         $balance = $this->wcmp_get_balance( $user_id );
-        $eligible = max( 0, (float) $order->get_subtotal() - (float) $order->get_discount_total() );
+        $eligible = function_exists( 'wutm_loyalty_order_discountable_amount' )
+            ? wutm_loyalty_order_discountable_amount( $order, true )
+            : max( 0, (float) $order->get_subtotal() - (float) $order->get_discount_total() );
         $points = min( $points, $balance, $this->wcmp_calc_max_usable_points( $user_id, $eligible ) );
-        if ( $points <= 0 ) return;
+        if ( $points <= 0 ) {
+            $this->wcmp_set_session_points( 0 );
+            return;
+        }
 
         $settings = $this->wcmp_get_settings();
         $discount = $this->wcmp_calc_discount_amount( $points );
-        if ( $discount <= 0 ) return;
+        if ( $discount <= 0 ) {
+            $this->wcmp_set_session_points( 0 );
+            return;
+        }
+
+        // Reconcile the fee to the points actually available at order creation.
+        // This closes the small window where another order may consume the same
+        // balance after cart recalculation but before this order is created.
+        $points_fee = null;
+        foreach ( $order->get_fees() as $fee ) {
+            if ( $fee->get_name() === $settings['front_label'] . '折抵' ) {
+                $points_fee = $fee;
+                break;
+            }
+        }
+        if ( ! $points_fee ) {
+            $this->wcmp_set_session_points( 0 );
+            return;
+        }
+        $discount = min( $discount, (int) floor( abs( (float) $points_fee->get_total() ) ) );
+        $discount = function_exists( 'wutm_loyalty_whole_discount' )
+            ? wutm_loyalty_whole_discount( $eligible, $discount )
+            : min( (int) floor( $eligible ), $discount );
+        if ( $discount <= 0 ) {
+            $this->wcmp_set_session_points( 0 );
+            return;
+        }
+        $points_fee->set_amount( -$discount );
+        $points_fee->set_total( -$discount );
+        $order->calculate_totals();
+        $order->save();
+
         $prefix = $settings['code_prefix'] ? $settings['code_prefix'] : 'pts_';
         $discount_code = $prefix . $order_id; // 僅供後台內部識別／報表使用，不會顯示給顧客
 
@@ -1128,6 +1183,7 @@ final class WC_Member_Points_Rewards {
 
             <h3>點數設定</h3>
             <p class="description">三個開關由上而下為階層關係：關閉「功能啟用」會連帶停用下面兩者；「回饋」與「折抵」可各自獨立開關。</p>
+            <p class="description"><strong>優惠計算順序：</strong>折價券先套用，接著擇一套用會員階級折扣或新會員優惠，最後才計算點數折抵；各折扣都以剩餘商品金額計算，點數折抵另受本頁設定的比例上限約束。</p>
 
             <div class="wcmp-toggle-card">
                 <label class="wcmp-switch">
