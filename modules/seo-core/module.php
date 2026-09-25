@@ -28,6 +28,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 
 		public static function init() {
 			add_action( 'admin_menu', [ __CLASS__, 'admin_menu' ] );
+			add_action( 'admin_notices', [ __CLASS__, 'show_seo_plugin_conflict_notice' ] );
 			add_action( 'admin_init', [ __CLASS__, 'register_settings' ] );
 			add_action( 'admin_enqueue_scripts', [ __CLASS__, 'admin_assets' ] );
 			add_action( 'wp_dashboard_setup', [ __CLASS__, 'dashboard_widget_setup' ] );
@@ -53,6 +54,42 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 
 			// Core canonical 會與本外掛輸出重複，改由本外掛統一處理。
 			remove_action( 'wp_head', 'rel_canonical' );
+		}
+
+		/** Warn on SEO Core screens when another SEO plugin may duplicate front-end metadata. */
+		public static function show_seo_plugin_conflict_notice() {
+			if ( ! current_user_can( 'manage_options' ) ) {
+				return;
+			}
+
+			$page = isset( $_GET['page'] ) ? sanitize_key( wp_unslash( $_GET['page'] ) ) : '';
+			if ( ! in_array( $page, [ self::DASHBOARD_PAGE, self::SETTINGS_PAGE ], true ) ) {
+				return;
+			}
+
+			if ( ! function_exists( 'is_plugin_active' ) ) {
+				require_once ABSPATH . 'wp-admin/includes/plugin.php';
+			}
+
+			$active_plugins = (array) get_option( 'active_plugins', [] );
+			$network_plugins = array_keys( (array) get_site_option( 'active_sitewide_plugins', [] ) );
+			$active_plugins = array_unique( array_merge( $active_plugins, $network_plugins ) );
+			$conflicts = [];
+			if ( array_filter( $active_plugins, static function ( $plugin ) { return 0 === strpos( (string) $plugin, 'wordpress-seo/' ); } ) ) {
+				$conflicts[] = 'Yoast SEO';
+			}
+			if ( array_filter( $active_plugins, static function ( $plugin ) { return 0 === strpos( (string) $plugin, 'seo-by-rank-math/' ); } ) ) {
+				$conflicts[] = 'Rank Math';
+			}
+
+			if ( ! $conflicts ) {
+				return;
+			}
+
+			printf(
+				'<div class="notice notice-warning"><p><strong>SEO 外掛衝突提醒：</strong>WU Toolbox SEO 核心與 %1$s 同時啟用，可能重複輸出 Meta 標籤或結構化資料。請確認需求並選擇其中一個 SEO 功能使用；本提醒不會自動停用任何外掛。</p></div>',
+				esc_html( implode( '、', $conflicts ) )
+			);
 		}
 
 		/* =========================================================
