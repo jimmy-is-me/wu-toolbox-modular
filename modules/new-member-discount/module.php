@@ -11,6 +11,7 @@ function wutm_nmd_defaults(): array { return ['enabled'=>1,'minimum'=>500,'disco
 function wutm_nmd_options(): array {
     $options = wp_parse_args((array)get_option('wutm_new_member_discount',[]),wutm_nmd_defaults());
     // Normalize older fractional settings before displaying or applying a fee.
+    $options['minimum'] = max(0,(float)$options['minimum']);
     $options['discount'] = max(0,(int)round((float)$options['discount'],0));
     return $options;
 }
@@ -28,8 +29,17 @@ function wutm_nmd_fee_name(array $o): string { return sprintf("新會員優惠\n
 function wutm_nmd_cart_discount_amount($cart = null): float {
     if (!$cart || !($cart instanceof WC_Cart) || !is_user_logged_in()) return 0.0;
     $o = wutm_nmd_options();
-    if (!$o['enabled'] || $o['discount'] <= 0 || $cart->get_subtotal() < $o['minimum'] || !wutm_nmd_eligible(get_current_user_id())) return 0.0;
-    return (float) min((int) $o['discount'], (int) floor((float) $cart->get_subtotal()));
+    if (!$o['enabled'] || $o['discount'] <= 0 || !wutm_nmd_eligible(get_current_user_id())) return 0.0;
+    // A tier discount takes priority: the two automatic percentage/fixed
+    // promotions are alternatives, never cumulative discounts.
+    if (function_exists('wutm_loyalty_has_tier_discount_fee') && wutm_loyalty_has_tier_discount_fee($cart)) return 0.0;
+    $available = function_exists('wutm_loyalty_discountable_amount')
+        ? wutm_loyalty_discountable_amount($cart)
+        : max(0.0, (float) $cart->get_subtotal() - (float) $cart->get_discount_total());
+    if ($available < (float) $o['minimum']) return 0.0;
+    return (float) (function_exists('wutm_loyalty_whole_discount')
+        ? wutm_loyalty_whole_discount($available, (float) $o['discount'])
+        : min((int) $o['discount'], (int) floor($available)));
 }
 function wutm_nmd_log_entries($value):array{
     if(is_string($value)){$decoded=json_decode($value,true);if(is_array($decoded))$value=$decoded;}
@@ -44,7 +54,7 @@ add_action('woocommerce_cart_calculate_fees',function($cart):void{
     $discount=wutm_nmd_cart_discount_amount($cart);
     if($discount<=0)return;
     $cart->add_fee(wutm_nmd_fee_name($o),-$discount,false);
-});
+}, 30);
 
 function wutm_nmd_capture_order($order,bool $backfill=false):void{
     if(!($order instanceof WC_Order))return;
@@ -142,7 +152,7 @@ function wutm_nmd_render_settings():void{$o=wutm_nmd_options();?>
     <section class="wutm-nmd-panel wutm-nmd-guide"><h2>設定說明</h2><p>優惠只提供給已登入、沒有成功購買紀錄且尚未使用此優惠的會員。折扣會在訂單建立時鎖定，避免同時重複下單。</p><p><strong>免運計算說明：</strong>新會員優惠會計入折扣後小計。若免運門檻為 NT$2,000，商品為 NT$2,000 並套用 NT$100 新會員優惠時，小計為 NT$1,900，尚未符合免運；商品金額需達 NT$2,100 才會免運。</p></section>
     <section class="wutm-nmd-panel"><h2>滿額折扣設定</h2><form method="post" action="options.php"><?php settings_fields('wutm_nmd_group');?><table class="form-table wutm-nmd-form-table" role="presentation">
     <tr><th scope="row">啟用優惠</th><td><label><input type="checkbox" name="wutm_new_member_discount[enabled]" value="1" <?php checked($o['enabled']);?>> 啟用新會員首次消費折扣</label><p class="description">關閉後不會套用折扣，也不顯示前台活動提示。</p></td></tr>
-    <tr><th scope="row">最低消費金額</th><td><input type="number" min="0" step="1" name="wutm_new_member_discount[minimum]" value="<?php echo esc_attr($o['minimum']);?>"><p class="description">購物車商品小計達到此金額後才會自動折抵。</p></td></tr>
+            <tr><th scope="row">最低消費金額</th><td><input type="number" min="0" step="1" name="wutm_new_member_discount[minimum]" value="<?php echo esc_attr($o['minimum']);?>"><p class="description">以折價券後的剩餘商品金額判定。若同時符合會員階級折扣，優先使用階級折扣，不會再疊加新會員優惠。</p></td></tr>
     <tr><th scope="row">折扣金額</th><td><input type="number" min="0" step="1" name="wutm_new_member_discount[discount]" value="<?php echo esc_attr($o['discount']);?>"><p class="description">實際折扣不會超過購物車商品小計，並會計入免運門檻的小計判斷。</p></td></tr>
     <tr><th scope="row">前台活動提示</th><td><label><input type="checkbox" name="wutm_new_member_discount[notice]" value="1" <?php checked($o['notice']);?>> 在商品頁、購物車與結帳頁顯示</label><p class="description">已使用優惠或已有成功訂單的會員不會看到提示。</p></td></tr></table><?php submit_button('儲存設定');?></form></section><?php
 }
