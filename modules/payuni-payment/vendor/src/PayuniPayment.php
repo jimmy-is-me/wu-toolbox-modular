@@ -351,10 +351,24 @@ class PayuniPayment {
 		$hashkey   = $test_mode ? get_option( 'payuni_payment_hashkey_test' ) : get_option( 'payuni_payment_hashkey' );
 		$hashiv    = $test_mode ? get_option( 'payuni_payment_hashiv_test' ) : get_option( 'payuni_payment_hashiv' );
 
-		list($encrypt_data, $tag) = explode( ':::', hex2bin( $encrypt_str ), 2 );
-		$encrypt_info             = openssl_decrypt( $encrypt_data, 'aes-256-gcm', trim( $hashkey ), 0, trim( $hashiv ), base64_decode( $tag ) );
+		$binary = ctype_xdigit( $encrypt_str ) ? hex2bin( $encrypt_str ) : false;
+		if ( false === $binary || false === strpos( $binary, ':::' ) ) {
+			return array();
+		}
+
+		list( $encrypt_data, $tag ) = explode( ':::', $binary, 2 );
+		$tag                       = base64_decode( $tag, true );
+		if ( false === $tag || '' === $tag ) {
+			return array();
+		}
+
+		$encrypt_info = openssl_decrypt( $encrypt_data, 'aes-256-gcm', trim( $hashkey ), 0, trim( $hashiv ), $tag );
+		if ( false === $encrypt_info || '' === $encrypt_info ) {
+			return array();
+		}
+
 		parse_str( $encrypt_info, $encrypt_arr );
-		return $encrypt_arr;
+		return is_array( $encrypt_arr ) ? $encrypt_arr : array();
 	}
 
 	/**
@@ -368,6 +382,89 @@ class PayuniPayment {
 		$hashiv    = $test_mode ? get_option( 'payuni_payment_hashiv_test' ) : get_option( 'payuni_payment_hashiv' );
 
 		return strtoupper( hash( 'sha256', $hashkey . $encrypt_str . $hashiv ) );
+	}
+
+	/**
+	 * Verify a PAYUNi response envelope before attempting to decrypt it.
+	 *
+	 * @param array $payload PAYUNi response fields.
+	 * @return bool
+	 */
+	public static function has_valid_response_hash( array $payload ): bool {
+		if ( ! isset( $payload['EncryptInfo'], $payload['HashInfo'] ) || ! is_string( $payload['EncryptInfo'] ) || ! is_string( $payload['HashInfo'] ) ) {
+			return false;
+		}
+
+		$encrypt_info = trim( $payload['EncryptInfo'] );
+		$hash_info    = strtoupper( trim( $payload['HashInfo'] ) );
+		if ( '' === $encrypt_info || ! preg_match( '/^[A-F0-9]{64}$/', $hash_info ) ) {
+			return false;
+		}
+
+		$test_mode = wc_string_to_bool( get_option( 'payuni_payment_testmode_enabled' ) );
+		$hashkey   = $test_mode ? get_option( 'payuni_payment_hashkey_test' ) : get_option( 'payuni_payment_hashkey' );
+		$hashiv    = $test_mode ? get_option( 'payuni_payment_hashiv_test' ) : get_option( 'payuni_payment_hashiv' );
+		if ( ! is_string( $hashkey ) || '' === trim( $hashkey ) || ! is_string( $hashiv ) || '' === trim( $hashiv ) ) {
+			return false;
+		}
+
+		return hash_equals( self::hash_info( $encrypt_info ), $hash_info );
+	}
+
+	/**
+	 * Convert a decimal amount into the configured currency's smallest unit without floats.
+	 * Excess non-zero precision is rejected instead of rounded.
+	 *
+	 * @param mixed $amount Amount received from WooCommerce or PAYUNi.
+	 * @return string Empty string when the amount is malformed or cannot be represented exactly.
+	 */
+	public static function amount_to_minor_units( $amount ): string {
+		if ( ! is_scalar( $amount ) ) {
+			return '';
+		}
+		$amount = trim( (string) $amount );
+		if ( ! preg_match( '/^(\d+)(?:\.(\d+))?$/', $amount, $matches ) ) {
+			return '';
+		}
+
+		$decimals  = function_exists( 'wc_get_price_decimals' ) ? max( 0, (int) wc_get_price_decimals() ) : 0;
+		$whole     = $matches[1];
+		$fraction  = isset( $matches[2] ) ? $matches[2] : '';
+		$precision = strlen( $fraction );
+		if ( $precision > $decimals && '' !== trim( substr( $fraction, $decimals ), '0' ) ) {
+			return '';
+		}
+
+		$fraction = substr( str_pad( $fraction, $decimals, '0' ), 0, $decimals );
+		$minor    = ltrim( $whole . $fraction, '0' );
+
+		return '' === $minor ? '0' : $minor;
+	}
+
+	/**
+	 * Get the latest transaction number issued for this WooCommerce order.
+	 *
+	 * @param \WC_Order $order Order to check.
+	 * @return string
+	 */
+	public static function get_current_order_transaction_no( $order ): string {
+		$transaction_no = (string) $order->get_meta( self::get_order_meta_key( $order, OrderMeta::PAYUNI_ORDER_NO ) );
+		$serial_no = (int) $order->get_meta( '_payuni_order_serial_no' );
+		if ( $serial_no > 0 ) {
+			$generated_no = $order->get_id() . '-' . $serial_no;
+			if ( '' === $transaction_no ) {
+				return $generated_no;
+			}
+
+			// Before the exact transaction number was persisted, a later retry could leave
+			// the saved callback number behind the most recently issued serial number.
+			$stored_prefix = (string) $order->get_id() . '-';
+			if ( 0 === strpos( $transaction_no, $stored_prefix ) && ctype_digit( substr( $transaction_no, strlen( $stored_prefix ) ) ) && (int) substr( $transaction_no, strlen( $stored_prefix ) ) < $serial_no ) {
+				return $generated_no;
+			}
+		}
+
+		return $transaction_no;
 	}
 
 	/**

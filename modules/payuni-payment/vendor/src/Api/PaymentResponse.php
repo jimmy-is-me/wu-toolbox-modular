@@ -44,21 +44,16 @@ class PaymentResponse {
 	public static function payuni_receive_notify() {
         // phpcs:disable WordPress.Security.NonceVerification.Missing
 
-		if ( empty( $_POST ) ) {
-			return;
-		}
-
 		$test_mode     = wc_string_to_bool( get_option( 'payuni_payment_testmode_enabled' ) );
 		$mer_id        = $test_mode ? get_option( 'payuni_payment_merchant_id_test' ) : get_option( 'payuni_payment_merchant_id' );
-		$posted_mer_id = ( isset( $_POST['MerID'] ) ) ? wc_clean( wp_unslash( $_POST['MerID'] ) ) : '';
-
-		if ( $mer_id !== $posted_mer_id ) {
-			PayuniPayment::log( 'PAYUNi received response MerID not found or not match. ' );
+		$decrypted_info = self::get_verified_callback_data( $mer_id );
+		if ( false === $decrypted_info ) {
 			return;
 		}
-
-		$encrypt_info   = ( isset( $_POST['EncryptInfo'] ) ) ? wc_clean( wp_unslash( $_POST['EncryptInfo'] ) ) : '';
-		$decrypted_info = PayuniPayment::decrypt( $encrypt_info );
+		if ( ! self::has_required_payment_fields( $decrypted_info ) ) {
+			PayuniPayment::log( 'PAYUNi Notify response rejected: required transaction fields are missing.' );
+			return;
+		}
 		PayuniPayment::log( 'PAYUNi NotifyURL response decrypted:' . wc_print_r( $decrypted_info, true ) );
 
 		$status          = $decrypted_info['Status']; // SUCESS = 成功，OK = 審核通過.
@@ -81,9 +76,17 @@ class PaymentResponse {
 			PayuniPayment::log( 'Cant find order by id:' . $woo_order_id );
 			return;
 		}
+		if ( ! self::matches_order_transaction( $order, $decrypted_info ) ) {
+			PayuniPayment::log( 'PAYUNi Notify response rejected: order transaction or amount mismatch.' );
+			return;
+		}
 
 		// 電子發票的通知
 		if ( array_key_exists( 'InvoiceNo', $decrypted_info ) ) {
+			if ( ! isset( $decrypted_info['InvoiceNo'], $decrypted_info['InvoiceStatus'], $decrypted_info['InvoiceTime'], $decrypted_info['InvoiceNotifyType'], $decrypted_info['InvoiceInfo'], $decrypted_info['TradeAmt'] ) ) {
+				PayuniPayment::log( 'PAYUNi e-invoice notification rejected: required invoice fields are missing.' );
+				return;
+			}
 			self::save_einvoice_data( $order, $decrypted_info );
 			$order->add_order_note( 'PAYUNi E-Invoice Notify. InvoiceStatus:' . $decrypted_info['InvoiceStatus'] . ', InvoiceNo:' . $decrypted_info['InvoiceNo'] );
 			return;
@@ -105,21 +108,16 @@ class PaymentResponse {
 	 */
 	public static function payuni_receive_response_frontend() {
      // phpcs:disable WordPress.Security.NonceVerification.Missing	
-		if ( empty( $_POST ) ) {
-			return;
-		}
-
 		$test_mode     = wc_string_to_bool( get_option( 'payuni_payment_testmode_enabled' ) );
 		$mer_id        = $test_mode ? get_option( 'payuni_payment_merchant_id_test' ) : get_option( 'payuni_payment_merchant_id' );
-		$posted_mer_id = ( isset( $_POST['MerID'] ) ) ? wc_clean( wp_unslash( $_POST['MerID'] ) ) : '';
-
-		if ( $mer_id !== $posted_mer_id ) {
-			PayuniPayment::log( 'PAYUNi received response MerID not found or not match. ' );
+		$decrypted_info = self::get_verified_callback_data( $mer_id );
+		if ( false === $decrypted_info ) {
 			return;
 		}
-
-		$encrypt_info   = ( isset( $_POST['EncryptInfo'] ) ) ? wc_clean( wp_unslash( $_POST['EncryptInfo'] ) ) : '';
-		$decrypted_info = PayuniPayment::decrypt( $encrypt_info );
+		if ( ! self::has_required_payment_fields( $decrypted_info ) ) {
+			PayuniPayment::log( 'PAYUNi Return response rejected: required transaction fields are missing.' );
+			return;
+		}
 		PayuniPayment::log( 'PAYUNi ReturnURL response decrypted:' . wc_print_r( $decrypted_info, true ) );
 
 		$status       = $decrypted_info['Status']; // SUCESS = 成功，OK = 審核通過.
@@ -142,6 +140,10 @@ class PaymentResponse {
 			PayuniPayment::log( 'Cant find order by id:' . $woo_order_id );
 			return;
 		}
+		if ( ! self::matches_order_transaction( $order, $decrypted_info ) ) {
+			PayuniPayment::log( 'PAYUNi Return response rejected: order transaction or amount mismatch.' );
+			return;
+		}
 
 		$order->add_order_note( "<strong>{$text_log}</strong><br>{$text_code} {$status}<br>{$text_message} {$message}<br>{$text_mertradeno} {$order_id}<br>{$text_number} {$trade_no}<br>{$text_paytype} " . PayType::get_name( $pay_type ) );
 
@@ -155,6 +157,97 @@ class PaymentResponse {
 		exit;
 
      // phpcs:enable WordPress.Security.NonceVerification.Missing
+	}
+
+	/**
+	 * Validate the response envelope before decrypting any callback payload.
+	 *
+	 * @param string $expected_merchant_id Merchant ID configured for the active environment.
+	 * @return array|false
+	 */
+	private static function get_verified_callback_data( $expected_merchant_id ) {
+		if ( empty( $_POST ) || ! is_scalar( $expected_merchant_id ) || '' === (string) $expected_merchant_id ) {
+			PayuniPayment::log( 'PAYUNi callback rejected: request or configured merchant ID is missing.' );
+			return false;
+		}
+
+		$posted_merchant_id = isset( $_POST['MerID'] ) && is_scalar( $_POST['MerID'] ) ? wc_clean( wp_unslash( $_POST['MerID'] ) ) : '';
+		$payload            = array(
+			'EncryptInfo' => isset( $_POST['EncryptInfo'] ) && is_scalar( $_POST['EncryptInfo'] ) ? wc_clean( wp_unslash( $_POST['EncryptInfo'] ) ) : '',
+			'HashInfo'    => isset( $_POST['HashInfo'] ) && is_scalar( $_POST['HashInfo'] ) ? wc_clean( wp_unslash( $_POST['HashInfo'] ) ) : '',
+		);
+
+		if ( (string) $expected_merchant_id !== (string) $posted_merchant_id || ! PayuniPayment::has_valid_response_hash( $payload ) ) {
+			PayuniPayment::log( 'PAYUNi callback rejected: merchant ID mismatch or missing/invalid HashInfo.' );
+			return false;
+		}
+
+		$decrypted_info = PayuniPayment::decrypt( $payload['EncryptInfo'] );
+		if ( empty( $decrypted_info ) || ! is_array( $decrypted_info ) ) {
+			PayuniPayment::log( 'PAYUNi callback rejected: EncryptInfo could not be decrypted.' );
+			return false;
+		}
+
+		if ( isset( $decrypted_info['MerID'] ) && (string) $decrypted_info['MerID'] !== (string) $expected_merchant_id ) {
+			PayuniPayment::log( 'PAYUNi callback rejected: encrypted merchant ID mismatch.' );
+			return false;
+		}
+
+		return $decrypted_info;
+	}
+
+	/**
+	 * Check that a payment or e-invoice callback includes its required fields.
+	 *
+	 * @param array $data Decrypted PAYUNi response.
+	 * @return bool
+	 */
+	private static function has_required_payment_fields( array $data ): bool {
+		if ( isset( $data['InvoiceNo'] ) ) {
+			$required_invoice_fields = array( 'InvoiceNo', 'InvoiceStatus', 'InvoiceTime', 'InvoiceNotifyType', 'InvoiceInfo', 'MerTradeNo', 'TradeAmt' );
+			foreach ( $required_invoice_fields as $required_invoice_field ) {
+				if ( ! isset( $data[ $required_invoice_field ] ) || ! is_scalar( $data[ $required_invoice_field ] ) || '' === (string) $data[ $required_invoice_field ] ) {
+					return false;
+				}
+			}
+
+			return true;
+		}
+
+		$required = array( 'Status', 'TradeStatus', 'MerTradeNo', 'TradeAmt', 'Message', 'PaymentType' );
+		foreach ( $required as $key ) {
+			if ( ! isset( $data[ $key ] ) || ! is_scalar( $data[ $key ] ) || '' === (string) $data[ $key ] ) {
+				return false;
+			}
+		}
+
+		if ( ! in_array( (string) $data['Status'], array( 'SUCCESS', 'SUCESS', 'OK' ), true ) || ! in_array( (string) $data['TradeStatus'], array( TradeStatus::CREDIT_VALID_OR_GET_NUMBER_SUCCESS, TradeStatus::PAID, TradeStatus::FAIL, TradeStatus::CANCEL, TradeStatus::EXPIRED, TradeStatus::TBC, TradeStatus::UNPAID ), true ) ) {
+			return false;
+		}
+
+		if ( '1' === (string) $data['PaymentType'] && ! isset( $data['AuthType'] ) ) {
+			return false;
+		}
+
+		return TradeStatus::PAID !== (string) $data['TradeStatus'] || ( isset( $data['TradeNo'] ) && is_scalar( $data['TradeNo'] ) && '' !== (string) $data['TradeNo'] );
+	}
+
+	/**
+	 * Ensure a callback belongs to the latest transaction and exact order total.
+	 *
+	 * @param \WC_Order $order WooCommerce order.
+	 * @param array     $data  Decrypted PAYUNi response.
+	 * @return bool
+	 */
+	private static function matches_order_transaction( $order, array $data ): bool {
+		$expected_trade_no = PayuniPayment::get_current_order_transaction_no( $order );
+		if ( '' === $expected_trade_no || ! isset( $data['MerTradeNo'], $data['TradeAmt'] ) || ! is_scalar( $data['MerTradeNo'] ) || ! is_scalar( $data['TradeAmt'] ) || (string) $data['MerTradeNo'] !== $expected_trade_no ) {
+			return false;
+		}
+
+		$expected_amount = PayuniPayment::amount_to_minor_units( $order->get_total() );
+		$received_amount = PayuniPayment::amount_to_minor_units( $data['TradeAmt'] );
+		return '' !== $expected_amount && '' !== $received_amount && $expected_amount === $received_amount;
 	}
 
 	/**

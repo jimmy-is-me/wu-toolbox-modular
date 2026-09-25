@@ -62,6 +62,14 @@ class PaymentRequest {
 		}
 
 		$encrypt_info = apply_filters( 'payuni_upp_transaction_args_data', $encrypt_info, $order );
+		if ( ! is_array( $encrypt_info ) || empty( $encrypt_info['MerTradeNo'] ) || ! is_scalar( $encrypt_info['MerTradeNo'] ) ) {
+			throw new \UnexpectedValueException( 'PAYUNi transaction arguments must contain a valid MerTradeNo.' );
+		}
+
+		// Persist the exact (possibly filtered) transaction number so every response path can
+		// verify that PAYUNi is reporting the transaction currently associated with this order.
+		$order->update_meta_data( PayuniPayment::get_order_meta_key( $order, OrderMeta::PAYUNI_ORDER_NO ), (string) $encrypt_info['MerTradeNo'] );
+		$order->save();
 
 		PayuniPayment::log( 'request encrypt info:' . wc_print_r( $encrypt_info, true ) );
 
@@ -275,8 +283,11 @@ class PaymentRequest {
 		$test_mode = wc_string_to_bool( get_option( 'payuni_payment_testmode_enabled' ) );
 		$mer_id    = $test_mode ? get_option( 'payuni_payment_merchant_id_test' ) : get_option( 'payuni_payment_merchant_id' );
 
-		$payuni_order_no_key = PayuniPayment::get_order_meta_key( $order, OrderMeta::PAYUNI_ORDER_NO );
-		$payuni_order_no     = $order->get_meta( $payuni_order_no_key );
+		$payuni_order_no     = PayuniPayment::get_current_order_transaction_no( $order );
+		if ( '' === $payuni_order_no ) {
+			PayuniPayment::log( 'PAYUNi query aborted: transaction number is missing for order ' . $order_id );
+			return false;
+		}
 
 		$encrypt_info    = array(
 			'MerID'      => $mer_id,
@@ -313,9 +324,56 @@ class PaymentRequest {
 		$response_body = wp_remote_retrieve_body( $response );
 		PayuniPayment::log( 'query response body:' . wc_print_r( $response_body, true ) );
 
-		$result    = json_decode( $response_body, true );
+		$result = json_decode( $response_body, true );
+		if ( ! is_array( $result ) || ! isset( $result['Status'] ) || ! is_scalar( $result['Status'] ) || 'SUCCESS' !== (string) $result['Status'] || ! PayuniPayment::has_valid_response_hash( $result ) ) {
+			PayuniPayment::log( 'PAYUNi query response rejected: missing or invalid HashInfo.' );
+			return false;
+		}
+
+		$outer_merchant_id_valid = isset( $result['MerID'] ) && is_scalar( $result['MerID'] ) && (string) $result['MerID'] === (string) $mer_id;
+		if ( isset( $result['MerID'] ) && ! $outer_merchant_id_valid ) {
+			PayuniPayment::log( 'PAYUNi query response rejected: merchant ID mismatch.' );
+			return false;
+		}
+
 		$decrypted = PayuniPayment::decrypt( $result['EncryptInfo'] );
 		PayuniPayment::log( 'query decrypted info:' . wc_print_r( $decrypted, true ) );
+		if ( empty( $decrypted ) || ! isset( $decrypted['Message'], $decrypted['Result'][0] ) || ! is_array( $decrypted['Result'][0] ) ) {
+			PayuniPayment::log( 'PAYUNi query response rejected: decryption failed or transaction result is missing.' );
+			return false;
+		}
+
+		$query_transaction = $decrypted['Result'][0];
+		$expected_trade_no  = PayuniPayment::get_current_order_transaction_no( $order );
+		$required_query_fields = array( 'MerTradeNo', 'TradeNo', 'TradeStatus', 'PaymentType', 'TradeAmt' );
+		foreach ( $required_query_fields as $required_query_field ) {
+			if ( ! isset( $query_transaction[ $required_query_field ] ) || ! is_scalar( $query_transaction[ $required_query_field ] ) ) {
+				PayuniPayment::log( 'PAYUNi query response rejected: required transaction fields are missing.' );
+				return false;
+			}
+		}
+
+		if ( '' === $expected_trade_no || (string) $query_transaction['MerTradeNo'] !== $expected_trade_no ) {
+			PayuniPayment::log( 'PAYUNi query response rejected: transaction number missing or mismatched.' );
+			return false;
+		}
+
+		$expected_amount = PayuniPayment::amount_to_minor_units( $order->get_total() );
+		$received_amount = PayuniPayment::amount_to_minor_units( $query_transaction['TradeAmt'] );
+		if ( '' === $expected_amount || '' === $received_amount || $expected_amount !== $received_amount ) {
+			PayuniPayment::log( 'PAYUNi query response rejected: transaction amount missing or mismatched.' );
+			return false;
+		}
+
+		$inner_merchant_id_valid = isset( $query_transaction['MerID'] ) && is_scalar( $query_transaction['MerID'] ) && (string) $query_transaction['MerID'] === (string) $mer_id;
+		if ( isset( $query_transaction['MerID'] ) && ! $inner_merchant_id_valid ) {
+			PayuniPayment::log( 'PAYUNi query response rejected: encrypted merchant ID mismatch.' );
+			return false;
+		}
+		if ( ! $outer_merchant_id_valid && ! $inner_merchant_id_valid ) {
+			PayuniPayment::log( 'PAYUNi query response rejected: merchant ID is missing.' );
+			return false;
+		}
 
 		if ( 'SUCCESS' === $result['Status'] ) {
 			// Check if Result array exists and has data
@@ -331,8 +389,8 @@ class PaymentRequest {
 			$query_result['MerTradeNo']  = $decrypted['Result'][0]['MerTradeNo'];
 			$query_result['TradeNo']     = $decrypted['Result'][0]['TradeNo'];
 			$query_result['TradeStatus'] = $decrypted['Result'][0]['TradeStatus'];
-			$query_result['PaymentDay']  = $decrypted['Result'][0]['PaymentDay'];
-			$query_result['CreateDay']   = $decrypted['Result'][0]['CreateDay'];
+			$query_result['PaymentDay']  = $decrypted['Result'][0]['PaymentDay'] ?? '';
+			$query_result['CreateDay']   = $decrypted['Result'][0]['CreateDay'] ?? '';
 			$query_result['PaymentType'] = $decrypted['Result'][0]['PaymentType'];
 			
 			if ( isset( $decrypted['Result'][0]['TradeAmt'] ) ) {
@@ -341,6 +399,10 @@ class PaymentRequest {
 
 			// 信用卡.
 			if ( '1' === $query_result['PaymentType'] ) {
+				if ( ! isset( $decrypted['Result'][0]['CloseStatus'] ) ) {
+					PayuniPayment::log( 'PAYUNi query response rejected: credit-card CloseStatus is missing.' );
+					return false;
+				}
 				$query_result['CloseStatus'] = $decrypted['Result'][0]['CloseStatus'];
 			}
 
