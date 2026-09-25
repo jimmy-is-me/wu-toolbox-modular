@@ -46,10 +46,9 @@ class WU_Transients_Manager {
         
         // 自動清理
         add_action('wu_transients_auto_cleanup', array($this, 'auto_cleanup_expired'));
-        
-        // 啟用/停用 Hook
-        register_activation_hook(__FILE__, array($this, 'activate'));
-        register_deactivation_hook(__FILE__, array($this, 'deactivate'));
+
+        // 模組由 Toolbox 載入，不是獨立 WordPress 外掛；在模組啟用後同步排程。
+        add_action('init', array($this, 'sync_auto_cleanup_schedule'));
     }
     
     /**
@@ -69,7 +68,7 @@ class WU_Transients_Manager {
      * 啟用模組
      */
     public function activate() {
-        $this->schedule_auto_cleanup();
+        wutm_sync_transients_cleanup_schedule(wutm_is_enabled('transients-manager'), $this->settings);
     }
     
     /**
@@ -133,7 +132,6 @@ class WU_Transients_Manager {
      * 清理設定
      */
     public function sanitize_settings($input) {
-        $old_settings = $this->settings;
         $sanitized = array();
         
         $sanitized['enabled'] = !empty($input['enabled']) ? true : false;
@@ -142,14 +140,7 @@ class WU_Transients_Manager {
         $sanitized['show_performance_stats'] = !empty($input['show_performance_stats']) ? true : false;
         $sanitized['protect_important'] = !empty($input['protect_important']) ? true : false;
         
-        // 如果清理頻率改變,重新安排任務
-        if ($old_settings['cleanup_frequency'] !== $sanitized['cleanup_frequency'] || 
-            $old_settings['auto_cleanup'] !== $sanitized['auto_cleanup']) {
-            wp_clear_scheduled_hook('wu_transients_auto_cleanup');
-            if ($sanitized['auto_cleanup']) {
-                $this->schedule_auto_cleanup($sanitized['cleanup_frequency']);
-            }
-        }
+        wutm_sync_transients_cleanup_schedule(wutm_is_enabled('transients-manager'), $sanitized);
         
         return $sanitized;
     }
@@ -987,14 +978,8 @@ class WU_Transients_Manager {
     /**
      * 安排自動清理
      */
-    private function schedule_auto_cleanup($frequency = null) {
-        if ($frequency === null) {
-            $frequency = $this->settings['cleanup_frequency'];
-        }
-        
-        if (!wp_next_scheduled('wu_transients_auto_cleanup')) {
-            wp_schedule_event(time(), $frequency, 'wu_transients_auto_cleanup');
-        }
+    public function sync_auto_cleanup_schedule() {
+        wutm_sync_transients_cleanup_schedule(wutm_is_enabled('transients-manager'), $this->settings);
     }
     
     /**
