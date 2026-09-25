@@ -462,5 +462,11 @@ function wutm_wc_custom_complete_virtual_order_status( $status, $order_id, $orde
 			return $status;
 		}
 	}
+	if ( (float) $order->get_total_refunded() > 0 ) {
+		// This only prevents this callback from forcing a refunded order to completed.
+		// If it was already completed before refund, its status is intentionally not changed here.
+		// Reverting an already-completed order after refund requires a separate policy and is out of scope.
+		return $order->get_status();
+	}
 	return 'completed';
 }
