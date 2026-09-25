@@ -414,6 +414,25 @@ final class WC_Member_Points_Rewards {
         $max_discount_amount = $eligible_amount * ( $max_percent / 100 );
         $max_points_by_percent = intval( floor( $max_discount_amount / $redeem_ratio ) );
 
+        // A rounded redemption must still stay within the percentage cap and
+        // the amount actually payable. Zero-dollar redemptions use no points.
+        $max_whole_discount = (int) floor( min( $eligible_amount, $max_discount_amount ) );
+        if ( $this->wcmp_calc_discount_amount( $max_points_by_percent ) > $max_whole_discount ) {
+            // Binary search avoids scanning thousands of points for small
+            // redemption ratios during repeated cart recalculations.
+            $low = 0;
+            $high = $max_points_by_percent;
+            while ( $low < $high ) {
+                $candidate = $low + intdiv( $high - $low + 1, 2 );
+                if ( $this->wcmp_calc_discount_amount( $candidate ) <= $max_whole_discount ) {
+                    $low = $candidate;
+                } else {
+                    $high = $candidate - 1;
+                }
+            }
+            $max_points_by_percent = $low;
+        }
+
         $balance = $this->wcmp_get_balance( $user_id );
 
         return max( 0, min( $balance, $max_points_by_percent ) );
@@ -421,7 +440,7 @@ final class WC_Member_Points_Rewards {
 
     public function wcmp_calc_discount_amount( $points ) {
         $settings = $this->wcmp_get_settings();
-        return round( $points * floatval( $settings['redeem_ratio'] ), 2 );
+        return (int) round( $points * floatval( $settings['redeem_ratio'] ), 0 );
     }
 
     public function wcmp_calc_earn_points( $eligible_amount ) {
@@ -625,6 +644,10 @@ final class WC_Member_Points_Rewards {
         $this->wcmp_set_session_points( $points );
 
         $discount = $this->wcmp_calc_discount_amount( $points );
+        if ( $discount <= 0 ) {
+            $points = 0;
+            $this->wcmp_set_session_points( 0 );
+        }
 
         wp_send_json_success( array(
             'message' => $points > 0
@@ -649,7 +672,10 @@ final class WC_Member_Points_Rewards {
         if ( $points <= 0 ) return;
 
         $discount = $this->wcmp_calc_discount_amount( $points );
-        if ( $discount <= 0 ) return;
+        if ( $discount <= 0 ) {
+            $this->wcmp_set_session_points( 0 );
+            return;
+        }
 
         $settings = $this->wcmp_get_settings();
         // 顧客看到的折抵項目名稱只顯示點數名稱，不再顯示折扣碼前綴（前綴僅供後台內部識別用，見 wcmp_on_order_created）
@@ -691,6 +717,7 @@ final class WC_Member_Points_Rewards {
 
         $settings = $this->wcmp_get_settings();
         $discount = $this->wcmp_calc_discount_amount( $points );
+        if ( $discount <= 0 ) return;
         $prefix = $settings['code_prefix'] ? $settings['code_prefix'] : 'pts_';
         $discount_code = $prefix . $order_id; // 僅供後台內部識別／報表使用，不會顯示給顧客
 
