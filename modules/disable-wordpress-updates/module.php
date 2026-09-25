@@ -42,12 +42,23 @@ final class WUTM_Disable_WordPress_Updates {
     }
 
     public static function empty_plugin_updates($transient) {
-        return (object) [
+        $plugin_file = plugin_basename(WUTM_FILE);
+        $updates = (object) [
             'last_checked' => time(),
-            'checked' => [],
+            'checked' => [$plugin_file => WUTM_VERSION],
             'response' => [],
             'no_update' => [],
         ];
+
+        // Keep the Toolbox's own GitHub release update visible while suppressing all other plugin updates.
+        $updater = $GLOBALS['wutm_github_release_updater'] ?? null;
+        if ($updater instanceof WUTM_GitHub_Release_Updater) {
+            $updates = $updater->inject_update($updates);
+        }
+
+        $updates->response = isset($updates->response[$plugin_file]) ? [$plugin_file => $updates->response[$plugin_file]] : [];
+        $updates->no_update = isset($updates->no_update[$plugin_file]) ? [$plugin_file => $updates->no_update[$plugin_file]] : [];
+        return $updates;
     }
 
     public static function empty_theme_updates($transient) {
@@ -78,6 +89,7 @@ final class WUTM_Disable_WordPress_Updates {
         <div class="wrap wutm-module-wrap">
             <h1>停用所有更新</h1>
             <p class="wutm-module-subtitle">此模組啟用期間，會停止 WordPress 核心、外掛與佈景主題的更新檢查、自動更新與更新提示。</p>
+            <p class="description">此開關不影響 WU Toolbox 自身的 GitHub 更新檢查與更新通知。</p>
             <div class="notice notice-warning inline"><p><strong>安全提醒：</strong>關閉更新可能讓網站錯過安全修補。需要更新時，請先回到 WU Toolbox 關閉此模組，再進入「控制台 → 更新」檢查與執行更新。</p></div>
             <div class="card" style="max-width:760px;padding:24px;">
                 <h2 style="margin-top:0;">目前狀態：已停用更新</h2>

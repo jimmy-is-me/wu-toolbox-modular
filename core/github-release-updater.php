@@ -439,4 +439,4 @@ final class WUTM_GitHub_Release_Updater {
         return preg_replace('/^[vV]\s*/', '', $version) ?: '';
     }
 }
-new WUTM_GitHub_Release_Updater(WUTM_FILE);
+$GLOBALS['wutm_github_release_updater'] = new WUTM_GitHub_Release_Updater(WUTM_FILE);
