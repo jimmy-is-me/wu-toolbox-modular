@@ -226,17 +226,27 @@ class DSM_Disk_Space_Manager {
         $report['orphan_candidates'] = $orphans;
         $report['orphan_count'] = count( $orphans );
 
-        // 5. 清理快取目錄
-        $cache_dirs = [
-            $this->get_wp_content_root() . 'cache',
-        ];
+        // 5. 僅清除此工具箱 page-cache 專屬目錄；cache 根目錄由多個外掛共用。
+        $cache_dir = $this->get_wp_content_root() . 'cache' . DIRECTORY_SEPARATOR . 'wutm-page-cache';
         $cache_freed = 0;
-        foreach ( $cache_dirs as $dir ) {
-            if ( is_dir( $dir ) ) {
-                $cache_freed += $this->delete_dir_contents( $dir );
+        $cache_skipped = false;
+        if ( is_dir( $cache_dir ) && ! is_link( $cache_dir ) ) {
+            $lock_path = $cache_dir . DIRECTORY_SEPARATOR . '.wutm-cache.lock';
+            $lock_handle = @fopen( $lock_path, 'c' );
+            if ( false !== $lock_handle && @flock( $lock_handle, LOCK_EX | LOCK_NB ) ) {
+                $cache_freed = $this->delete_dir_contents( $cache_dir );
+                @flock( $lock_handle, LOCK_UN );
+            } else {
+                $cache_skipped = true;
             }
+            if ( false !== $lock_handle ) {
+                fclose( $lock_handle );
+            }
+        } elseif ( is_link( $cache_dir ) ) {
+            $cache_skipped = true;
         }
         $report['cache_freed'] = $cache_freed;
+        $report['cache_skipped'] = $cache_skipped;
 
         delete_transient( self::CACHE_KEY );
         wp_send_json_success( $report );
@@ -249,6 +259,8 @@ class DSM_Disk_Space_Manager {
         foreach ( $items as $item ) {
             if ( $item === '.' || $item === '..' ) continue;
             $path = $dir . DIRECTORY_SEPARATOR . $item;
+            // 保留協調 page-cache 讀寫與清理的鎖檔，且不跟隨符號連結。
+            if ( $item === '.wutm-cache.lock' || is_link( $path ) ) continue;
             if ( is_dir( $path ) ) {
                 $freed += $this->delete_dir_contents( $path );
                 @rmdir( $path );
@@ -389,6 +401,7 @@ class DSM_Disk_Space_Manager {
                                 已清空垃圾桶：${d.trash_deleted}&emsp;
                                 已清除過期暫存：${d.expired_transients}&emsp;
                                 快取釋放空間：${formatBytes(d.cache_freed)}
+                                ${d.cache_skipped ? '<br>快取清理略過：目前有 page-cache 作業進行中，請稍後重試。' : ''}
                             </p></div>
                             <h3>疑似孤立圖片檔案（共 ${d.orphan_count} 個，僅列出前20，未自動刪除，請人工確認後手動刪除）</h3>
                             <p style="max-height:200px;overflow:auto;">${orphanList || '無'}</p>
