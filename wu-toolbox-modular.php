@@ -87,8 +87,11 @@ require_once WUTM_PATH . 'core/github-release-updater.php';
 
 register_activation_hook(__FILE__, function () {
     add_option('wutm_activation_redirect', true, '', false);
+    wutm_sync_transients_cleanup_schedule(wutm_is_enabled('transients-manager'));
 });
-register_deactivation_hook(__FILE__, function () {});
+register_deactivation_hook(__FILE__, function () {
+    wp_clear_scheduled_hook('wu_transients_auto_cleanup');
+});
 
 add_action('admin_init', function () {
     if (!get_option('wutm_activation_redirect') || wp_doing_ajax() || is_network_admin()) return;
@@ -142,5 +145,6 @@ add_action('wp_ajax_wutm_toggle_module', function () {
             }
         }
     }
+    do_action('wutm_module_toggled', $key, $enable);
     wp_send_json_success(['module' => $key, 'enabled' => (bool) get_option(wutm_module_option($key))]);
 });
