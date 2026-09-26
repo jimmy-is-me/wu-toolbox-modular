@@ -819,8 +819,8 @@ function wumf_admin_css() {
             left:var(--wumf-panel-width)!important;
             inset-inline-start:var(--wumf-panel-width)!important;
         }
-        /* WP 6.8+ wraps the grid in attachments-wrapper. Shift that wrapper too,
-           otherwise the folder panel sits on top of the first media columns. */
+        /* WP 6.8+ wraps the grid in attachments-wrapper. On upload.php the
+           wrapper participates in layout, so reserve the folder width there. */
         .attachments-browser.wumf-has-folders > .attachments-wrapper{
             box-sizing:border-box!important;
             margin-inline-start:var(--wumf-panel-width)!important;
@@ -829,6 +829,14 @@ function wumf_admin_css() {
         .attachments-browser.wumf-has-folders > .attachments-wrapper > .attachments{
             left:0!important;
             inset-inline-start:0!important;
+        }
+        /* In wp.media the grid is absolutely positioned relative to the browser,
+           not to attachments-wrapper. Moving only the wrapper leaves the first
+           thumbnail column underneath the folder panel. Keep WordPress' own
+           right inset (attachment-details sidebar) and shift the grid itself. */
+        .media-modal .attachments-browser.wumf-has-folders > .attachments-wrapper > .attachments{
+            left:var(--wumf-panel-width)!important;
+            inset-inline-start:var(--wumf-panel-width)!important;
         }
         .wumf-panel{
             position:absolute;
