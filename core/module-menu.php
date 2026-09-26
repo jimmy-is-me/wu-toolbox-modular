@@ -108,7 +108,7 @@ add_action('admin_menu', function (): void {
         }
         if ($group_entries) {
             $group_slug = 'wutm-group-' . sanitize_title($group);
-            $ordered[] = ['<span class="wutm-submenu-group-label">' . esc_html($group) . '</span>', 'read', $group_slug];
+            $ordered[] = ['<span class="wutm-submenu-group-label" data-group="' . esc_attr($group_slug) . '">' . esc_html($group) . '</span>', 'read', $group_slug];
             foreach ($group_entries as $entry) $ordered[] = $entry;
         }
     }
@@ -130,9 +130,11 @@ add_action('admin_head', function (): void {
         $selectors[] = '#adminmenu .wp-submenu li:has(>a[href="admin.php?page=' . $slug . '"])';
     }
     if ($selectors) echo '<style>' . implode(',', $selectors) . '{display:none!important}</style>';
-    echo '<style>#adminmenu .wp-submenu a[href*="page=wutm-group-"],#adminmenu .wp-submenu a.wutm-submenu-group-link,#adminmenu .wp-submenu a:has(>.wutm-submenu-group-label){pointer-events:none!important;cursor:default!important;padding:0!important}.wutm-submenu-group-label{display:block!important;margin:10px 10px 3px!important;padding:9px 2px 5px!important;border-top:1px solid rgba(255,255,255,.2)!important;color:#72aee6!important;font-size:11px!important;font-weight:700!important;letter-spacing:.08em!important;line-height:1.2!important}</style>';
+    // The shared stylesheet is limited to Toolbox screens, so mirror only these
+    // small menu rules here to keep the submenu usable on every admin screen.
+    echo '<style>#adminmenu .wp-submenu .wutm-submenu-group-link{display:block!important;margin:10px 10px 3px!important;padding:9px 2px 5px!important;border-top:1px solid rgba(255,255,255,.2)!important;color:#72aee6!important;font-size:11px!important;font-weight:700!important;letter-spacing:.08em!important;line-height:1.2!important;cursor:pointer!important}#adminmenu .wp-submenu .wutm-submenu-group-link:focus{color:#fff!important;box-shadow:0 0 0 1px #72aee6!important;outline:0!important}#adminmenu .wp-submenu .wutm-submenu-group-link:after{content:"＋";float:right;margin-right:8px;color:#a7aaad;font-size:12px}#adminmenu .wp-submenu .wutm-submenu-group-link[aria-expanded="true"]:after{content:"−"}#adminmenu .wp-submenu li.wutm-menu-group-hidden{display:none!important}</style>';
 });
 
 add_action('admin_footer', function (): void {
-    echo '<script>document.querySelectorAll("#adminmenu .wutm-submenu-group-label").forEach(function(label){var link=label.closest("a");if(!link)return;link.classList.add("wutm-submenu-group-link");link.setAttribute("aria-disabled","true");link.setAttribute("tabindex","-1");link.addEventListener("click",function(event){event.preventDefault();});});</script>';
+    echo '<script>(function(){var menu=document.querySelector("#toplevel_page_wu-toolbox-modular .wp-submenu");if(!menu)return;menu.querySelectorAll(".wutm-submenu-group-label").forEach(function(label){var link=label.closest("a"),heading=label.closest("li"),group=label.getAttribute("data-group");if(!link||!heading||!group)return;link.classList.add("wutm-submenu-group-link");link.setAttribute("role","button");link.setAttribute("aria-expanded","false");link.setAttribute("aria-label",label.textContent.trim()+"（展開分類）");heading.classList.add("wutm-menu-group-heading");var members=[];for(var item=heading.nextElementSibling;item&&!item.querySelector(".wutm-submenu-group-label");item=item.nextElementSibling){item.classList.add("wutm-menu-group-hidden");item.hidden=true;item.setAttribute("aria-hidden","true");members.push(item);}function toggle(){var expanded=link.getAttribute("aria-expanded")!=="true";link.setAttribute("aria-expanded",String(expanded));link.setAttribute("aria-label",label.textContent.trim()+(expanded?"（收合分類）":"（展開分類）"));members.forEach(function(item){item.hidden=!expanded;item.classList.toggle("wutm-menu-group-hidden",!expanded);item.setAttribute("aria-hidden",String(!expanded));});}link.addEventListener("click",function(event){event.preventDefault();toggle();});link.addEventListener("keydown",function(event){if(event.key===" "||event.key==="Spacebar"){event.preventDefault();toggle();}});});})();</script>';
 });
