@@ -811,7 +811,7 @@ function wumf_admin_css() {
             position:relative!important;
             box-sizing:border-box!important;
             --wumf-panel-width:258px;
-            --wumf-panel-top:72px;
+            --wumf-panel-top:0px;
         }
         /* IMPORTANT: only push the media grid, never cover WordPress' own toolbar. */
         .attachments-browser.wumf-has-folders > .attachments,
@@ -823,7 +823,7 @@ function wumf_admin_css() {
            otherwise the folder panel sits on top of the first media columns. */
         .attachments-browser.wumf-has-folders > .attachments-wrapper{
             box-sizing:border-box!important;
-            margin-left:var(--wumf-panel-width)!important;
+            margin-inline-start:var(--wumf-panel-width)!important;
             width:calc(100% - var(--wumf-panel-width))!important;
         }
         .attachments-browser.wumf-has-folders > .attachments-wrapper > .attachments{
@@ -838,7 +838,7 @@ function wumf_admin_css() {
             bottom:0;
             width:var(--wumf-panel-width);
             background:#fff;
-            border-right:1px solid #dcdcde;
+            border-inline-end:1px solid #dcdcde;
             z-index:25;
             display:flex;
             flex-direction:column;
@@ -872,8 +872,18 @@ function wumf_admin_css() {
         .wumf-drag-helper{z-index:100020!important;background:#1d2327;color:#fff;border-radius:4px;padding:7px 10px;box-shadow:0 5px 18px rgba(0,0,0,.25);font-size:12px;pointer-events:none;white-space:nowrap}
         .attachments-browser .attachment.wumf-draggable{cursor:grab}.attachments-browser .attachment.wumf-draggable:active{cursor:grabbing}
         .wumf-panel *{box-sizing:border-box}
+        /* The media modal has a narrower, independently scrolling viewport than
+           upload.php; reserve a smaller share for folders and preserve the core
+           toolbar's own responsive layout. */
+        .media-modal .attachments-browser.wumf-has-folders{--wumf-panel-width:230px;--wumf-panel-top:0px}
+        .media-modal .attachments-browser.wumf-has-folders .wumf-panel{max-width:34%;}
+        @supports (inset-inline-start:1px){
+            .attachments-browser.wumf-has-folders > .attachments,
+            .attachments-browser.wumf-has-folders > .uploader-inline{left:auto!important;right:auto!important;}
+        }
         @media(max-width:782px){
-            .attachments-browser.wumf-has-folders{--wumf-panel-width:220px}
+            .attachments-browser.wumf-has-folders{--wumf-panel-width:190px}
+            .media-modal .attachments-browser.wumf-has-folders{--wumf-panel-width:clamp(150px,28vw,210px)}
             .wumf-titleline{align-items:flex-start}.wumf-tools{flex-direction:column;align-items:stretch}.wumf-btn{padding-left:5px;padding-right:5px}
         }
     </style>
@@ -1135,25 +1145,33 @@ function wumf_admin_js() {
             let top=0;
 
             if($toolbar.length){
-                const pos=$toolbar.position();
-                top=Math.max(0,Math.ceil((pos ? pos.top : 0)+$toolbar.outerHeight(true)));
+                const browserRect=$browser[0].getBoundingClientRect();
+                const toolbarRect=$toolbar[0].getBoundingClientRect();
+                top=Math.max(0,Math.ceil(toolbarRect.bottom-browserRect.top));
             } else {
-                // Some WP builds briefly render before the toolbar exists.
-                const $attachments=$browser.children('.attachments').first();
+                // Some WordPress versions place the toolbar outside the browser.
+                // In that structure the browser already starts below the toolbar,
+                // so the folder pane must start at its own top rather than at a
+                // hard-coded offset. Use the grid only as an in-browser fallback.
+                const $attachments=$browser.children('.attachments, .attachments-wrapper').first();
                 if($attachments.length){
-                    const pos=$attachments.position();
-                    top=Math.max(0,Math.ceil(pos ? pos.top : 0));
+                    const browserRect=$browser[0].getBoundingClientRect();
+                    const gridRect=$attachments[0].getBoundingClientRect();
+                    top=Math.max(0,Math.ceil(gridRect.top-browserRect.top));
                 }
             }
 
-            if(top<40) top=72;
             $browser[0].style.setProperty('--wumf-panel-top', top+'px');
 
-            // Never let our panel be wider than ~40% of a small media modal.
+            // Size the folder pane from its own browser viewport. Media modals
+            // are narrower than upload.php and should retain a usable grid.
             const width=$browser.width();
             let panelWidth=258;
-            if(width && width<760) panelWidth=220;
-            if(width && panelWidth>width*0.42) panelWidth=Math.max(180,Math.floor(width*0.36));
+            if($browser.closest('.media-modal').length){
+                panelWidth=Math.min(230,Math.max(150,Math.floor(width*0.28)));
+            } else if(width && width<760){
+                panelWidth=Math.min(190,Math.max(150,Math.floor(width*0.32)));
+            }
             $browser[0].style.setProperty('--wumf-panel-width', panelWidth+'px');
         }
 

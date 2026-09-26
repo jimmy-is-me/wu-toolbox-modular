@@ -566,7 +566,7 @@ final class WC_Membership_Tiers {
         foreach ( $users as $uid ) {
             $this->wmt_recalculate_user( intval( $uid ) );
         }
-        wp_safe_redirect( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'tiers', array( 'view' => 'members', 'init' => 1 ) ) : admin_url( 'admin.php?page=wmt-members&init=1' ) );
+        wp_safe_redirect( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'tiers', array( 'view' => 'members', 'init' => 1, 'init_count' => count( $users ) ) ) : admin_url( 'admin.php?page=wmt-members&init=1&init_count=' . count( $users ) ) );
         exit;
     }
 
@@ -1532,6 +1532,7 @@ final class WC_Membership_Tiers {
 
             <hr/>
             <h2>現有階級列表</h2>
+            <div class="wmt-member-table-wrap" role="region" aria-label="階級規則列表" tabindex="0">
             <table class="widefat striped">
                 <thead><tr><th>徽章</th><th>名稱</th><th>層級</th><th>單筆門檻</th><th>累積金額門檻</th><th>累積次數門檻</th><th>折扣</th><th>點數倍率</th><th>狀態</th><th>操作</th></tr></thead>
                 <tbody>
@@ -1554,6 +1555,7 @@ final class WC_Membership_Tiers {
                 <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
         </div>
         <script>
         jQuery(function($){
@@ -1600,9 +1602,11 @@ final class WC_Membership_Tiers {
         <div class="wrap">
             <h1>會員名單</h1>
             <?php if ( isset( $_GET['msg'] ) ) echo '<div class="notice notice-success is-dismissible"><p>已更新。</p></div>'; ?>
-            <?php if ( isset( $_GET['init'] ) ) echo '<div class="notice notice-success is-dismissible"><p>已為所有會員初始化階級資料。</p></div>'; ?>
+            <?php if ( isset( $_GET['init'] ) ) : ?>
+                <div class="notice notice-success is-dismissible"><p><?php printf( '已完成全站 %s 位使用者的階級初始化／重算。每日自動排程仍照常執行；本操作不會確認到期訂單或發放月福利。', esc_html( number_format_i18n( absint( $_GET['init_count'] ?? 0 ) ) ) ); ?>若符合升級條件且已啟用通知，會員可能收到升級通知信。</p></div>
+            <?php endif; ?>
 
-            <p class="description">此列表會顯示<strong>全站所有使用者</strong>（無論目前有沒有被系統分級）。若剛安裝外掛，會員可能都顯示「尚未分級」，這是正常現象，可按下方按鈕立即初始化，或等待每日排程自動處理。</p>
+            <p class="description">此列表顯示<strong>全站所有使用者</strong>。新會員會依預設規則自動取得階級；每日排程會定期重算階級及處理到期資格。只有在首次安裝／匯入資料後仍有未分級會員，或修改規則後想立即重算時，才需要手動執行下方「立即重算」。手動重算會套用目前規則，可能變更會員階級並依通知設定寄送升級信；會員很多時會需要較久。它不會執行每日排程中的訂單確認或月福利發放。</p>
 
             <form method="get" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:14px 0;">
                 <input type="hidden" name="page" value="wu-member-loyalty"/>
@@ -1618,11 +1622,17 @@ final class WC_Membership_Tiers {
                 </select>
                 <button class="button">篩選</button>
                 <a class="button button-primary" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=wmt_export_members&tier_id=' . rawurlencode( $filter_tier ) . '&s=' . rawurlencode( $keyword ) ), 'wmt_export_members' ) ); ?>">匯出目前篩選結果 CSV</a>
-                <a class="button" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=wmt_init_all_members' ), 'wmt_init_all_members' ) ); ?>" onclick="return confirm('將為所有會員立即計算並指派階級，確定執行？');">立即初始化所有會員階級</a>
+            </form>
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="wmt-recalculate-all-form" onsubmit="return confirm('將依目前規則立即重新計算全站所有使用者的階級；結果可能不同，且啟用通知時符合升級條件者會收到 Email。確定繼續？');">
+                <?php wp_nonce_field( 'wmt_init_all_members' ); ?>
+                <input type="hidden" name="action" value="wmt_init_all_members"/>
+                <button class="button" type="submit">立即重算全站會員階級</button>
+                <span class="description">僅需補建／立即套用規則時使用；一般情況等每日自動排程即可。</span>
             </form>
 
             <p><strong><?php echo esc_html( $total ); ?></strong> 位符合篩選條件的會員</p>
 
+            <div class="wmt-member-table-wrap" role="region" aria-label="會員階級名單" tabindex="0">
             <table class="widefat striped">
                 <thead><tr><th>會員</th><th>Email</th><th>生日</th><th>目前階級</th><th>取得時間</th><th>效期至</th><th>手動調整</th></tr></thead>
                 <tbody>
@@ -1673,6 +1683,7 @@ final class WC_Membership_Tiers {
                 <?php endforeach; ?>
                 </tbody>
             </table>
+            </div>
 
             <?php if ( $total_pages > 1 ) : ?>
                 <div style="margin-top:14px;">
@@ -1685,7 +1696,7 @@ final class WC_Membership_Tiers {
                 </div>
             <?php endif; ?>
         </div>
-        <style>.wmt-badge-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:#1a1a1a;color:#fff;font-size:12px;font-weight:600;}</style>
+        <style>.wmt-badge-chip{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:#1a1a1a;color:#fff;font-size:12px;font-weight:600}.wmt-member-table-wrap{max-width:100%;overflow-x:auto;margin:10px 0;outline-offset:2px}.wmt-member-table-wrap .widefat{min-width:920px}.wmt-member-table-wrap form{align-items:center}.wmt-recalculate-all-form{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:0 0 16px}.wmt-recalculate-all-form .description{flex:1 1 320px}.wmt-manual-cycle-form{margin:12px 0 6px}</style>
         <?php
     }
 
@@ -1739,7 +1750,7 @@ final class WC_Membership_Tiers {
                 <input type="hidden" name="action" value="wmt_save_settings"/>
                 <table class="form-table">
                     <tr><th>啟用會員分級系統</th><td><label><input type="checkbox" name="enable" <?php checked( $s['enable'], 'yes' ); ?>/> 啟用</label></td></tr>
-                    <tr><th>鑑賞期／防退貨刷等級天數</th><td>
+                    <tr><th>消費資格等待天數（退貨保護）</th><td>
                         <input type="number" name="guarantee_days" value="<?php echo esc_attr( $s['guarantee_days'] ); ?>"/> 天
                         <p class="description">訂單狀態變為「已完成」後，需再等待此天數且訂單狀態仍維持「已完成」，才正式計入升級資格金額／次數。設為 0 代表立即計入。</p>
                     </td></tr>
@@ -1763,17 +1774,19 @@ final class WC_Membership_Tiers {
                 <p><strong>最近一次執行紀錄：</strong><?php echo esc_html( $log['time'] ); ?></p>
                 <p>檢查會員數：<?php echo esc_html( $log['users_checked'] ); ?>　確認訂單數：<?php echo esc_html( $log['orders_confirmed'] ); ?>　升級：<?php echo esc_html( $log['upgrades'] ); ?> 人　降級：<?php echo esc_html( $log['downgrades'] ); ?> 人</p>
             <?php else : ?>
-                <p class="description">系統尚未執行過每日排程，可點擊下方按鈕立即測試一次。</p>
+            <p class="description">系統尚未執行過每日排程。若要立即執行完整日常更新，可使用下方按鈕；這不是預覽或測試資料。</p>
             <?php endif; ?>
 
             <?php if ( $manual_run_result ) : delete_transient( 'wmt_manual_run_result' ); ?>
                 <div class="notice notice-info"><p>手動執行完成：檢查 <?php echo esc_html( $manual_run_result['users_checked'] ); ?> 位會員，確認 <?php echo esc_html( $manual_run_result['orders_confirmed'] ); ?> 筆訂單，升級 <?php echo esc_html( $manual_run_result['upgrades'] ); ?> 人，降級 <?php echo esc_html( $manual_run_result['downgrades'] ); ?> 人。</p></div>
             <?php endif; ?>
 
-            <p>
-                <a class="button button-secondary" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=wmt_run_manual_cycle' ), 'wmt_run_manual_cycle' ) ); ?>">立即手動執行一次每日排程（測試用）</a>
-            </p>
-            <p class="description">此按鈕會立即依目前資料判斷所有會員的升降級與續約，效果與每日凌晨 3 點自動執行的排程完全相同，可用來驗證「效期到期是否真的會降級」等邏輯是否正常。</p>
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="wmt-manual-cycle-form" onsubmit="return confirm('此操作會立即執行完整每日更新：確認到期訂單、重算全站會員升降級，並補發符合條件的月福利。若通知已啟用，升級會員可能收到 Email。確定執行？');">
+                <?php wp_nonce_field( 'wmt_run_manual_cycle' ); ?>
+                <input type="hidden" name="action" value="wmt_run_manual_cycle"/>
+                <button class="button button-secondary" type="submit">立即執行一次每日會員更新</button>
+            </form>
+            <p class="description">這會實際更新會員與到期訂單資料，並執行月福利補發；並非模擬或預覽。完成後會顯示本次檢查會員、確認訂單及升降級數量。正常情況無須手動操作，每日凌晨 3 點仍會自動執行。</p>
 
             <hr/>
             <h2>寄信測試</h2>
