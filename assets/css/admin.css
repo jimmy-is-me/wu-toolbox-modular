@@ -278,6 +278,8 @@ body[class*="wu-toolbox_page_"] .button,body[class*="wu-toolbox_page_"] .button-
 #adminmenu .wp-submenu .wutm-submenu-group-link:focus{color:#fff!important;box-shadow:0 0 0 1px #72aee6!important;outline:0!important;}
 #adminmenu .wp-submenu .wutm-submenu-group-link:after{content:"＋";position:absolute;right:9px;top:6px;color:#a7aaad;font-size:12px;}
 #adminmenu .wp-submenu .wutm-submenu-group-link[aria-expanded="true"]:after{content:"−";}
+#adminmenu #toplevel_page_wu-toolbox-modular .wp-submenu>li.current{position:static!important;box-sizing:border-box!important;padding:3px 10px!important;}
+#adminmenu #toplevel_page_wu-toolbox-modular .wp-submenu>li.current>a{position:static!important;display:block!important;box-sizing:border-box!important;width:100%!important;height:auto!important;min-height:30px!important;margin:0!important;border-radius:3px!important;white-space:normal!important;overflow-wrap:anywhere!important;}
 #adminmenu .wp-submenu li.wutm-menu-group-hidden{display:none!important;}
 
 /* v2.9.6: align every Toolbox module screen with the compact 301 settings frame. */

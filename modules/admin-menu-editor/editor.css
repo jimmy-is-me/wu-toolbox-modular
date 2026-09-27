@@ -1,4 +1,8 @@
 .wutm-menu-editor{max-width:1120px}
+.wutm-menu-owners{margin:18px 0;padding:16px;background:#fff;border:1px solid #c3c4c7;border-radius:5px}
+.wutm-menu-owners h2{margin:0 0 8px}
+.wutm-menu-owner-list{display:flex;flex-wrap:wrap;gap:8px 16px;max-height:220px;overflow:auto;margin:14px 0;padding:10px;border:1px solid #dcdcde;background:#f6f7f7}
+.wutm-menu-owner-list label{min-width:190px}
 .wutm-menu-target{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:18px 0;padding:15px;background:#fff;border:1px solid #c3c4c7}
 .wutm-menu-target select{min-width:240px}
 .wutm-menu-target strong{margin-left:auto;color:#2271b1}
