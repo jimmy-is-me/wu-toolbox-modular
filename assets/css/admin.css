@@ -273,15 +273,6 @@ body[class*="wu-toolbox_page_"] .button,body[class*="wu-toolbox_page_"] .button-
 /* 第三方外掛標籤與快速安裝入口。 */
 .wutm-third-party-installer{max-width:780px;padding:24px!important}.wutm-third-party-installer h2{margin-top:0}.wutm-status-success{color:#008a20}.wutm-status-warning{color:#b26200}
 
-/* 可收合的 WU Toolbox 後台子選單分類。 */
-#adminmenu .wp-submenu .wutm-submenu-group-link{display:block!important;position:relative!important;box-sizing:border-box!important;min-height:30px!important;margin:3px 10px 1px!important;padding:6px 28px 5px 12px!important;border-top:1px solid rgba(255,255,255,.2)!important;color:#72aee6!important;font-size:11px!important;font-weight:700!important;letter-spacing:.03em!important;line-height:18px!important;white-space:normal!important;overflow:visible!important;overflow-wrap:anywhere!important;cursor:pointer!important;}
-#adminmenu .wp-submenu .wutm-submenu-group-link:focus{color:#fff!important;box-shadow:0 0 0 1px #72aee6!important;outline:0!important;}
-#adminmenu .wp-submenu .wutm-submenu-group-link:after{content:"＋";position:absolute;right:9px;top:6px;color:#a7aaad;font-size:12px;}
-#adminmenu .wp-submenu .wutm-submenu-group-link[aria-expanded="true"]:after{content:"−";}
-#adminmenu #toplevel_page_wu-toolbox-modular .wp-submenu>li.current{position:static!important;box-sizing:border-box!important;padding:3px 10px!important;}
-#adminmenu #toplevel_page_wu-toolbox-modular .wp-submenu>li.current>a{position:static!important;display:block!important;box-sizing:border-box!important;width:100%!important;height:auto!important;min-height:30px!important;margin:0!important;border-radius:3px!important;white-space:normal!important;overflow-wrap:anywhere!important;}
-#adminmenu .wp-submenu li.wutm-menu-group-hidden{display:none!important;}
-
 /* v2.9.6: align every Toolbox module screen with the compact 301 settings frame. */
 body[class*="wu-toolbox_page_"] #wpbody-content>.wutm-wrap,
 body[class*="wu-toolbox_page_"] #wpbody-content>.wutm-module-wrap,

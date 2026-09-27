@@ -5,7 +5,6 @@ function wutm_third_party_plugin_file(string $key): string {
     $plugins = [
         'wp-downgrade' => 'wp-downgrade/wp-downgrade.php',
         'wordfence' => 'wordfence/wordfence.php',
-        'wu-ai-card' => 'wu-ai-card/wu-ai-card.php',
         'rank-math-seo' => 'seo-by-rank-math/rank-math.php',
         'instant-images' => 'instant-images/instant-images.php',
         'updraftplus' => 'updraftplus/updraftplus.php',
