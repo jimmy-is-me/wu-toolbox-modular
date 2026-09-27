@@ -236,7 +236,7 @@ final class WUTM_Admin_Menu_Editor {
         $search = isset($_GET['user_search']) ? sanitize_text_field(wp_unslash($_GET['user_search'])) : '';
         $users = get_users(['number' => 50, 'search' => $search !== '' ? '*' . $search . '*' : '', 'orderby' => 'login', 'order' => 'ASC']);
         $owners = wutm_admin_menu_editor_owner_ids();
-        $eligible_owners = get_users(['capability' => 'manage_options', 'number' => 200, 'orderby' => 'login', 'order' => 'ASC']);
+        $eligible_owners = get_users(['capability' => 'manage_options', 'orderby' => 'login', 'order' => 'ASC']);
         foreach ($owners as $owner_id) {
             $owner = get_userdata($owner_id);
             if ($owner && !in_array($owner_id, array_map(static fn($item) => (int) $item->ID, $eligible_owners), true)) {
