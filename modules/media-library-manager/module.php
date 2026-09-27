@@ -814,8 +814,7 @@ function wumf_admin_css() {
             --wumf-panel-top:0px;
         }
         /* IMPORTANT: only push the media grid, never cover WordPress' own toolbar. */
-        .attachments-browser.wumf-has-folders > .attachments,
-        .attachments-browser.wumf-has-folders > .uploader-inline{
+        .attachments-browser.wumf-has-folders > .attachments{
             left:var(--wumf-panel-width)!important;
             inset-inline-start:var(--wumf-panel-width)!important;
         }
@@ -857,6 +856,7 @@ function wumf_admin_css() {
         }
         .wumf-head{padding:10px 10px 9px;border-bottom:1px solid #e5e7eb;background:#fff;flex:0 0 auto;box-sizing:border-box}
         .wumf-titleline{display:flex;align-items:center;justify-content:space-between;gap:7px;margin-bottom:8px}
+        .wumf-mobile-toggle{display:none}
         .wumf-title{font-weight:700;font-size:14px;line-height:28px}
         .wumf-tools{display:flex;gap:5px;align-items:center}
         .wumf-btn{border:1px solid #2271b1;background:#fff;color:#2271b1;border-radius:3px;padding:4px 7px;cursor:pointer;font-size:12px;line-height:1.45;white-space:nowrap}
@@ -886,13 +886,54 @@ function wumf_admin_css() {
         .media-modal .attachments-browser.wumf-has-folders{--wumf-panel-width:230px;--wumf-panel-top:0px}
         .media-modal .attachments-browser.wumf-has-folders .wumf-panel{max-width:34%;}
         @supports (inset-inline-start:1px){
-            .attachments-browser.wumf-has-folders > .attachments,
-            .attachments-browser.wumf-has-folders > .uploader-inline{left:auto!important;right:auto!important;}
+            .attachments-browser.wumf-has-folders > .attachments{left:auto!important;right:auto!important;}
         }
         @media(max-width:782px){
             .attachments-browser.wumf-has-folders{--wumf-panel-width:190px}
             .media-modal .attachments-browser.wumf-has-folders{--wumf-panel-width:clamp(150px,28vw,210px)}
             .wumf-titleline{align-items:flex-start}.wumf-tools{flex-direction:column;align-items:stretch}.wumf-btn{padding-left:5px;padding-right:5px}
+        }
+        /* In narrow media browsers a side-by-side 190px folder pane leaves too
+           little space for thumbnails. Put a collapsible folder drawer above
+           the grid and reserve its height instead of covering core controls. */
+        .attachments-browser.wumf-has-folders.wumf-compact .wumf-panel{
+            top:var(--wumf-panel-top)!important;
+            bottom:auto!important;
+            width:100%!important;
+            max-width:none!important;
+            height:var(--wumf-mobile-panel-height)!important;
+            border-inline-end:0;
+            border-bottom:1px solid #c3c4c7;
+        }
+        .wumf-compact .wumf-mobile-toggle{display:inline-block}
+        .wumf-compact .wumf-titleline{margin:0;align-items:center}
+        .wumf-compact .wumf-panel:not(.wumf-expanded) .wumf-head{padding:6px 10px}
+        .wumf-compact .wumf-panel.wumf-expanded .wumf-titleline{flex-wrap:wrap;gap:6px}
+        .wumf-compact .wumf-panel.wumf-expanded .wumf-tools{width:100%;justify-content:flex-start;flex-direction:row}
+        .wumf-compact .wumf-panel:not(.wumf-expanded) .wumf-tools,
+        .wumf-compact .wumf-panel:not(.wumf-expanded) .wumf-scope,
+        .wumf-compact .wumf-panel:not(.wumf-expanded) .wumf-search,
+        .wumf-compact .wumf-panel:not(.wumf-expanded) .wumf-hint,
+        .wumf-compact .wumf-panel:not(.wumf-expanded) .wumf-tree{display:none}
+        .wumf-compact .wumf-panel.wumf-expanded .wumf-head{flex:0 0 auto}
+        .wumf-compact .wumf-panel.wumf-expanded .wumf-tree{overflow-y:auto;padding-bottom:12px}
+        .attachments-browser.wumf-has-folders.wumf-compact > .attachments{
+            top:calc(var(--wumf-panel-top) + var(--wumf-mobile-panel-height))!important;
+            left:0!important;
+            inset-inline-start:0!important;
+            right:0!important;
+            width:100%!important;
+        }
+        .attachments-browser.wumf-has-folders.wumf-compact > .attachments-wrapper{
+            margin-inline-start:0!important;
+            margin-top:var(--wumf-mobile-panel-height)!important;
+            width:100%!important;
+        }
+        .attachments-browser.wumf-has-folders.wumf-compact > .attachments-wrapper > .attachments,
+        .media-modal .attachments-browser.wumf-has-folders.wumf-compact > .attachments-wrapper > .attachments{
+            left:0!important;
+            inset-inline-start:0!important;
+            right:0!important;
         }
     </style>
     <?php
@@ -901,7 +942,9 @@ function wumf_admin_css() {
 /* ---------------------------------------------------------
  * 7) Admin UI JavaScript
  * --------------------------------------------------------- */
-add_action( 'admin_footer', 'wumf_admin_js', 99 );
+// admin_footer runs before WordPress prints queued footer scripts. Run after
+// those scripts so jQuery, media-views and sortable dependencies are available.
+add_action( 'admin_print_footer_scripts', 'wumf_admin_js', 20 );
 function wumf_admin_js() {
     if ( ! wumf_can_manage() ) {
         return;
@@ -1061,7 +1104,7 @@ function wumf_admin_js() {
         function panelHtml(){
             return '<div class="wumf-panel">'+
                 '<div class="wumf-head">'+
-                    '<div class="wumf-titleline"><span class="wumf-title">資料夾</span><div class="wumf-tools">'+
+                    '<div class="wumf-titleline"><span class="wumf-title">資料夾</span><button type="button" class="wumf-btn wumf-mobile-toggle" aria-expanded="false">展開資料夾 ▾</button><div class="wumf-tools">'+
                         '<button type="button" class="wumf-btn wumf-move-selected">移動所選</button>'+
                         '<button type="button" class="wumf-btn wumf-new">＋ 新增</button>'+
                     '</div></div>'+
@@ -1150,23 +1193,31 @@ function wumf_admin_js() {
         function syncBrowserLayout($browser){
             if(!$browser || !$browser.length) return;
             const $toolbar=$browser.children('.media-toolbar:visible').first();
+            const $uploader=$browser.children('.uploader-inline:visible').first();
             let top=0;
+            const browserRect=$browser[0].getBoundingClientRect();
 
             if($toolbar.length){
-                const browserRect=$browser[0].getBoundingClientRect();
                 const toolbarRect=$toolbar[0].getBoundingClientRect();
                 top=Math.max(0,Math.ceil(toolbarRect.bottom-browserRect.top));
-            } else {
+            } else if(!$browser.hasClass('wumf-compact')) {
                 // Some WordPress versions place the toolbar outside the browser.
                 // In that structure the browser already starts below the toolbar,
                 // so the folder pane must start at its own top rather than at a
                 // hard-coded offset. Use the grid only as an in-browser fallback.
+                // In compact mode the grid has already been pushed below the
+                // drawer; measuring it again would add that offset repeatedly.
                 const $attachments=$browser.children('.attachments, .attachments-wrapper').first();
                 if($attachments.length){
-                    const browserRect=$browser[0].getBoundingClientRect();
                     const gridRect=$attachments[0].getBoundingClientRect();
                     top=Math.max(0,Math.ceil(gridRect.top-browserRect.top));
                 }
+            }
+            // The upload drop zone sits before the toolbar on upload.php. It can
+            // be opened without a DOM insertion, so an old toolbar-only offset
+            // would leave the folder pane on top of the uploader.
+            if($uploader.length){
+                top=Math.max(top,Math.ceil($uploader[0].getBoundingClientRect().bottom-browserRect.top));
             }
 
             $browser[0].style.setProperty('--wumf-panel-top', top+'px');
@@ -1181,6 +1232,39 @@ function wumf_admin_js() {
                 panelWidth=Math.min(190,Math.max(150,Math.floor(width*0.32)));
             }
             $browser[0].style.setProperty('--wumf-panel-width', panelWidth+'px');
+            const compact=width>0 && width<600;
+            $browser.toggleClass('wumf-compact',compact);
+            if(compact){
+                const expanded=$browser.children('.wumf-panel').hasClass('wumf-expanded');
+                const drawerHeight=expanded?Math.min(340,Math.max(220,Math.floor(window.innerHeight*0.45))):44;
+                $browser[0].style.setProperty('--wumf-mobile-panel-height',drawerHeight+'px');
+            } else {
+                $browser[0].style.removeProperty('--wumf-mobile-panel-height');
+            }
+        }
+
+        function watchBrowserLayout($browser){
+            if($browser.data('wumfLayoutObserver')) return;
+            const targets=$browser.children('.uploader-inline, .media-toolbar').get();
+            if(!targets.length) return;
+            const update=function(){
+                if(!document.documentElement.contains($browser[0])){
+                    const old=$browser.data('wumfLayoutObserver');
+                    if(old) old.disconnect();
+                    $browser.removeData('wumfLayoutObserver');
+                    return;
+                }
+                syncBrowserLayout($browser);
+            };
+            if(window.ResizeObserver){
+                const observer=new ResizeObserver(update);
+                targets.forEach(function(target){ observer.observe(target); });
+                $browser.data('wumfLayoutObserver',observer);
+            } else {
+                const observer=new MutationObserver(update);
+                targets.forEach(function(target){ observer.observe(target,{attributes:true,attributeFilter:['class','style']}); });
+                $browser.data('wumfLayoutObserver',observer);
+            }
         }
 
         function mountBrowser(viewOrEl){
@@ -1205,10 +1289,16 @@ function wumf_admin_js() {
             }
 
             syncBrowserLayout($browser);
+            watchBrowserLayout($browser);
             initAttachmentDraggables($browser);
         }
 
         function bindPanel($browser,$panel){
+            $panel.on('click','.wumf-mobile-toggle',function(){
+                const expanded=$panel.toggleClass('wumf-expanded').hasClass('wumf-expanded');
+                $(this).attr('aria-expanded',expanded?'true':'false').text(expanded?'收合資料夾 ▴':'展開資料夾 ▾');
+                syncBrowserLayout($browser);
+            });
             $panel.on('click','.wumf-row',function(e){
                 if($(e.target).is('.wumf-more')) return;
                 if($(e.target).is('.wumf-caret')){
