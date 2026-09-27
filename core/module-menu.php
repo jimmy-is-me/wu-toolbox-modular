@@ -78,7 +78,10 @@ add_action('admin_menu', function (): void {
     foreach ($groups as $group => $items) {
         $group_entries = [];
         foreach ($items as $key => $module) {
-            if (!wutm_is_enabled($key) || (($module['tag'] ?? '') === '第三方外掛')) continue;
+            $external_settings_active = !empty($module['settings_when_active'])
+                && function_exists('wutm_third_party_plugin_active')
+                && wutm_third_party_plugin_active($key);
+            if ((!wutm_is_enabled($key) && !$external_settings_active) || ((($module['tag'] ?? '') === '第三方外掛') && !$external_settings_active)) continue;
             $needles = ['wu-' . $key];
             if (!empty($module['settings_page'])) $needles[] = (string) $module['settings_page'];
             if (!empty($module['settings_url'])) {
@@ -125,7 +128,7 @@ add_action('admin_head', function (): void {
     if (!function_exists('wutm_modules')) return;
     $selectors = [];
     foreach (wutm_modules() as $key => $module) {
-        if (($module['tag'] ?? '') !== '第三方外掛') continue;
+        if (($module['tag'] ?? '') !== '第三方外掛' || !empty($module['settings_when_active'])) continue;
         $slug = 'wu-' . sanitize_key($key);
         $selectors[] = '#adminmenu .wp-submenu li:has(>a[href="admin.php?page=' . $slug . '"])';
     }
@@ -143,9 +146,16 @@ add_action('admin_head', function (): void {
     // The selected top-level anchor must remain in its own row. The previous
     // active-item rule targeted submenu children only, leaving this anchor
     // free to overlap category rows when another admin style repositions it.
-    echo '<style>#adminmenu #toplevel_page_wu-toolbox-modular>a.menu-top{position:static!important;inset:auto!important;float:none!important;transform:none!important;box-sizing:border-box!important;max-width:100%!important;margin:0!important}#adminmenu #toplevel_page_wu-toolbox-modular>a.menu-top:after{pointer-events:none}@media(min-width:783px){#adminmenu #toplevel_page_wu-toolbox-modular .wp-submenu{position:static!important;top:auto!important;left:auto!important;right:auto!important;width:160px!important;min-width:0!important;box-shadow:none!important}body.folded #adminmenu #toplevel_page_wu-toolbox-modular .wp-submenu{position:absolute!important;top:0!important;left:36px!important;right:auto!important;width:176px!important;max-height:calc(100vh - 32px)!important;overflow-y:auto!important}body.folded.wutm-menu-flyout-open #wpcontent,body.folded.wutm-menu-flyout-open #wpfooter{margin-left:214px!important}}@media(min-width:783px) and (max-width:960px){body.auto-fold #adminmenu #toplevel_page_wu-toolbox-modular .wp-submenu{position:absolute!important;top:0!important;left:36px!important;right:auto!important;width:176px!important;max-height:calc(100vh - 32px)!important;overflow-y:auto!important}body.auto-fold.wutm-menu-flyout-open #wpcontent,body.auto-fold.wutm-menu-flyout-open #wpfooter{margin-left:214px!important}}</style>';
+    echo '<style>#adminmenu #toplevel_page_wu-toolbox-modular>a.menu-top{position:static!important;inset:auto!important;float:none!important;transform:none!important;box-sizing:border-box!important;max-width:100%!important;margin:0!important}#adminmenu #toplevel_page_wu-toolbox-modular>a.menu-top:after{pointer-events:none}@media(min-width:783px){#adminmenu #toplevel_page_wu-toolbox-modular .wp-submenu{position:static!important;top:auto!important;left:auto!important;right:auto!important;width:160px!important;min-width:0!important;box-shadow:none!important}body.folded #adminmenu #toplevel_page_wu-toolbox-modular .wp-submenu{position:absolute!important;top:34px!important;left:36px!important;right:auto!important;width:176px!important;max-height:calc(100vh - 16px)!important;overflow-y:auto!important}body.folded.wutm-menu-flyout-open #wpcontent,body.folded.wutm-menu-flyout-open #wpfooter{margin-left:214px!important}}@media(min-width:783px) and (max-width:960px){body.auto-fold #adminmenu #toplevel_page_wu-toolbox-modular .wp-submenu{position:absolute!important;top:34px!important;left:36px!important;right:auto!important;width:176px!important;max-height:calc(100vh - 16px)!important;overflow-y:auto!important}body.auto-fold.wutm-menu-flyout-open #wpcontent,body.auto-fold.wutm-menu-flyout-open #wpfooter{margin-left:214px!important}}</style>';
 });
 
-add_action('admin_footer', function (): void {
-    echo '<script>(function(){var menu=document.querySelector("#toplevel_page_wu-toolbox-modular .wp-submenu");if(!menu)return;var root=menu.closest("#toplevel_page_wu-toolbox-modular"),keepOpen=root&&root.classList.contains("wp-has-current-submenu");if(root){function setOpen(open){document.body.classList.toggle("wutm-menu-flyout-open",!!(keepOpen||open));}setOpen(false);root.addEventListener("mouseenter",function(){setOpen(true);});root.addEventListener("mouseleave",function(){setOpen(false);});root.addEventListener("focusin",function(){setOpen(true);});root.addEventListener("focusout",function(event){if(!root.contains(event.relatedTarget))setOpen(false);});}menu.querySelectorAll(".wutm-submenu-group-label").forEach(function(label){var link=label.closest("a"),heading=label.closest("li"),group=label.getAttribute("data-group");if(!link||!heading||!group)return;link.classList.add("wutm-submenu-group-link");link.setAttribute("role","button");link.setAttribute("aria-expanded","false");link.setAttribute("aria-label",label.textContent.trim()+"（展開分類）");heading.classList.add("wutm-menu-group-heading");var members=[];for(var item=heading.nextElementSibling;item&&!item.querySelector(".wutm-submenu-group-label");item=item.nextElementSibling){item.classList.add("wutm-menu-group-hidden");item.hidden=true;item.setAttribute("aria-hidden","true");members.push(item);}function toggle(){var expanded=link.getAttribute("aria-expanded")!=="true";link.setAttribute("aria-expanded",String(expanded));link.setAttribute("aria-label",label.textContent.trim()+(expanded?"（收合分類）":"（展開分類）"));members.forEach(function(item){item.hidden=!expanded;item.classList.toggle("wutm-menu-group-hidden",!expanded);item.setAttribute("aria-hidden",String(!expanded));});}link.addEventListener("click",function(event){event.preventDefault();toggle();});link.addEventListener("keydown",function(event){if(event.key===" "||event.key==="Spacebar"){event.preventDefault();toggle();}});});})();</script>';
+/** The WU Toolbox sidebar needs its grouped menu behavior on every admin screen. */
+add_action('admin_enqueue_scripts', function (): void {
+    wp_enqueue_script(
+        'wutm-module-menu',
+        WUTM_URL . 'assets/js/module-menu.js',
+        [],
+        WUTM_VERSION,
+        true
+    );
 });

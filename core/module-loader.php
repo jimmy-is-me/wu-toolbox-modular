@@ -21,7 +21,13 @@ foreach ($wutm_early_module_keys as $wutm_early_module_key) {
 add_action('plugins_loaded', function () use ($wutm_early_module_keys): void {
     foreach (wutm_modules() as $key => $module) {
         if (in_array($key, $wutm_early_module_keys, true)) continue;
-        if (!wutm_is_enabled($key)) continue;
+        // Third-party bridge modules are loaded whenever their owning plugin
+        // is active; their availability is the plugin's active state, not a
+        // second Toolbox toggle that could leave the integration half-on.
+        $external_active = !empty($module['external_plugin'])
+            && function_exists('wutm_third_party_plugin_active')
+            && wutm_third_party_plugin_active((string) $module['external_plugin']);
+        if (!$external_active && !wutm_is_enabled($key)) continue;
         $requires = $module['requires'] ?? '';
         if ($requires === 'woocommerce' && !class_exists('WooCommerce')) continue;
         if ($requires === 'translatepress' && !class_exists('TRP_Translate_Press')) continue;
