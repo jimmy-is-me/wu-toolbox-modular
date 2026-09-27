@@ -114,6 +114,7 @@ final class WUTM_Notice_Center {
             body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.update-nag,
             body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.e-notice,
             body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.trp-notice{display:block;visibility:visible!important;animation:none!important;margin:10px 12px 0;}
+            html.js body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.hide-if-js{display:none!important;}
             body.wutm-notice-center-active #wpbody-content .wutm-notice-keep{visibility:visible!important;animation:none!important;}
         ');
 

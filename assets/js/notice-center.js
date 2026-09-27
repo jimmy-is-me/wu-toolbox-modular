@@ -19,6 +19,10 @@
     function eligible(node) {
         if (!(node instanceof Element) || !node.matches(selector)) return false;
         if (panel.contains(node) || node.matches('.inline, .wutm-notice-keep')) return false;
+        // Core's hide-if-js notices are no-JavaScript fallbacks, not errors.
+        // Moving them into the panel used to override their hidden display and
+        // expose the media-grid warning even while the grid worked normally.
+        if (node.closest('.hide-if-js')) return false;
         if (node.closest(excludedContainers)) {
             node.classList.add('wutm-notice-keep');
             return false;
