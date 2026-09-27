@@ -1623,12 +1623,15 @@ final class WC_Membership_Tiers {
                 <button class="button">篩選</button>
                 <a class="button button-primary" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=wmt_export_members&tier_id=' . rawurlencode( $filter_tier ) . '&s=' . rawurlencode( $keyword ) ), 'wmt_export_members' ) ); ?>">匯出目前篩選結果 CSV</a>
             </form>
-            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="wmt-recalculate-all-form" onsubmit="return confirm('將依目前規則立即重新計算全站所有使用者的階級；結果可能不同，且啟用通知時符合升級條件者會收到 Email。確定繼續？');">
-                <?php wp_nonce_field( 'wmt_init_all_members' ); ?>
-                <input type="hidden" name="action" value="wmt_init_all_members"/>
-                <button class="button" type="submit">立即重算全站會員階級</button>
-                <span class="description">僅需補建／立即套用規則時使用；一般情況等每日自動排程即可。</span>
-            </form>
+            <details class="wutm-loyalty-maintenance">
+                <summary>特殊維護：手動重算全站會員階級</summary>
+                <p class="description">僅在首次匯入會員後需補建階級，或修改規則後需要立即套用時使用。一般情況不必按，每日排程會自動處理。此操作會改動會員階級，並可能寄出升級通知。</p>
+                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="wmt-recalculate-all-form" onsubmit="return confirm('將依目前規則立即重新計算全站所有使用者的階級；結果可能不同，且啟用通知時符合升級條件者會收到 Email。確定繼續？');">
+                    <?php wp_nonce_field( 'wmt_init_all_members' ); ?>
+                    <input type="hidden" name="action" value="wmt_init_all_members"/>
+                    <button class="button" type="submit">立即重算全站會員階級</button>
+                </form>
+            </details>
 
             <p><strong><?php echo esc_html( $total ); ?></strong> 位符合篩選條件的會員</p>
 
@@ -1781,12 +1784,15 @@ final class WC_Membership_Tiers {
                 <div class="notice notice-info"><p>手動執行完成：檢查 <?php echo esc_html( $manual_run_result['users_checked'] ); ?> 位會員，確認 <?php echo esc_html( $manual_run_result['orders_confirmed'] ); ?> 筆訂單，升級 <?php echo esc_html( $manual_run_result['upgrades'] ); ?> 人，降級 <?php echo esc_html( $manual_run_result['downgrades'] ); ?> 人。</p></div>
             <?php endif; ?>
 
-            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="wmt-manual-cycle-form" onsubmit="return confirm('此操作會立即執行完整每日更新：確認到期訂單、重算全站會員升降級，並補發符合條件的月福利。若通知已啟用，升級會員可能收到 Email。確定執行？');">
-                <?php wp_nonce_field( 'wmt_run_manual_cycle' ); ?>
-                <input type="hidden" name="action" value="wmt_run_manual_cycle"/>
-                <button class="button button-secondary" type="submit">立即執行一次每日會員更新</button>
-            </form>
-            <p class="description">這會實際更新會員與到期訂單資料，並執行月福利補發；並非模擬或預覽。完成後會顯示本次檢查會員、確認訂單及升降級數量。正常情況無須手動操作，每日凌晨 3 點仍會自動執行。</p>
+            <details class="wutm-loyalty-maintenance">
+                <summary>特殊維護：立即執行每日會員更新</summary>
+                <p class="description">這會實際更新會員與到期訂單資料，並執行月福利補發；並非模擬或預覽。完成後會顯示本次檢查會員、確認訂單及升降級數量。正常情況無須手動操作，每日凌晨 3 點仍會自動執行。</p>
+                <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="wmt-manual-cycle-form" onsubmit="return confirm('此操作會立即執行完整每日更新：確認到期訂單、重算全站會員升降級，並補發符合條件的月福利。若通知已啟用，升級會員可能收到 Email。確定執行？');">
+                    <?php wp_nonce_field( 'wmt_run_manual_cycle' ); ?>
+                    <input type="hidden" name="action" value="wmt_run_manual_cycle"/>
+                    <button class="button button-secondary" type="submit">立即執行一次每日會員更新</button>
+                </form>
+            </details>
 
             <hr/>
             <h2>寄信測試</h2>

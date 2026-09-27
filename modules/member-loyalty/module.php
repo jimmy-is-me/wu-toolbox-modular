@@ -24,45 +24,60 @@ function wutm_render_member_loyalty_page(): void {
     if (!current_user_can('manage_woocommerce')) wp_die(esc_html__('權限不足', 'wu-toolbox-modular'));
 
     $section = isset($_GET['section']) ? sanitize_key(wp_unslash($_GET['section'])) : 'points';
-    $sections = [
-        'points' => '點數管理',
-        'tiers' => '階級與會員',
-        'vip-store' => 'VIP 隱密賣場',
+    $navigation = [
+        'points' => ['label' => '點數管理', 'query' => 'tab', 'items' => ['overview' => '總覽', 'members' => '會員點數', 'settings' => '點數設定']],
+        'tiers' => ['label' => '階級與會員', 'query' => 'view', 'items' => ['rules' => '階級規則', 'members' => '會員名單', 'settings' => '全站設定']],
+        'vip-store' => ['label' => 'VIP 隱密賣場', 'query' => '', 'items' => []],
     ];
-    if (!isset($sections[$section])) $section = 'points';
+    if (!isset($navigation[$section])) $section = 'points';
+    $query_key = $navigation[$section]['query'];
+    $selection = $query_key && isset($_GET[$query_key]) ? sanitize_key(wp_unslash($_GET[$query_key])) : '';
+    if ($query_key && !isset($navigation[$section]['items'][$selection])) $selection = (string) array_key_first($navigation[$section]['items']);
+    $current_label = $selection ? $navigation[$section]['items'][$selection] : $navigation[$section]['label'];
     ?>
     <div class="wrap wutm-loyalty-wrap">
         <h1>會員點數與階級</h1>
-        <p class="description">會員點數、階級規則、會員名單與 VIP 商品限制都集中在這裡；階級設定的點數回饋倍率會自動套用至訂單點數回饋。</p>
-        <nav class="nav-tab-wrapper wutm-loyalty-tabs" aria-label="會員點數與階級設定">
-            <?php foreach ($sections as $key => $label) : ?>
-                <a class="nav-tab <?php echo $section === $key ? 'nav-tab-active' : ''; ?>" <?php echo $section === $key ? 'aria-current="page"' : ''; ?> href="<?php echo esc_url(wutm_member_loyalty_url($key)); ?>"><?php echo esc_html($label); ?></a>
+        <p class="description">左側先選功能，再選子頁面；點數回饋倍率會依會員階級自動套用。</p>
+    </div>
+    <div class="wutm-loyalty-layout">
+        <nav class="wutm-loyalty-navigation" aria-label="會員點數與階級功能導覽">
+            <?php foreach ($navigation as $key => $group) :
+                $active_group = $section === $key;
+                $first_item = $group['items'] ? (string) array_key_first($group['items']) : '';
+                $group_url = $first_item ? wutm_member_loyalty_url($key, [$group['query'] => $first_item]) : wutm_member_loyalty_url($key);
+                ?>
+                <div class="wutm-loyalty-navigation-group<?php echo $active_group ? ' is-active' : ''; ?>">
+                    <a class="wutm-loyalty-navigation-heading" href="<?php echo esc_url($group_url); ?>"<?php echo $active_group && !$group['items'] ? ' aria-current="page"' : ''; ?>><?php echo esc_html($group['label']); ?></a>
+                    <?php if ($group['items']) : ?>
+                        <div class="wutm-loyalty-navigation-items" aria-label="<?php echo esc_attr($group['label']); ?>子頁面">
+                            <?php foreach ($group['items'] as $item_key => $item_label) :
+                                $active_item = $active_group && $selection === $item_key;
+                                ?>
+                                <a class="wutm-loyalty-navigation-item<?php echo $active_item ? ' is-current' : ''; ?>" href="<?php echo esc_url(wutm_member_loyalty_url($key, [$group['query'] => $item_key])); ?>"<?php echo $active_item ? ' aria-current="page"' : ''; ?>><?php echo esc_html($item_label); ?></a>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                </div>
             <?php endforeach; ?>
         </nav>
-    </div>
+        <main class="wutm-loyalty-content" id="wutm-loyalty-content">
+            <p class="wutm-loyalty-breadcrumb"><?php echo esc_html($navigation[$section]['label']); ?><?php if ($selection) : ?><span aria-hidden="true"> / </span><?php echo esc_html($current_label); ?><?php endif; ?></p>
+            <h2 class="wutm-loyalty-current-title"><?php echo esc_html($current_label); ?></h2>
     <?php
     if ($section === 'points') {
         WC_Member_Points_Rewards::instance()->wcmp_render_admin_page();
     } elseif ($section === 'tiers') {
-        $view = isset($_GET['view']) ? sanitize_key(wp_unslash($_GET['view'])) : 'rules';
-        $tier_views = ['rules' => '階級規則', 'members' => '會員名單', 'settings' => '全站設定'];
-        if (!isset($tier_views[$view])) $view = 'rules';
-        echo '<div class="wrap wutm-loyalty-subnav"><div class="wutm-loyalty-subnav-heading"><span>階級與會員</span><span class="wutm-loyalty-subnav-context">子頁面</span></div><nav class="nav-tab-wrapper" aria-label="階級與會員子頁面">';
-        foreach ($tier_views as $key => $label) {
-            $active = $view === $key ? ' nav-tab-active' : '';
-            $current = $view === $key ? ' aria-current="page"' : '';
-            echo '<a class="nav-tab' . esc_attr($active) . '"' . $current . ' href="' . esc_url(wutm_member_loyalty_url('tiers', ['view' => $key])) . '">' . esc_html($label) . '</a>';
-        }
-        echo '</nav></div>';
-        if ($view === 'members') WC_Membership_Tiers::instance()->wmt_page_members();
-        elseif ($view === 'settings') WC_Membership_Tiers::instance()->wmt_page_settings();
+        if ($selection === 'members') WC_Membership_Tiers::instance()->wmt_page_members();
+        elseif ($selection === 'settings') WC_Membership_Tiers::instance()->wmt_page_settings();
         else WC_Membership_Tiers::instance()->wmt_page_tiers();
     } else {
         wutm_render_member_loyalty_vip_store_tab();
     }
     ?>
+        </main>
+    </div>
     <style>
-        .wutm-loyalty-wrap{max-width:none;margin-bottom:0}.wutm-loyalty-tabs{margin-top:20px;border-bottom:2px solid #135e96}.wutm-loyalty-tabs .nav-tab{font-weight:700;background:#e8eef5;border-color:#c3c4c7;color:#334155}.wutm-loyalty-tabs .nav-tab-active{background:#135e96!important;border-color:#135e96!important;color:#fff!important}.wutm-loyalty-subnav{margin-top:14px;padding:14px 18px 0!important;border:1px solid #c3c4c7;border-left:4px solid #72aee6;border-radius:6px;background:#f0f6fc!important;box-shadow:none!important}.wutm-loyalty-subnav-heading{display:flex;align-items:center;gap:9px;margin:0 0 9px;color:#344054;font-weight:700}.wutm-loyalty-subnav-context{padding:2px 7px;border-radius:999px;background:#dbeafe;color:#135e96;font-size:11px;font-weight:600}.wutm-loyalty-subnav .nav-tab-wrapper{border-bottom:1px solid #c3c4c7}.wutm-loyalty-subnav .nav-tab{font-size:13px;background:#fff;border-color:#c3c4c7;color:#50575e}.wutm-loyalty-subnav .nav-tab-active{background:#fff!important;border-color:#72aee6!important;border-bottom-color:#fff!important;color:#135e96!important;font-weight:700}.wutm-loyalty-vip{max-width:1180px}.wutm-vip-guide{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:18px 0}.wutm-vip-guide>div{background:#fff;border:1px solid #dcdcde;border-radius:8px;padding:18px}.wutm-vip-guide h3{margin-top:0}.wutm-vip-guide p{margin-bottom:0;line-height:1.7}.wutm-vip-flow{background:#f0f6fc;border-left:4px solid #2271b1;padding:14px 16px;margin:16px 0}.wutm-loyalty-wrap+.wrap>h1:first-child,.wutm-loyalty-subnav+.wrap>h1:first-child{display:none}@media(max-width:782px){.wutm-loyalty-tabs,.wutm-loyalty-subnav .nav-tab-wrapper{display:flex;overflow-x:auto;padding-bottom:1px}.wutm-loyalty-tabs .nav-tab,.wutm-loyalty-subnav .nav-tab{flex:0 0 auto;margin-left:0}.wutm-loyalty-subnav{padding:12px 12px 0!important}.wutm-vip-guide{grid-template-columns:1fr}}
+        .wutm-loyalty-wrap{max-width:none;margin-bottom:0}.wutm-loyalty-layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:20px;margin:22px 20px 20px 0;align-items:start}.wutm-loyalty-navigation{position:sticky;top:46px;background:#fff;border:1px solid #c3c4c7;border-radius:8px;padding:9px;box-shadow:0 1px 2px rgba(0,0,0,.05)}.wutm-loyalty-navigation-group+.wutm-loyalty-navigation-group{border-top:1px solid #e5e7eb;margin-top:7px;padding-top:7px}.wutm-loyalty-navigation-heading{display:block;padding:11px 12px;color:#1d2327;text-decoration:none;font-weight:700;border-radius:5px}.wutm-loyalty-navigation-group.is-active>.wutm-loyalty-navigation-heading{background:#135e96;color:#fff}.wutm-loyalty-navigation-items{display:grid;gap:2px;margin:5px 0 2px 12px}.wutm-loyalty-navigation-item{display:block;padding:9px 12px;border-left:3px solid transparent;color:#50575e;text-decoration:none}.wutm-loyalty-navigation-item.is-current{border-left-color:#2271b1;background:#f0f6fc;color:#135e96;font-weight:700}.wutm-loyalty-navigation a:focus-visible{outline:2px solid #2271b1;outline-offset:1px}.wutm-loyalty-content{min-width:0;background:#fff;border:1px solid #dcdcde;border-radius:8px;padding:22px 24px}.wutm-loyalty-content>.wrap{margin:0;max-width:none}.wutm-loyalty-content>.wrap>h1:first-child,.wutm-loyalty-content .wcmp-tabs{display:none}.wutm-loyalty-breadcrumb{margin:0;color:#646970;font-size:13px}.wutm-loyalty-current-title{font-size:23px;margin:5px 0 22px;padding-bottom:14px;border-bottom:1px solid #dcdcde}.wutm-loyalty-vip{max-width:none}.wutm-vip-guide{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:18px 0}.wutm-vip-guide>div{background:#fff;border:1px solid #dcdcde;border-radius:8px;padding:18px}.wutm-vip-guide h3{margin-top:0}.wutm-vip-guide p{margin-bottom:0;line-height:1.7}.wutm-vip-flow{background:#f0f6fc;border-left:4px solid #2271b1;padding:14px 16px;margin:16px 0}.wutm-loyalty-maintenance{margin:18px 0;padding:12px 16px;background:#f6f7f7;border:1px solid #c3c4c7;border-radius:6px}.wutm-loyalty-maintenance summary{cursor:pointer;font-weight:700}.wutm-loyalty-maintenance[open] summary{margin-bottom:12px}@media(max-width:1100px){.wutm-loyalty-layout{grid-template-columns:190px minmax(0,1fr);gap:12px}.wutm-loyalty-content{padding:18px}}@media(max-width:782px){.wutm-loyalty-layout{display:block;margin:16px 10px 20px 0}.wutm-loyalty-navigation{position:static;margin-bottom:14px}.wutm-loyalty-content{padding:16px}.wutm-vip-guide{grid-template-columns:1fr}}
     </style>
     <?php
 }
