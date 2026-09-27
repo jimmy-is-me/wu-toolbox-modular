@@ -23,6 +23,7 @@ function wutm_modules(): array {
         '404-redirector' => ['name' => '404 重新導向', 'description' => '將 404 錯誤導向首頁或指定頁面。', 'group' => '內容管理', 'icon' => '🔀'],
         'smart-301-redirects' => ['name' => '301 指向', 'description' => '建立可快取的 301 永久轉址規則，支援站內／外部目標、萬用字元與命中統計。', 'group' => '內容管理', 'icon' => '↗️', 'settings_page' => 'wu-smart-301-redirects'],
         'admin-bar-cleaner' => ['name' => '後台介面管理', 'description' => '管理 WordPress 管理列、後台頁尾、側邊選單、角色權限與顯示項目。', 'group' => '後台介面', 'icon' => '🎛️'],
+        'admin-menu-editor' => ['name' => '後台選單編輯器', 'description' => '依網站預設或指定帳號調整後台選單順序、顯示名稱及可見性。', 'group' => '後台介面', 'icon' => '↕️', 'settings_page' => 'wu-admin-menu-editor'],
         'audit-logger' => ['name' => '操作日誌', 'description' => '記錄使用者登入、文章、設定及其他重要後台活動，方便追查操作紀錄。', 'group' => '安全性', 'icon' => '📋'],
         'advanced-tracking-manager' => ['name' => '進階追蹤管理', 'description' => '管理 GA4、GTM、Google Ads、Meta Pixel 與診斷。', 'group' => '監控追蹤', 'icon' => '🎯'],
         'seo-core' => ['name' => 'SEO 核心', 'description' => '台灣繁中網站用的輕量 SEO 核心，提供編輯器側欄、SEO 健檢、Title、Meta Description、Canonical、Open Graph、Schema 與 Sitemap 控制。', 'group' => 'SEO', 'icon' => '🔎', 'settings_page' => 'wumetax-seo-core', 'related_pages' => ['admin.php?page=wumetax-seo-core-settings']],
