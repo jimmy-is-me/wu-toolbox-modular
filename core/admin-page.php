@@ -35,6 +35,9 @@ function wutm_render_admin_page(): void {
     if (!current_user_can('manage_options')) return;
     $modules = wutm_modules();
     $groups = wutm_grouped_modules();
+    if (!wutm_admin_menu_editor_can_edit()) {
+        unset($modules['admin-menu-editor'], $groups['後台介面']['admin-menu-editor']);
+    }
     $licensed = function_exists('wutm_license_is_valid') && wutm_license_is_valid();
     $real_modules = array_filter($modules, static function (array $module): bool { return empty($module['navigation']); });
     $enabled = count(array_filter(array_keys($real_modules), 'wutm_is_enabled'));

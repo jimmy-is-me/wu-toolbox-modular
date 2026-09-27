@@ -14,6 +14,8 @@ jobs:
         run: find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
       - name: Check member loyalty promotion calculations
         run: php tests/member-loyalty-promotion-policy.php
+      - name: Check admin menu editor ownership
+        run: php tests/admin-menu-editor-owners.php
       - name: Check changelog is current
         shell: bash
         run: |

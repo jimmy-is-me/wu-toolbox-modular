@@ -3,7 +3,7 @@
  * Plugin Name: WU Toolbox Modular
  * Plugin URI: https://wumetax.com/
  * Description: WU Toolbox 的按需載入模組化版本。每項功能獨立，只有啟用後才會載入。
- * Version: 3.2.5
+ * Version: 3.2.6
  * Author: Wumetax
  * Author URI: https://wumetax.com/
  * License: GPL-2.0-or-later
@@ -14,7 +14,7 @@
 defined('ABSPATH') || exit;
 
 define('WUTM_FILE', __FILE__);
-define('WUTM_VERSION', '3.2.5');
+define('WUTM_VERSION', '3.2.6');
 define('WUTM_PATH', plugin_dir_path(__FILE__));
 define('WUTM_URL', plugin_dir_url(__FILE__));
 
@@ -121,6 +121,9 @@ add_action('wp_ajax_wutm_toggle_module', function () {
     $key = sanitize_key(wp_unslash($_POST['module'] ?? ''));
     $module = wutm_get_module($key);
     if (!$module) wp_send_json_error(['message' => 'unknown_module'], 400);
+    if ($key === 'admin-menu-editor' && !wutm_admin_menu_editor_can_edit()) {
+        wp_send_json_error(['message' => '只有指定的主帳號可以管理後台選單編輯器。'], 403);
+    }
 
     $enable = !empty($_POST['enabled']);
     $requires_module = (string) ($module['requires_module'] ?? '');

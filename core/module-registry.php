@@ -32,7 +32,7 @@ function wutm_modules(): array {
         'instant-images' => ['name' => 'Instant Images', 'description' => '快速安裝與啟用官方 Instant Images 外掛。', 'group' => '媒體工具', 'icon' => '📷', 'settings_page' => 'wu-instant-images', 'tag' => '第三方外掛'],
         'updraftplus' => ['name' => 'UpdraftPlus', 'description' => '快速安裝與啟用官方 UpdraftPlus 備份還原外掛。', 'group' => '備份還原', 'icon' => '💾', 'settings_page' => 'wu-updraftplus', 'tag' => '第三方外掛'],
         'wpvivid' => ['name' => 'WPvivid', 'description' => '快速安裝與啟用官方 WPvivid 備份還原外掛。', 'group' => '備份還原', 'icon' => '🗃️', 'settings_page' => 'wu-wpvivid', 'tag' => '第三方外掛'],
-        'media-library-manager' => ['name' => '媒體庫管理', 'description' => '在 WordPress 媒體庫內以資料夾側欄建立、篩選與拖放整理媒體檔案。', 'group' => '媒體工具', 'icon' => '🗂️', 'settings_page' => 'wu-media-library-manager', 'development' => true],
+        'media-library-manager' => ['name' => '媒體庫管理', 'description' => '在 WordPress 媒體庫內以資料夾側欄建立、篩選與拖放整理媒體檔案。', 'group' => '媒體工具', 'icon' => '🗂️', 'settings_page' => 'wu-media-library-manager'],
         'media-sync' => ['name' => '媒體掃描匯入', 'description' => '掃描 uploads 中未登錄的檔案，再選擇匯入媒體庫。', 'group' => '媒體工具', 'icon' => '🔍', 'settings_page' => 'wu-media-sync'],
         'disable-wordpress-updates' => ['name' => '停用所有更新', 'description' => '停止 WordPress 核心、外掛與佈景主題的更新檢查及自動更新。', 'group' => '後台介面', 'icon' => '⏸️', 'settings_page' => 'wu-disable-wordpress-updates'],
         'captcha' => ['name' => '驗證碼', 'description' => '以驗證碼保護登入、註冊與留言表單，降低機器人、垃圾留言與暴力登入。', 'group' => '安全性', 'icon' => '🤖'],
@@ -155,6 +155,38 @@ function wutm_grouped_modules(): array {
 }
 
 function wutm_get_module(string $key): ?array { $all = wutm_modules(); return $all[$key] ?? null; }
+
+// A site option selects the only accounts allowed to edit menu configurations.
+// Before it is configured, use the account matching the site's administrator
+// email; fall back to the oldest administrator only when that email is not an
+// eligible account. Never grant access to every user with manage_options.
+function wutm_admin_menu_editor_owner_ids(): array {
+    $stored = get_option('wutm_admin_menu_editor_owner_ids', false);
+    if ($stored !== false) {
+        $ids = [];
+        foreach ((array) $stored as $value) {
+            if (!is_scalar($value) || !ctype_digit((string) $value)) continue;
+            $id = absint($value);
+            if ($id) $ids[] = $id;
+        }
+        $ids = array_values(array_unique($ids));
+        return array_values(array_filter($ids, static function (int $id): bool {
+            $user = get_userdata($id);
+            return $user && user_can($user, 'manage_options');
+        }));
+    }
+    $email = (string) get_option('admin_email', '');
+    $user = $email !== '' ? get_user_by('email', $email) : false;
+    if ($user && user_can($user, 'manage_options')) return [(int) $user->ID];
+    $admins = get_users(['role' => 'administrator', 'orderby' => 'ID', 'order' => 'ASC', 'number' => 1]);
+    return $admins && user_can($admins[0], 'manage_options') ? [(int) $admins[0]->ID] : [];
+}
+
+function wutm_admin_menu_editor_can_edit(): bool {
+    return current_user_can('manage_options')
+        && in_array(get_current_user_id(), wutm_admin_menu_editor_owner_ids(), true);
+}
+
 function wutm_module_option(string $key): string { return 'wutm_module_' . str_replace('-', '_', $key); }
 function wutm_is_enabled(string $key): bool {
     $new = get_option(wutm_module_option($key), null);
