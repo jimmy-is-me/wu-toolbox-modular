@@ -12,7 +12,7 @@ function wutm_modules(): array {
         'marquee-announcements' => ['name' => '跑馬燈／公告輪播', 'description' => '建立可拖曳排序的多則公告，支援全站、首頁、指定頁面或短代碼顯示與多種輪播效果。', 'group' => '內容管理', 'icon' => '📢', 'settings_page' => 'wu-marquee-announcements'],
         'knowledge-base' => ['name' => '知識庫', 'description' => '建立知識庫文件與分類，提供站內搜尋、精選內容、快捷連結、前台快速支援面板及可選擇的回到最上按鈕。', 'group' => '內容管理', 'icon' => '📚', 'settings_page' => 'wumetax-quick-support', 'related_pages' => ['edit.php?post_type=skb_doc', 'edit-tags.php?taxonomy=skb_category&post_type=skb_doc', 'edit.php?post_type=skb_doc&page=skb-settings']],
         'site-ai-connector' => ['name' => 'AI 連接器', 'description' => '統一管理 MCP、OpenAPI、Gemini 串接方式、唯讀／讀寫金鑰、IP 白名單與連線權限。', 'group' => 'AI功能', 'icon' => '', 'settings_page' => 'site-ai-connector'],
-        'wu-ai-card' => ['name' => 'WU AI Card', 'description' => '整合既有 WU AI Card 外掛入口，設定頁收納於工具箱；前台浮動入口固定顯示在左下角。需先安裝並啟用 WU AI Card。', 'group' => 'AI功能', 'icon' => '💬', 'tag' => '第三方外掛', 'external_plugin' => 'wu-ai-card', 'settings_page' => 'wu-ai-card', 'settings_when_active' => true],
+        'wu-ai-card' => ['name' => 'WU AI Card', 'description' => '建立可自訂內容、主題與浮動入口的 AI 名片頁面，支援獨立網址、短代碼及 QR Code。', 'group' => 'AI功能', 'icon' => '💬', 'settings_page' => 'wu-ai-card'],
         'ai-content-tools' => ['name' => 'AI 文章與 FAQ', 'description' => '集中查看文章建立、更新、FAQ 與內容操作工具，並複製完整安全指令。', 'group' => 'AI功能', 'icon' => '📝', 'navigation' => true, 'parent_module' => 'site-ai-connector', 'settings_page' => 'wu-ai-content-tools'],
         'ai-seo-tools' => ['name' => 'AI SEO 工具', 'description' => '集中查看 SEO 讀取、缺漏掃描與安全更新工具，以及可直接交給 AI 的 SEO 指令。', 'group' => 'AI功能', 'icon' => '🔎', 'navigation' => true, 'parent_module' => 'site-ai-connector', 'settings_page' => 'wu-ai-seo-tools'],
         'ai-media-tools' => ['name' => 'AI 圖片工具', 'description' => '管理圖片上傳、媒體搜尋、精選圖片與替代文字補齊等 AI 工具。', 'group' => 'AI功能', 'icon' => '🖼️', 'navigation' => true, 'parent_module' => 'site-ai-connector', 'settings_page' => 'wu-ai-media-tools'],
@@ -205,6 +205,17 @@ function wutm_is_enabled(string $key): bool {
     }
     return false;
 }
+
+// Keep an already active standalone WU AI Card installation enabled when it
+// moves into the Toolbox module registry; the module then reuses its settings.
+add_action('plugins_loaded', static function (): void {
+    if (get_option('wutm_wu_ai_card_migrated', false)) return;
+    $key = 'wu-ai-card';
+    if (get_option(wutm_module_option($key), null) === null && function_exists('wu_aic_settings_page')) {
+        update_option(wutm_module_option($key), 1, false);
+    }
+    update_option('wutm_wu_ai_card_migrated', 1, false);
+}, 19);
 
 // Merge the former points and tiers cards without changing their stored data.
 // Enabling either former card keeps the new unified module enabled after update.

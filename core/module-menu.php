@@ -111,7 +111,7 @@ add_action('admin_menu', function (): void {
         }
         if ($group_entries) {
             $group_slug = 'wutm-group-' . sanitize_title($group);
-            $ordered[] = ['<span class="wutm-submenu-group-label" data-group="' . esc_attr($group_slug) . '">' . esc_html($group) . '</span>', 'read', $group_slug];
+            $ordered[] = ['<span class="wutm-submenu-group-label">' . esc_html($group) . '</span>', 'read', $group_slug];
             foreach ($group_entries as $entry) $ordered[] = $entry;
         }
     }
@@ -133,29 +133,12 @@ add_action('admin_head', function (): void {
         $selectors[] = '#adminmenu .wp-submenu li:has(>a[href="admin.php?page=' . $slug . '"])';
     }
     if ($selectors) echo '<style>' . implode(',', $selectors) . '{display:none!important}</style>';
-    // The shared stylesheet is limited to Toolbox screens, so mirror only these
-    // small menu rules here to keep the submenu usable on every admin screen.
-    echo '<style>#adminmenu .wp-submenu .wutm-submenu-group-link{display:block!important;position:relative!important;box-sizing:border-box!important;min-height:30px!important;margin:3px 10px 1px!important;padding:6px 28px 5px 12px!important;border-top:1px solid rgba(255,255,255,.2)!important;color:#72aee6!important;font-size:11px!important;font-weight:700!important;letter-spacing:.03em!important;line-height:18px!important;white-space:normal!important;overflow:visible!important;overflow-wrap:anywhere!important;cursor:pointer!important}#adminmenu .wp-submenu .wutm-submenu-group-link:focus{color:#fff!important;box-shadow:0 0 0 1px #72aee6!important;outline:0!important}#adminmenu .wp-submenu .wutm-submenu-group-link:after{content:"＋";position:absolute;right:9px;top:6px;color:#a7aaad;font-size:12px}#adminmenu .wp-submenu .wutm-submenu-group-link[aria-expanded="true"]:after{content:"−"}#adminmenu .wp-submenu li.wutm-menu-group-hidden{display:none!important}</style>';
-    // Match the active item to the inset group headings. A full-width native
-    // highlight otherwise appears to protrude over adjacent category rows.
-    echo '<style>#adminmenu #toplevel_page_wu-toolbox-modular .wp-submenu>li.current{position:static!important;box-sizing:border-box!important;padding:3px 10px!important}#adminmenu #toplevel_page_wu-toolbox-modular .wp-submenu>li.current>a{position:static!important;display:block!important;box-sizing:border-box!important;width:100%!important;height:auto!important;min-height:30px!important;margin:0!important;border-radius:3px!important;white-space:normal!important;overflow-wrap:anywhere!important}</style>';
-    // WordPress positions inactive submenus absolutely to the right of the
-    // admin rail. The Toolbox has many grouped entries, so that flyout covers
-    // the page. Keep its submenu in the rail's document flow on desktop.
-    // When the native rail is folded, reserve room for the wider menu instead.
-    // The selected top-level anchor must remain in its own row. The previous
-    // active-item rule targeted submenu children only, leaving this anchor
-    // free to overlap category rows when another admin style repositions it.
-    echo '<style>#adminmenu #toplevel_page_wu-toolbox-modular>a.menu-top{position:static!important;inset:auto!important;float:none!important;transform:none!important;box-sizing:border-box!important;max-width:100%!important;margin:0!important}#adminmenu #toplevel_page_wu-toolbox-modular>a.menu-top:after{pointer-events:none}@media(min-width:783px){#adminmenu #toplevel_page_wu-toolbox-modular .wp-submenu{position:static!important;top:auto!important;left:auto!important;right:auto!important;width:160px!important;min-width:0!important;box-shadow:none!important}body.folded #adminmenu #toplevel_page_wu-toolbox-modular .wp-submenu{position:absolute!important;top:34px!important;left:36px!important;right:auto!important;width:176px!important;max-height:calc(100vh - 16px)!important;overflow-y:auto!important}body.folded.wutm-menu-flyout-open #wpcontent,body.folded.wutm-menu-flyout-open #wpfooter{margin-left:214px!important}}@media(min-width:783px) and (max-width:960px){body.auto-fold #adminmenu #toplevel_page_wu-toolbox-modular .wp-submenu{position:absolute!important;top:34px!important;left:36px!important;right:auto!important;width:176px!important;max-height:calc(100vh - 16px)!important;overflow-y:auto!important}body.auto-fold.wutm-menu-flyout-open #wpcontent,body.auto-fold.wutm-menu-flyout-open #wpfooter{margin-left:214px!important}}</style>';
+    // Keep category dividers as non-interactive labels, but let WordPress own
+    // submenu visibility, positioning, and folded/mobile behavior again.
+    echo '<style>#adminmenu .wp-submenu a:has(>.wutm-submenu-group-label){pointer-events:none!important;cursor:default!important;text-decoration:none!important}#adminmenu .wutm-submenu-group-label{display:block!important;margin:9px 10px 2px!important;padding:7px 10px 5px!important;border-top:1px solid rgba(255,255,255,.2)!important;color:#72aee6!important;font-size:11px!important;font-weight:700!important;letter-spacing:.03em!important;line-height:18px!important;white-space:normal!important;overflow-wrap:anywhere!important}</style>';
 });
 
-/** The WU Toolbox sidebar needs its grouped menu behavior on every admin screen. */
-add_action('admin_enqueue_scripts', function (): void {
-    wp_enqueue_script(
-        'wutm-module-menu',
-        WUTM_URL . 'assets/js/module-menu.js',
-        [],
-        WUTM_VERSION,
-        true
-    );
+/** Preserve the classic grouped list: category rows are labels, never fake links. */
+add_action('admin_footer', function (): void {
+    echo '<script>document.querySelectorAll("#adminmenu .wutm-submenu-group-label").forEach(function(label){var link=label.closest("a");if(!link)return;link.setAttribute("aria-disabled","true");link.setAttribute("tabindex","-1");link.addEventListener("click",function(event){event.preventDefault();});});</script>';
 });
