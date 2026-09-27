@@ -818,13 +818,6 @@ function wumf_admin_css() {
             left:var(--wumf-panel-width)!important;
             inset-inline-start:var(--wumf-panel-width)!important;
         }
-        .attachments-browser.wumf-has-folders > .uploader-inline{
-            left:var(--wumf-panel-width)!important;
-            inset-inline-start:var(--wumf-panel-width)!important;
-            right:0!important;
-            width:auto!important;
-            box-sizing:border-box!important;
-        }
         /* WP 6.8+ wraps the grid in attachments-wrapper. On upload.php the
            wrapper participates in layout, so reserve the folder width there. */
         .attachments-browser.wumf-has-folders > .attachments-wrapper{
@@ -894,7 +887,6 @@ function wumf_admin_css() {
         .media-modal .attachments-browser.wumf-has-folders .wumf-panel{max-width:34%;}
         @supports (inset-inline-start:1px){
             .attachments-browser.wumf-has-folders > .attachments{left:auto!important;right:auto!important;}
-            .attachments-browser.wumf-has-folders > .uploader-inline{left:auto!important;}
         }
         @media(max-width:782px){
             .attachments-browser.wumf-has-folders{--wumf-panel-width:190px}
@@ -925,8 +917,7 @@ function wumf_admin_css() {
         .wumf-compact .wumf-panel:not(.wumf-expanded) .wumf-tree{display:none}
         .wumf-compact .wumf-panel.wumf-expanded .wumf-head{flex:0 0 auto}
         .wumf-compact .wumf-panel.wumf-expanded .wumf-tree{overflow-y:auto;padding-bottom:12px}
-        .attachments-browser.wumf-has-folders.wumf-compact > .attachments,
-        .attachments-browser.wumf-has-folders.wumf-compact > .uploader-inline{
+        .attachments-browser.wumf-has-folders.wumf-compact > .attachments{
             top:calc(var(--wumf-panel-top) + var(--wumf-mobile-panel-height))!important;
             left:0!important;
             inset-inline-start:0!important;
@@ -935,8 +926,8 @@ function wumf_admin_css() {
         }
         .attachments-browser.wumf-has-folders.wumf-compact > .attachments-wrapper{
             margin-inline-start:0!important;
+            margin-top:var(--wumf-mobile-panel-height)!important;
             width:100%!important;
-            top:calc(var(--wumf-panel-top) + var(--wumf-mobile-panel-height))!important;
         }
         .attachments-browser.wumf-has-folders.wumf-compact > .attachments-wrapper > .attachments,
         .media-modal .attachments-browser.wumf-has-folders.wumf-compact > .attachments-wrapper > .attachments{
@@ -1202,10 +1193,11 @@ function wumf_admin_js() {
         function syncBrowserLayout($browser){
             if(!$browser || !$browser.length) return;
             const $toolbar=$browser.children('.media-toolbar:visible').first();
+            const $uploader=$browser.children('.uploader-inline:visible').first();
             let top=0;
+            const browserRect=$browser[0].getBoundingClientRect();
 
             if($toolbar.length){
-                const browserRect=$browser[0].getBoundingClientRect();
                 const toolbarRect=$toolbar[0].getBoundingClientRect();
                 top=Math.max(0,Math.ceil(toolbarRect.bottom-browserRect.top));
             } else if(!$browser.hasClass('wumf-compact')) {
@@ -1217,10 +1209,15 @@ function wumf_admin_js() {
                 // drawer; measuring it again would add that offset repeatedly.
                 const $attachments=$browser.children('.attachments, .attachments-wrapper').first();
                 if($attachments.length){
-                    const browserRect=$browser[0].getBoundingClientRect();
                     const gridRect=$attachments[0].getBoundingClientRect();
                     top=Math.max(0,Math.ceil(gridRect.top-browserRect.top));
                 }
+            }
+            // The upload drop zone sits before the toolbar on upload.php. It can
+            // be opened without a DOM insertion, so an old toolbar-only offset
+            // would leave the folder pane on top of the uploader.
+            if($uploader.length){
+                top=Math.max(top,Math.ceil($uploader[0].getBoundingClientRect().bottom-browserRect.top));
             }
 
             $browser[0].style.setProperty('--wumf-panel-top', top+'px');
@@ -1246,6 +1243,30 @@ function wumf_admin_js() {
             }
         }
 
+        function watchBrowserLayout($browser){
+            if($browser.data('wumfLayoutObserver')) return;
+            const targets=$browser.children('.uploader-inline, .media-toolbar').get();
+            if(!targets.length) return;
+            const update=function(){
+                if(!document.documentElement.contains($browser[0])){
+                    const old=$browser.data('wumfLayoutObserver');
+                    if(old) old.disconnect();
+                    $browser.removeData('wumfLayoutObserver');
+                    return;
+                }
+                syncBrowserLayout($browser);
+            };
+            if(window.ResizeObserver){
+                const observer=new ResizeObserver(update);
+                targets.forEach(function(target){ observer.observe(target); });
+                $browser.data('wumfLayoutObserver',observer);
+            } else {
+                const observer=new MutationObserver(update);
+                targets.forEach(function(target){ observer.observe(target,{attributes:true,attributeFilter:['class','style']}); });
+                $browser.data('wumfLayoutObserver',observer);
+            }
+        }
+
         function mountBrowser(viewOrEl){
             let $browser, view=null;
             if(viewOrEl && viewOrEl.$el){
@@ -1268,6 +1289,7 @@ function wumf_admin_js() {
             }
 
             syncBrowserLayout($browser);
+            watchBrowserLayout($browser);
             initAttachmentDraggables($browser);
         }
 
