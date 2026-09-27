@@ -901,7 +901,9 @@ function wumf_admin_css() {
 /* ---------------------------------------------------------
  * 7) Admin UI JavaScript
  * --------------------------------------------------------- */
-add_action( 'admin_footer', 'wumf_admin_js', 99 );
+// admin_footer runs before WordPress prints queued footer scripts. Run after
+// those scripts so jQuery, media-views and sortable dependencies are available.
+add_action( 'admin_print_footer_scripts', 'wumf_admin_js', 20 );
 function wumf_admin_js() {
     if ( ! wumf_can_manage() ) {
         return;
