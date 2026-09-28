@@ -4,9 +4,7 @@
  *
  * 安全設計原則：
  * - 每個 App 都是純 <a href> 錨點 — 只有使用者「點擊」才會開啟。
- * - 不使用 iframe、不使用 JS 導向、不預載任何外部資源
- *   （NinjaTeam 以 iframe 載入 line.me 造成 iOS/Apple 裝置
- *   一進頁就跳「要開啟 LINE 嗎？」，本外掛從結構上根絕）。
+ * - 不使用 iframe、不使用 JS 導向，亦不預先載入第三方資源。
  *
  * @package WUTM\ContactWidgets\Frontend
  * @since   1.0.0

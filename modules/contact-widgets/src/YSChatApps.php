@@ -2,14 +2,13 @@
 /**
  * App 定義與連結正規化
  *
- * 每個 App 含：名稱、品牌色、inline SVG 圖示（取自 GPL 授權之
- * NinjaTeam Click to Chat）、輸入提示、連結前綴。
+ * 每個 App 含：名稱、品牌色、inline SVG 圖示、輸入提示與連結前綴。
  *
  * 連結正規化原則（value 可為「完整網址」或「純 ID / 帳號 / 號碼」，兩者相融）：
  * 1. 已帶 scheme（https:/tel:/mailto:/viber: 等）→ 原樣使用（僅修復異常）。
  * 2. 純 ID → 依 App 前綴組出完整連結。
  * 3. 特別修復「雙重網址」（例：https://line.me/ti/p/https://line.me/R/ti/p/@xxx）
- *    — 這是 NinjaTeam 2.3.6 的已知回歸 bug，移轉時必須清洗。
+ *    — 舊版來源可能產生的異常網址格式，匯入時需要清洗。
  *
  * @package WUTM\ContactWidgets
  * @since   1.0.0
@@ -153,7 +152,7 @@ class YSChatApps {
     /**
      * 清洗輸入值（移轉與儲存時呼叫）
      *
-     * - 修復 NinjaTeam 2.3.6 產生的雙重網址。
+     * - 修復匯入資料中可能存在的重複網址。
      * - LINE 完整網址 → 抽出純 ID（lin.ee 短網址除外，原樣保留）。
      * - 其他值僅 trim。
      */
@@ -252,7 +251,7 @@ class YSChatApps {
     }
 
     /**
-     * inline SVG 圖示（GPL — 取自 NinjaTeam Click to Chat）
+     * inline SVG 圖示
      *
      * 明確補上 width/height 屬性 — 避免主題 CSS 未套用/被覆蓋時 SVG 無尺寸。
      * 後台 CSS 以更高優先級覆寫時仍可縮放。

@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Wumetax Quick Support
- * Description: 輕量快速支援面板：搜尋客戶支援文件、網站知識與 WooCommerce 商品，可自訂預設內容與底部導覽。
+ * Description: 輕量快速支援面板：搜尋客戶支援文件與網站知識文章，並提供聯絡與知識庫入口。
  * Version: 1.3.1
  * Author: Wumetax
  * Author URI: https://wumetax.com/
@@ -42,8 +42,6 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 				'show_back_to_top' => 1,
 				'source_docs'    => 1,
 				'source_posts'   => 1,
-				'source_products'=> post_type_exists( 'product' ) ? 1 : 0,
-				'display_limit'  => 10,
 				'search_limit'   => 12,
 				'bottom_1_text'  => '首頁',
 				'bottom_1_url'   => home_url( '/' ),
@@ -52,7 +50,7 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 				'bottom_2_url'   => home_url( '/contact/' ),
 				'bottom_2_icon'  => 'chat',
 				'bottom_3_text'  => '支援中心',
-				'bottom_3_url'   => home_url( '/docs/' ),
+				'bottom_3_url'   => self::docs_center_url(),
 				'bottom_3_icon'  => 'book',
 			];
 		}
@@ -63,36 +61,20 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 				$saved = [];
 			}
 
-			/* 從 v1.2 自動帶入舊的顯示筆數。 */
-			if ( ! isset( $saved['display_limit'] ) ) {
-				$old_limit = absint( get_option( 'wumetax_qs_display_limit_v120', 0 ) );
-				if ( $old_limit ) {
-					$saved['display_limit'] = $old_limit;
-				}
-			}
-
-			return wp_parse_args( $saved, self::defaults() );
+			$settings = wp_parse_args( $saved, self::defaults() );
+			unset( $settings['source_products'], $settings['display_limit'] );
+			$settings['bottom_3_url'] = self::docs_center_url();
+			return $settings;
 		}
 
-		public static function get_featured_ids() {
-			$ids = get_option( self::OPTION_IDS, null );
-
-			/* 第一次升級時沿用 v1.2 精選內容。 */
-			if ( null === $ids ) {
-				$ids = get_option( 'wumetax_qs_featured_ids_v120', [] );
+		private static function docs_center_url() {
+			if ( function_exists( 'wutm_kb_get_settings' ) ) {
+				$kb_settings = wutm_kb_get_settings();
+				if ( ! empty( $kb_settings['home_url'] ) ) {
+					return esc_url_raw( $kb_settings['home_url'] );
+				}
 			}
-
-			if ( ! is_array( $ids ) ) {
-				return [];
-			}
-
-			return array_values(
-				array_unique(
-					array_filter(
-						array_map( 'absint', $ids )
-					)
-				)
-			);
+			return home_url( '/docs-center/' );
 		}
 
 		public static function icon_choices() {
@@ -141,10 +123,6 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 			if ( ! empty( $s['source_posts'] ) && post_type_exists( 'post' ) ) {
 				$types[] = 'post';
 			}
-			if ( ! empty( $s['source_products'] ) && post_type_exists( 'product' ) ) {
-				$types[] = 'product';
-			}
-
 			if ( empty( $types ) ) {
 				$types[] = 'post';
 			}
@@ -183,14 +161,6 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 				];
 			}
 
-			if ( 'product' === $type ) {
-				return [
-					'type'       => 'product',
-					'type_label' => '商品',
-					'category'   => self::first_term_name( $post_id, 'product_cat', '商品' ),
-				];
-			}
-
 			return [
 				'type'       => 'other',
 				'type_label' => '內容',
@@ -201,16 +171,6 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 		public static function get_excerpt_text( $post_id, $words = 30 ) {
 			$post_type = get_post_type( $post_id );
 			$excerpt   = '';
-
-			if ( 'product' === $post_type && function_exists( 'wc_get_product' ) ) {
-				$product = wc_get_product( $post_id );
-				if ( $product ) {
-					$excerpt = $product->get_short_description();
-					if ( ! $excerpt ) {
-						$excerpt = $product->get_description();
-					}
-				}
-			}
 
 			if ( ! $excerpt ) {
 				$excerpt = get_the_excerpt( $post_id );
@@ -250,13 +210,6 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 				'date'       => get_the_modified_date( 'Y-m-d', $post_id ),
 				'price'      => '',
 			];
-
-			if ( 'product' === get_post_type( $post_id ) && function_exists( 'wc_get_product' ) ) {
-				$product = wc_get_product( $post_id );
-				if ( $product ) {
-					$data['price'] = self::clean_display_text( $product->get_price_html() );
-				}
-			}
 
 			return $data;
 		}
@@ -317,7 +270,7 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 			$keyword = isset( $_POST['keyword'] ) ? sanitize_text_field( wp_unslash( $_POST['keyword'] ) ) : '';
 			$keyword = trim( $keyword );
 			$results = [];
-			$mode    = 'latest';
+			$mode    = 'search';
 			$types   = self::get_post_types();
 
 			if ( '' !== $keyword ) {
@@ -332,39 +285,9 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 					'ignore_sticky_posts' => true,
 					'no_found_rows'       => true,
 				]);
-			} else {
-				$featured = self::get_featured_ids();
-				$limit    = max( 1, min( 30, absint( $s['display_limit'] ) ) );
-
-				if ( ! empty( $featured ) ) {
-					$featured = array_values( array_filter( $featured, function( $id ) use ( $types ) {
-						return 'publish' === get_post_status( $id ) && in_array( get_post_type( $id ), $types, true );
-					} ) );
-				}
-
-				if ( ! empty( $featured ) ) {
-					$mode = 'featured';
-					$featured = array_slice( $featured, 0, $limit );
-					$query = new WP_Query([
-						'post_type'           => $types,
-						'post_status'         => 'publish',
-						'post__in'            => $featured,
-						'orderby'             => 'post__in',
-						'posts_per_page'      => $limit,
-						'ignore_sticky_posts' => true,
-						'no_found_rows'       => true,
-					]);
-				} else {
-					$query = new WP_Query([
-						'post_type'           => $types,
-						'post_status'         => 'publish',
-						'posts_per_page'      => $limit,
-						'orderby'             => 'modified',
-						'order'               => 'DESC',
-						'ignore_sticky_posts' => true,
-						'no_found_rows'       => true,
-					]);
-				}
+			}
+			if ( '' === $keyword ) {
+				wp_send_json_success( [ 'results' => [], 'keyword' => '', 'mode' => 'prompt' ] );
 			}
 
 			if ( isset( $query ) && $query->have_posts() ) {
@@ -426,31 +349,18 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 				'show_back_to_top'=> ! empty( $input['show_back_to_top'] ) ? 1 : 0,
 				'source_docs'     => ! empty( $input['source_docs'] ) ? 1 : 0,
 				'source_posts'    => ! empty( $input['source_posts'] ) ? 1 : 0,
-				'source_products' => ! empty( $input['source_products'] ) ? 1 : 0,
-				'display_limit'   => max( 1, min( 30, absint( $input['display_limit'] ?? 10 ) ) ),
 				'search_limit'    => max( 1, min( 30, absint( $input['search_limit'] ?? 12 ) ) ),
 			];
 
 			for ( $i = 1; $i <= 3; $i++ ) {
 				$settings[ "bottom_{$i}_text" ] = sanitize_text_field( $input[ "bottom_{$i}_text" ] ?? $defaults[ "bottom_{$i}_text" ] );
-				$settings[ "bottom_{$i}_url" ]  = self::clean_url( $input[ "bottom_{$i}_url" ] ?? $defaults[ "bottom_{$i}_url" ] );
+				$url = self::clean_url( $input[ "bottom_{$i}_url" ] ?? $defaults[ "bottom_{$i}_url" ] );
+				$settings[ "bottom_{$i}_url" ] = 3 === $i ? self::docs_center_url() : $url;
 				$icon = sanitize_key( $input[ "bottom_{$i}_icon" ] ?? $defaults[ "bottom_{$i}_icon" ] );
 				$settings[ "bottom_{$i}_icon" ] = in_array( $icon, $icons, true ) ? $icon : $defaults[ "bottom_{$i}_icon" ];
 			}
 
 			update_option( self::OPTION_SETTINGS, $settings, false );
-
-			$raw_ids = isset( $_POST['featured_ids'] ) ? sanitize_text_field( wp_unslash( $_POST['featured_ids'] ) ) : '';
-			$ids = array_values( array_unique( array_filter( array_map( 'absint', explode( ',', $raw_ids ) ) ) ) );
-			$valid_types = self::get_post_types();
-			$valid_ids = [];
-
-			foreach ( $ids as $id ) {
-				if ( 'publish' === get_post_status( $id ) && in_array( get_post_type( $id ), $valid_types, true ) ) {
-					$valid_ids[] = $id;
-				}
-			}
-			update_option( self::OPTION_IDS, $valid_ids, false );
 
 			wp_safe_redirect( add_query_arg( [ 'page' => self::ADMIN_SLUG, 'updated' => 1 ], admin_url( 'admin.php' ) ) );
 			exit;
@@ -461,150 +371,52 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 				return;
 			}
 
-			$s            = self::get_settings();
-			$selected_ids = self::get_featured_ids();
-			$all_items    = get_posts([
-				'post_type'   => self::get_post_types(),
-				'post_status' => 'publish',
-				'numberposts' => -1,
-				'orderby'     => 'modified',
-				'order'       => 'DESC',
-			]);
-			$selected_items = [];
-			foreach ( $selected_ids as $id ) {
-				$p = get_post( $id );
-				if ( $p && 'publish' === $p->post_status ) {
-					$selected_items[] = $p;
-				}
-			}
+			$s     = self::get_settings();
 			$icons = self::icon_choices();
 			?>
 			<style>
-			.wuqs-admin{max-width:1320px;margin:28px 20px 60px 0}.wuqs-admin *{box-sizing:border-box}.wuqs-head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;margin-bottom:22px}.wuqs-head h1{margin:0 0 7px;font-size:28px}.wuqs-head p{margin:0;color:#646970}.wuqs-save{min-height:40px!important;padding:0 20px!important}.wuqs-notice{padding:13px 16px;margin-bottom:18px;background:#fff;border-left:4px solid #4fa567}.wuqs-card{background:#fff;border:1px solid #dcdcde;border-radius:12px;overflow:hidden;margin-bottom:20px}.wuqs-card-head{padding:18px 20px;background:#f7f8f7;border-bottom:1px solid #e6e8e7}.wuqs-card-head h2{margin:0 0 5px;font-size:17px}.wuqs-card-head p{margin:0;color:#72777c;font-size:12px}.wuqs-setting-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:20px}.wuqs-field label{display:block;font-weight:650;margin-bottom:7px}.wuqs-field input[type=text],.wuqs-field input[type=url],.wuqs-field input[type=number],.wuqs-field select{width:100%;min-height:40px}.wuqs-help{display:block;margin-top:6px;color:#777;font-size:12px;line-height:1.5}.wuqs-source-row{display:flex;gap:18px;flex-wrap:wrap;padding:20px}.wuqs-source{display:flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid #dfe4e1;border-radius:9px;background:#fbfcfb}.wuqs-bottom-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:20px}.wuqs-bottom-card{padding:16px;border:1px solid #e2e5e3;border-radius:10px;background:#fbfcfb}.wuqs-bottom-card h3{margin:0 0 12px;font-size:14px}.wuqs-bottom-card .wuqs-field{margin-bottom:11px}.wuqs-picker{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}.wuqs-panel{background:#fff;border:1px solid #dcdcde;border-radius:12px;overflow:hidden}.wuqs-panel-head{padding:18px 20px;background:#f7f8f7;border-bottom:1px solid #e5e5e5}.wuqs-panel-head h2{margin:0 0 5px;font-size:17px}.wuqs-panel-head p{margin:0;color:#72777c;font-size:12px}.wuqs-searchbox{padding:14px 16px;border-bottom:1px solid #e5e5e5}.wuqs-searchbox input{width:100%;min-height:40px}.wuqs-list{max-height:580px;overflow:auto}.wuqs-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:14px;align-items:center;padding:13px 16px;border-bottom:1px solid #ededed}.wuqs-item:last-child{border-bottom:0}.wuqs-item:hover{background:#fafcfa}.wuqs-title-sm{font-weight:650;color:#1d2327;margin-bottom:6px}.wuqs-meta{display:flex;gap:6px;flex-wrap:wrap;align-items:center;color:#8a8f94;font-size:11px}.wuqs-badge{display:inline-flex;align-items:center;min-height:22px;padding:0 8px;border-radius:999px;background:#eef7f1;color:#347c4b;font-size:10px;font-weight:700}.wuqs-badge.article{background:#f0f2f1;color:#59635d}.wuqs-badge.product{background:#fff5e9;color:#9a5a00}.wuqs-selected-row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:11px;align-items:center;padding:13px 16px;border-bottom:1px solid #ededed}.wuqs-num{display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:8px;background:#eef7f1;color:#347c4b;font-size:11px;font-weight:700}.wuqs-actions-mini{display:flex;gap:5px}.wuqs-mini{width:30px;height:30px;border:1px solid #c3c4c7;border-radius:5px;background:#fff;cursor:pointer}.wuqs-mini:hover{border-color:#4fa567;color:#347c4b}.wuqs-remove:hover{border-color:#d63638;color:#d63638}.wuqs-empty{padding:45px 20px;text-align:center;color:#8a8f94}.wuqs-status{display:flex;align-items:center;gap:8px;padding:14px 20px;border-top:1px solid #eceeed;color:#646970;font-size:12px}.wuqs-dot{width:8px;height:8px;border-radius:50%;background:#4fa567}.wuqs-dot.off{background:#c3c4c7}@media(max-width:900px){.wuqs-setting-grid,.wuqs-bottom-grid,.wuqs-picker{grid-template-columns:1fr}.wuqs-head{flex-direction:column}}
+			.wuqs-admin{max-width:1240px;margin:20px 0 0!important}.wuqs-admin *{box-sizing:border-box}.wuqs-actions-bar{display:flex;justify-content:flex-end;margin:0 0 18px}.wuqs-save{min-height:40px!important;padding:0 20px!important}.wuqs-notice{padding:13px 16px;margin-bottom:18px;background:#fff;border-left:4px solid #4fa567}.wuqs-card{background:#fff;border:1px solid #dcdcde;border-radius:8px;overflow:hidden;margin-bottom:20px}.wuqs-card-head{padding:18px 20px;background:#f7f8f7;border-bottom:1px solid #e6e8e7}.wuqs-card-head h2{margin:0 0 5px;font-size:17px}.wuqs-card-head p{margin:0;color:#72777c;font-size:12px}.wuqs-setting-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px;padding:20px}.wuqs-field label{display:block;font-weight:650;margin-bottom:7px}.wuqs-field input[type=text],.wuqs-field input[type=url],.wuqs-field input[type=number],.wuqs-field select{width:100%;min-height:40px}.wuqs-help{display:block;margin-top:6px;color:#777;font-size:12px;line-height:1.5}.wuqs-source-row{display:flex;gap:18px;flex-wrap:wrap;padding:20px}.wuqs-source{display:flex;align-items:center;gap:8px;padding:10px 14px;border:1px solid #dfe4e1;border-radius:9px;background:#fbfcfb}.wuqs-bottom-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;padding:20px}.wuqs-bottom-card{padding:16px;border:1px solid #e2e5e3;border-radius:10px;background:#fbfcfb}.wuqs-bottom-card h3{margin:0 0 12px;font-size:14px}.wuqs-bottom-card .wuqs-field{margin-bottom:11px}@media(max-width:782px){.wuqs-setting-grid,.wuqs-bottom-grid{grid-template-columns:1fr}.wuqs-actions-bar{justify-content:stretch}.wuqs-actions-bar .button{width:100%}}
 			</style>
-			<style>.wuqs-admin{max-width:1240px;margin:20px 0 0!important}.wuqs-admin>.wutm-module-subtitle{margin-bottom:18px}.wuqs-actions-bar{display:flex;justify-content:flex-end;margin:0 0 18px}.wuqs-card,.wuqs-panel{border-radius:8px}.wuqs-admin input[type=color]{width:72px;height:40px;padding:3px;border:1px solid #8c8f94;border-radius:4px;background:#fff}@media(max-width:782px){.wuqs-actions-bar{justify-content:stretch}.wuqs-actions-bar .button{width:100%}}</style>
-
 			<div class="wrap wutm-module-wrap sac-tools-page wuqs-admin">
 				<h1>Wumetax 快速支援</h1>
-				<p class="wutm-module-subtitle">設定搜尋來源、預設內容、面板色彩與底部三個快捷連結；AI 功能由獨立擴充模組加入。</p>
+				<p class="wutm-module-subtitle">設定搜尋來源、面板色彩與底部快捷連結；完整內容彙整由 docs-center 負責。</p>
 				<?php if ( isset( $_GET['updated'] ) ) : ?>
 					<div class="wuqs-notice"><strong>已儲存。</strong> 前台快速支援已套用最新設定。</div>
 				<?php endif; ?>
-
 				<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" id="wuqs-form">
 					<input type="hidden" name="action" value="wumetax_qs_save_v130">
 					<?php wp_nonce_field( 'wumetax_qs_save_v130' ); ?>
-					<input type="hidden" name="featured_ids" id="wuqs-featured-ids" value="<?php echo esc_attr( implode( ',', $selected_ids ) ); ?>">
-
 					<div class="wuqs-actions-bar"><button type="submit" class="button button-primary wuqs-save">儲存設定</button></div>
-
 					<div class="wuqs-card">
-						<div class="wuqs-card-head"><h2>面板內容</h2><p>控制訪客打開快速支援時看到的標題與文字。</p></div>
+						<div class="wuqs-card-head"><h2>面板內容</h2><p>控制訪客打開快速支援時看到的標題、說明與搜尋來源。</p></div>
 						<div class="wuqs-setting-grid">
 							<div class="wuqs-field"><label>標題</label><input type="text" name="settings[panel_title]" value="<?php echo esc_attr( $s['panel_title'] ); ?>"></div>
 							<div class="wuqs-field"><label>說明</label><input type="text" name="settings[panel_subtitle]" value="<?php echo esc_attr( $s['panel_subtitle'] ); ?>"></div>
 							<div class="wuqs-field"><label>面板顏色</label><input type="color" name="settings[panel_color]" value="<?php echo esc_attr( $s['panel_color'] ); ?>"><span class="wuqs-help">套用於面板標題區、搜尋按鈕與主要強調色。</span></div>
-							<div class="wuqs-field"><label>圖示顏色</label><input type="color" name="settings[icon_color]" value="<?php echo esc_attr( $s['icon_color'] ); ?>"><span class="wuqs-help">套用於右下角快速支援按鈕的圖示。</span></div>
-							<div class="wuqs-field"><label>預設顯示筆數</label><input type="number" min="1" max="30" name="settings[display_limit]" value="<?php echo esc_attr( $s['display_limit'] ); ?>"><span class="wuqs-help">若有手動挑選內容，會依下方順序顯示；沒有則顯示最新內容。</span></div>
+							<div class="wuqs-field"><label>圖示顏色</label><input type="color" name="settings[icon_color]" value="<?php echo esc_attr( $s['icon_color'] ); ?>"><span class="wuqs-help">套用於快速支援按鈕圖示。</span></div>
 							<div class="wuqs-field"><label>搜尋結果上限</label><input type="number" min="1" max="30" name="settings[search_limit]" value="<?php echo esc_attr( $s['search_limit'] ); ?>"></div>
-							<div class="wuqs-field"><label><input type="checkbox" name="settings[show_back_to_top]" value="1" <?php checked( ! empty( $s['show_back_to_top'] ) ); ?>> 顯示「回到最上」按鈕</label><span class="wuqs-help">訪客向下捲動後顯示；關閉時只保留快速支援按鈕。</span></div>
+							<div class="wuqs-field"><label><input type="checkbox" name="settings[show_back_to_top]" value="1" <?php checked( ! empty( $s['show_back_to_top'] ) ); ?>> 顯示「回到最上」按鈕</label><span class="wuqs-help">訪客向下捲動後顯示。</span></div>
 						</div>
 						<div class="wuqs-source-row">
 							<label class="wuqs-source"><input type="checkbox" name="settings[source_docs]" value="1" <?php checked( ! empty( $s['source_docs'] ) ); ?> <?php disabled( ! post_type_exists( 'skb_doc' ) ); ?>> 客戶支援文件 <code>skb_doc</code></label>
 							<label class="wuqs-source"><input type="checkbox" name="settings[source_posts]" value="1" <?php checked( ! empty( $s['source_posts'] ) ); ?>> 網站知識文章 <code>post</code></label>
-							<label class="wuqs-source"><input type="checkbox" name="settings[source_products]" value="1" <?php checked( ! empty( $s['source_products'] ) ); ?> <?php disabled( ! post_type_exists( 'product' ) ); ?>> WooCommerce 商品 <?php echo post_type_exists( 'product' ) ? '<code>product</code>' : '<small>（目前未偵測到）</small>'; ?></label>
 						</div>
 					</div>
-
 					<div class="wuqs-card">
-						<div class="wuqs-card-head"><h2>底部快捷連結</h2><p>三個位置都可以修改文字、網址與圖示；預設維持現在的「首頁 / 聯絡我們 / 支援中心」。</p></div>
+						<div class="wuqs-card-head"><h2>底部快捷連結</h2><p>支援中心固定連至知識庫首頁；其他快捷連結可自訂。</p></div>
 						<div class="wuqs-bottom-grid">
 							<?php for ( $i = 1; $i <= 3; $i++ ) : ?>
 								<div class="wuqs-bottom-card">
 									<h3>位置 <?php echo esc_html( $i ); ?></h3>
 									<div class="wuqs-field"><label>文字</label><input type="text" name="settings[bottom_<?php echo esc_attr( $i ); ?>_text]" value="<?php echo esc_attr( $s[ "bottom_{$i}_text" ] ); ?>"></div>
-									<div class="wuqs-field"><label>連結</label><input type="url" name="settings[bottom_<?php echo esc_attr( $i ); ?>_url]" value="<?php echo esc_attr( $s[ "bottom_{$i}_url" ] ); ?>"></div>
-									<div class="wuqs-field"><label>圖示</label><select name="settings[bottom_<?php echo esc_attr( $i ); ?>_icon]">
-										<?php foreach ( $icons as $key => $label ) : ?>
-											<option value="<?php echo esc_attr( $key ); ?>" <?php selected( $s[ "bottom_{$i}_icon" ], $key ); ?>><?php echo esc_html( $label ); ?></option>
-										<?php endforeach; ?>
-									</select></div>
+									<?php if ( 3 !== $i ) : ?><div class="wuqs-field"><label>連結</label><input type="url" name="settings[bottom_<?php echo esc_attr( $i ); ?>_url]" value="<?php echo esc_attr( $s[ "bottom_{$i}_url" ] ); ?>"></div><?php endif; ?>
+									<div class="wuqs-field"><label>圖示</label><select name="settings[bottom_<?php echo esc_attr( $i ); ?>_icon]"><?php foreach ( $icons as $key => $label ) : ?><option value="<?php echo esc_attr( $key ); ?>" <?php selected( $s[ "bottom_{$i}_icon" ], $key ); ?>><?php echo esc_html( $label ); ?></option><?php endforeach; ?></select></div>
 								</div>
 							<?php endfor; ?>
 						</div>
 					</div>
-
-					<div class="wuqs-picker">
-						<div class="wuqs-panel">
-							<div class="wuqs-panel-head"><h2>可選內容</h2><p>來自目前啟用的搜尋來源。按「加入」即可固定在預設內容。</p></div>
-							<div class="wuqs-searchbox"><input type="search" id="wuqs-admin-search" placeholder="搜尋標題、類型、分類..."></div>
-							<div class="wuqs-list" id="wuqs-available-list">
-								<?php foreach ( $all_items as $item ) :
-									$meta = self::get_result_meta( $item->ID );
-									$is_selected = in_array( $item->ID, $selected_ids, true );
-									$search = strtolower( wp_strip_all_tags( $item->post_title . ' ' . $meta['type_label'] . ' ' . $meta['category'] ) );
-									$badge_class = 'article' === $meta['type'] ? 'article' : ( 'product' === $meta['type'] ? 'product' : '' );
-								?>
-									<div class="wuqs-item" data-search="<?php echo esc_attr( $search ); ?>">
-										<div><div class="wuqs-title-sm"><?php echo esc_html( $item->post_title ); ?></div><div class="wuqs-meta"><span class="wuqs-badge <?php echo esc_attr( $badge_class ); ?>"><?php echo esc_html( $meta['type_label'] ); ?></span><span><?php echo esc_html( $meta['category'] ); ?></span><span>#<?php echo esc_html( $item->ID ); ?></span></div></div>
-										<button type="button" class="button wuqs-add" data-id="<?php echo esc_attr( $item->ID ); ?>" data-title="<?php echo esc_attr( $item->post_title ); ?>" data-type="<?php echo esc_attr( $meta['type'] ); ?>" data-type-label="<?php echo esc_attr( $meta['type_label'] ); ?>" data-category="<?php echo esc_attr( $meta['category'] ); ?>" <?php disabled( $is_selected ); ?>><?php echo $is_selected ? '已加入' : '加入'; ?></button>
-									</div>
-								<?php endforeach; ?>
-							</div>
-						</div>
-
-						<div class="wuqs-panel">
-							<div class="wuqs-panel-head"><h2>快速支援預設內容</h2><p>最上方優先顯示；可上下調整順序。若全部移除，前台會自動抓最新內容。</p></div>
-							<div class="wuqs-list" id="wuqs-selected-list">
-								<?php if ( empty( $selected_items ) ) : ?><div class="wuqs-empty" id="wuqs-empty">目前沒有指定內容。<br>將自動顯示最新內容。</div><?php endif; ?>
-								<?php foreach ( $selected_items as $index => $item ) :
-									$meta = self::get_result_meta( $item->ID );
-									$badge_class = 'article' === $meta['type'] ? 'article' : ( 'product' === $meta['type'] ? 'product' : '' );
-								?>
-									<div class="wuqs-selected-row" data-id="<?php echo esc_attr( $item->ID ); ?>">
-										<span class="wuqs-num"><?php echo esc_html( $index + 1 ); ?></span>
-										<div><div class="wuqs-title-sm"><?php echo esc_html( $item->post_title ); ?></div><div class="wuqs-meta"><span class="wuqs-badge <?php echo esc_attr( $badge_class ); ?>"><?php echo esc_html( $meta['type_label'] ); ?></span><span><?php echo esc_html( $meta['category'] ); ?></span></div></div>
-										<div class="wuqs-actions-mini"><button type="button" class="wuqs-mini wuqs-up" title="往上">↑</button><button type="button" class="wuqs-mini wuqs-down" title="往下">↓</button><button type="button" class="wuqs-mini wuqs-remove" title="移除">×</button></div>
-									</div>
-								<?php endforeach; ?>
-							</div>
-							<div class="wuqs-status"><span class="wuqs-dot"></span> 搜尋會自動涵蓋目前勾選的來源；手動挑選只影響「打開面板時預設顯示」的內容。</div>
-						</div>
-					</div>
 				</form>
 			</div>
-
-			<script>
-			(function(){
-				'use strict';
-				const hidden=document.getElementById('wuqs-featured-ids');
-				const selected=document.getElementById('wuqs-selected-list');
-				const search=document.getElementById('wuqs-admin-search');
-				function rows(){return Array.from(selected.querySelectorAll('.wuqs-selected-row'));}
-				function sync(){
-					const list=rows(); hidden.value=list.map(r=>r.dataset.id).join(',');
-					list.forEach((r,i)=>{const n=r.querySelector('.wuqs-num');if(n)n.textContent=String(i+1);});
-					const empty=document.getElementById('wuqs-empty');
-					if(!list.length&&!empty){const e=document.createElement('div');e.id='wuqs-empty';e.className='wuqs-empty';e.innerHTML='目前沒有指定內容。<br>將自動顯示最新內容。';selected.appendChild(e);}else if(list.length&&empty){empty.remove();}
-					const ids=list.map(r=>r.dataset.id);document.querySelectorAll('.wuqs-add').forEach(b=>{const yes=ids.includes(b.dataset.id);b.disabled=yes;b.textContent=yes?'已加入':'加入';});
-				}
-				function createRow(b){
-					const row=document.createElement('div');row.className='wuqs-selected-row';row.dataset.id=b.dataset.id;
-					const cls=b.dataset.type==='article'?'article':(b.dataset.type==='product'?'product':'');
-					row.innerHTML='<span class="wuqs-num"></span><div><div class="wuqs-title-sm"></div><div class="wuqs-meta"><span class="wuqs-badge '+cls+'"></span><span class="wuqs-cat"></span></div></div><div class="wuqs-actions-mini"><button type="button" class="wuqs-mini wuqs-up" title="往上">↑</button><button type="button" class="wuqs-mini wuqs-down" title="往下">↓</button><button type="button" class="wuqs-mini wuqs-remove" title="移除">×</button></div>';
-					row.querySelector('.wuqs-title-sm').textContent=b.dataset.title;row.querySelector('.wuqs-badge').textContent=b.dataset.typeLabel;row.querySelector('.wuqs-cat').textContent=b.dataset.category;return row;
-				}
-				document.addEventListener('click',function(e){
-					const add=e.target.closest('.wuqs-add');if(add&&!add.disabled){selected.appendChild(createRow(add));sync();return;}
-					const row=e.target.closest('.wuqs-selected-row');if(!row)return;
-					if(e.target.closest('.wuqs-remove')){row.remove();sync();return;}
-					if(e.target.closest('.wuqs-up')){const p=row.previousElementSibling;if(p&&p.classList.contains('wuqs-selected-row')){selected.insertBefore(row,p);sync();}return;}
-					if(e.target.closest('.wuqs-down')){const n=row.nextElementSibling;if(n&&n.classList.contains('wuqs-selected-row')){selected.insertBefore(n,row);sync();}}
-				});
-				search.addEventListener('input',function(){const k=search.value.trim().toLowerCase();document.querySelectorAll('#wuqs-available-list .wuqs-item').forEach(i=>{i.style.display=!k||String(i.dataset.search||'').toLowerCase().includes(k)?'':'none';});});
-				sync();
-			})();
-			</script>
 			<?php
 		}
 
@@ -648,7 +460,7 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 				<?php endif; ?>
 
 				<div class="wuqs-view wuqs-view--search is-active" id="wuqs-search-view">
-					<div class="wuqs-content"><div class="wuqs-section-head"><h3 class="wuqs-section-title" id="wuqs-results-title">精選內容</h3><span class="wuqs-section-count" id="wuqs-result-count"></span></div><div id="wuqs-results"></div></div>
+					<div class="wuqs-content"><div class="wuqs-section-head"><h3 class="wuqs-section-title" id="wuqs-results-title">輸入關鍵字開始搜尋</h3><span class="wuqs-section-count" id="wuqs-result-count"></span></div><div id="wuqs-results"><div class="wuqs-message">可搜尋支援文件與網站知識文章，完整分類與內容請前往支援中心。</div></div></div>
 				</div>
 
 				<?php if ( $ai_available ) : ?>
@@ -667,14 +479,14 @@ if ( ! class_exists( 'Wumetax_Quick_Support_v131' ) ) {
 				'use strict';
 				const ajaxUrl=<?php echo wp_json_encode( $ajax_url ); ?>,nonce=<?php echo wp_json_encode( $nonce ); ?>;
 				const panel=document.getElementById('wuqs-panel'),backdrop=document.getElementById('wuqs-backdrop'),support=document.getElementById('wuwqs-support'),topBtn=document.getElementById('wuwqs-top'),closeBtn=document.getElementById('wuqs-close'),input=document.getElementById('wuqs-input'),searchBtn=document.getElementById('wuqs-search-button'),results=document.getElementById('wuqs-results'),title=document.getElementById('wuqs-results-title'),count=document.getElementById('wuqs-result-count'),searchWrap=document.getElementById('wuqs-search-wrap');
-				let timer=null,controller=null,loaded=false;
+				let timer=null,controller=null;
 				window.WumetaxQuickSupport={ajaxUrl:ajaxUrl,nonce:nonce,panel:panel};
-				function open(){panel.classList.add('is-open');backdrop.classList.add('is-open');support.classList.add('is-open');support.setAttribute('aria-expanded','true');panel.setAttribute('aria-hidden','false');if(window.innerWidth<=700){document.documentElement.style.overflow='hidden';document.body.style.overflow='hidden';}if(!loaded){runSearch('');loaded=true;}setTimeout(()=>input.focus(),180);}
+				function open(){panel.classList.add('is-open');backdrop.classList.add('is-open');support.classList.add('is-open');support.setAttribute('aria-expanded','true');panel.setAttribute('aria-hidden','false');if(window.innerWidth<=700){document.documentElement.style.overflow='hidden';document.body.style.overflow='hidden';}setTimeout(()=>input.focus(),180);}
 				function close(){panel.classList.remove('is-open');backdrop.classList.remove('is-open');support.classList.remove('is-open');support.setAttribute('aria-expanded','false');panel.setAttribute('aria-hidden','true');document.documentElement.style.removeProperty('overflow');document.body.style.removeProperty('overflow');}
 				window.WumetaxQuickSupport.open=open;window.WumetaxQuickSupport.close=close;
 				function loading(){count.textContent='';results.innerHTML='<div class="wuqs-loader"><span></span><span></span><span></span></div>';}
-				function render(items,keyword,mode){results.innerHTML='';title.textContent=mode==='featured'?'精選內容':(mode==='search'?'搜尋結果':'最新內容');items=Array.isArray(items)?items:[];count.textContent=items.length?items.length+' 筆':'';if(!items.length){const e=document.createElement('div');e.className='wuqs-message';e.textContent=keyword?'找不到符合「'+keyword+'」的內容。':'目前沒有可顯示的內容。';results.appendChild(e);return;}items.forEach(item=>{const a=document.createElement('a');a.className='wuqs-result';a.href=item.url;const meta=document.createElement('div');meta.className='wuqs-result-meta';const t=document.createElement('span');t.className='wuqs-result-type '+(item.type==='doc'?'wuqs-result-type--doc':(item.type==='product'?'wuqs-result-type--product':'wuqs-result-type--article'));t.textContent=item.type_label||'內容';const c=document.createElement('span');c.className='wuqs-result-category';c.textContent=item.category||'';const h=document.createElement('strong');h.className='wuqs-result-title';h.textContent=item.title;meta.appendChild(t);if(item.category)meta.appendChild(c);a.appendChild(meta);a.appendChild(h);if(item.price){const p=document.createElement('span');p.className='wuqs-result-price';p.textContent=item.price;a.appendChild(p);}if(item.excerpt){const p=document.createElement('p');p.className='wuqs-result-excerpt';p.textContent=item.excerpt;a.appendChild(p);}const ar=document.createElement('span');ar.className='wuqs-result-arrow';ar.textContent='›';a.appendChild(ar);results.appendChild(a);});}
-				async function runSearch(keyword){keyword=String(keyword||'').trim();if(controller)controller.abort();controller=new AbortController();loading();const body=new URLSearchParams();body.append('action','wumetax_quick_support_search');body.append('nonce',nonce);body.append('keyword',keyword);try{const r=await fetch(ajaxUrl,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:body.toString(),signal:controller.signal,credentials:'same-origin'});if(!r.ok)throw new Error('HTTP '+r.status);const d=await r.json();if(!d||!d.success)throw new Error('Search failed');render(d.data.results,keyword,d.data.mode);}catch(e){if(e.name==='AbortError')return;count.textContent='';results.innerHTML='<div class="wuqs-message">搜尋暫時無法使用，請稍後再試。</div>';}}
+				function render(items,keyword,mode){results.innerHTML='';title.textContent=mode==='search'?'搜尋結果':'輸入關鍵字開始搜尋';items=Array.isArray(items)?items:[];count.textContent=items.length?items.length+' 筆':'';if(!items.length){const e=document.createElement('div');e.className='wuqs-message';e.textContent=keyword?'找不到符合「'+keyword+'」的內容。':'可搜尋支援文件與網站知識文章，完整分類與內容請前往支援中心。';results.appendChild(e);return;}items.forEach(item=>{const a=document.createElement('a');a.className='wuqs-result';a.href=item.url;const meta=document.createElement('div');meta.className='wuqs-result-meta';const t=document.createElement('span');t.className='wuqs-result-type '+(item.type==='doc'?'wuqs-result-type--doc':'wuqs-result-type--article');t.textContent=item.type_label||'內容';const c=document.createElement('span');c.className='wuqs-result-category';c.textContent=item.category||'';const h=document.createElement('strong');h.className='wuqs-result-title';h.textContent=item.title;meta.appendChild(t);if(item.category)meta.appendChild(c);a.appendChild(meta);a.appendChild(h);if(item.excerpt){const p=document.createElement('p');p.className='wuqs-result-excerpt';p.textContent=item.excerpt;a.appendChild(p);}const ar=document.createElement('span');ar.className='wuqs-result-arrow';ar.textContent='›';a.appendChild(ar);results.appendChild(a);});}
+				async function runSearch(keyword){keyword=String(keyword||'').trim();if(!keyword){if(controller)controller.abort();results.innerHTML='<div class="wuqs-message">可搜尋支援文件與網站知識文章，完整分類與內容請前往支援中心。</div>';title.textContent='輸入關鍵字開始搜尋';count.textContent='';return;}if(controller)controller.abort();controller=new AbortController();loading();const body=new URLSearchParams();body.append('action','wumetax_quick_support_search');body.append('nonce',nonce);body.append('keyword',keyword);try{const r=await fetch(ajaxUrl,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},body:body.toString(),signal:controller.signal,credentials:'same-origin'});if(!r.ok)throw new Error('HTTP '+r.status);const d=await r.json();if(!d||!d.success)throw new Error('Search failed');render(d.data.results,keyword,d.data.mode);}catch(e){if(e.name==='AbortError')return;count.textContent='';results.innerHTML='<div class="wuqs-message">搜尋暫時無法使用，請稍後再試。</div>';}}
 				support.addEventListener('click',()=>panel.classList.contains('is-open')?close():open());closeBtn.addEventListener('click',close);backdrop.addEventListener('click',close);document.addEventListener('keydown',e=>{if(e.key==='Escape'&&panel.classList.contains('is-open'))close();});input.addEventListener('input',()=>{clearTimeout(timer);timer=setTimeout(()=>runSearch(input.value),300);});input.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();clearTimeout(timer);runSearch(input.value);}});searchBtn.addEventListener('click',()=>{clearTimeout(timer);runSearch(input.value);});
 				if(topBtn){function updateTop(){topBtn.classList.toggle('is-visible',window.scrollY>420);}window.addEventListener('scroll',updateTop,{passive:true});updateTop();topBtn.addEventListener('click',()=>window.scrollTo({top:0,behavior:'smooth'}));}
 				document.querySelectorAll('.wuqs-mode-tab').forEach(btn=>btn.addEventListener('click',()=>{const mode=btn.dataset.wuqsMode;document.querySelectorAll('.wuqs-mode-tab').forEach(b=>b.classList.toggle('is-active',b===btn));const sv=document.getElementById('wuqs-search-view'),av=document.getElementById('wuqs-ai-view');if(mode==='ai'&&av){sv.classList.remove('is-active');av.hidden=false;av.classList.add('is-active');searchWrap.style.display='none';document.dispatchEvent(new CustomEvent('wumetax:qs-ai-open'));}else{if(av){av.classList.remove('is-active');av.hidden=true;}sv.classList.add('is-active');searchWrap.style.display='block';}}));

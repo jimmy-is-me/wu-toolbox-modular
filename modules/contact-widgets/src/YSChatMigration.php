@@ -1,11 +1,11 @@
 <?php
 /**
- * NinjaTeam Click to Chat（WP Support All-in-One）自動移轉
+ * 匯入既有浮動聯絡按鈕設定
  *
  * 初次啟用時執行：
- * 1. 偵測是否安裝 NinjaTeam 外掛（support-chat/）— 不論啟用與否。
- * 2. 有 → 移轉全部設定與 App 清單；LINE 連結順帶清洗
- *    （完整網址 / 純 ID / 2.3.6 雙重網址 bug 三種格式相融），
+ * 1. 偵測既有聯絡設定來源（support-chat/）— 不論啟用與否。
+ * 2. 有 → 匯入全部設定與聯絡方式；LINE 連結順帶清洗
+ *    （完整網址 / 純 ID / 異常重複網址格式相融），
  *    然後自動停用對方外掛。
  * 3. 沒有 → 不理會，寫入預設設定單純啟用。
  *
@@ -23,7 +23,7 @@ defined( 'ABSPATH' ) || exit;
 
 class YSChatMigration {
 
-    /** NinjaTeam 外掛主檔（相對 plugins 目錄） */
+    /** 舊聯絡設定來源主檔（相對 plugins 目錄） */
     private const NJT_BASENAME = 'support-chat/wp-support-all-in-one.php';
 
     /** 移轉狀態 option key */
@@ -70,7 +70,7 @@ class YSChatMigration {
         $existing = YSChatSettingsRepo::get( 'settings' );
 
         if ( ! self::njt_installed() ) {
-            // 沒偵測到 NinjaTeam → 不理會，單純啟用。
+            // 沒有舊設定來源 → 不處理匯入，單純啟用。
             if ( ! is_array( $existing ) ) {
                 YSChatSettingsRepo::set( 'settings', self::default_settings() );
             }
@@ -78,7 +78,7 @@ class YSChatMigration {
             return [ 'status' => 'clean' ];
         }
 
-        // ── 移轉 NinjaTeam 設定 ────────────────────
+        // ── 匯入既有聯絡設定 ──────────────────────
         $settings = self::build_settings_from_njt();
         YSChatSettingsRepo::set( 'settings', $settings );
 
@@ -103,7 +103,7 @@ class YSChatMigration {
     }
 
     /**
-     * NinjaTeam 外掛是否存在（不論啟用與否）
+     * 舊聯絡設定來源是否存在（不論啟用與否）
      */
     public static function njt_installed(): bool {
         return file_exists( WP_PLUGIN_DIR . '/' . self::NJT_BASENAME );
@@ -122,7 +122,7 @@ class YSChatMigration {
     }
 
     /**
-     * 由 NinjaTeam options 組出本外掛設定
+     * 由舊有設定資料組出本模組設定
      */
     private static function build_settings_from_njt(): array {
         $settings = self::default_settings();
@@ -135,7 +135,7 @@ class YSChatMigration {
         $settings['show_mobile']  = (int) (bool) get_option( 'wpsaio_show_on_mobile', 1 );
         $settings['tooltip']      = ( 'content' === get_option( 'wpsaio_tooltip', 'appname' ) ) ? 'content' : 'appname';
 
-        // 點擊模式：NinjaTeam wpsaio_style（redirect / popup）→ mode。
+        // 點擊模式：舊設定中的 redirect / popup → mode。
         // 對方 popup = iframe 嵌 line.me（QR 來源）；本外掛 popup = 本地生成 QR 卡片。
         $settings['mode'] = ( 'popup' === get_option( 'wpsaio_style', 'redirect' ) ) ? 'popup' : 'redirect';
 
@@ -149,7 +149,7 @@ class YSChatMigration {
             $settings['button_icon'] = esc_url_raw( $icon );
         }
 
-        // 自訂圖顯示方式：NinjaTeam wpsaio_button_image（contain=底色圓+60% 圖 / cover=圖佔滿）。
+        // 自訂圖示顯示方式：contain=保留底色 / cover=圖示佔滿。
         $settings['icon_style'] = ( 'cover' === get_option( 'wpsaio_button_image', 'contain' ) ) ? 'cover' : 'contain';
 
         // 顯示條件。
@@ -168,7 +168,7 @@ class YSChatMigration {
     /**
      * 移轉 App 清單（含 LINE 連結清洗）
      *
-     * NinjaTeam params 的主值 key 不一致（url / phone / email / username /
+     * 舊聯絡參數的主值 key 不一致（url / phone / email / username /
      * account / phone_number⋯），一律取「排除輔助欄位後第一個非空字串」。
      */
     private static function migrate_apps( array $njt_apps ): array {
@@ -226,7 +226,7 @@ class YSChatMigration {
     }
 
     /**
-     * NinjaTeam app key → 本外掛 app key
+     * 舊聯絡 key → 本模組聯絡 key
      */
     private static function map_app_key( string $njt_key ): string {
         // custom-app / custom-app-2 / custom-app-3⋯ → custom。
@@ -238,7 +238,7 @@ class YSChatMigration {
     }
 
     /**
-     * 停用 NinjaTeam 外掛
+     * 停用舊聯絡設定來源
      */
     private static function deactivate_njt(): void {
         if ( ! function_exists( 'deactivate_plugins' ) || ! function_exists( 'is_plugin_active' ) ) {

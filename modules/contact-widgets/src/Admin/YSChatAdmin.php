@@ -28,7 +28,7 @@ class YSChatAdmin {
     /**
      * 註冊選單
      *
-     * 獨立頂層選單（user 指定：不掛 YS Plugin 下，選單名 浮動聯絡按鈕）
+     * 獨立子選單，名稱為「浮動聯絡按鈕」。
      */
     public function register_menu(): void {
         add_submenu_page(
@@ -57,7 +57,7 @@ class YSChatAdmin {
             esc_html(
                 sprintf(
                     /* translators: %d: 移轉的 App 數量 */
-                    __( '已自動移轉 NinjaTeam Click to Chat 的 %d 個 App 設定（LINE 連結已修正），並停用舊外掛。', 'wu-contact-widgets' ),
+                    __( '已匯入 %d 個聯絡方式設定（LINE 連結已修正），並停用舊設定外掛。', 'wu-contact-widgets' ),
                     (int) $count
                 )
             )

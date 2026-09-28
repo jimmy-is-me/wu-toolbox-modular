@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-defined( 'WU_AIC_VERSION' ) || define( 'WU_AIC_VERSION', '1.2.0' );
+defined( 'WU_AIC_VERSION' ) || define( 'WU_AIC_VERSION', '1.2.1' );
 defined( 'WU_AIC_OPTION' ) || define( 'WU_AIC_OPTION', 'wu_aic_data' );
 defined( 'WU_AIC_SLUG' ) || define( 'WU_AIC_SLUG', 'wu-ai-card' );
 
@@ -947,16 +947,18 @@ function wu_aic_enqueue_assets() {
 
         .wu-aic-floating-btn{
             position:fixed!important;bottom:24px!important;left:24px!important;right:auto!important;
-            width:60px!important;height:60px!important;
-            background:{$c1}!important;
-            color:#fff!important;border:0!important;border-radius:50%!important;
+            width:58px!important;height:58px!important;box-sizing:border-box!important;
+            background:linear-gradient(145deg,#59b971,#3d9858 58%,#347c4b)!important;
+            color:#fff!important;border:4px solid rgba(255,255,255,.94)!important;border-radius:50%!important;
             display:flex!important;align-items:center!important;justify-content:center!important;
-            box-shadow:0 8px 24px rgba(0,0,0,.25)!important;cursor:pointer!important;
+            box-shadow:0 12px 32px rgba(52,124,75,.28)!important;cursor:pointer!important;
             z-index:2147483001!important;font-size:25px!important;line-height:1!important;
-            transition:transform .2s ease,box-shadow .2s ease!important;
+            transition:transform .22s ease,box-shadow .22s ease,background .22s ease!important;
         }
-        .wu-aic-floating-btn:hover{transform:translateY(-3px) scale(1.04)!important;box-shadow:0 12px 28px rgba(0,0,0,.30)!important;}
-        .wu-aic-floating-btn svg{width:31px;height:31px;display:block;}
+        .wu-aic-floating-btn:hover{transform:translateY(-3px) scale(1.025)!important;box-shadow:0 14px 34px rgba(52,124,75,.34)!important;}
+        .wu-aic-floating-btn::before{content:"";position:absolute;top:4px;right:4px;width:7px;height:7px;border:2px solid #fff;border-radius:50%;background:#8fe0a1;}
+        .wu-aic-floating-btn[aria-expanded="true"]{background:#171b19!important;}
+        .wu-aic-floating-btn svg{width:24px;height:24px;display:block;}
         .wu-aic-floating-popup{
             position:fixed!important;bottom:96px!important;left:24px!important;right:auto!important;
             z-index:2147483000!important;display:none!important;opacity:0!important;
@@ -966,7 +968,7 @@ function wu_aic_enqueue_assets() {
         }
         .wu-aic-floating-popup.wu-active{display:block!important;opacity:1!important;transform:translateY(0)!important;}
         .wu-aic-floating-popup .wu-aic-container{margin:0!important;max-width:none!important;}
-        .wu-aic-backdrop{position:fixed!important;inset:0!important;z-index:2147482999!important;display:none!important;background:rgba(18,25,31,.40)!important;backdrop-filter:blur(6px)!important;-webkit-backdrop-filter:blur(6px)!important;}
+        .wu-aic-backdrop{position:fixed!important;inset:0!important;z-index:2147482999!important;display:none!important;background:rgba(17,22,19,.14)!important;backdrop-filter:blur(3px)!important;-webkit-backdrop-filter:blur(3px)!important;}
         .wu-aic-backdrop.wu-active{display:block!important;}
 
         @media (max-width:600px){
@@ -1015,7 +1017,7 @@ function wu_aic_enqueue_assets() {
             if(open){
                 return '<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M6 6l12 12M18 6L6 18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\"/></svg>';
             }
-            return '<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 5.8A2.8 2.8 0 0 1 6.8 3h10.4A2.8 2.8 0 0 1 20 5.8v7.4a2.8 2.8 0 0 1-2.8 2.8h-6l-4.8 3v-3.2a2.8 2.8 0 0 1-2.4-2.6V5.8Z\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linejoin=\"round\"/><path d=\"M8 9h.01M12 9h.01M16 9h.01\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\"/><path d=\"m18.4 1.7.5 1.2 1.2.5-1.2.5-.5 1.2-.5-1.2-1.2-.5 1.2-.5.5-1.2Z\" fill=\"currentColor\"/></svg>';
+            return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 11.5a8 8 0 0 1-8 8 8.1 8.1 0 0 1-3.7-.9L4 20l1.4-4.4a8 8 0 1 1 15.1-4.1Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 11.5h.01M12 11.5h.01M15 11.5h.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
         }
 
         function copyText(text){
@@ -1474,7 +1476,7 @@ function wu_aic_render_floating() {
         aria-controls="<?php echo esc_attr( $popup_id ); ?>"
         aria-expanded="false"
         aria-label="開啟 AI 名片"
-    ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.8A2.8 2.8 0 0 1 6.8 3h10.4A2.8 2.8 0 0 1 20 5.8v7.4a2.8 2.8 0 0 1-2.8 2.8h-6l-4.8 3v-3.2a2.8 2.8 0 0 1-2.4-2.6V5.8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 9h.01M12 9h.01M16 9h.01" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><path d="m18.4 1.7.5 1.2 1.2.5-1.2.5-.5 1.2-.5-1.2-1.2-.5 1.2-.5.5-1.2Z" fill="currentColor"/></svg></button>
+    ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 11.5a8 8 0 0 1-8 8 8.1 8.1 0 0 1-3.7-.9L4 20l1.4-4.4a8 8 0 1 1 15.1-4.1Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 11.5h.01M12 11.5h.01M15 11.5h.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></button>
     <?php
 }
 add_action( 'wp_body_open', 'wu_aic_render_floating', 99 );

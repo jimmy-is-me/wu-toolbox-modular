@@ -2,7 +2,7 @@
 /**
  * 後台設定頁面模板
  *
- * 由 YSChatAdmin::render_page() 載入，可用變數：
+ * 由聯絡按鈕管理頁載入，可用變數：
  * - $settings  array 目前設定
  * - $migration ?array 移轉狀態
  *
@@ -20,25 +20,17 @@ defined( 'ABSPATH' ) || exit;
 $ysch_apps_ready = class_exists( YSChatApps::class );
 $ysch_apps_defs = $ysch_apps_ready ? YSChatApps::all() : [];
 ?>
-<!-- Hero Header（在 .wrap 外面，避免 WP notice 注入） -->
+<!-- Hero Header -->
 <div class="ysch-hero">
     <div class="ysch-hero-content">
         <div class="ysch-hero-title">
             <span class="dashicons dashicons-format-chat"></span>
             <?php echo esc_html__( '浮動聯絡按鈕', 'wu-contact-widgets' ); ?>
         </div>
-        <div class="ysch-hero-subtitle"><?php
-            printf(
-                esc_html__( '浮動聯絡按鈕 — 由 %s 開發與維護', 'wu-contact-widgets' ),
-                '<a href="https://yangsheep.com.tw" target="_blank" rel="noopener noreferrer" style="color:rgba(255,255,255,0.95);text-decoration:none;">YANGSHEEP CLOUD</a>'
-            );
-        ?></div>
+        <div class="ysch-hero-subtitle"><?php echo esc_html__( '集中管理網站浮動聯絡方式與顯示條件', 'wu-contact-widgets' ); ?></div>
     </div>
     <span class="ysch-version-badge">v<?php echo esc_html( WUTM_CONTACT_WIDGETS_VERSION ); ?></span>
 </div>
-
-<!-- WP notice 錨點 -->
-<div class="wrap"><h2 style="display:none;"></h2></div>
 
 <div class="ysch-admin-wrap">
 
@@ -53,7 +45,7 @@ $ysch_apps_defs = $ysch_apps_ready ? YSChatApps::all() : [];
             <?php
             printf(
                 /* translators: 1: App 數量, 2: 移轉時間 */
-                esc_html__( '已於 %2$s（UTC）自動移轉 NinjaTeam Click to Chat 的 %1$d 個 App，LINE 連結格式已修正，舊外掛已停用。確認顯示正常後即可刪除舊外掛。', 'wu-contact-widgets' ),
+                esc_html__( '已於 %2$s（UTC）匯入 %1$d 個聯絡方式設定，LINE 連結格式已修正，舊設定外掛已停用。確認顯示正常後即可移除舊外掛。', 'wu-contact-widgets' ),
                 (int) ( $migration['apps'] ?? 0 ),
                 esc_html( $migration['at'] ?? '' )
             );
