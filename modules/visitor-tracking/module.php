@@ -6,11 +6,11 @@
 
 defined('ABSPATH') || exit;
 
-defined('WUTM_VT_VERSION') || define('WUTM_VT_VERSION', '1.0.1');
-defined('WUTM_VT_MAX_TABLE_MB') || define('WUTM_VT_MAX_TABLE_MB', 80);
-defined('WUTM_VT_MAX_TABLE_ROWS') || define('WUTM_VT_MAX_TABLE_ROWS', 80000);
+defined('WUTM_VT_VERSION') || define('WUTM_VT_VERSION', '1.0.2');
+defined('WUTM_VT_MAX_TABLE_MB') || define('WUTM_VT_MAX_TABLE_MB', 40);
+defined('WUTM_VT_MAX_TABLE_ROWS') || define('WUTM_VT_MAX_TABLE_ROWS', 40000);
 defined('WUTM_VT_MIN_WRITE_INTERVAL') || define('WUTM_VT_MIN_WRITE_INTERVAL', 30);
-defined('WUTM_VT_MAX_WRITES_PER_MINUTE') || define('WUTM_VT_MAX_WRITES_PER_MINUTE', 200);
+defined('WUTM_VT_MAX_REQUESTS_PER_MINUTE') || define('WUTM_VT_MAX_REQUESTS_PER_MINUTE', 200);
 defined('WUTM_VT_QUERY_TIMEOUT_MS') || define('WUTM_VT_QUERY_TIMEOUT_MS', 1500);
 
 function wutm_vt_table_name() {
@@ -49,6 +49,7 @@ function wutm_vt_ensure_schema() {
 		ip_address varchar(45) NOT NULL DEFAULT '',
 		page_url varchar(300) NOT NULL,
 		page_title varchar(150) NOT NULL DEFAULT '',
+		view_ids text NULL,
 		visit_date date NOT NULL,
 		first_seen datetime NOT NULL,
 		last_seen datetime NOT NULL,
@@ -68,6 +69,7 @@ function wutm_vt_ensure_schema() {
 	if (false === get_option('wutm_vt_settings', false)) {
 		update_option('wutm_vt_settings', wutm_vt_get_settings(), false);
 	}
+	add_option('wutm_vt_rate_window', gmdate('YmdHi') . ':0', '', false);
 }
 add_action('init', 'wutm_vt_ensure_schema', 1);
 
@@ -104,18 +106,33 @@ function wutm_vt_is_hard_limit_reached() {
 		$table
 	));
 	$over = $count >= WUTM_VT_MAX_TABLE_ROWS || $size >= WUTM_VT_MAX_TABLE_MB;
-	set_transient('wutm_vt_hard_limit_reached', $over ? 1 : 0, 5 * MINUTE_IN_SECONDS);
+	set_transient('wutm_vt_hard_limit_reached', $over ? 1 : 0, 30);
 	return $over;
 }
 
-function wutm_vt_is_global_rate_limited() {
-	$key = 'wutm_vt_rate_' . gmdate('YmdHi');
-	return (int) get_transient($key) >= WUTM_VT_MAX_WRITES_PER_MINUTE;
+function wutm_vt_reserve_global_rate_slot() {
+	global $wpdb;
+	$minute = gmdate('YmdHi');
+	$option_name = 'wutm_vt_rate_window';
+	$updated = $wpdb->query($wpdb->prepare(
+		"UPDATE {$wpdb->options} SET option_value = CASE WHEN SUBSTRING_INDEX(option_value, ':', 1) = %s THEN CONCAT(%s, ':', CAST(SUBSTRING_INDEX(option_value, ':', -1) AS UNSIGNED) + 1) ELSE CONCAT(%s, ':1') END WHERE option_name = %s AND (SUBSTRING_INDEX(option_value, ':', 1) <> %s OR CAST(SUBSTRING_INDEX(option_value, ':', -1) AS UNSIGNED) < %d)",
+		$minute,
+		$minute,
+		$minute,
+		$option_name,
+		$minute,
+		WUTM_VT_MAX_REQUESTS_PER_MINUTE
+	));
+	wp_cache_delete($option_name, 'options');
+	return 1 === (int) $updated;
 }
 
-function wutm_vt_increment_global_rate_counter() {
-	$key = 'wutm_vt_rate_' . gmdate('YmdHi');
-	set_transient($key, (int) get_transient($key) + 1, 90);
+function wutm_vt_get_current_rate_count() {
+	$window = (string) get_option('wutm_vt_rate_window', '');
+	if (preg_match('/^(\d{12}):(\d+)$/', $window, $matches) && $matches[1] === gmdate('YmdHi')) {
+		return (int) $matches[2];
+	}
+	return 0;
 }
 
 function wutm_vt_anonymize_ip($ip = '') {
@@ -174,7 +191,6 @@ function wutm_vt_handle_tracking_request($request) {
 		$current = wp_get_current_user();
 		if (array_intersect($settings['exclude_roles'], (array) $current->roles)) return rest_ensure_response(['success' => true, 'skipped' => 'excluded_role']);
 	}
-	if (wutm_vt_is_hard_limit_reached() || wutm_vt_is_global_rate_limited()) return rest_ensure_response(['success' => true, 'skipped' => 'limit']);
 	if (!empty($settings['exclude_bots'])) {
 		$ua = isset($_SERVER['HTTP_USER_AGENT']) ? (string) $_SERVER['HTTP_USER_AGENT'] : '';
 		if ('' === $ua || preg_match('/bot|crawl|spider|slurp|bing|google|facebookexternalhit|preview/i', $ua)) return rest_ensure_response(['success' => true, 'skipped' => 'bot']);
@@ -189,61 +205,66 @@ function wutm_vt_handle_tracking_request($request) {
 	if (!$uid || !preg_match('/^v_[a-z0-9_]+$/i', $uid) || !$view_id || !preg_match('/^p_[a-z0-9_]+$/i', $view_id) || empty($parsed['host']) || empty($home['host']) || strtolower($parsed['host']) !== strtolower($home['host'])) {
 		return new WP_REST_Response(['success' => false], 400);
 	}
+	if (!wutm_vt_reserve_global_rate_slot()) return rest_ensure_response(['success' => true, 'skipped' => 'rate_limited']);
+	if (wutm_vt_is_hard_limit_reached()) return rest_ensure_response(['success' => true, 'skipped' => 'limit']);
 	// Store only same-site path: query arguments can contain secrets and create unbounded URL cardinality.
 	$page_url = home_url(isset($parsed['path']) ? $parsed['path'] : '/');
-	$throttle = 'wutm_vt_throttle_' . md5($uid . '|' . $page_url);
-	if (get_transient($throttle)) return rest_ensure_response(['success' => true, 'skipped' => 'throttled']);
-	set_transient($throttle, 1, WUTM_VT_MIN_WRITE_INTERVAL);
-	$generation = (int) get_option('wutm_vt_data_generation', 1);
-	$pageview_key = 'wutm_vt_pageview_' . md5($generation . '|' . $uid . '|' . $page_url . '|' . $view_id);
-	$is_new_pageview = !get_transient($pageview_key);
 	global $wpdb;
 	$table = wutm_vt_table_name();
 	$now = current_time('mysql');
 	$visit_date = current_time('Y-m-d');
-	$recent_cutoff = current_datetime()->modify('-1 hour')->format('Y-m-d H:i:s');
+	$write_cutoff = current_datetime()->modify('-' . WUTM_VT_MIN_WRITE_INTERVAL . ' seconds')->format('Y-m-d H:i:s');
 	$server_info = method_exists($wpdb, 'db_server_info') ? $wpdb->db_server_info() : '';
 	if ($server_info && stripos($server_info, 'mariadb') === false && preg_match('/^(\d+\.\d+\.\d+)/', $server_info, $mysql_version) && version_compare($mysql_version[1], '5.7.0', '>=')) {
 		// MySQL 5.7+ bounds the endpoint's SELECT work; unsupported database variants are left untouched.
 		$wpdb->query('SET SESSION MAX_EXECUTION_TIME = ' . (int) WUTM_VT_QUERY_TIMEOUT_MS);
 	}
-	$existing_id = $wpdb->get_var($wpdb->prepare(
-		"SELECT id FROM {$table} WHERE visitor_uid = %s AND page_url = %s AND visit_date = %s AND last_seen > %s ORDER BY last_seen DESC LIMIT 1",
+	$existing_id = $wpdb->get_row($wpdb->prepare(
+		"SELECT id, last_seen, view_ids FROM {$table} WHERE visitor_uid = %s AND page_url = %s AND visit_date = %s ORDER BY last_seen DESC LIMIT 1",
 		$uid,
 		$page_url,
-		$visit_date,
-		$recent_cutoff
+		$visit_date
 	));
 	$user_id = get_current_user_id(); // Never accept an identity supplied by the browser.
 	if ($existing_id) {
+		$seen_views = json_decode((string) $existing_id->view_ids, true);
+		$seen_views = is_array($seen_views) ? $seen_views : [];
+		$is_new_pageview = !in_array($view_id, $seen_views, true);
+		if (!$is_new_pageview && $existing_id->last_seen > $write_cutoff) {
+			return rest_ensure_response(['success' => true, 'skipped' => 'throttled']);
+		}
+		if ($is_new_pageview) {
+			$seen_views[] = $view_id;
+			$seen_views = array_slice($seen_views, -30);
+		}
 		$updated = $wpdb->query($wpdb->prepare(
-		"UPDATE {$table} SET last_seen = %s, user_id = %d, page_title = %s, visit_count = visit_count + %d WHERE id = %d",
+		"UPDATE {$table} SET last_seen = %s, user_id = %d, page_title = %s, view_ids = %s, visit_count = visit_count + %d WHERE id = %d",
 		$now,
 		$user_id,
 		$title,
+		wp_json_encode($seen_views),
 			$is_new_pageview ? 1 : 0,
-			(int) $existing_id
+			(int) $existing_id->id
 		));
 		$saved = false !== $updated;
 	} else {
+		$is_new_pageview = true;
 		$saved = false !== $wpdb->insert($table, [
 			'visitor_uid' => $uid,
 			'user_id' => $user_id,
 			'ip_address' => wutm_vt_get_request_ip(),
 			'page_url' => $page_url,
 			'page_title' => $title,
+			'view_ids' => wp_json_encode([$view_id]),
 			'visit_date' => $visit_date,
 			'first_seen' => $now,
 			'last_seen' => $now,
 			'visit_count' => 1,
-		], ['%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d']);
+		], ['%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d']);
 	}
 	if (!$saved) {
-		delete_transient($throttle);
 		return new WP_REST_Response(['success' => false], 500);
 	}
-	if ($is_new_pageview) set_transient($pageview_key, 1, DAY_IN_SECONDS);
-	wutm_vt_increment_global_rate_counter();
 	return rest_ensure_response(['success' => true]);
 }
 
@@ -362,7 +383,7 @@ function wutm_vt_render_settings() {
 	<div class="wrap wutm-vt-wrap"><h1>瀏覽追蹤設定</h1>
 		<?php if (isset($_GET['updated'])) : ?><div class="notice notice-success is-dismissible"><p>追蹤設定已儲存。</p></div><?php endif; ?>
 		<?php if (isset($_GET['cleared'])) : ?><div class="notice notice-success is-dismissible"><p>追蹤資料已清空。</p></div><?php endif; ?>
-		<div class="notice notice-info inline"><p>追蹤請求由瀏覽器延遲 3 秒後以非同步方式傳送。伺服器端另設每分鐘寫入上限、單訪客／頁面 30 秒節流、資料表 80,000 筆／80 MB 上限，超限自動暫停寫入。</p></div>
+		<div class="notice notice-info inline"><p>追蹤請求由瀏覽器延遲 3 秒後以非同步方式傳送。伺服器端限制每分鐘最多處理 200 筆有效追蹤請求，同一頁面的重複心跳至少間隔 30 秒；資料表達 40,000 筆或 40 MB 時會暫停新寫入，保護網站資源。</p></div>
 		<form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>"><input type="hidden" name="action" value="wutm_vt_save_settings"><?php wp_nonce_field('wutm_vt_save_settings'); ?>
 		<table class="form-table"><tbody>
 		<tr><th scope="row">緊急停用</th><td><label><input type="checkbox" name="kill_switch" value="1" <?php checked($settings['kill_switch']); ?>> 停止前台追蹤請求</label></td></tr>
@@ -398,7 +419,7 @@ function wutm_vt_clear_data() {
 	check_admin_referer('wutm_vt_clear_data');
 	global $wpdb;
 	$wpdb->query('TRUNCATE TABLE ' . wutm_vt_table_name());
-	update_option('wutm_vt_data_generation', (int) get_option('wutm_vt_data_generation', 1) + 1, false);
+	delete_option('wutm_vt_data_generation');
 	delete_transient('wutm_vt_hard_limit_reached');
 	wutm_vt_clear_report_cache();
 	wp_safe_redirect(add_query_arg(['page' => 'wu-visitor-settings', 'cleared' => '1'], admin_url('admin.php')));
@@ -420,16 +441,16 @@ function wutm_vt_render_health() {
 	$count = (int) $wpdb->get_var("SELECT COUNT(*) FROM {$table}");
 	$size = $wpdb->get_row($wpdb->prepare("SELECT ROUND(data_length/1024/1024,2) AS data_mb, ROUND(index_length/1024/1024,2) AS index_mb FROM information_schema.TABLES WHERE table_schema=%s AND table_name=%s", DB_NAME, $table));
 	$total_mb = $size ? (float) $size->data_mb + (float) $size->index_mb : 0;
-	$rate = (int) get_transient('wutm_vt_rate_' . gmdate('YmdHi'));
+	$rate = wutm_vt_get_current_rate_count();
 	$limited = wutm_vt_is_hard_limit_reached();
 	?>
 	<div class="wrap wutm-vt-wrap"><h1>追蹤健康監控</h1>
 		<div class="notice <?php echo $limited ? 'notice-error' : 'notice-success'; ?> inline"><p><?php echo $limited ? '已達資料表硬性上限，新資料已暫停寫入。' : '資料表在安全容量內，追蹤功能可正常寫入。'; ?></p></div>
 		<table class="widefat striped" style="max-width:720px"><tbody>
-		<tr><th>資料筆數</th><td><?php echo esc_html(number_format($count) . ' / ' . number_format(WUTM_VT_MAX_TABLE_ROWS)); ?></td></tr>
-		<tr><th>資料表大小</th><td><?php echo esc_html(number_format($total_mb, 2) . ' MB / ' . WUTM_VT_MAX_TABLE_MB . ' MB'); ?></td></tr>
-		<tr><th>本分鐘寫入量</th><td><?php echo esc_html($rate . ' / ' . WUTM_VT_MAX_WRITES_PER_MINUTE); ?></td></tr>
-		<tr><th>單一訪客／頁面最短寫入間隔</th><td><?php echo esc_html(WUTM_VT_MIN_WRITE_INTERVAL . ' 秒'); ?></td></tr>
+	<tr><th>資料筆數</th><td><?php echo esc_html(number_format($count) . ' / ' . number_format(WUTM_VT_MAX_TABLE_ROWS)); ?></td></tr>
+	<tr><th>資料表大小</th><td><?php echo esc_html(number_format($total_mb, 2) . ' MB / ' . WUTM_VT_MAX_TABLE_MB . ' MB'); ?></td></tr>
+		<tr><th>本分鐘接受的追蹤請求</th><td><?php echo esc_html($rate . ' / ' . WUTM_VT_MAX_REQUESTS_PER_MINUTE); ?></td></tr>
+		<tr><th>同一頁面重複心跳最短間隔</th><td><?php echo esc_html(WUTM_VT_MIN_WRITE_INTERVAL . ' 秒；新頁面瀏覽仍會計數'); ?></td></tr>
 		<tr><th>資料保留</th><td><?php echo esc_html(wutm_vt_get_settings()['retention_days'] . ' 天；每日批次清理'); ?></td></tr>
 		</tbody></table></div>
 	<?php wutm_vt_admin_styles();
@@ -506,11 +527,12 @@ add_action('wutm_vt_hourly_health_check', 'wutm_vt_run_health_check');
 function wutm_vt_dashboard_widget() {
 	if (!current_user_can('manage_options')) return;
 	$stats = wutm_vt_get_stats('dashboard');
-	echo '<p>以下數據在 5 分鐘內快取，追蹤資料不會在後台首頁即時掃描整張資料表。</p><div class="wutm-vt-cards wutm-vt-dashboard-cards">';
+	echo '<div class="wutm-vt-dashboard"><p class="wutm-vt-dashboard-intro">即時概況 · 統計快取 5 分鐘更新，不會在首頁重複掃描追蹤資料。</p><div class="wutm-vt-dashboard-cards">';
 	foreach (['online_now' => '目前在線', 'today_uv' => '今日 UV', 'today_pv' => '今日 PV', 'week_uv' => '近 7 日 UV'] as $key => $label) {
-		echo '<div class="wutm-vt-card"><span>' . esc_html($label) . '</span><strong>' . esc_html(number_format((int) $stats[$key])) . '</strong></div>';
+		$online = $key === 'online_now' ? ' is-online' : '';
+		echo '<div class="wutm-vt-dashboard-card' . esc_attr($online) . '"><span>' . esc_html($label) . '</span><strong>' . esc_html(number_format((int) $stats[$key])) . '</strong><small>' . ($key === 'online_now' ? '最近活動' : ($key === 'today_pv' ? '頁面瀏覽次數' : '不重複訪客')) . '</small></div>';
 	}
-	echo '</div><p><a class="button button-primary" href="' . esc_url(admin_url('admin.php?page=wu-visitor-tracker')) . '">查看瀏覽追蹤數據</a></p>';
+	echo '</div><div class="wutm-vt-dashboard-footer"><span>追蹤服務於背景低頻更新</span><a class="button button-primary" href="' . esc_url(admin_url('admin.php?page=wu-visitor-tracker')) . '">開啟完整報表 <span aria-hidden="true">→</span></a></div></div>';
 }
 add_action('wp_dashboard_setup', function () {
 	if (!current_user_can('manage_options')) return;
@@ -528,8 +550,20 @@ function wutm_vt_admin_styles() {
 	.wutm-vt-wrap .wutm-vt-card{background:#fff;border:1px solid #dcdcde;border-left:4px solid #2271b1;padding:14px 16px;box-shadow:0 1px 2px rgba(0,0,0,.04);display:flex;flex-direction:column;gap:8px}
 	.wutm-vt-wrap .wutm-vt-card span{color:#646970}.wutm-vt-wrap .wutm-vt-card strong{font-size:24px;color:#1d2327}
 	.wutm-vt-wrap .wutm-vt-role{display:inline-block;margin:0 16px 8px 0}
-	.wutm-vt-dashboard-cards{grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}
-	.wutm-vt-dashboard-cards .wutm-vt-card{padding:10px 12px}.wutm-vt-dashboard-cards .wutm-vt-card strong{font-size:20px}
+	.wutm-vt-dashboard{--wutm-vt-accent:#198754;padding:4px 2px 0}
+	.wutm-vt-dashboard-intro{margin:2px 0 16px;color:#646970;font-size:13px}
+	.wutm-vt-dashboard-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+	.wutm-vt-dashboard-card{position:relative;min-width:0;min-height:106px;padding:16px 18px;background:linear-gradient(180deg,#fff 0%,#f8fafc 100%);border:1px solid #dcdcde;border-radius:8px;box-shadow:0 2px 6px rgba(29,35,39,.05);display:flex;flex-direction:column;gap:8px}
+	.wutm-vt-dashboard-card:before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:0 3px 3px 0;background:#2271b1}
+	.wutm-vt-dashboard-card span{color:#646970;font-size:12px;font-weight:600;letter-spacing:.02em}
+	.wutm-vt-dashboard-card strong{color:#1d2327;font-size:28px;line-height:1.1;font-variant-numeric:tabular-nums}
+	.wutm-vt-dashboard-card small{color:#8c8f94;font-size:11px}
+	.wutm-vt-dashboard-card.is-online:before{background:#198754}
+	.wutm-vt-dashboard-card.is-online strong{color:#198754}
+	.wutm-vt-dashboard-footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:15px;padding-top:13px;border-top:1px solid #f0f0f1}
+	.wutm-vt-dashboard-footer>span{color:#8c8f94;font-size:11px}
+	@media(max-width:782px){.wutm-vt-dashboard-cards{grid-template-columns:repeat(2,minmax(0,1fr))}.wutm-vt-dashboard-card{min-height:94px;padding:13px}}
+	@media(max-width:420px){.wutm-vt-dashboard-cards{grid-template-columns:1fr 1fr;gap:8px}.wutm-vt-dashboard-card strong{font-size:23px}.wutm-vt-dashboard-footer{align-items:flex-start;flex-direction:column}}
 	</style>
 	<?php
 }

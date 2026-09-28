@@ -28,7 +28,7 @@ function wu_aic_get_defaults() {
         'title'           => '智慧客服代表',
         'avatar'          => '',
         'bio'             => '您好！我是您的專屬 AI 助理，隨時為您提供最專業的協助。',
-        'theme'           => 'blue',
+        'theme'           => 'green',
         'dark_mode'       => '0',
         'enable_floating' => '1',
         'enable_send_ai'  => '1',
@@ -236,7 +236,7 @@ function wu_aic_ajax_search_content() {
         [
             'post_type'              => $post_type,
             'post_status'            => 'publish',
-            'posts_per_page'         => 20,
+            'posts_per_page'         => 51,
             'orderby'                => 'modified',
             'order'                  => 'DESC',
             's'                      => $search,
@@ -268,7 +268,7 @@ function wu_aic_sanitize( $input ) {
     $out['title']           = isset( $input['title'] ) ? sanitize_text_field( $input['title'] ) : $out['title'];
     $out['avatar']          = isset( $input['avatar'] ) ? esc_url_raw( $input['avatar'] ) : '';
     $out['bio']             = isset( $input['bio'] ) ? sanitize_textarea_field( $input['bio'] ) : $out['bio'];
-    $out['theme']           = isset( $input['theme'] ) && array_key_exists( $input['theme'], wu_aic_color_themes() ) ? sanitize_key( $input['theme'] ) : 'blue';
+    $out['theme']           = isset( $input['theme'] ) && array_key_exists( $input['theme'], wu_aic_color_themes() ) ? sanitize_key( $input['theme'] ) : 'green';
     $out['dark_mode']       = isset( $input['dark_mode'] ) ? '1' : '0';
     $out['enable_floating'] = isset( $input['enable_floating'] ) ? '1' : '0';
     $out['enable_send_ai']  = isset( $input['enable_send_ai'] ) ? '1' : '0';
@@ -324,29 +324,28 @@ function wu_aic_get_initial_content_choices( $type, $selected_id = 0 ) {
     static $choices = [];
     $type = in_array( $type, [ 'post', 'page', 'product' ], true ) ? $type : 'post';
     if ( $type === 'product' && ! post_type_exists( 'product' ) ) {
-        return [];
+        return [ 'items' => [], 'has_more' => false ];
     }
     if ( ! isset( $choices[ $type ] ) ) {
         $items = get_posts( [
             'post_type'              => $type,
             'post_status'            => 'publish',
-            'posts_per_page'         => 20,
+            'posts_per_page'         => 51,
             'orderby'                => 'modified',
             'order'                  => 'DESC',
             'no_found_rows'          => true,
             'update_post_meta_cache' => false,
             'update_post_term_cache' => false,
-            'fields'                 => 'ids',
         ] );
-        $choices[ $type ] = [];
-        foreach ( $items as $item_id ) {
-            $choices[ $type ][ (int) $item_id ] = wp_strip_all_tags( get_the_title( $item_id ) );
+        $choices[ $type ] = [ 'items' => [], 'has_more' => count( $items ) > 50 ];
+        foreach ( array_slice( $items, 0, 50 ) as $item ) {
+            $choices[ $type ]['items'][ (int) $item->ID ] = wp_strip_all_tags( get_the_title( $item ) );
         }
     }
-    if ( $selected_id && ! isset( $choices[ $type ][ (int) $selected_id ] ) ) {
+    if ( $selected_id && ! isset( $choices[ $type ]['items'][ (int) $selected_id ] ) ) {
         $selected = get_post( (int) $selected_id );
         if ( $selected && $selected->post_type === $type && $selected->post_status === 'publish' ) {
-            $choices[ $type ][ (int) $selected->ID ] = wp_strip_all_tags( get_the_title( $selected ) );
+            $choices[ $type ]['items'][ (int) $selected->ID ] = wp_strip_all_tags( get_the_title( $selected ) );
         }
     }
     return $choices[ $type ];
@@ -422,7 +421,7 @@ function wu_aic_settings_page() {
                         <?php foreach ( $themes as $key => $colors ) : ?>
                             <label style="display:inline-block;margin:4px 14px 4px 0;">
                                 <input type="radio" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[theme]" value="<?php echo esc_attr( $key ); ?>" <?php checked( $opt['theme'], $key ); ?>>
-                                <span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:linear-gradient(135deg, <?php echo esc_attr( $colors[0] ); ?>, <?php echo esc_attr( $colors[1] ); ?>);vertical-align:middle;"></span>
+                                <span style="display:inline-block;width:16px;height:16px;border-radius:50%;background:<?php echo esc_attr( $colors[0] ); ?>;vertical-align:middle;"></span>
                                 <?php echo esc_html( $key ); ?>
                             </label>
                         <?php endforeach; ?>
@@ -454,7 +453,7 @@ function wu_aic_settings_page() {
             </table>
 
             <h2 class="title">內容區塊</h2>
-            <p class="description">最多 20 個，可拖曳排序。文章、頁面及商品會先載入本站最近更新的已發布項目，也可搜尋更多內容；選擇「自動顯示最新內容」時會依區塊類型顯示最新項目。</p>
+            <p class="description">最多 20 個，可拖曳排序。文章、頁面及商品可直接從下拉選單選取；項目超過清單時，再於欄位中輸入關鍵字搜尋。選擇「自動顯示最新內容」時會依區塊類型顯示最新項目。</p>
 
             <div class="wu-aic-table-scroll">
                 <table class="widefat striped" id="wu-aic-blocks-table">
@@ -525,8 +524,25 @@ function wu_aic_settings_page() {
         .wu-aic-admin-wrap .wu-aic-image-preview[hidden] { display:none!important; }
         .wu-aic-admin-wrap .wu-aic-content-picker { min-width:0; }
         .wu-aic-admin-wrap .wu-aic-content-picker[hidden] { display:none!important; }
-        .wu-aic-admin-wrap .wu-aic-content-picker input { width:100%; margin-bottom:5px; }
+        .wu-aic-admin-wrap .wu-aic-content-picker input { width:100%; margin:5px 0; }
         .wu-aic-admin-wrap .wu-aic-content-select { display:block; width:100%; }
+        @media screen and (max-width:782px) {
+            #wu-aic-blocks-table { min-width:0; table-layout:auto; }
+            #wu-aic-blocks-table thead { display:none; }
+            #wu-aic-blocks-table, #wu-aic-blocks-table tbody, #wu-aic-blocks-table tr, #wu-aic-blocks-table td { display:block; width:100%; }
+            #wu-aic-blocks-table tr { padding:12px; margin:0 0 14px; border:1px solid #c3c4c7; border-radius:6px; background:#fff; }
+            #wu-aic-blocks-table td { padding:8px 0; border:0; }
+            #wu-aic-blocks-table td:not(.wu-aic-drag)::before { display:block; margin-bottom:5px; color:#50575e; font-weight:600; }
+            #wu-aic-blocks-table td:nth-child(2)::before { content:'類型'; }
+            #wu-aic-blocks-table td:nth-child(3)::before { content:'標籤 / 標題'; }
+            #wu-aic-blocks-table td:nth-child(4)::before { content:'指定文章 / 頁面 / 商品'; }
+            #wu-aic-blocks-table td:nth-child(5)::before { content:'備用連結網址'; }
+            #wu-aic-blocks-table td:nth-child(6)::before { content:'圖片'; }
+            #wu-aic-blocks-table td:last-child { text-align:right; }
+            #wu-aic-blocks-table .wu-aic-col-sort { width:auto; }
+            .wu-aic-admin-wrap .wu-aic-content-select { min-height:44px; font-size:16px; }
+            .wu-aic-admin-wrap .wu-aic-content-picker input { min-height:44px; font-size:16px; }
+        }
     </style>
 
     <script>
@@ -566,7 +582,8 @@ function wu_aic_settings_page() {
                     var previous = select.value;
                     var previousOption = select.options[select.selectedIndex];
                     select.replaceChildren(new Option('自動顯示最新內容', '0'));
-                    response.data.forEach(function (item) { select.add(new Option(item.title, String(item.id))); });
+                    response.data.slice(0, 50).forEach(function (item) { select.add(new Option(item.title, String(item.id))); });
+                    if (!searchValue) search.hidden = response.data.length <= 50;
                     var hasPrevious = Array.from(select.options).some(function (option) { return option.value === previous; });
                     if (!hasPrevious && previous !== '0' && previousOption) {
                         select.add(new Option(previousOption.text, previous));
@@ -592,6 +609,7 @@ function wu_aic_settings_page() {
                 select.replaceChildren(new Option('自動顯示最新內容', '0'));
                 search.value = '';
                 search.placeholder = '搜尋本站已發布' + (type.value === 'product' ? '商品' : (type.value === 'page' ? '頁面' : '文章'));
+                search.hidden = true;
                 if (picker.hidden === false) fillContentChoices(row, type.value, '');
             }
         }
@@ -754,7 +772,7 @@ function wu_aic_admin_block_row( $block, $types ) {
     if ( $block['type'] === 'html' ) {
         $types['html'] = '既有自訂內容（保留舊資料）';
     }
-    $content_choices = $has_content_type ? wu_aic_get_initial_content_choices( $content_type, (int) $block['content_id'] ) : [];
+    $content_choices = $has_content_type ? wu_aic_get_initial_content_choices( $content_type, (int) $block['content_id'] ) : [ 'items' => [], 'has_more' => false ];
     ?>
     <tr class="wu-aic-block-row">
         <td class="wu-aic-drag" title="拖曳排序">☰
@@ -770,10 +788,10 @@ function wu_aic_admin_block_row( $block, $types ) {
         <td><input type="text" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[block_label][]" value="<?php echo esc_attr( $block['label'] ); ?>" class="regular-text"></td>
         <td>
             <div class="wu-aic-content-picker" data-content-type="<?php echo esc_attr( $content_type ); ?>" <?php echo $has_content_type ? '' : 'hidden'; ?>>
-                <input type="search" class="wu-aic-content-search" data-nonce="<?php echo esc_attr( wp_create_nonce( 'wu_aic_search_content' ) ); ?>" placeholder="搜尋本站已發布<?php echo $content_type === 'product' ? '商品' : ( $content_type === 'page' ? '頁面' : '文章' ); ?>">
+                <input type="search" class="wu-aic-content-search" data-nonce="<?php echo esc_attr( wp_create_nonce( 'wu_aic_search_content' ) ); ?>" placeholder="項目很多，可輸入關鍵字搜尋本站已發布<?php echo $content_type === 'product' ? '商品' : ( $content_type === 'page' ? '頁面' : '文章' ); ?>" <?php echo empty( $content_choices['has_more'] ) ? 'hidden' : ''; ?>>
                 <select class="wu-aic-content-select" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[block_content_id][]">
                     <option value="0">自動顯示最新內容</option>
-                    <?php foreach ( $content_choices as $choice_id => $choice_title ) : ?>
+                    <?php foreach ( $content_choices['items'] as $choice_id => $choice_title ) : ?>
                         <option value="<?php echo esc_attr( $choice_id ); ?>" <?php selected( (int) $block['content_id'], (int) $choice_id ); ?>><?php echo esc_html( $choice_title ); ?></option>
                     <?php endforeach; ?>
                 </select>
@@ -835,16 +853,16 @@ function wu_aic_enqueue_assets() {
             max-width:380px;
             background:{$bg};
             color:{$text};
-            border-radius:18px;
-            box-shadow:0 14px 40px rgba(0,0,0,.14);
+            border-radius:20px;
+            box-shadow:0 18px 48px rgba(20,35,30,.13);
             overflow:hidden;
             font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans TC',Arial,sans-serif;
             margin:20px auto;
             border:1px solid {$border};
         }
         .wu-aic-header{
-            background:linear-gradient(135deg,{$c1} 0%,{$c2} 100%);
-            height:92px;
+            background:{$c1};
+            height:104px;
         }
         .wu-aic-body{
             padding:0 22px 24px;
@@ -857,13 +875,13 @@ function wu_aic_enqueue_assets() {
             border:4px solid {$bg};
             object-fit:cover;
             background:#e9ecef;
-            margin:-45px auto 12px;
-            box-shadow:0 4px 14px rgba(0,0,0,.16);
+            margin:-45px auto 14px;
+            box-shadow:0 6px 18px rgba(20,35,30,.14);
             display:flex;
             align-items:center;
             justify-content:center;
         }
-        .wu-aic-name{font-size:1.35rem;font-weight:700;margin:0 0 4px;color:{$text};}
+        .wu-aic-name{font-size:1.45rem;font-weight:750;margin:0 0 4px;color:{$text};letter-spacing:.01em;}
         .wu-aic-title{font-size:.9rem;color:{$subtext};margin:0 0 16px;font-weight:500;}
         .wu-aic-bio{
             font-size:.92rem;color:{$text};line-height:1.7;background:{$bio_bg};
@@ -871,10 +889,10 @@ function wu_aic_enqueue_assets() {
         }
         .wu-aic-blocks{display:flex;flex-direction:column;gap:10px;text-align:left;}
         .wu-aic-block-cta,.wu-aic-block-link{
-            display:block;text-decoration:none;padding:12px 16px;border-radius:10px;
-            font-weight:600;text-align:center;transition:transform .2s ease,box-shadow .2s ease;
+            display:block;text-decoration:none;padding:14px 16px;border-radius:12px;
+            font-weight:650;text-align:center;transition:transform .18s ease,box-shadow .18s ease;
         }
-        .wu-aic-block-cta{background:linear-gradient(135deg,{$c1},{$c2});color:#fff!important;}
+        .wu-aic-block-cta{background:{$c1};color:#fff!important;}
         .wu-aic-block-link{background:{$bio_bg};color:{$text}!important;border:1px solid {$border};}
         .wu-aic-block-cta:hover,.wu-aic-block-link:hover{transform:translateY(-2px);box-shadow:0 5px 14px rgba(0,0,0,.08);}
         .wu-aic-block-image_link{
@@ -913,7 +931,7 @@ function wu_aic_enqueue_assets() {
         .wu-aic-floating-btn{
             position:fixed!important;bottom:24px!important;left:24px!important;right:auto!important;
             width:60px!important;height:60px!important;
-            background:linear-gradient(135deg,{$c1} 0%,{$c2} 100%)!important;
+            background:{$c1}!important;
             color:#fff!important;border:0!important;border-radius:50%!important;
             display:flex!important;align-items:center!important;justify-content:center!important;
             box-shadow:0 8px 24px rgba(0,0,0,.25)!important;cursor:pointer!important;
@@ -932,8 +950,10 @@ function wu_aic_enqueue_assets() {
         .wu-aic-floating-popup.wu-active{display:block!important;opacity:1!important;transform:translateY(0)!important;}
         .wu-aic-floating-popup .wu-aic-container{margin:0!important;max-width:none!important;}
 
-        @media (max-width:480px){
-            .wu-aic-page-body{padding:22px 12px;}
+        @media (max-width:600px){
+        .wu-aic-page-body{padding:16px 10px;}
+        .wu-aic-container{max-width:100%;}
+        .wu-aic-body{padding:0 16px 20px;}
             .wu-aic-floating-btn{left:16px!important;right:auto!important;bottom:16px!important;width:56px!important;height:56px!important;}
             .wu-aic-floating-popup{
                 left:16px!important;right:auto!important;bottom:82px!important;width:calc(100vw - 32px)!important;
@@ -1117,7 +1137,7 @@ function wu_aic_render_block( $block ) {
 
     switch ( $type ) {
         case 'cta':
-            return '<a href="' . ( $url ?: '#' ) . '" class="wu-aic-block-cta" target="_blank" rel="noopener noreferrer">' . $label . '</a>';
+            return '<a href="' . ( $url ?: '#' ) . '" class="wu-aic-block-cta" target="_blank" rel="noopener noreferrer">' . ( $label ?: '立刻詢問' ) . '</a>';
 
         case 'link':
             return '<a href="' . ( $url ?: '#' ) . '" class="wu-aic-block-link" target="_blank" rel="noopener noreferrer">' . $label . '</a>';
@@ -1134,7 +1154,7 @@ function wu_aic_render_block( $block ) {
 
         case 'post':
             if ( ! empty( $block['content_id'] ) ) {
-                return wu_aic_render_content_card( absint( $block['content_id'] ), 'post', $block['label'] );
+                return wu_aic_render_content_card( absint( $block['content_id'] ), 'post', $block['label'], $block['image'] );
             }
             if ( $url ) {
                 return '<a href="' . $url . '" class="wu-aic-block-link" target="_blank" rel="noopener noreferrer">' . ( $label ?: '查看文章' ) . '</a>';
@@ -1146,7 +1166,7 @@ function wu_aic_render_block( $block ) {
 
         case 'page':
             if ( ! empty( $block['content_id'] ) ) {
-                return wu_aic_render_content_card( absint( $block['content_id'] ), 'page', $block['label'] );
+                return wu_aic_render_content_card( absint( $block['content_id'] ), 'page', $block['label'], $block['image'] );
             }
             if ( $url ) {
                 return '<a href="' . $url . '" class="wu-aic-block-link" target="_blank" rel="noopener noreferrer">' . ( $label ?: '查看頁面' ) . '</a>';
@@ -1155,7 +1175,7 @@ function wu_aic_render_block( $block ) {
 
         case 'product':
             if ( ! empty( $block['content_id'] ) ) {
-                return wu_aic_render_content_card( absint( $block['content_id'] ), 'product', $block['label'] );
+                return wu_aic_render_content_card( absint( $block['content_id'] ), 'product', $block['label'], $block['image'] );
             }
             if ( $url ) {
                 return '<a href="' . $url . '" class="wu-aic-block-link" target="_blank" rel="noopener noreferrer">' . ( $label ?: '查看商品' ) . '</a>';
@@ -1169,7 +1189,7 @@ function wu_aic_render_block( $block ) {
     return '';
 }
 
-function wu_aic_render_content_card( $content_id, $post_type, $custom_label = '' ) {
+function wu_aic_render_content_card( $content_id, $post_type, $custom_label = '', $custom_image = '' ) {
     $item = get_post( $content_id );
     if ( ! $item || $item->post_type !== $post_type || $item->post_status !== 'publish' ) {
         return '';
@@ -1181,7 +1201,7 @@ function wu_aic_render_content_card( $content_id, $post_type, $custom_label = ''
     }
 
     $title = $custom_label ?: get_the_title( $item );
-    $image = get_the_post_thumbnail_url( $item, 'medium' );
+    $image = $custom_image ? esc_url_raw( $custom_image ) : get_the_post_thumbnail_url( $item, 'medium' );
     $price = '';
     if ( $post_type === 'product' && function_exists( 'wc_get_product' ) ) {
         $product = wc_get_product( $item->ID );
