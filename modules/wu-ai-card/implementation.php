@@ -1153,7 +1153,9 @@ function wu_aic_enqueue_assets() {
                 if(e.key !== 'Escape') return;
                 var open = document.querySelector('.wu-aic-floating-popup.wu-active');
                 if(!open) return;
-                var controller = document.querySelector('.wu-aic-floating-btn[aria-controls="' + open.id + '"]');
+                var controller = Array.prototype.find.call(document.querySelectorAll('.wu-aic-floating-btn'), function(button){
+                    return button.getAttribute('aria-controls') === open.id;
+                });
                 if(controller) controller.click();
             });
         });
