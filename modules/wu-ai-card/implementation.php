@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: WU AI Card
- * Description: 自訂 AI 名片頁面：基本資料、9 種內容區塊、8 組配色主題、全站浮動按鈕、傳送給 AI 文字、QR Code 分享。
+ * Description: 自訂 AI 名片頁面：基本資料、內容區塊、配色主題、全站浮動按鈕、傳送給 AI 文字、QR Code 分享。
  * Version: 1.2.0
  * Author: WU
  * Plugin URI: https://wumetax.com/
@@ -126,7 +126,7 @@ function wu_aic_color_themes() {
     ];
 }
 
-/* 內容區塊 9 種類型 */
+/* Keep the HTML type only for backward compatibility with existing saved cards. */
 function wu_aic_block_types() {
     return [
         'cta'         => 'CTA 按鈕',
@@ -137,7 +137,7 @@ function wu_aic_block_types() {
         'product'     => '精選商品',
         'latest_post' => '最新文章',
         'heading'     => '標題文字',
-        'html'        => '自訂 HTML',
+        'html'        => '既有自訂內容（保留）',
         'social'      => '社群連結',
     ];
 }
@@ -315,6 +315,43 @@ function wu_aic_validate_content_id( $content_id, $type ) {
     return (int) $post->ID;
 }
 
+/**
+ * Return a small initial list for the selector so the field is usable before
+ * any search request. Results are cached for this request and AJAX remains
+ * available for larger sites.
+ */
+function wu_aic_get_initial_content_choices( $type, $selected_id = 0 ) {
+    static $choices = [];
+    $type = in_array( $type, [ 'post', 'page', 'product' ], true ) ? $type : 'post';
+    if ( $type === 'product' && ! post_type_exists( 'product' ) ) {
+        return [];
+    }
+    if ( ! isset( $choices[ $type ] ) ) {
+        $items = get_posts( [
+            'post_type'              => $type,
+            'post_status'            => 'publish',
+            'posts_per_page'         => 20,
+            'orderby'                => 'modified',
+            'order'                  => 'DESC',
+            'no_found_rows'          => true,
+            'update_post_meta_cache' => false,
+            'update_post_term_cache' => false,
+            'fields'                 => 'ids',
+        ] );
+        $choices[ $type ] = [];
+        foreach ( $items as $item_id ) {
+            $choices[ $type ][ (int) $item_id ] = wp_strip_all_tags( get_the_title( $item_id ) );
+        }
+    }
+    if ( $selected_id && ! isset( $choices[ $type ][ (int) $selected_id ] ) ) {
+        $selected = get_post( (int) $selected_id );
+        if ( $selected && $selected->post_type === $type && $selected->post_status === 'publish' ) {
+            $choices[ $type ][ (int) $selected->ID ] = wp_strip_all_tags( get_the_title( $selected ) );
+        }
+    }
+    return $choices[ $type ];
+}
+
 function wu_aic_settings_page() {
     if ( ! current_user_can( 'manage_options' ) ) {
         return;
@@ -324,7 +361,7 @@ function wu_aic_settings_page() {
 
     $opt      = wu_aic_get_option();
     $themes   = wu_aic_color_themes();
-    $types    = wu_aic_block_types();
+    $types    = array_diff_key( wu_aic_block_types(), [ 'html' => true ] );
     $card_url = home_url( '/' . ( $opt['slug'] ?: 'card' ) . '/' );
     ?>
     <div class="wrap wu-aic-admin-wrap">
@@ -417,20 +454,19 @@ function wu_aic_settings_page() {
             </table>
 
             <h2 class="title">內容區塊</h2>
-            <p class="description">最多 20 個，可拖曳排序。精選文章、頁面與商品可搜尋本站已發布內容並指定項目；留空時會自動顯示最新內容。指定內容後會優先使用所選項目。</p>
+            <p class="description">最多 20 個，可拖曳排序。文章、頁面及商品會先載入本站最近更新的已發布項目，也可搜尋更多內容；選擇「自動顯示最新內容」時會依區塊類型顯示最新項目。</p>
 
-            <div style="overflow-x:auto;">
-                <table class="widefat striped" id="wu-aic-blocks-table" style="min-width:1100px;">
+            <div class="wu-aic-table-scroll">
+                <table class="widefat striped" id="wu-aic-blocks-table">
                     <thead>
                         <tr>
-                            <th style="width:56px;">排序</th>
-                            <th style="width:150px;">類型</th>
-                            <th>標籤 / 標題</th>
-                            <th>指定文章 / 頁面 / 商品</th>
-                            <th>備用連結網址</th>
-                            <th>圖片網址</th>
-                            <th>自訂 HTML</th>
-                            <th style="width:70px;">刪除</th>
+                            <th class="wu-aic-col-sort">排序</th>
+                            <th class="wu-aic-col-type">類型</th>
+                            <th class="wu-aic-col-label">標籤 / 標題</th>
+                            <th class="wu-aic-col-content">指定文章 / 頁面 / 商品</th>
+                            <th class="wu-aic-col-url">備用連結網址</th>
+                            <th class="wu-aic-col-image">圖片</th>
+                            <th class="wu-aic-col-delete">刪除</th>
                         </tr>
                     </thead>
                     <tbody id="wu-aic-blocks-body">
@@ -464,19 +500,33 @@ function wu_aic_settings_page() {
                 'html'  => '',
                 'content_id' => 0,
             ],
-            $types
+			$types
         );
         ?>
     </template>
 
     <style>
+        #wu-aic-blocks-table { table-layout:fixed; min-width:1420px; }
+        #wu-aic-blocks-table th, #wu-aic-blocks-table td { box-sizing:border-box; vertical-align:top; }
+        #wu-aic-blocks-table .wu-aic-col-sort { width:54px; }
+        #wu-aic-blocks-table .wu-aic-col-type { width:175px; }
+        #wu-aic-blocks-table .wu-aic-col-label { width:240px; }
+        #wu-aic-blocks-table .wu-aic-col-content { width:320px; }
+        #wu-aic-blocks-table .wu-aic-col-url { width:260px; }
+        #wu-aic-blocks-table .wu-aic-col-image { width:270px; }
+        #wu-aic-blocks-table .wu-aic-col-delete { width:90px; }
+        .wu-aic-table-scroll { max-width:100%; overflow-x:auto; }
+        #wu-aic-blocks-table input[type="text"], #wu-aic-blocks-table input[type="url"], #wu-aic-blocks-table select { max-width:100%; width:100%; }
         #wu-aic-blocks-body tr.wu-aic-dragging { opacity: .45; }
         #wu-aic-blocks-body .wu-aic-drag { cursor: grab; font-size: 18px; text-align: center; user-select: none; }
         #wu-aic-blocks-body .wu-aic-drag:active { cursor: grabbing; }
-        .wu-aic-admin-wrap .wu-aic-image-wrap { display:flex; gap:6px; align-items:center; }
-        .wu-aic-admin-wrap .wu-aic-content-picker { min-width:220px; }
+        .wu-aic-admin-wrap .wu-aic-image-wrap { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
+        .wu-aic-admin-wrap .wu-aic-image-preview { display:block; width:72px; height:56px; object-fit:cover; border:1px solid #c3c4c7; border-radius:3px; background:#f6f7f7; }
+        .wu-aic-admin-wrap .wu-aic-image-preview[hidden] { display:none!important; }
+        .wu-aic-admin-wrap .wu-aic-content-picker { min-width:0; }
         .wu-aic-admin-wrap .wu-aic-content-picker[hidden] { display:none!important; }
         .wu-aic-admin-wrap .wu-aic-content-picker input { width:100%; margin-bottom:5px; }
+        .wu-aic-admin-wrap .wu-aic-content-select { display:block; width:100%; }
     </style>
 
     <script>
@@ -492,6 +542,44 @@ function wu_aic_settings_page() {
             updateContentPicker(row);
         }
 
+        function fillContentChoices(row, type, searchValue) {
+            var picker = row.querySelector('.wu-aic-content-picker');
+            var search = picker.querySelector('.wu-aic-content-search');
+            var select = picker.querySelector('.wu-aic-content-select');
+            var status = picker.querySelector('.wu-aic-content-status');
+            var requestId = (searchRequests.get(search) || 0) + 1;
+            searchRequests.set(search, requestId);
+            var data = new FormData();
+            data.append('action', 'wu_aic_search_content');
+            data.append('nonce', search.dataset.nonce);
+            data.append('post_type', type);
+            data.append('search', searchValue || '');
+            status.textContent = '載入本站內容中…';
+            fetch(ajaxurl, { method: 'POST', credentials: 'same-origin', body: data })
+                .then(function (response) { return response.json(); })
+                .then(function (response) {
+                    if (searchRequests.get(search) !== requestId || row.querySelector('.wu-aic-block-type').value !== type || search.value !== (searchValue || '')) return;
+                    if (!response.success || !Array.isArray(response.data)) {
+                        status.textContent = (response.data && response.data.message) || '無法載入內容，請重新整理後再試。';
+                        return;
+                    }
+                    var previous = select.value;
+                    var previousOption = select.options[select.selectedIndex];
+                    select.replaceChildren(new Option('自動顯示最新內容', '0'));
+                    response.data.forEach(function (item) { select.add(new Option(item.title, String(item.id))); });
+                    var hasPrevious = Array.from(select.options).some(function (option) { return option.value === previous; });
+                    if (!hasPrevious && previous !== '0' && previousOption) {
+                        select.add(new Option(previousOption.text, previous));
+                        hasPrevious = true;
+                    }
+                    select.value = hasPrevious ? previous : '0';
+                    status.textContent = response.data.length ? '' : '目前沒有符合的已發布內容。';
+                })
+                .catch(function () {
+                    if (searchRequests.get(search) === requestId) status.textContent = '載入失敗，請檢查網路後重新搜尋。';
+                });
+        }
+
         function updateContentPicker(row) {
             var type = row.querySelector('.wu-aic-block-type');
             var picker = row.querySelector('.wu-aic-content-picker');
@@ -504,6 +592,7 @@ function wu_aic_settings_page() {
                 select.replaceChildren(new Option('自動顯示最新內容', '0'));
                 search.value = '';
                 search.placeholder = '搜尋本站已發布' + (type.value === 'product' ? '商品' : (type.value === 'page' ? '頁面' : '文章'));
+                if (picker.hidden === false) fillContentChoices(row, type.value, '');
             }
         }
 
@@ -535,7 +624,9 @@ function wu_aic_settings_page() {
 
             var mediaBtn = e.target.closest('.wu-aic-row-media-pick');
             if (mediaBtn && window.wp && wp.media) {
-                var input = mediaBtn.closest('.wu-aic-image-wrap').querySelector('input');
+                var wrap = mediaBtn.closest('.wu-aic-image-wrap');
+                var input = wrap.querySelector('input[type="hidden"]');
+                var preview = wrap.querySelector('.wu-aic-image-preview');
                 var frame = wp.media({
                     title: '選擇圖片',
                     button: { text: '使用這張圖片' },
@@ -544,8 +635,20 @@ function wu_aic_settings_page() {
                 frame.on('select', function () {
                     var attachment = frame.state().get('selection').first().toJSON();
                     input.value = attachment.url || '';
+                    preview.src = attachment.url || '';
+                    preview.hidden = !attachment.url;
+                    wrap.querySelector('.wu-aic-row-image-clear').hidden = !attachment.url;
                 });
                 frame.open();
+                return;
+            }
+            var clearImage = e.target.closest('.wu-aic-row-image-clear');
+            if (clearImage) {
+                var imageWrap = clearImage.closest('.wu-aic-image-wrap');
+                imageWrap.querySelector('input[type="hidden"]').value = '';
+                imageWrap.querySelector('.wu-aic-image-preview').removeAttribute('src');
+                imageWrap.querySelector('.wu-aic-image-preview').hidden = true;
+                clearImage.hidden = true;
             }
         });
 
@@ -563,37 +666,8 @@ function wu_aic_settings_page() {
             if (!['post', 'page', 'product'].includes(type)) return;
             clearTimeout(searchTimers.get(search));
             var searchValue = search.value;
-            var requestId = (searchRequests.get(search) || 0) + 1;
-            searchRequests.set(search, requestId);
             searchTimers.set(search, setTimeout(function () {
-                var data = new FormData();
-                data.append('action', 'wu_aic_search_content');
-                data.append('nonce', search.dataset.nonce);
-                data.append('post_type', type);
-                data.append('search', searchValue);
-                fetch(ajaxurl, { method: 'POST', credentials: 'same-origin', body: data })
-                    .then(function (response) { return response.json(); })
-                    .then(function (response) {
-                        if (searchRequests.get(search) !== requestId || row.querySelector('.wu-aic-block-type').value !== type || search.value !== searchValue) return;
-                        if (!response.success) return;
-                        var select = row.querySelector('.wu-aic-content-select');
-                        var previous = select.value;
-                        var previousOption = select.options[select.selectedIndex];
-                        select.replaceChildren(new Option('自動顯示最新內容', '0'));
-                        response.data.forEach(function (item) {
-                            select.add(new Option(item.title, String(item.id)));
-                        });
-                        var hasPrevious = Array.from(select.options).some(function (option) { return option.value === previous; });
-                        if (!hasPrevious && previous !== '0' && previousOption) {
-                            select.add(new Option(previousOption.text, previous));
-                            hasPrevious = true;
-                        }
-                        if (hasPrevious) select.value = previous;
-                        if (response.data.length === 0 && previous === '0') {
-                            select.add(new Option('查無符合的已發布內容', '', true, false)).disabled = true;
-                        }
-                    })
-                    .catch(function () {});
+                fillContentChoices(row, type, searchValue);
             }, 250));
         });
 
@@ -675,14 +749,17 @@ function wu_aic_admin_block_row( $block, $types ) {
             'content_id' => 0,
         ]
     );
-    $selected_content = ! empty( $block['content_id'] ) ? get_post( absint( $block['content_id'] ) ) : null;
-    if ( ! $selected_content || $selected_content->post_type !== ( in_array( $block['type'], [ 'post', 'page', 'product' ], true ) ? $block['type'] : 'post' ) || $selected_content->post_status !== 'publish' ) {
-        $selected_content = null;
+    $has_content_type = in_array( $block['type'], [ 'post', 'page', 'product' ], true );
+    $content_type = $has_content_type ? $block['type'] : 'none';
+    if ( $block['type'] === 'html' ) {
+        $types['html'] = '既有自訂內容（保留舊資料）';
     }
-    $content_type = in_array( $block['type'], [ 'post', 'page', 'product' ], true ) ? $block['type'] : 'post';
+    $content_choices = $has_content_type ? wu_aic_get_initial_content_choices( $content_type, (int) $block['content_id'] ) : [];
     ?>
     <tr class="wu-aic-block-row">
-        <td class="wu-aic-drag" title="拖曳排序">☰</td>
+        <td class="wu-aic-drag" title="拖曳排序">☰
+            <input type="hidden" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[block_html][]" value="<?php echo esc_attr( $block['html'] ); ?>">
+        </td>
         <td>
             <select class="wu-aic-block-type" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[block_type][]">
                 <?php foreach ( $types as $tkey => $tlabel ) : ?>
@@ -692,24 +769,26 @@ function wu_aic_admin_block_row( $block, $types ) {
         </td>
         <td><input type="text" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[block_label][]" value="<?php echo esc_attr( $block['label'] ); ?>" class="regular-text"></td>
         <td>
-            <div class="wu-aic-content-picker" data-content-type="<?php echo esc_attr( $content_type ); ?>" <?php echo in_array( $block['type'], [ 'post', 'page', 'product' ], true ) ? '' : 'hidden'; ?>>
+            <div class="wu-aic-content-picker" data-content-type="<?php echo esc_attr( $content_type ); ?>" <?php echo $has_content_type ? '' : 'hidden'; ?>>
                 <input type="search" class="wu-aic-content-search" data-nonce="<?php echo esc_attr( wp_create_nonce( 'wu_aic_search_content' ) ); ?>" placeholder="搜尋本站已發布<?php echo $content_type === 'product' ? '商品' : ( $content_type === 'page' ? '頁面' : '文章' ); ?>">
                 <select class="wu-aic-content-select" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[block_content_id][]">
                     <option value="0">自動顯示最新內容</option>
-                    <?php if ( $selected_content ) : ?>
-                        <option value="<?php echo esc_attr( $selected_content->ID ); ?>" selected><?php echo esc_html( get_the_title( $selected_content ) ); ?></option>
-                    <?php endif; ?>
+                    <?php foreach ( $content_choices as $choice_id => $choice_title ) : ?>
+                        <option value="<?php echo esc_attr( $choice_id ); ?>" <?php selected( (int) $block['content_id'], (int) $choice_id ); ?>><?php echo esc_html( $choice_title ); ?></option>
+                    <?php endforeach; ?>
                 </select>
+                <span class="wu-aic-content-status" aria-live="polite"></span>
             </div>
         </td>
         <td><input type="url" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[block_url][]" value="<?php echo esc_attr( $block['url'] ); ?>" class="regular-text" placeholder="https://..."></td>
         <td>
             <div class="wu-aic-image-wrap">
-                <input type="url" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[block_image][]" value="<?php echo esc_attr( $block['image'] ); ?>" class="regular-text" placeholder="https://...">
-                <button type="button" class="button wu-aic-row-media-pick">選圖</button>
+                <input type="hidden" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[block_image][]" value="<?php echo esc_attr( $block['image'] ); ?>">
+                <img class="wu-aic-image-preview" src="<?php echo esc_url( $block['image'] ); ?>" alt="" <?php echo empty( $block['image'] ) ? 'hidden' : ''; ?>>
+                <button type="button" class="button wu-aic-row-media-pick">選擇圖片</button>
+                <button type="button" class="button-link wu-aic-row-image-clear" <?php echo empty( $block['image'] ) ? 'hidden' : ''; ?>>清除</button>
             </div>
         </td>
-        <td><textarea name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[block_html][]" rows="2" class="large-text code"><?php echo esc_textarea( $block['html'] ); ?></textarea></td>
         <td><button type="button" class="button-link-delete wu-aic-remove-block">刪除</button></td>
     </tr>
     <?php

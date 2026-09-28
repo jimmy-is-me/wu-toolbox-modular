@@ -26,6 +26,7 @@ function wutm_modules(): array {
         'admin-bar-cleaner' => ['name' => '後台介面管理', 'description' => '管理 WordPress 管理列、後台頁尾、側邊選單、角色權限與顯示項目。', 'group' => '後台介面', 'icon' => '🎛️'],
         'admin-menu-editor' => ['name' => '後台選單編輯器', 'description' => '依網站預設或指定帳號調整後台選單順序、顯示名稱及可見性。', 'group' => '後台介面', 'icon' => '↕️', 'settings_page' => 'wu-admin-menu-editor'],
         'audit-logger' => ['name' => '操作日誌', 'description' => '記錄使用者登入、文章、設定及其他重要後台活動，方便追查操作紀錄。', 'group' => '安全性', 'icon' => '📋'],
+        'visitor-tracking' => ['name' => '瀏覽追蹤數據', 'description' => '以非同步方式統計訪客與會員瀏覽、目前在線、熱門頁排行及 CSV 匯出，並提供保留期限與資料量安全上限。', 'group' => '監控追蹤', 'icon' => '📈', 'settings_page' => 'wu-visitor-tracker'],
         'advanced-tracking-manager' => ['name' => '進階追蹤管理', 'description' => '管理 GA4、GTM、Google Ads、Meta Pixel 與診斷。', 'group' => '監控追蹤', 'icon' => '🎯'],
         'seo-core' => ['name' => 'SEO 核心', 'description' => '台灣繁中網站用的輕量 SEO 核心，提供編輯器側欄、SEO 健檢、Title、Meta Description、Canonical、Open Graph、Schema 與 Sitemap 控制。', 'group' => 'SEO', 'icon' => '🔎', 'settings_page' => 'wumetax-seo-core', 'related_pages' => ['admin.php?page=wumetax-seo-core-settings']],
         'auto-upload-images' => ['name' => '自動上傳圖片', 'description' => '儲存內容時將外部圖片匯入媒體庫並替換網址。', 'group' => '媒體工具', 'icon' => '🖼️'],
