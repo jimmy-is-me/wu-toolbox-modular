@@ -28,6 +28,7 @@ function wu_aic_get_defaults() {
         'title'           => '智慧客服代表',
         'avatar'          => '',
         'bio'             => '您好！我是您的專屬 AI 助理，隨時為您提供最專業的協助。',
+        'support_url'     => '',
         'theme'           => 'green',
         'dark_mode'       => '0',
         'enable_floating' => '1',
@@ -268,6 +269,7 @@ function wu_aic_sanitize( $input ) {
     $out['title']           = isset( $input['title'] ) ? sanitize_text_field( $input['title'] ) : $out['title'];
     $out['avatar']          = isset( $input['avatar'] ) ? esc_url_raw( $input['avatar'] ) : '';
     $out['bio']             = isset( $input['bio'] ) ? sanitize_textarea_field( $input['bio'] ) : $out['bio'];
+    $out['support_url']     = isset( $input['support_url'] ) ? esc_url_raw( $input['support_url'] ) : '';
     $out['theme']           = isset( $input['theme'] ) && array_key_exists( $input['theme'], wu_aic_color_themes() ) ? sanitize_key( $input['theme'] ) : 'green';
     $out['dark_mode']       = isset( $input['dark_mode'] ) ? '1' : '0';
     $out['enable_floating'] = isset( $input['enable_floating'] ) ? '1' : '0';
@@ -411,6 +413,13 @@ function wu_aic_settings_page() {
                     <th scope="row">介紹與歡迎詞</th>
                     <td><textarea name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[bio]" rows="4" class="large-text"><?php echo esc_textarea( $opt['bio'] ); ?></textarea></td>
                 </tr>
+                <tr>
+                    <th scope="row">聯絡客服連結</th>
+                    <td>
+                        <input type="url" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[support_url]" value="<?php echo esc_attr( $opt['support_url'] ); ?>" class="regular-text" placeholder="https://line.me/R/ti/p/..." />
+                        <p class="description">可填客服頁面、LINE 官方帳號或其他 HTTPS 連結；留空就不顯示「聯絡客服」，原有名片內容不受影響。</p>
+                    </td>
+                </tr>
             </table>
 
             <h2 class="title">外觀主題</h2>
@@ -444,7 +453,7 @@ function wu_aic_settings_page() {
                 </tr>
                 <tr>
                     <th scope="row">「傳給 AI」按鈕</th>
-                    <td><label><input type="checkbox" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[enable_send_ai]" value="1" <?php checked( $opt['enable_send_ai'], '1' ); ?>> 顯示一鍵複製結構化品牌資訊</label></td>
+                    <td><label><input type="checkbox" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[enable_send_ai]" value="1" <?php checked( $opt['enable_send_ai'], '1' ); ?>> 顯示「複製 AI 指令」按鈕</label><p class="description">不會直接呼叫 AI 服務；訪客可複製整理好的品牌資訊與回答規則，再貼到 ChatGPT 等 AI 工具。</p></td>
                 </tr>
                 <tr>
                     <th scope="row">QR Code 分享</th>
@@ -887,7 +896,15 @@ function wu_aic_enqueue_assets() {
             font-size:.92rem;color:{$text};line-height:1.7;background:{$bio_bg};
             padding:14px;border-radius:10px;text-align:left;margin-bottom:18px;
         }
+        .wu-aic-search-wrap{margin:0 0 14px;text-align:left;}
+        .wu-aic-search-input{width:100%;box-sizing:border-box;padding:12px 15px;border:1px solid {$border};border-radius:999px;background:{$bg};color:{$text};font:inherit;box-shadow:0 4px 14px rgba(0,0,0,.06);}
+        .wu-aic-search-input:focus{outline:2px solid {$c1};outline-offset:1px;}
+        .wu-aic-search-wrap small{display:block;margin:6px 10px;color:{$subtext};font-size:.78rem;}
+        .wu-aic-search-empty{margin:8px 2px;color:{$subtext};font-size:.9rem;}
+        .wu-aic-contact-link{display:block;margin-top:12px;padding:13px 16px;border-radius:12px;background:{$c1};color:#fff!important;text-align:center;text-decoration:none;font-weight:700;}
+        .wu-aic-contact-link:hover{filter:brightness(.94);}
         .wu-aic-blocks{display:flex;flex-direction:column;gap:10px;text-align:left;}
+        .wu-aic-blocks > [hidden],.wu-aic-search-empty[hidden]{display:none!important;}
         .wu-aic-block-cta,.wu-aic-block-link{
             display:block;text-decoration:none;padding:14px 16px;border-radius:12px;
             font-weight:650;text-align:center;transition:transform .18s ease,box-shadow .18s ease;
@@ -949,6 +966,8 @@ function wu_aic_enqueue_assets() {
         }
         .wu-aic-floating-popup.wu-active{display:block!important;opacity:1!important;transform:translateY(0)!important;}
         .wu-aic-floating-popup .wu-aic-container{margin:0!important;max-width:none!important;}
+        .wu-aic-backdrop{position:fixed!important;inset:0!important;z-index:2147482999!important;display:none!important;background:rgba(18,25,31,.40)!important;backdrop-filter:blur(6px)!important;-webkit-backdrop-filter:blur(6px)!important;}
+        .wu-aic-backdrop.wu-active{display:block!important;}
 
         @media (max-width:600px){
         .wu-aic-page-body{padding:16px 10px;}
@@ -1037,6 +1056,11 @@ function wu_aic_enqueue_assets() {
 
                     var open = popup.classList.toggle('wu-active');
                     popup.style.display = open ? 'block' : 'none';
+                    var backdrop = document.querySelector('.wu-aic-backdrop');
+                    if(backdrop){
+                        backdrop.classList.toggle('wu-active', open);
+                        backdrop.setAttribute('aria-hidden', open ? 'false' : 'true');
+                    }
                     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
                     btn.innerHTML = floatingIcon(open);
                     btn.setAttribute('aria-label', open ? '關閉 AI 名片' : '開啟 AI 名片');
@@ -1048,10 +1072,10 @@ function wu_aic_enqueue_assets() {
                     try { payload = JSON.parse(payload); } catch(err) {}
                     copyText(payload).then(function(){
                         var old = btn.textContent;
-                        btn.textContent = '✓ 已複製';
+                        btn.textContent = '✓ 已複製指令';
                         setTimeout(function(){ btn.textContent = old; }, 1400);
                     }).catch(function(){
-                        alert('瀏覽器無法自動複製，請手動複製名片資訊。');
+                        alert('無法自動複製。請允許剪貼簿權限，或手動選取後貼到 ChatGPT 等 AI 工具。');
                     });
                     return;
                 }
@@ -1096,6 +1120,8 @@ function wu_aic_enqueue_assets() {
                 document.querySelectorAll('.wu-aic-floating-popup.wu-active').forEach(function(item){
                     item.classList.remove('wu-active');
                     item.style.display = 'none';
+                    var backdrop = document.querySelector('.wu-aic-backdrop');
+                    if(backdrop){backdrop.classList.remove('wu-active');backdrop.setAttribute('aria-hidden','true');}
                     var id = item.id;
                     var controller = document.querySelector('.wu-aic-floating-btn[aria-controls=\"' + id + '\"]');
                     if(controller){
@@ -1104,6 +1130,31 @@ function wu_aic_enqueue_assets() {
                         controller.setAttribute('aria-label','開啟 AI 名片');
                     }
                 });
+            });
+
+            document.addEventListener('input', function(e){
+                var input = e.target.closest('.wu-aic-search-input');
+                if(!input) return;
+                var container = input.closest('.wu-aic-container');
+                var blocks = container ? container.querySelector('.wu-aic-blocks') : null;
+                if(!blocks) return;
+                var query = input.value.trim().toLocaleLowerCase();
+                var visible = 0;
+                Array.prototype.forEach.call(blocks.children, function(item){
+                    var match = !query || item.textContent.toLocaleLowerCase().indexOf(query) !== -1;
+                    item.hidden = !match;
+                    if(match) visible++;
+                });
+                var empty = container.querySelector('.wu-aic-search-empty');
+                if(empty) empty.hidden = !query || visible > 0;
+            });
+
+            document.addEventListener('keydown', function(e){
+                if(e.key !== 'Escape') return;
+                var open = document.querySelector('.wu-aic-floating-popup.wu-active');
+                if(!open) return;
+                var controller = document.querySelector('.wu-aic-floating-btn[aria-controls="' + open.id + '"]');
+                if(controller) controller.click();
             });
         });
     })();
@@ -1285,10 +1336,30 @@ function wu_aic_shortcode( $atts = [] ) {
         $blocks_html .= wu_aic_render_block( $block );
     }
 
-    $copy_text = "品牌名稱：" . wp_strip_all_tags( $opt['name'] ) . "\n";
-    $copy_text .= "角色：" . wp_strip_all_tags( $opt['title'] ) . "\n";
-    $copy_text .= "簡介：" . wp_strip_all_tags( $opt['bio'] ) . "\n";
-    $copy_text .= "名片網址：" . esc_url_raw( $card_url );
+    $copy_lines = [];
+    foreach ( $opt['blocks'] as $block ) {
+        if ( ! is_array( $block ) ) {
+            continue;
+        }
+        $block_url = ! empty( $block['url'] ) ? esc_url_raw( $block['url'] ) : '';
+        if ( ! empty( $block['content_id'] ) ) {
+            $content_id = absint( $block['content_id'] );
+            $block_url  = get_permalink( $content_id ) ?: $block_url;
+            $block_label = ! empty( $block['label'] ) ? $block['label'] : get_the_title( $content_id );
+        } else {
+            $block_label = $block['label'] ?? '';
+        }
+        if ( $block_label ) {
+            $copy_lines[] = '- ' . wp_strip_all_tags( $block_label ) . ( $block_url ? '：' . $block_url : '' );
+        }
+    }
+    $copy_text  = "請扮演「" . wp_strip_all_tags( $opt['name'] ) . "」（" . wp_strip_all_tags( $opt['title'] ) . "），以繁體中文、親切清楚的方式協助訪客。\n";
+    $copy_text .= "請只根據以下品牌資料與訪客提供的資訊回答；不要臆測價格、政策或服務內容。資料不足時，坦白說明並引導訪客聯絡客服。\n\n";
+    $copy_text .= "品牌簡介：\n" . wp_strip_all_tags( $opt['bio'] ) . "\n\n";
+    $copy_text .= "名片與參考連結：\n" . implode( "\n", $copy_lines ) . "\n- AI 名片：" . esc_url_raw( $card_url );
+    if ( ! empty( $opt['support_url'] ) ) {
+        $copy_text .= "\n- 聯絡客服：" . esc_url_raw( $opt['support_url'] );
+    }
 
     ob_start();
     ?>
@@ -1300,8 +1371,20 @@ function wu_aic_shortcode( $atts = [] ) {
             <p class="wu-aic-title"><?php echo $title; ?></p>
             <div class="wu-aic-bio"><?php echo nl2br( $bio ); ?></div>
 
+            <?php if ( $atts['mode'] === 'floating' ) : ?>
+                <div class="wu-aic-search-wrap">
+                    <input type="search" class="wu-aic-search-input" placeholder="搜尋文章、商品或服務…" aria-label="搜尋名片內容">
+                    <small>搜尋此名片已設定的文章、商品與服務</small>
+                    <p class="wu-aic-search-empty" role="status" hidden>沒有符合的內容，請試試其他關鍵字。</p>
+                </div>
+            <?php endif; ?>
+
             <?php if ( $blocks_html ) : ?>
                 <div class="wu-aic-blocks"><?php echo $blocks_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div>
+            <?php endif; ?>
+
+            <?php if ( ! empty( $opt['support_url'] ) ) : ?>
+                <a class="wu-aic-contact-link" href="<?php echo esc_url( $opt['support_url'] ); ?>" target="_blank" rel="noopener noreferrer">點此聯絡客服</a>
             <?php endif; ?>
 
             <?php if ( $opt['enable_send_ai'] === '1' || $opt['enable_qrcode'] === '1' ) : ?>
@@ -1312,7 +1395,7 @@ function wu_aic_shortcode( $atts = [] ) {
                             class="wu-aic-tool-btn"
                             data-wu-aic-action="copy-ai"
                             data-copy="<?php echo esc_attr( wp_json_encode( $copy_text ) ); ?>"
-                        >📋 傳給 AI</button>
+                        >📋 複製 AI 指令</button>
                     <?php endif; ?>
 
                     <?php if ( $opt['enable_qrcode'] === '1' ) : ?>
@@ -1378,7 +1461,8 @@ function wu_aic_render_floating() {
 
     $popup_id = 'wu-aic-floating-popup';
     ?>
-    <div class="wu-aic-floating-popup" id="<?php echo esc_attr( $popup_id ); ?>" aria-live="polite">
+    <div class="wu-aic-backdrop" aria-hidden="true"></div>
+    <div class="wu-aic-floating-popup" id="<?php echo esc_attr( $popup_id ); ?>" role="dialog" aria-label="AI 名片與內容搜尋" aria-modal="true">
         <?php echo do_shortcode( '[wu_ai_card mode="floating"]' ); ?>
     </div>
     <button
