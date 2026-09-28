@@ -1017,7 +1017,7 @@ function wu_aic_enqueue_assets() {
             if(open){
                 return '<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M6 6l12 12M18 6L6 18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\"/></svg>';
             }
-            return '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.5 11.5a8 8 0 0 1-8 8 8.1 8.1 0 0 1-3.7-.9L4 20l1.4-4.4a8 8 0 1 1 15.1-4.1Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M9 11.5h.01M12 11.5h.01M15 11.5h.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>';
+            return '<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M20.5 11.5a8 8 0 0 1-8 8 8.1 8.1 0 0 1-3.7-.9L4 20l1.4-4.4a8 8 0 1 1 15.1-4.1Z\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/><path d=\"M9 11.5h.01M12 11.5h.01M15 11.5h.01\" stroke=\"currentColor\" stroke-width=\"2.2\" stroke-linecap=\"round\"/></svg>';
         }
 
         function copyText(text){
