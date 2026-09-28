@@ -36,7 +36,7 @@ function wu_aic_get_defaults() {
         'blocks'          => [
             [
                 'type'  => 'cta',
-                'label' => '立即諮詢',
+                'label' => '立刻詢問',
                 'url'   => '#',
                 'image' => '',
                 'html'  => '',
@@ -72,6 +72,14 @@ function wu_aic_get_option() {
     if ( empty( $merged['blocks'] ) || ! is_array( $merged['blocks'] ) ) {
         $merged['blocks'] = $defaults['blocks'];
     }
+
+    // Update the former built-in CTA copy without overriding other custom labels.
+    foreach ( $merged['blocks'] as &$block ) {
+        if ( is_array( $block ) && ( $block['type'] ?? '' ) === 'cta' && ( $block['label'] ?? '' ) === '立即諮詢' ) {
+            $block['label'] = '立刻詢問';
+        }
+    }
+    unset( $block );
 
     return $merged;
 }
@@ -125,6 +133,7 @@ function wu_aic_block_types() {
         'link'        => '一般連結按鈕',
         'image_link'  => '圖文連結',
         'post'        => '精選文章',
+        'page'        => '精選頁面',
         'product'     => '精選商品',
         'latest_post' => '最新文章',
         'heading'     => '標題文字',
@@ -179,7 +188,7 @@ function wu_aic_render_full_page() {
 </head>
 <body <?php body_class( 'wu-aic-page-body' ); ?>>
 <?php echo do_shortcode( '[wu_ai_card mode="full"]' ); ?>
-<?php wp_print_scripts( [ 'wu-aic-script', 'wu-aic-qrcode' ] ); ?>
+<?php wp_print_scripts( [ 'wu-aic-qrcode', 'wu-aic-script' ] ); ?>
 </body>
 </html>
     <?php
@@ -205,6 +214,49 @@ function wu_aic_register_settings() {
     register_setting( 'wu_aic_options', WU_AIC_OPTION, 'wu_aic_sanitize' );
 }
 add_action( 'admin_init', 'wu_aic_register_settings' );
+
+/** Search published content for the block editor without embedding a huge catalog in the page. */
+function wu_aic_ajax_search_content() {
+    check_ajax_referer( 'wu_aic_search_content', 'nonce' );
+
+    $post_type = isset( $_POST['post_type'] ) ? sanitize_key( wp_unslash( $_POST['post_type'] ) ) : '';
+    $search    = isset( $_POST['search'] ) ? sanitize_text_field( wp_unslash( $_POST['search'] ) ) : '';
+    $allowed   = [ 'post', 'page' ];
+
+    if ( post_type_exists( 'product' ) && current_user_can( 'edit_products' ) ) {
+        $allowed[] = 'product';
+    }
+
+    $capability = $post_type === 'page' ? 'edit_pages' : ( $post_type === 'product' ? 'edit_products' : 'edit_posts' );
+    if ( ! in_array( $post_type, $allowed, true ) || ! current_user_can( $capability ) ) {
+        wp_send_json_error( [ 'message' => '無權搜尋此內容。' ], 403 );
+    }
+
+    $items = get_posts(
+        [
+            'post_type'              => $post_type,
+            'post_status'            => 'publish',
+            'posts_per_page'         => 20,
+            'orderby'                => 'modified',
+            'order'                  => 'DESC',
+            's'                      => $search,
+            'no_found_rows'          => true,
+            'update_post_meta_cache' => false,
+            'update_post_term_cache' => false,
+        ]
+    );
+
+    $results = [];
+    foreach ( $items as $item ) {
+        $results[] = [
+            'id'    => (int) $item->ID,
+            'title' => wp_strip_all_tags( get_the_title( $item ) ),
+        ];
+    }
+
+    wp_send_json_success( $results );
+}
+add_action( 'wp_ajax_wu_aic_search_content', 'wu_aic_ajax_search_content' );
 
 function wu_aic_sanitize( $input ) {
     $input = is_array( $input ) ? $input : [];
@@ -239,13 +291,28 @@ function wu_aic_sanitize( $input ) {
                 'url'   => isset( $input['block_url'][ $i ] ) ? esc_url_raw( $input['block_url'][ $i ] ) : '',
                 'image' => isset( $input['block_image'][ $i ] ) ? esc_url_raw( $input['block_image'][ $i ] ) : '',
                 'html'  => isset( $input['block_html'][ $i ] ) ? wp_kses_post( $input['block_html'][ $i ] ) : '',
+                'content_id' => isset( $input['block_content_id'][ $i ] ) ? wu_aic_validate_content_id( absint( $input['block_content_id'][ $i ] ), $type ) : 0,
             ];
+            if ( $type === 'cta' && $blocks[ count( $blocks ) - 1 ]['label'] === '立即諮詢' ) {
+                $blocks[ count( $blocks ) - 1 ]['label'] = '立刻詢問';
+            }
         }
     }
 
     $out['blocks'] = ! empty( $blocks ) ? $blocks : wu_aic_get_defaults()['blocks'];
 
     return $out;
+}
+
+function wu_aic_validate_content_id( $content_id, $type ) {
+    $expected_type = in_array( $type, [ 'post', 'page', 'product' ], true ) ? $type : '';
+    $post          = $content_id ? get_post( $content_id ) : null;
+
+    if ( ! $expected_type || ! $post || $post->post_type !== $expected_type || $post->post_status !== 'publish' ) {
+        return 0;
+    }
+
+    return (int) $post->ID;
 }
 
 function wu_aic_settings_page() {
@@ -350,7 +417,7 @@ function wu_aic_settings_page() {
             </table>
 
             <h2 class="title">內容區塊</h2>
-            <p class="description">最多 20 個，可拖曳排序。圖文連結現在有獨立圖片欄位。</p>
+            <p class="description">最多 20 個，可拖曳排序。精選文章、頁面與商品可搜尋本站已發布內容並指定項目；留空時會自動顯示最新內容。指定內容後會優先使用所選項目。</p>
 
             <div style="overflow-x:auto;">
                 <table class="widefat striped" id="wu-aic-blocks-table" style="min-width:1100px;">
@@ -359,7 +426,8 @@ function wu_aic_settings_page() {
                             <th style="width:56px;">排序</th>
                             <th style="width:150px;">類型</th>
                             <th>標籤 / 標題</th>
-                            <th>連結網址</th>
+                            <th>指定文章 / 頁面 / 商品</th>
+                            <th>備用連結網址</th>
                             <th>圖片網址</th>
                             <th>自訂 HTML</th>
                             <th style="width:70px;">刪除</th>
@@ -394,6 +462,7 @@ function wu_aic_settings_page() {
                 'url'   => '',
                 'image' => '',
                 'html'  => '',
+                'content_id' => 0,
             ],
             $types
         );
@@ -405,6 +474,9 @@ function wu_aic_settings_page() {
         #wu-aic-blocks-body .wu-aic-drag { cursor: grab; font-size: 18px; text-align: center; user-select: none; }
         #wu-aic-blocks-body .wu-aic-drag:active { cursor: grabbing; }
         .wu-aic-admin-wrap .wu-aic-image-wrap { display:flex; gap:6px; align-items:center; }
+        .wu-aic-admin-wrap .wu-aic-content-picker { min-width:220px; }
+        .wu-aic-admin-wrap .wu-aic-content-picker[hidden] { display:none!important; }
+        .wu-aic-admin-wrap .wu-aic-content-picker input { width:100%; margin-bottom:5px; }
     </style>
 
     <script>
@@ -417,6 +489,22 @@ function wu_aic_settings_page() {
 
         function bindRow(row) {
             row.setAttribute('draggable', 'true');
+            updateContentPicker(row);
+        }
+
+        function updateContentPicker(row) {
+            var type = row.querySelector('.wu-aic-block-type');
+            var picker = row.querySelector('.wu-aic-content-picker');
+            if (!type || !picker) return;
+            picker.hidden = !['post', 'page', 'product'].includes(type.value);
+            if (picker.dataset.contentType !== type.value) {
+                picker.dataset.contentType = type.value;
+                var select = picker.querySelector('.wu-aic-content-select');
+                var search = picker.querySelector('.wu-aic-content-search');
+                select.replaceChildren(new Option('自動顯示最新內容', '0'));
+                search.value = '';
+                search.placeholder = '搜尋本站已發布' + (type.value === 'product' ? '商品' : (type.value === 'page' ? '頁面' : '文章'));
+            }
         }
 
         body.querySelectorAll('tr').forEach(bindRow);
@@ -459,6 +547,54 @@ function wu_aic_settings_page() {
                 });
                 frame.open();
             }
+        });
+
+        body.addEventListener('change', function (e) {
+            if (e.target.matches('.wu-aic-block-type')) updateContentPicker(e.target.closest('tr'));
+        });
+
+        var searchTimers = new WeakMap();
+        var searchRequests = new WeakMap();
+        body.addEventListener('input', function (e) {
+            var search = e.target.closest('.wu-aic-content-search');
+            if (!search) return;
+            var row = search.closest('tr');
+            var type = row.querySelector('.wu-aic-block-type').value;
+            if (!['post', 'page', 'product'].includes(type)) return;
+            clearTimeout(searchTimers.get(search));
+            var searchValue = search.value;
+            var requestId = (searchRequests.get(search) || 0) + 1;
+            searchRequests.set(search, requestId);
+            searchTimers.set(search, setTimeout(function () {
+                var data = new FormData();
+                data.append('action', 'wu_aic_search_content');
+                data.append('nonce', search.dataset.nonce);
+                data.append('post_type', type);
+                data.append('search', searchValue);
+                fetch(ajaxurl, { method: 'POST', credentials: 'same-origin', body: data })
+                    .then(function (response) { return response.json(); })
+                    .then(function (response) {
+                        if (searchRequests.get(search) !== requestId || row.querySelector('.wu-aic-block-type').value !== type || search.value !== searchValue) return;
+                        if (!response.success) return;
+                        var select = row.querySelector('.wu-aic-content-select');
+                        var previous = select.value;
+                        var previousOption = select.options[select.selectedIndex];
+                        select.replaceChildren(new Option('自動顯示最新內容', '0'));
+                        response.data.forEach(function (item) {
+                            select.add(new Option(item.title, String(item.id)));
+                        });
+                        var hasPrevious = Array.from(select.options).some(function (option) { return option.value === previous; });
+                        if (!hasPrevious && previous !== '0' && previousOption) {
+                            select.add(new Option(previousOption.text, previous));
+                            hasPrevious = true;
+                        }
+                        if (hasPrevious) select.value = previous;
+                        if (response.data.length === 0 && previous === '0') {
+                            select.add(new Option('查無符合的已發布內容', '', true, false)).disabled = true;
+                        }
+                    })
+                    .catch(function () {});
+            }, 250));
         });
 
         document.addEventListener('click', function (e) {
@@ -536,19 +672,36 @@ function wu_aic_admin_block_row( $block, $types ) {
             'url'   => '',
             'image' => '',
             'html'  => '',
+            'content_id' => 0,
         ]
     );
+    $selected_content = ! empty( $block['content_id'] ) ? get_post( absint( $block['content_id'] ) ) : null;
+    if ( ! $selected_content || $selected_content->post_type !== ( in_array( $block['type'], [ 'post', 'page', 'product' ], true ) ? $block['type'] : 'post' ) || $selected_content->post_status !== 'publish' ) {
+        $selected_content = null;
+    }
+    $content_type = in_array( $block['type'], [ 'post', 'page', 'product' ], true ) ? $block['type'] : 'post';
     ?>
     <tr class="wu-aic-block-row">
         <td class="wu-aic-drag" title="拖曳排序">☰</td>
         <td>
-            <select name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[block_type][]">
+            <select class="wu-aic-block-type" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[block_type][]">
                 <?php foreach ( $types as $tkey => $tlabel ) : ?>
                     <option value="<?php echo esc_attr( $tkey ); ?>" <?php selected( $block['type'], $tkey ); ?>><?php echo esc_html( $tlabel ); ?></option>
                 <?php endforeach; ?>
             </select>
         </td>
         <td><input type="text" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[block_label][]" value="<?php echo esc_attr( $block['label'] ); ?>" class="regular-text"></td>
+        <td>
+            <div class="wu-aic-content-picker" data-content-type="<?php echo esc_attr( $content_type ); ?>" <?php echo in_array( $block['type'], [ 'post', 'page', 'product' ], true ) ? '' : 'hidden'; ?>>
+                <input type="search" class="wu-aic-content-search" data-nonce="<?php echo esc_attr( wp_create_nonce( 'wu_aic_search_content' ) ); ?>" placeholder="搜尋本站已發布<?php echo $content_type === 'product' ? '商品' : ( $content_type === 'page' ? '頁面' : '文章' ); ?>">
+                <select class="wu-aic-content-select" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[block_content_id][]">
+                    <option value="0">自動顯示最新內容</option>
+                    <?php if ( $selected_content ) : ?>
+                        <option value="<?php echo esc_attr( $selected_content->ID ); ?>" selected><?php echo esc_html( get_the_title( $selected_content ) ); ?></option>
+                    <?php endif; ?>
+                </select>
+            </div>
+        </td>
         <td><input type="url" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[block_url][]" value="<?php echo esc_attr( $block['url'] ); ?>" class="regular-text" placeholder="https://..."></td>
         <td>
             <div class="wu-aic-image-wrap">
@@ -650,6 +803,17 @@ function wu_aic_enqueue_assets() {
             background:{$bio_bg};border:1px solid {$border};border-radius:10px;padding:9px;
         }
         .wu-aic-block-image_link img{width:52px;height:52px;border-radius:8px;object-fit:cover;flex:0 0 52px;}
+        .wu-aic-content-card{
+            display:flex;align-items:center;gap:12px;min-height:82px;padding:10px;
+            color:{$text}!important;text-decoration:none;background:{$bg};
+            border:1px solid {$border};border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.05);
+            transition:transform .18s ease,box-shadow .18s ease;
+        }
+        .wu-aic-content-card:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.10);}
+        .wu-aic-content-card img{width:68px;height:68px;flex:0 0 68px;object-fit:cover;border-radius:9px;background:{$bio_bg};}
+        .wu-aic-content-card-copy{min-width:0;display:flex;flex-direction:column;gap:4px;}
+        .wu-aic-content-card-title{font-weight:650;line-height:1.45;}
+        .wu-aic-content-card-meta{font-size:.82rem;color:{$subtext};}
         .wu-aic-block-heading{font-weight:700;font-size:1rem;margin-top:8px;color:{$text};}
         .wu-aic-block-html{color:{$text};}
         .wu-aic-block-social{display:flex;gap:10px;justify-content:center;}
@@ -665,6 +829,7 @@ function wu_aic_enqueue_assets() {
         .wu-aic-tool-btn:hover{background:{$bio_bg};}
         .wu-aic-qrcode-box{margin-top:14px;text-align:center;padding:12px;background:#fff;border-radius:10px;}
         .wu-aic-qrcode-box canvas{display:block;margin:0 auto;max-width:100%;height:auto!important;}
+        .wu-aic-qr-message{color:#a33;font-size:.9rem;margin:8px 0 0;}
 
         .wu-aic-floating-btn{
             position:fixed!important;bottom:24px!important;left:24px!important;right:auto!important;
@@ -674,9 +839,10 @@ function wu_aic_enqueue_assets() {
             display:flex!important;align-items:center!important;justify-content:center!important;
             box-shadow:0 8px 24px rgba(0,0,0,.25)!important;cursor:pointer!important;
             z-index:2147483001!important;font-size:25px!important;line-height:1!important;
-            transition:transform .2s ease!important;
+            transition:transform .2s ease,box-shadow .2s ease!important;
         }
-        .wu-aic-floating-btn:hover{transform:scale(1.06)!important;}
+        .wu-aic-floating-btn:hover{transform:translateY(-3px) scale(1.04)!important;box-shadow:0 12px 28px rgba(0,0,0,.30)!important;}
+        .wu-aic-floating-btn svg{width:31px;height:31px;display:block;}
         .wu-aic-floating-popup{
             position:fixed!important;bottom:96px!important;left:24px!important;right:auto!important;
             z-index:2147483000!important;display:none!important;opacity:0!important;
@@ -702,7 +868,19 @@ function wu_aic_enqueue_assets() {
     wp_enqueue_style( 'wu-aic-style' );
     wp_add_inline_style( 'wu-aic-style', $css );
 
-    wp_register_script( 'wu-aic-script', false, [], WU_AIC_VERSION, true );
+    if ( $opt['enable_qrcode'] === '1' ) {
+        // Bundle locally: qrcode@1.5.3's published package omitted the documented build bundle.
+        wp_enqueue_script(
+            'wu-aic-qrcode',
+            plugins_url( 'assets/qrcode.min.js', __FILE__ ),
+            [],
+            '1.5.1',
+            true
+        );
+    }
+
+    $script_dependencies = $opt['enable_qrcode'] === '1' ? [ 'wu-aic-qrcode' ] : [];
+    wp_register_script( 'wu-aic-script', false, $script_dependencies, WU_AIC_VERSION, true );
     wp_enqueue_script( 'wu-aic-script' );
 
     $js = "
@@ -713,6 +891,13 @@ function wu_aic_enqueue_assets() {
             } else {
                 fn();
             }
+        }
+
+        function floatingIcon(open){
+            if(open){
+                return '<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M6 6l12 12M18 6L6 18\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2.4\" stroke-linecap=\"round\"/></svg>';
+            }
+            return '<svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 5.8A2.8 2.8 0 0 1 6.8 3h10.4A2.8 2.8 0 0 1 20 5.8v7.4a2.8 2.8 0 0 1-2.8 2.8h-6l-4.8 3v-3.2a2.8 2.8 0 0 1-2.4-2.6V5.8Z\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" stroke-linejoin=\"round\"/><path d=\"M8 9h.01M12 9h.01M16 9h.01\" stroke=\"currentColor\" stroke-width=\"2.5\" stroke-linecap=\"round\"/><path d=\"m18.4 1.7.5 1.2 1.2.5-1.2.5-.5 1.2-.5-1.2-1.2-.5 1.2-.5.5-1.2Z\" fill=\"currentColor\"/></svg>';
         }
 
         function copyText(text){
@@ -754,7 +939,8 @@ function wu_aic_enqueue_assets() {
                     var open = popup.classList.toggle('wu-active');
                     popup.style.display = open ? 'block' : 'none';
                     btn.setAttribute('aria-expanded', open ? 'true' : 'false');
-                    btn.textContent = open ? '✕' : '💬';
+                    btn.innerHTML = floatingIcon(open);
+                    btn.setAttribute('aria-label', open ? '關閉 AI 名片' : '開啟 AI 名片');
                     return;
                 }
 
@@ -784,10 +970,20 @@ function wu_aic_enqueue_assets() {
                         var canvas = box.querySelector('canvas');
                         var url = btn.getAttribute('data-url') || window.location.href;
 
-                        if(window.QRCode && canvas){
-                            QRCode.toCanvas(canvas, url, {width:160, margin:1}, function(error){
-                                if(!error) box.dataset.rendered = '1';
+                        var message = box.querySelector('.wu-aic-qr-message');
+                        if(window.QRCode && typeof window.QRCode.toCanvas === 'function' && canvas){
+                            window.QRCode.toCanvas(canvas, url, {width:200, margin:2, errorCorrectionLevel:'M'}, function(error){
+                                if(!error){
+                                    box.dataset.rendered = '1';
+                                    if(message) message.hidden = true;
+                                } else if(message){
+                                    message.textContent = 'QR Code 產生失敗，請重新整理後再試。';
+                                    message.hidden = false;
+                                }
                             });
+                        } else if(message){
+                            message.textContent = 'QR Code 元件載入失敗，請重新整理頁面後再試。';
+                            message.hidden = false;
                         }
                     }
                 }
@@ -805,7 +1001,8 @@ function wu_aic_enqueue_assets() {
                     var controller = document.querySelector('.wu-aic-floating-btn[aria-controls=\"' + id + '\"]');
                     if(controller){
                         controller.setAttribute('aria-expanded','false');
-                        controller.textContent = '💬';
+                        controller.innerHTML = floatingIcon(false);
+                        controller.setAttribute('aria-label','開啟 AI 名片');
                     }
                 });
             });
@@ -814,15 +1011,6 @@ function wu_aic_enqueue_assets() {
     ";
     wp_add_inline_script( 'wu-aic-script', $js );
 
-    if ( $opt['enable_qrcode'] === '1' ) {
-        wp_enqueue_script(
-            'wu-aic-qrcode',
-            'https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js',
-            [],
-            '1.5.3',
-            true
-        );
-    }
 }
 add_action( 'wp_enqueue_scripts', 'wu_aic_enqueue_assets', 20 );
 
@@ -839,6 +1027,7 @@ function wu_aic_render_block( $block ) {
             'url'   => '',
             'image' => '',
             'html'  => '',
+            'content_id' => 0,
         ]
     );
 
@@ -865,6 +1054,9 @@ function wu_aic_render_block( $block ) {
             return '<div class="wu-aic-block-html">' . wp_kses_post( $block['html'] ) . '</div>';
 
         case 'post':
+            if ( ! empty( $block['content_id'] ) ) {
+                return wu_aic_render_content_card( absint( $block['content_id'] ), 'post', $block['label'] );
+            }
             if ( $url ) {
                 return '<a href="' . $url . '" class="wu-aic-block-link" target="_blank" rel="noopener noreferrer">' . ( $label ?: '查看文章' ) . '</a>';
             }
@@ -873,7 +1065,19 @@ function wu_aic_render_block( $block ) {
         case 'latest_post':
             return wu_aic_render_latest_item( 'post', $label );
 
+        case 'page':
+            if ( ! empty( $block['content_id'] ) ) {
+                return wu_aic_render_content_card( absint( $block['content_id'] ), 'page', $block['label'] );
+            }
+            if ( $url ) {
+                return '<a href="' . $url . '" class="wu-aic-block-link" target="_blank" rel="noopener noreferrer">' . ( $label ?: '查看頁面' ) . '</a>';
+            }
+            return '';
+
         case 'product':
+            if ( ! empty( $block['content_id'] ) ) {
+                return wu_aic_render_content_card( absint( $block['content_id'] ), 'product', $block['label'] );
+            }
             if ( $url ) {
                 return '<a href="' . $url . '" class="wu-aic-block-link" target="_blank" rel="noopener noreferrer">' . ( $label ?: '查看商品' ) . '</a>';
             }
@@ -886,12 +1090,48 @@ function wu_aic_render_block( $block ) {
     return '';
 }
 
+function wu_aic_render_content_card( $content_id, $post_type, $custom_label = '' ) {
+    $item = get_post( $content_id );
+    if ( ! $item || $item->post_type !== $post_type || $item->post_status !== 'publish' ) {
+        return '';
+    }
+
+    $url = get_permalink( $item );
+    if ( ! $url ) {
+        return '';
+    }
+
+    $title = $custom_label ?: get_the_title( $item );
+    $image = get_the_post_thumbnail_url( $item, 'medium' );
+    $price = '';
+    if ( $post_type === 'product' && function_exists( 'wc_get_product' ) ) {
+        $product = wc_get_product( $item->ID );
+        if ( $product ) {
+            $price = $product->get_price_html();
+        }
+    }
+
+    $output = '<a class="wu-aic-content-card" href="' . esc_url( $url ) . '" target="_blank" rel="noopener noreferrer">';
+    if ( $image ) {
+        $output .= '<img src="' . esc_url( $image ) . '" alt="" loading="lazy">';
+    }
+    $output .= '<span class="wu-aic-content-card-copy"><span class="wu-aic-content-card-title">' . esc_html( $title ) . '</span>';
+    if ( $price ) {
+        $output .= '<span class="wu-aic-content-card-meta">' . wp_kses_post( $price ) . '</span>';
+    } else {
+        $output .= '<span class="wu-aic-content-card-meta">' . ( $post_type === 'page' ? '精選頁面' : '精選文章' ) . '</span>';
+    }
+    $output .= '</span></a>';
+
+    return $output;
+}
+
 function wu_aic_render_latest_item( $post_type, $custom_label = '' ) {
     if ( $post_type === 'product' && ! post_type_exists( 'product' ) ) {
         return '';
     }
 
-    $q = new WP_Query(
+    $items = get_posts(
         [
             'post_type'           => $post_type,
             'post_status'         => 'publish',
@@ -903,19 +1143,11 @@ function wu_aic_render_latest_item( $post_type, $custom_label = '' ) {
         ]
     );
 
-    if ( ! $q->have_posts() ) {
+    if ( empty( $items ) ) {
         return '';
     }
 
-    $q->the_post();
-
-    $label = $custom_label ?: get_the_title();
-    $icon  = $post_type === 'product' ? '🛒 ' : '📄 ';
-    $out   = '<a href="' . esc_url( get_permalink() ) . '" class="wu-aic-block-link" target="_blank" rel="noopener noreferrer">' . $icon . esc_html( $label ) . '</a>';
-
-    wp_reset_postdata();
-
-    return $out;
+    return wu_aic_render_content_card( $items[0]->ID, $post_type, $custom_label );
 }
 
 /* ======================================================
@@ -1000,6 +1232,7 @@ function wu_aic_shortcode( $atts = [] ) {
             <?php if ( $opt['enable_qrcode'] === '1' ) : ?>
                 <div class="wu-aic-qrcode-box" id="<?php echo esc_attr( $qr_box_id ); ?>" hidden>
                     <canvas aria-label="AI 名片 QR Code"></canvas>
+                    <p class="wu-aic-qr-message" role="status" hidden></p>
                 </div>
             <?php endif; ?>
         </div>
@@ -1056,7 +1289,7 @@ function wu_aic_render_floating() {
         aria-controls="<?php echo esc_attr( $popup_id ); ?>"
         aria-expanded="false"
         aria-label="開啟 AI 名片"
-    >💬</button>
+    ><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5.8A2.8 2.8 0 0 1 6.8 3h10.4A2.8 2.8 0 0 1 20 5.8v7.4a2.8 2.8 0 0 1-2.8 2.8h-6l-4.8 3v-3.2a2.8 2.8 0 0 1-2.4-2.6V5.8Z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M8 9h.01M12 9h.01M16 9h.01" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/><path d="m18.4 1.7.5 1.2 1.2.5-1.2.5-.5 1.2-.5-1.2-1.2-.5 1.2-.5.5-1.2Z" fill="currentColor"/></svg></button>
     <?php
 }
 add_action( 'wp_body_open', 'wu_aic_render_floating', 99 );
