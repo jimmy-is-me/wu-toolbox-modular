@@ -72,23 +72,16 @@
      * @param {Object} data { url, label, value, color, fg, anchor }
      */
     function openQrCard( data ) {
-        if ( 'function' !== typeof window.qrcode ) {
+        if ( ! window.QRCode || 'function' !== typeof window.QRCode.toCanvas ) {
             window.open( data.url, '_blank', 'noopener' );
             return;
         }
 
         closeQrCard();
+        renderQrCard( data );
+    }
 
-        var dataUrl = '';
-        try {
-            var qr = window.qrcode( 0, 'M' );
-            qr.addData( data.url );
-            qr.make();
-            dataUrl = qr.createDataURL( 6, 12 );
-        } catch ( e ) {
-            window.open( data.url, '_blank', 'noopener' );
-            return;
-        }
+    function renderQrCard( data ) {
 
         // 錨定位置：與 widget 同側（或置中）、疊在 toggle 上方。
         var a        = data.anchor;
@@ -163,10 +156,9 @@
             gap: '8px',
         } );
 
-        var img = document.createElement( 'img' );
-        img.alt = 'QR Code — ' + data.label;
-        img.src = dataUrl;
-        css( img, {
+        var qrCanvas = document.createElement( 'canvas' );
+        qrCanvas.setAttribute( 'aria-label', 'QR Code — ' + data.label );
+        css( qrCanvas, {
             width: '184px',
             height: '184px',
             imageRendering: 'pixelated',
@@ -174,7 +166,7 @@
             borderRadius: '8px',
             display: 'block',
         } );
-        body.appendChild( img );
+        body.appendChild( qrCanvas );
 
         var hint = document.createElement( 'p' );
         hint.textContent = i18n( 'scanQr', 'Scan with your phone' );
@@ -217,6 +209,16 @@
 
         qrCard.appendChild( body );
         document.body.appendChild( qrCard );
+
+        try {
+            window.QRCode.toCanvas( qrCanvas, data.url, { width: 220, margin: 2, errorCorrectionLevel: 'M' }, function ( error ) {
+                if ( error && hint ) {
+                    hint.textContent = i18n( 'openLink', 'Open directly' );
+                }
+            } );
+        } catch ( e ) {
+            hint.textContent = i18n( 'openLink', 'Open directly' );
+        }
 
         // 入場動畫（置中時保留 translateX(-50%)）。
         requestAnimationFrame( function () {

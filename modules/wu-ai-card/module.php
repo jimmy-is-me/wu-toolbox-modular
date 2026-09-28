@@ -34,7 +34,7 @@ if (function_exists('wu_aic_settings_page')) {
     return;
 }
 
-defined('WU_AIC_VERSION') || define('WU_AIC_VERSION', '1.2.1');
+defined('WU_AIC_VERSION') || define('WU_AIC_VERSION', '1.2.2');
 defined('WU_AIC_OPTION') || define('WU_AIC_OPTION', 'wu_aic_data');
 defined('WU_AIC_SLUG') || define('WU_AIC_SLUG', 'wu-ai-card');
 

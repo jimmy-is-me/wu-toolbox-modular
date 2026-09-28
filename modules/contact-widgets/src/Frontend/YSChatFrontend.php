@@ -95,16 +95,16 @@ class YSChatFrontend {
 
         $deps = [];
 
-        // popup（QR 卡片）模式才載入本地 QR 生成器（MIT — Kazuhiko Arase）。
+        // 僅在 QR 卡片模式載入共用本機 QR 產生器，避免任何外部請求。
         if ( 'popup' === ( $settings['mode'] ?? 'redirect' ) ) {
             wp_enqueue_script(
-                'ys-chat-qrcode',
-                WUTM_CONTACT_WIDGETS_PLUGIN_URL . 'assets/js/vendor/qrcode-generator.js',
+                'wutm-qrcode',
+                WUTM_URL . 'modules/wu-ai-card/assets/qrcode.min.js',
                 [],
-                WUTM_CONTACT_WIDGETS_VERSION,
+                '1.5.1',
                 [ 'in_footer' => true, 'strategy' => 'defer' ]
             );
-            $deps[] = 'ys-chat-qrcode';
+            $deps[] = 'wutm-qrcode';
         }
 
         wp_enqueue_script(
