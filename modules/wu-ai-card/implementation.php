@@ -956,7 +956,7 @@ function wu_aic_enqueue_assets() {
             transition:transform .22s ease,box-shadow .22s ease,background .22s ease!important;
         }
         .wu-aic-floating-btn:hover{transform:translateY(-3px) scale(1.025)!important;box-shadow:0 14px 34px rgba(52,124,75,.34)!important;}
-        .wu-aic-floating-btn::before{content:"";position:absolute;top:4px;right:4px;width:7px;height:7px;border:2px solid #fff;border-radius:50%;background:#8fe0a1;}
+        .wu-aic-floating-btn::before{content:'';position:absolute;top:4px;right:4px;width:7px;height:7px;border:2px solid #fff;border-radius:50%;background:#8fe0a1;}
         .wu-aic-floating-btn[aria-expanded="true"]{background:#171b19!important;}
         .wu-aic-floating-btn svg{width:24px;height:24px;display:block;}
         .wu-aic-floating-popup{
