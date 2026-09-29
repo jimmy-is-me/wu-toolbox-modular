@@ -16,6 +16,8 @@ jobs:
         run: php tests/member-loyalty-promotion-policy.php
       - name: Check admin menu editor ownership
         run: php tests/admin-menu-editor-owners.php
+      - name: Check customer-entered product pricing
+        run: php tests/product-custom-price.php
       - name: Check media-grid fallback notice stays hidden
         run: node tests/notice-center-fallback.js
       - name: Check changelog is current
