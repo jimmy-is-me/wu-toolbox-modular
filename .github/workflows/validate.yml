@@ -22,6 +22,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          PLUGIN_VERSION="$(grep -E '^[[:space:]]*\* Version:' wu-toolbox-modular.php | sed -E 's/^[[:space:]]*\* Version:[[:space:]]*//')"
+          PLUGIN_VERSION="$(grep -E '^[[:space:]]*\* Version:' wu-toolbox-modular.php | sed -E 's/^[[:space:]]*\* Version:[[:space:]]*//' | tr -d '\r')"
           test -n "$PLUGIN_VERSION"
           grep -Fq "<h4>${PLUGIN_VERSION}</h4>" core/github-release-updater.php

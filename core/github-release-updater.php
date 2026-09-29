@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+			<h4>3.3.7</h4><ul><li>後台選單編輯器改為勾選主帳號保留原生選單，只有未勾選的管理員套用共用選單；新增主帳號預覽共用選單及返回原生選單的清楚入口。</li><li>WU AI Card 前台定位與文案調整為品牌資訊卡，移除內容搜尋框及相關互動，統一卡片與按鈕樣式並隱藏突兀捲軸；複製內容改為供訪客自行貼至 AI 工具的品牌參考資料。</li></ul>
 			<h4>3.3.6</h4><ul><li>Contact Widgets 統一採用品牌綠預設按鈕色，既有舊預設灰藍值也會安全轉為綠色。</li><li>WU AI Card 改善預設助理文案、卡片留白與助理設定複製內容；移除紅色主題，並將選取狀態統一為綠色。</li><li>後台選單設定改為主帳號編輯單一網站共用配置，套用至所有管理員；舊個人覆寫保留但不再影響呈現。</li></ul>
 			<h4>3.3.5</h4><ul><li>擴大 WU AI Card 浮動按鈕觸控區，改善行動裝置點擊命中。</li><li>Quick Support 可由管理員手動加入文章與支援文件，前台不自動彙整或搜尋商品。</li><li>修復 Contact Widgets QR 卡片模式改用本機 QR 產生器，維持零外部請求。</li></ul>
 			<h4>3.3.4</h4><ul><li>WU Contact Widgets 設定頁移除舊品牌署名並修正空白區塊；匯入提示改用一般聯絡設定說明，保留舊設定識別以維持相容。</li><li>WU AI Card 左下角浮動按鈕與圖示統一採用 Quick Support 的綠色對話風格，背景模糊效果保留。</li><li>Quick Support 移除商品搜尋與自動精選／最新內容彙整，僅依訪客輸入搜尋支援文件與知識文章；完整內容入口導向 docs-center。</li></ul>

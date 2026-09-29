@@ -5,7 +5,8 @@
 .wutm-menu-owner-list label{min-width:190px}
 .wutm-menu-target{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:18px 0;padding:15px;background:#fff;border:1px solid #c3c4c7}
 .wutm-menu-target select{min-width:240px}
-.wutm-menu-target strong{margin-left:auto;color:#2271b1}
+.wutm-menu-target strong{margin-left:0;color:#2271b1}
+.wutm-menu-target span{flex:1 1 360px}
 .wutm-menu-list{display:grid;gap:8px}
 .wutm-menu-group{padding:8px;background:#fff;border:1px solid #c3c4c7;border-radius:5px}
 .wutm-menu-children{margin:8px 0 0 24px;padding-left:12px;border-left:3px solid #dcdcde}

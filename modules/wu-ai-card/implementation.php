@@ -1,8 +1,8 @@
 <?php
 /**
  * Plugin Name: WU AI Card
- * Description: 自訂 AI 名片頁面：基本資料、內容區塊、配色主題、全站浮動按鈕、傳送給 AI 文字、QR Code 分享。
- * Version: 1.2.3
+ * Description: 自訂 AI 品牌資訊卡：基本資料、內容區塊、配色主題、全站浮動按鈕、AI 參考資料複製與 QR Code 分享。
+ * Version: 1.2.4
  * Author: WU
  * Plugin URI: https://wumetax.com/
  * Text Domain: wu-ai-card
@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-defined( 'WU_AIC_VERSION' ) || define( 'WU_AIC_VERSION', '1.2.3' );
+defined( 'WU_AIC_VERSION' ) || define( 'WU_AIC_VERSION', '1.2.4' );
 defined( 'WU_AIC_OPTION' ) || define( 'WU_AIC_OPTION', 'wu_aic_data' );
 defined( 'WU_AIC_SLUG' ) || define( 'WU_AIC_SLUG', 'wu-ai-card' );
 
@@ -24,10 +24,10 @@ function wu_aic_get_defaults() {
     return [
         'enabled'         => '1',
         'slug'            => 'card',
-        'name'            => '品牌 AI 助理',
-        'title'           => '線上服務助理',
+        'name'            => '品牌 AI 卡片',
+        'title'           => '服務與聯絡資訊',
         'avatar'          => '',
-        'bio'             => '你好，我是品牌 AI 助理。我可以協助你了解服務內容、找到相關資訊，或連繫合適的客服窗口。',
+        'bio'             => '這張卡片彙整品牌介紹、服務連結與聯絡方式，方便快速瀏覽。卡片本身不提供即時 AI 對話；複製品牌資料後，可交由你使用的 AI 工具參考。',
         'support_url'     => '',
         'theme'           => 'green',
         'dark_mode'       => '0',
@@ -60,9 +60,9 @@ function wu_aic_get_option() {
     $merged = wp_parse_args( $data, $defaults );
 
     // Replace only untouched built-in copy, preserving custom merchant wording.
-    if ( ( $merged['name'] ?? '' ) === 'AI 小助手' ) $merged['name'] = $defaults['name'];
-    if ( ( $merged['title'] ?? '' ) === '智慧客服代表' ) $merged['title'] = $defaults['title'];
-    if ( ( $merged['bio'] ?? '' ) === '您好！我是您的專屬 AI 助理，隨時為您提供最專業的協助。' ) $merged['bio'] = $defaults['bio'];
+    if ( in_array( ( $merged['name'] ?? '' ), [ 'AI 小助手', '品牌 AI 助理' ], true ) ) $merged['name'] = $defaults['name'];
+    if ( in_array( ( $merged['title'] ?? '' ), [ '智慧客服代表', '線上服務助理' ], true ) ) $merged['title'] = $defaults['title'];
+    if ( in_array( ( $merged['bio'] ?? '' ), [ '您好！我是您的專屬 AI 助理，隨時為您提供最專業的協助。', '你好，我是品牌 AI 助理。我可以協助你了解服務內容、找到相關資訊，或連繫合適的客服窗口。' ], true ) ) $merged['bio'] = $defaults['bio'];
     if ( ( $merged['theme'] ?? '' ) === 'red' ) $merged['theme'] = 'green';
 
     // Older/imported option values can contain arrays where front-end output
@@ -405,11 +405,11 @@ function wu_aic_settings_page() {
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row">AI 助理 / 品牌名稱</th>
+                    <th scope="row">品牌卡片名稱</th>
                     <td><input type="text" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[name]" value="<?php echo esc_attr( $opt['name'] ); ?>" class="regular-text" /></td>
                 </tr>
                 <tr>
-                    <th scope="row">職稱 / 角色</th>
+                    <th scope="row">卡片副標題</th>
                     <td><input type="text" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[title]" value="<?php echo esc_attr( $opt['title'] ); ?>" class="regular-text" /></td>
                 </tr>
                 <tr>
@@ -463,7 +463,7 @@ function wu_aic_settings_page() {
                 </tr>
                 <tr>
                     <th scope="row">「傳給 AI」按鈕</th>
-                    <td><label><input type="checkbox" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[enable_send_ai]" value="1" <?php checked( $opt['enable_send_ai'], '1' ); ?>> 顯示「複製助理設定」按鈕</label><p class="description">複製品牌背景、助理角色與回覆原則，訪客可貼到自己使用的 AI 對話中；不會連線或代替訪客呼叫 AI 服務。</p></td>
+                    <td><label><input type="checkbox" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[enable_send_ai]" value="1" <?php checked( $opt['enable_send_ai'], '1' ); ?>> 顯示「複製品牌資料給 AI」按鈕</label><p class="description">複製品牌簡介與已設定的服務入口，供訪客自行貼到 AI 工具參考。這張卡片本身不會進行對話，也不會連線呼叫 AI 服務。</p></td>
                 </tr>
                 <tr>
                     <th scope="row">QR Code 分享</th>
@@ -873,7 +873,7 @@ function wu_aic_enqueue_assets() {
             max-width:380px;
             background:{$bg};
             color:{$text};
-            border-radius:20px;
+            border-radius:14px;
             box-shadow:0 18px 48px rgba(20,35,30,.13);
             overflow:hidden;
             font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Noto Sans TC',Arial,sans-serif;
@@ -882,20 +882,20 @@ function wu_aic_enqueue_assets() {
         }
         .wu-aic-header{
             background:{$c1};
-            height:88px;
+            height:68px;
         }
         .wu-aic-body{
             padding:0 22px 24px;
             text-align:center;
         }
         .wu-aic-avatar{
-            width:84px;
-            height:84px;
+            width:76px;
+            height:76px;
             border-radius:50%;
             border:4px solid {$bg};
             object-fit:cover;
             background:#e9ecef;
-            margin:-42px auto 14px;
+            margin:-38px auto 14px;
             box-shadow:0 6px 18px rgba(20,35,30,.14);
             display:flex;
             align-items:center;
@@ -905,19 +905,13 @@ function wu_aic_enqueue_assets() {
         .wu-aic-title{font-size:.9rem;color:{$subtext};margin:0 0 16px;font-weight:500;}
         .wu-aic-bio{
             font-size:.92rem;color:{$text};line-height:1.75;background:{$bio_bg};
-            padding:15px;border-radius:12px;text-align:left;margin-bottom:18px;
+            padding:15px;border-radius:10px;text-align:left;margin-bottom:18px;
         }
-        .wu-aic-search-wrap{margin:0 0 14px;text-align:left;}
-        .wu-aic-search-input{width:100%;box-sizing:border-box;padding:12px 15px;border:1px solid {$border};border-radius:999px;background:{$bg};color:{$text};font:inherit;box-shadow:0 4px 14px rgba(0,0,0,.06);}
-        .wu-aic-search-input:focus{outline:2px solid {$c1};outline-offset:1px;}
-        .wu-aic-search-wrap small{display:block;margin:6px 10px;color:{$subtext};font-size:.78rem;}
-        .wu-aic-search-empty{margin:8px 2px;color:{$subtext};font-size:.9rem;}
-        .wu-aic-contact-link{display:block;margin-top:12px;padding:13px 16px;border-radius:12px;background:{$c1};color:#fff!important;text-align:center;text-decoration:none;font-weight:700;}
+        .wu-aic-contact-link{display:block;margin-top:12px;padding:13px 16px;border-radius:10px;background:{$c1};color:#fff!important;text-align:center;text-decoration:none;font-weight:700;}
         .wu-aic-contact-link:hover{filter:brightness(.94);}
         .wu-aic-blocks{display:flex;flex-direction:column;gap:10px;text-align:left;}
-        .wu-aic-blocks > [hidden],.wu-aic-search-empty[hidden]{display:none!important;}
         .wu-aic-block-cta,.wu-aic-block-link{
-            display:block;text-decoration:none;padding:14px 16px;border-radius:12px;
+            display:block;text-decoration:none;padding:14px 16px;border-radius:10px;
             font-weight:650;text-align:center;transition:transform .18s ease,box-shadow .18s ease;
         }
         .wu-aic-block-cta{background:{$c1};color:#fff!important;}
@@ -927,15 +921,15 @@ function wu_aic_enqueue_assets() {
             display:flex;align-items:center;gap:12px;text-decoration:none;color:{$text}!important;
             background:{$bio_bg};border:1px solid {$border};border-radius:10px;padding:9px;
         }
-        .wu-aic-block-image_link img{width:52px;height:52px;border-radius:8px;object-fit:cover;flex:0 0 52px;}
+        .wu-aic-block-image_link img{width:52px;height:52px;border-radius:10px;object-fit:cover;flex:0 0 52px;}
         .wu-aic-content-card{
             display:flex;align-items:center;gap:12px;min-height:82px;padding:10px;
             color:{$text}!important;text-decoration:none;background:{$bg};
-            border:1px solid {$border};border-radius:12px;box-shadow:0 4px 14px rgba(0,0,0,.05);
+            border:1px solid {$border};border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.05);
             transition:transform .18s ease,box-shadow .18s ease;
         }
         .wu-aic-content-card:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.10);}
-        .wu-aic-content-card img{width:68px;height:68px;flex:0 0 68px;object-fit:cover;border-radius:9px;background:{$bio_bg};}
+        .wu-aic-content-card img{width:68px;height:68px;flex:0 0 68px;object-fit:cover;border-radius:10px;background:{$bio_bg};}
         .wu-aic-content-card-copy{min-width:0;display:flex;flex-direction:column;gap:4px;}
         .wu-aic-content-card-title{font-weight:650;line-height:1.45;}
         .wu-aic-content-card-meta{font-size:.82rem;color:{$subtext};}
@@ -943,13 +937,13 @@ function wu_aic_enqueue_assets() {
         .wu-aic-block-html{color:{$text};}
         .wu-aic-block-social{display:flex;gap:10px;justify-content:center;}
         .wu-aic-block-social a{
-            text-decoration:none;padding:8px 12px;border-radius:8px;background:{$bio_bg};
+            text-decoration:none;padding:8px 12px;border-radius:10px;background:{$bio_bg};
             color:{$text}!important;border:1px solid {$border};
         }
         .wu-aic-tools{display:flex;gap:8px;margin-top:18px;justify-content:center;flex-wrap:wrap;}
         .wu-aic-tool-btn{
             appearance:none;border:1px solid {$border};background:{$bg};color:{$text};
-            min-height:42px;padding:9px 14px;border-radius:999px;font-size:.88rem;cursor:pointer;line-height:1.4;transition:background .18s ease,border-color .18s ease,color .18s ease;
+            min-height:42px;padding:9px 14px;border-radius:10px;font-size:.88rem;cursor:pointer;line-height:1.4;transition:background .18s ease,border-color .18s ease,color .18s ease;
         }
         .wu-aic-tool-btn:hover,.wu-aic-tool-btn:focus-visible,.wu-aic-tool-btn.is-copied{background:#eaf5ed;border-color:#4fa567;color:#2f7745;outline:none;}
         .wu-aic-copy-feedback{font-size:.78rem;font-weight:600;}
@@ -960,15 +954,16 @@ function wu_aic_enqueue_assets() {
         .wu-aic-floating-btn{
             position:fixed!important;bottom:24px!important;left:24px!important;right:auto!important;
             width:66px!important;height:66px!important;min-width:66px!important;min-height:66px!important;box-sizing:border-box!important;
-            background:linear-gradient(145deg,#59b971,#3d9858 58%,#347c4b)!important;
+            background:{$c1}!important;
             color:#fff!important;border:4px solid rgba(255,255,255,.94)!important;border-radius:50%!important;
             display:flex!important;align-items:center!important;justify-content:center!important;
-            box-shadow:0 12px 32px rgba(52,124,75,.28)!important;cursor:pointer!important;
+            box-shadow:0 10px 26px rgba(0,0,0,.18)!important;cursor:pointer!important;
             z-index:2147483001!important;font-size:25px!important;line-height:1!important;pointer-events:auto!important;touch-action:manipulation!important;-webkit-tap-highlight-color:transparent!important;
             transition:transform .22s ease,box-shadow .22s ease,background .22s ease!important;
         }
-        .wu-aic-floating-btn:hover{transform:translateY(-3px) scale(1.025)!important;box-shadow:0 14px 34px rgba(52,124,75,.34)!important;}
-        .wu-aic-floating-btn::before{content:'';position:absolute;top:4px;right:4px;width:7px;height:7px;border:2px solid #fff;border-radius:50%;background:#8fe0a1;pointer-events:none;}
+        .wu-aic-floating-btn:hover{transform:translateY(-2px)!important;filter:brightness(.96)!important;box-shadow:0 12px 28px rgba(0,0,0,.22)!important;}
+        .wu-aic-floating-btn:focus-visible{outline:3px solid {$c2}!important;outline-offset:3px!important;}
+        .wu-aic-floating-btn::before{content:'';position:absolute;top:4px;right:4px;width:7px;height:7px;border:2px solid #fff;border-radius:50%;background:{$c2};pointer-events:none;}
         .wu-aic-floating-btn[aria-expanded='true']{background:#171b19!important;}
         .wu-aic-floating-btn svg{width:24px;height:24px;display:block;pointer-events:none;}
         .wu-aic-floating-popup{
@@ -976,8 +971,9 @@ function wu_aic_enqueue_assets() {
             z-index:2147483000!important;display:none!important;opacity:0!important;
             transform:translateY(12px)!important;transition:opacity .22s ease,transform .22s ease!important;
             width:min(380px,calc(100vw - 32px))!important;max-height:calc(100vh - 130px)!important;
-            overflow:auto!important;overscroll-behavior:contain!important;
+            overflow:auto!important;overscroll-behavior:contain!important;scrollbar-width:none!important;-ms-overflow-style:none!important;
         }
+        .wu-aic-floating-popup::-webkit-scrollbar{display:none!important;width:0!important;height:0!important;}
         .wu-aic-floating-popup.wu-active{display:block!important;opacity:1!important;transform:translateY(0)!important;}
         .wu-aic-floating-popup .wu-aic-container{margin:0!important;max-width:none!important;}
         .wu-aic-backdrop{position:fixed!important;inset:0!important;z-index:2147482999!important;display:none!important;background:rgba(17,22,19,.14)!important;backdrop-filter:blur(3px)!important;-webkit-backdrop-filter:blur(3px)!important;}
@@ -992,7 +988,6 @@ function wu_aic_enqueue_assets() {
                 left:16px!important;right:auto!important;bottom:82px!important;width:calc(100vw - 32px)!important;
                 max-height:calc(100vh - 105px)!important;
             }
-            .wu-aic-container{border-radius:15px;}
         }
     ";
 
@@ -1088,7 +1083,7 @@ function wu_aic_enqueue_assets() {
                         var feedback = btn.querySelector('.wu-aic-copy-feedback');
                         if(feedback){feedback.textContent = '已複製，可貼到 AI 對話中';}
                         btn.classList.add('is-copied');
-                        btn.setAttribute('aria-label', '助理設定已複製');
+                        btn.setAttribute('aria-label', '品牌資料已複製');
                         setTimeout(function(){if(feedback){feedback.textContent = '';}btn.classList.remove('is-copied');btn.removeAttribute('aria-label');}, 2200);
                     }).catch(function(){
                             alert('複製未成功。請在安全連線下重試，或檢查瀏覽器的剪貼簿權限。');
@@ -1146,23 +1141,6 @@ function wu_aic_enqueue_assets() {
                         controller.setAttribute('aria-label','開啟 AI 名片');
                     }
                 });
-            });
-
-            document.addEventListener('input', function(e){
-                var input = e.target.closest('.wu-aic-search-input');
-                if(!input) return;
-                var container = input.closest('.wu-aic-container');
-                var blocks = container ? container.querySelector('.wu-aic-blocks') : null;
-                if(!blocks) return;
-                var query = input.value.trim().toLocaleLowerCase();
-                var visible = 0;
-                Array.prototype.forEach.call(blocks.children, function(item){
-                    var match = !query || item.textContent.toLocaleLowerCase().indexOf(query) !== -1;
-                    item.hidden = !match;
-                    if(match) visible++;
-                });
-                var empty = container.querySelector('.wu-aic-search-empty');
-                if(empty) empty.hidden = !query || visible > 0;
             });
 
             document.addEventListener('keydown', function(e){
@@ -1371,10 +1349,10 @@ function wu_aic_shortcode( $atts = [] ) {
             $copy_lines[] = '- ' . wp_strip_all_tags( $block_label ) . ( $block_url ? '：' . $block_url : '' );
         }
     }
-    $copy_text  = "你是「" . wp_strip_all_tags( $opt['name'] ) . "」，擔任「" . wp_strip_all_tags( $opt['title'] ) . "」。請以自然、真誠、有耐心的方式，協助正在了解品牌服務的訪客。\n\n";
-    $copy_text .= "【品牌背景】\n" . wp_strip_all_tags( $opt['bio'] ) . "\n\n";
-    $copy_text .= "【對話方式】\n- 使用繁體中文與口語但專業的語氣。\n- 先理解訪客想完成的事，再提供簡潔、具體且可執行的建議。\n- 需要更多資訊時，只提出最必要的追問。\n- 只根據以下品牌資料與對話內容回答；不確定的價格、政策或服務承諾不可自行推測，應坦白說明並提供客服聯絡方式。\n\n";
-    $copy_text .= "【品牌入口】\n" . implode( "\n", $copy_lines ) . "\n- AI 名片：" . esc_url_raw( $card_url );
+    $copy_text  = "【品牌資料參考】\n以下是「" . wp_strip_all_tags( $opt['name'] ) . "」的品牌介紹與服務入口。請在我接著提出問題時，依據這些資料提供繁體中文、清楚而簡潔的回答。\n\n";
+    $copy_text .= "【卡片說明】\n" . wp_strip_all_tags( $opt['title'] ) . "\n" . wp_strip_all_tags( $opt['bio'] ) . "\n\n";
+    $copy_text .= "【回答原則】\n- 僅依據我提供的品牌資料回答，不確定的價格、政策或服務內容不可自行推測。\n- 資料不足時請坦白說明，並建議我透過客服入口確認。\n- 使用自然、親切且專業的繁體中文。\n\n";
+    $copy_text .= "【品牌服務入口】\n" . implode( "\n", $copy_lines ) . "\n- 品牌資訊卡：" . esc_url_raw( $card_url );
     if ( ! empty( $opt['support_url'] ) ) {
         $copy_text .= "\n- 聯絡客服：" . esc_url_raw( $opt['support_url'] );
     }
@@ -1388,14 +1366,6 @@ function wu_aic_shortcode( $atts = [] ) {
             <h3 class="wu-aic-name"><?php echo $name; ?></h3>
             <p class="wu-aic-title"><?php echo $title; ?></p>
             <div class="wu-aic-bio"><?php echo nl2br( $bio ); ?></div>
-
-            <?php if ( $atts['mode'] === 'floating' ) : ?>
-                <div class="wu-aic-search-wrap">
-                    <input type="search" class="wu-aic-search-input" placeholder="搜尋文章、商品或服務…" aria-label="搜尋名片內容">
-                    <small>搜尋此名片已設定的文章、商品與服務</small>
-                    <p class="wu-aic-search-empty" role="status" hidden>沒有符合的內容，請試試其他關鍵字。</p>
-                </div>
-            <?php endif; ?>
 
             <?php if ( $blocks_html ) : ?>
                 <div class="wu-aic-blocks"><?php echo $blocks_html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></div>
@@ -1413,7 +1383,7 @@ function wu_aic_shortcode( $atts = [] ) {
                             class="wu-aic-tool-btn"
                             data-wu-aic-action="copy-ai"
                             data-copy="<?php echo esc_attr( wp_json_encode( $copy_text ) ); ?>"
-                        >✦ 複製助理設定 <span class="wu-aic-copy-feedback" role="status" aria-live="polite"></span></button>
+                        >複製品牌資料給 AI <span class="wu-aic-copy-feedback" role="status" aria-live="polite"></span></button>
                     <?php endif; ?>
 
                     <?php if ( $opt['enable_qrcode'] === '1' ) : ?>
@@ -1480,7 +1450,7 @@ function wu_aic_render_floating() {
     $popup_id = 'wu-aic-floating-popup';
     ?>
     <div class="wu-aic-backdrop" aria-hidden="true"></div>
-    <div class="wu-aic-floating-popup" id="<?php echo esc_attr( $popup_id ); ?>" role="dialog" aria-label="AI 名片與內容搜尋" aria-modal="true">
+    <div class="wu-aic-floating-popup" id="<?php echo esc_attr( $popup_id ); ?>" role="dialog" aria-label="品牌 AI 資訊卡" aria-modal="true">
         <?php echo do_shortcode( '[wu_ai_card mode="floating"]' ); ?>
     </div>
     <button

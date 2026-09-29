@@ -1,5 +1,5 @@
 <?php
-/** Per-site default and per-account visual admin menu configuration. */
+/** Shared visual menu configuration for non-owner administrator accounts. */
 defined('ABSPATH') || exit;
 
 final class WUTM_Admin_Menu_Editor {
@@ -75,10 +75,9 @@ final class WUTM_Admin_Menu_Editor {
         global $menu, $submenu;
         self::$registered_menu = (array) $menu;
         self::$registered_submenu = (array) $submenu;
-        // The direct recovery URL displays the native menu without changing stored settings.
+        // The direct recovery URL and owner accounts always keep their native menu.
         if (!empty($_GET['wutm_menu_recover']) && wutm_admin_menu_editor_can_edit()) return;
-        // One owner-edited site configuration is applied to every administrator.
-        // Legacy per-user overrides remain stored but are no longer authoritative.
+        if (!self::should_apply_shared_menu()) return;
         $config = self::default_config();
         if (!$config) return;
         $items = (array) ($config['items'] ?? []);
@@ -110,6 +109,13 @@ final class WUTM_Admin_Menu_Editor {
             $entries = self::sort_entries(array_values($entries), (array) ($config['sub_order'][$parent] ?? []), (string) $parent);
         }
         unset($entries);
+    }
+
+    public static function should_apply_shared_menu(): bool {
+        if (!current_user_can('manage_options')) return false;
+        // Selected owner accounts retain their native menu unless previewing.
+        if (wutm_admin_menu_editor_can_edit()) return !empty($_GET['wutm_menu_preview']);
+        return true;
     }
 
     private static function raw_catalog(): array {
@@ -241,7 +247,8 @@ final class WUTM_Admin_Menu_Editor {
             <p><a href="<?php echo esc_url(add_query_arg(['page' => self::SLUG, 'wutm_menu_recover' => 1], admin_url('admin.php'))); ?>">以原生選單開啟恢復入口</a></p>
             <section class="wutm-menu-owners">
                 <h2>誰可以編輯後台選單</h2>
-                <p>只有下方勾選的主帳號可編輯網站共用選單。儲存後，所有管理員帳號都會套用相同名稱、順序與隱藏設定。</p>
+                <p><strong>勾選的主帳號：</strong>保留自己的 WordPress 原生選單，不會套用下方共用設定；可編輯共用版面，也可先預覽未勾選管理員會看到的畫面。</p>
+                <p><strong>未勾選的管理員：</strong>共用下方的選單名稱、順序與隱藏設定。儲存名單後會立即依勾選狀態套用。</p>
                 <?php if (get_option('wutm_admin_menu_editor_owner_ids', false) === false) : ?><p class="description">尚未指定時，預設由本站管理員 Email 對應的管理帳號使用；若該帳號不存在，則由最早建立的管理員帳號使用。儲存後以勾選名單為準。</p><?php endif; ?>
                 <?php if (isset($_GET['owners_saved'])) : ?><div class="notice notice-success inline"><p>主帳號名單已儲存。</p></div><?php endif; ?>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
@@ -250,13 +257,22 @@ final class WUTM_Admin_Menu_Editor {
                     <div class="wutm-menu-owner-list">
                         <?php foreach ($eligible_owners as $candidate) : ?><label><input type="checkbox" name="owner_ids[]" value="<?php echo (int) $candidate->ID; ?>" <?php checked(in_array((int) $candidate->ID, $owners, true)); ?>> <?php echo esc_html($candidate->user_login . ' (#' . $candidate->ID . ')'); ?></label><?php endforeach; ?>
                     </div>
-                    <p class="description">請至少保留一位主帳號。若取消自己的權限，儲存後會立即失去編輯入口。</p>
+                    <p class="description">請至少保留一位主帳號。勾選代表保留原生選單與編輯/預覽權；取消勾選後，該管理員改用共用選單。</p>
                     <button type="submit" class="button">儲存主帳號名單</button>
                 </form>
             </section>
             <?php if (isset($_GET['saved']) || isset($_GET['reset'])) : ?><div class="notice notice-success"><p>選單設定已更新，重新整理後台頁面即可看到結果。</p></div><?php endif; ?>
             <?php if ($obsolete) : ?><div class="notice notice-info"><p>這份配置有 <?php echo (int) count($obsolete); ?> 個已不存在的選單項目；它們不會顯示，儲存目前配置即可清除舊設定。</p></div><?php endif; ?>
-            <div class="wutm-menu-target"><strong>網站共用配置</strong><span>此配置會套用至所有管理員帳號。</span></div>
+            <div class="wutm-menu-target">
+                <strong>未勾選管理員共用選單</strong>
+                <span>僅套用至「誰可以編輯後台選單」中未勾選的管理員；勾選的主帳號仍使用原生選單。</span>
+                <?php if (!empty($_GET['wutm_menu_preview'])) : ?>
+                    <a class="button" href="<?php echo esc_url(admin_url('admin.php?page=' . self::SLUG)); ?>">停止預覽，回到主帳號原生選單</a>
+                <?php else : ?>
+                    <a class="button button-primary" href="<?php echo esc_url(add_query_arg(['page' => self::SLUG, 'wutm_menu_preview' => 1], admin_url('admin.php'))); ?>">預覽未勾選管理員的共用選單</a>
+                <?php endif; ?>
+            </div>
+            <?php if (!empty($_GET['wutm_menu_preview'])) : ?><div class="notice notice-info inline"><p>目前左側後台選單是共用配置預覽；只有未勾選的管理員會實際套用。預覽不會更改或儲存選單設定。</p></div><?php endif; ?>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" id="wutm-menu-editor-form">
                 <?php wp_nonce_field('wutm_admin_menu_save'); ?>
                 <input type="hidden" name="action" value="wutm_admin_menu_save">
@@ -283,11 +299,11 @@ final class WUTM_Admin_Menu_Editor {
                         self::render_item($catalog[$id], (array) ($config['items'][$id] ?? []), $slug === self::SLUG);
                     endforeach; ?></div></div><?php endif; ?></div><?php
                 endforeach; ?></div>
-                <?php submit_button('儲存這份配置'); ?>
+                <?php submit_button('儲存未勾選管理員的共用選單'); ?>
             </form>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="wutm-menu-reset" onsubmit="return confirm('確定要恢復這份選單配置？');">
                 <?php wp_nonce_field('wutm_admin_menu_reset'); ?><input type="hidden" name="action" value="wutm_admin_menu_reset">
-                <button class="button" type="submit">恢復網站共用選單預設</button>
+                <button class="button" type="submit">恢復共用選單預設（僅影響未勾選管理員）</button>
             </form>
         </div><?php
     }

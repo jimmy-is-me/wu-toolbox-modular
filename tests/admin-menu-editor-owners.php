@@ -27,19 +27,32 @@ function get_current_user_id(): int { global $current_user_id; return $current_u
 function absint($value): int { return abs((int) $value); }
 
 require dirname(__DIR__) . '/core/module-registry.php';
+require dirname(__DIR__) . '/modules/admin-menu-editor/module.php';
 function assert_access(bool $expected, string $case): void {
     if (wutm_admin_menu_editor_can_edit() !== $expected) throw new RuntimeException($case);
 }
+function assert_shared_menu(bool $expected, string $case): void {
+    if (WUTM_Admin_Menu_Editor::should_apply_shared_menu() !== $expected) throw new RuntimeException($case);
+}
 
 assert_access(true, 'Default owner must have access');
+assert_shared_menu(false, 'Selected owner must keep the native menu by default');
+$_GET['wutm_menu_preview'] = '1';
+assert_shared_menu(true, 'Selected owner can preview the shared menu');
+unset($_GET['wutm_menu_preview']);
 $current_user_id = 2;
 assert_access(false, 'Another administrator must not inherit access');
+assert_shared_menu(true, 'Unselected administrator must receive the shared menu');
 $options['wutm_admin_menu_editor_owner_ids'] = [2];
 assert_access(true, 'Selected owner must have access');
+assert_shared_menu(false, 'Newly selected owner must keep the native menu');
 $current_user_id = 1;
 assert_access(false, 'Former owner must lose access');
+assert_shared_menu(true, 'Former owner must now receive the shared menu');
 $options['wutm_admin_menu_editor_owner_ids'] = [3];
 assert_access(false, 'Account without manage_options must not become an owner');
+$current_user_id = 3;
+assert_shared_menu(false, 'Non-administrators must not receive administrator menu configuration');
 $options['wutm_admin_menu_editor_owner_ids'] = [999];
 assert_access(false, 'Missing explicit owner must fail closed');
 echo "Admin menu editor owner checks passed.\n";
