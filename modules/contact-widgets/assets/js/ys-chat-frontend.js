@@ -295,7 +295,7 @@
                     url:   item.getAttribute( 'href' ),
                     label: item.getAttribute( 'data-applabel' ) || '',
                     value: item.getAttribute( 'data-appvalue' ) || '',
-                    color: item.getAttribute( 'data-appcolor' ) || '#8fa8b8',
+                    color: item.getAttribute( 'data-appcolor' ) || '#4fa567',
                     fg:    item.getAttribute( 'data-appfg' ) || '#ffffff',
                     anchor: {
                         side:    isCenter ? 'center' : ( isLeft ? 'left' : 'right' ),
@@ -334,7 +334,7 @@
 
     /** 強制套用關鍵樣式（用 widget 上的 data 色值與尺寸 — 尊重使用者設定）。 */
     function forceStyles( wrap, toggle ) {
-        var color = wrap.getAttribute( 'data-color' ) || '#8fa8b8';
+        var color = wrap.getAttribute( 'data-color' ) || '#4fa567';
         var fg    = wrap.getAttribute( 'data-fg' ) || '#ffffff';
         var outer = ( parseInt( wrap.getAttribute( 'data-outer' ), 10 ) || 56 ) + 'px';
         var inner = ( parseInt( wrap.getAttribute( 'data-inner' ), 10 ) || 46 ) + 'px';

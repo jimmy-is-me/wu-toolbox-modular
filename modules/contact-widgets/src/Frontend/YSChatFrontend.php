@@ -159,9 +159,9 @@ class YSChatFrontend {
         $size_inner = min( 80, max( 28, (int) ( $settings['size_inner'] ?? 46 ) ) );
         $svg_outer  = max( 12, (int) round( $size_outer * 0.46 ) );
         $svg_inner  = max( 10, (int) round( $size_inner * 0.52 ) );
-        $color    = (string) ( $settings['button_color'] ?? '#8fa8b8' );
+        $color    = (string) ( $settings['button_color'] ?? '#4fa567' );
         if ( ! preg_match( '/^#([0-9a-f]{3}|[0-9a-f]{6})$/i', $color ) ) {
-            $color = '#8fa8b8';
+            $color = '#4fa567';
         }
         $btn_icon = (string) ( $settings['button_icon'] ?? '' );
         $tooltip  = (string) ( $settings['tooltip'] ?? 'appname' );

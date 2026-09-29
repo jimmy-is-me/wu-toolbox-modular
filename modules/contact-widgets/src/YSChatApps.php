@@ -113,7 +113,7 @@ class YSChatApps {
             ],
             'custom' => [
                 'title'       => __( '自訂連結', 'wu-contact-widgets' ),
-                'color'       => '#8fa8b8',
+                'color'       => '#4fa567',
                 'icon_fg'     => '#ffffff',
                 'placeholder' => 'https://example.com/contact',
                 'desc'        => __( '任意網址（表單、地圖、社群⋯）。可自訂名稱。', 'wu-contact-widgets' ),

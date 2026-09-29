@@ -47,7 +47,13 @@ class YSChatWidgets {
         if ( ! is_array( $saved ) ) {
             $saved = [];
         }
-        return array_merge( YSChatMigration::default_settings(), $saved );
+        $settings = array_merge( YSChatMigration::default_settings(), $saved );
+        // The former slate value was this module's original default; migrate it
+        // visually to the shared brand green while preserving intentional colors.
+        if ( strtolower( (string) $settings['button_color'] ) === '#8fa8b8' ) {
+            $settings['button_color'] = '#4fa567';
+        }
+        return $settings;
     }
 
     /**

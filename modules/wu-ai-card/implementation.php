@@ -2,7 +2,7 @@
 /**
  * Plugin Name: WU AI Card
  * Description: 自訂 AI 名片頁面：基本資料、內容區塊、配色主題、全站浮動按鈕、傳送給 AI 文字、QR Code 分享。
- * Version: 1.2.0
+ * Version: 1.2.3
  * Author: WU
  * Plugin URI: https://wumetax.com/
  * Text Domain: wu-ai-card
@@ -12,7 +12,7 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit;
 }
 
-defined( 'WU_AIC_VERSION' ) || define( 'WU_AIC_VERSION', '1.2.2' );
+defined( 'WU_AIC_VERSION' ) || define( 'WU_AIC_VERSION', '1.2.3' );
 defined( 'WU_AIC_OPTION' ) || define( 'WU_AIC_OPTION', 'wu_aic_data' );
 defined( 'WU_AIC_SLUG' ) || define( 'WU_AIC_SLUG', 'wu-ai-card' );
 
@@ -24,10 +24,10 @@ function wu_aic_get_defaults() {
     return [
         'enabled'         => '1',
         'slug'            => 'card',
-        'name'            => 'AI 小助手',
-        'title'           => '智慧客服代表',
+        'name'            => '品牌 AI 助理',
+        'title'           => '線上服務助理',
         'avatar'          => '',
-        'bio'             => '您好！我是您的專屬 AI 助理，隨時為您提供最專業的協助。',
+        'bio'             => '你好，我是品牌 AI 助理。我可以協助你了解服務內容、找到相關資訊，或連繫合適的客服窗口。',
         'support_url'     => '',
         'theme'           => 'green',
         'dark_mode'       => '0',
@@ -37,8 +37,8 @@ function wu_aic_get_defaults() {
         'blocks'          => [
             [
                 'type'  => 'cta',
-                'label' => '立刻詢問',
-                'url'   => '#',
+                'label' => '查看服務',
+                'url'   => home_url( '/' ),
                 'image' => '',
                 'html'  => '',
             ],
@@ -59,6 +59,12 @@ function wu_aic_get_option() {
     $defaults = wu_aic_get_defaults();
     $merged = wp_parse_args( $data, $defaults );
 
+    // Replace only untouched built-in copy, preserving custom merchant wording.
+    if ( ( $merged['name'] ?? '' ) === 'AI 小助手' ) $merged['name'] = $defaults['name'];
+    if ( ( $merged['title'] ?? '' ) === '智慧客服代表' ) $merged['title'] = $defaults['title'];
+    if ( ( $merged['bio'] ?? '' ) === '您好！我是您的專屬 AI 助理，隨時為您提供最專業的協助。' ) $merged['bio'] = $defaults['bio'];
+    if ( ( $merged['theme'] ?? '' ) === 'red' ) $merged['theme'] = 'green';
+
     // Older/imported option values can contain arrays where front-end output
     // expects strings. Do not let one malformed value fatal on the card URL.
     foreach ( $defaults as $key => $default ) {
@@ -74,10 +80,15 @@ function wu_aic_get_option() {
         $merged['blocks'] = $defaults['blocks'];
     }
 
-    // Update the former built-in CTA copy without overriding other custom labels.
+    // Refresh only the former built-in CTA copy, leaving other custom labels alone.
     foreach ( $merged['blocks'] as &$block ) {
+        if ( is_array( $block ) && ( $block['type'] ?? '' ) === 'cta' && ( $block['label'] ?? '' ) === '立刻詢問' ) {
+            $block['label'] = '查看服務';
+            if ( ( $block['url'] ?? '' ) === '#' ) $block['url'] = home_url( '/' );
+        }
         if ( is_array( $block ) && ( $block['type'] ?? '' ) === 'cta' && ( $block['label'] ?? '' ) === '立即諮詢' ) {
-            $block['label'] = '立刻詢問';
+            $block['label'] = '查看服務';
+            if ( ( $block['url'] ?? '' ) === '#' ) $block['url'] = home_url( '/' );
         }
     }
     unset( $block );
@@ -121,7 +132,6 @@ function wu_aic_color_themes() {
         'green'  => [ '#1FAA59', '#7CE495' ],
         'orange' => [ '#FF7A45', '#FFC069' ],
         'pink'   => [ '#FF5C8D', '#FFA1C1' ],
-        'red'    => [ '#E23744', '#FF8A80' ],
         'gold'   => [ '#C9A227', '#F1D97A' ],
         'gray'   => [ '#4B5563', '#9CA3AF' ],
     ];
@@ -453,7 +463,7 @@ function wu_aic_settings_page() {
                 </tr>
                 <tr>
                     <th scope="row">「傳給 AI」按鈕</th>
-                    <td><label><input type="checkbox" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[enable_send_ai]" value="1" <?php checked( $opt['enable_send_ai'], '1' ); ?>> 顯示「複製 AI 指令」按鈕</label><p class="description">不會直接呼叫 AI 服務；訪客可複製整理好的品牌資訊與回答規則，再貼到 ChatGPT 等 AI 工具。</p></td>
+                    <td><label><input type="checkbox" name="<?php echo esc_attr( WU_AIC_OPTION ); ?>[enable_send_ai]" value="1" <?php checked( $opt['enable_send_ai'], '1' ); ?>> 顯示「複製助理設定」按鈕</label><p class="description">複製品牌背景、助理角色與回覆原則，訪客可貼到自己使用的 AI 對話中；不會連線或代替訪客呼叫 AI 服務。</p></td>
                 </tr>
                 <tr>
                     <th scope="row">QR Code 分享</th>
@@ -514,6 +524,7 @@ function wu_aic_settings_page() {
     </template>
 
     <style>
+        .wu-aic-admin-wrap input[type="radio"]{accent-color:#4fa567;}
         #wu-aic-blocks-table { table-layout:fixed; min-width:1420px; }
         #wu-aic-blocks-table th, #wu-aic-blocks-table td { box-sizing:border-box; vertical-align:top; }
         #wu-aic-blocks-table .wu-aic-col-sort { width:54px; }
@@ -871,20 +882,20 @@ function wu_aic_enqueue_assets() {
         }
         .wu-aic-header{
             background:{$c1};
-            height:104px;
+            height:88px;
         }
         .wu-aic-body{
             padding:0 22px 24px;
             text-align:center;
         }
         .wu-aic-avatar{
-            width:90px;
-            height:90px;
+            width:84px;
+            height:84px;
             border-radius:50%;
             border:4px solid {$bg};
             object-fit:cover;
             background:#e9ecef;
-            margin:-45px auto 14px;
+            margin:-42px auto 14px;
             box-shadow:0 6px 18px rgba(20,35,30,.14);
             display:flex;
             align-items:center;
@@ -893,8 +904,8 @@ function wu_aic_enqueue_assets() {
         .wu-aic-name{font-size:1.45rem;font-weight:750;margin:0 0 4px;color:{$text};letter-spacing:.01em;}
         .wu-aic-title{font-size:.9rem;color:{$subtext};margin:0 0 16px;font-weight:500;}
         .wu-aic-bio{
-            font-size:.92rem;color:{$text};line-height:1.7;background:{$bio_bg};
-            padding:14px;border-radius:10px;text-align:left;margin-bottom:18px;
+            font-size:.92rem;color:{$text};line-height:1.75;background:{$bio_bg};
+            padding:15px;border-radius:12px;text-align:left;margin-bottom:18px;
         }
         .wu-aic-search-wrap{margin:0 0 14px;text-align:left;}
         .wu-aic-search-input{width:100%;box-sizing:border-box;padding:12px 15px;border:1px solid {$border};border-radius:999px;background:{$bg};color:{$text};font:inherit;box-shadow:0 4px 14px rgba(0,0,0,.06);}
@@ -938,9 +949,10 @@ function wu_aic_enqueue_assets() {
         .wu-aic-tools{display:flex;gap:8px;margin-top:18px;justify-content:center;flex-wrap:wrap;}
         .wu-aic-tool-btn{
             appearance:none;border:1px solid {$border};background:{$bg};color:{$text};
-            padding:8px 12px;border-radius:8px;font-size:.85rem;cursor:pointer;line-height:1.4;
+            min-height:42px;padding:9px 14px;border-radius:999px;font-size:.88rem;cursor:pointer;line-height:1.4;transition:background .18s ease,border-color .18s ease,color .18s ease;
         }
-        .wu-aic-tool-btn:hover{background:{$bio_bg};}
+        .wu-aic-tool-btn:hover,.wu-aic-tool-btn:focus-visible,.wu-aic-tool-btn.is-copied{background:#eaf5ed;border-color:#4fa567;color:#2f7745;outline:none;}
+        .wu-aic-copy-feedback{font-size:.78rem;font-weight:600;}
         .wu-aic-qrcode-box{margin-top:14px;text-align:center;padding:12px;background:#fff;border-radius:10px;}
         .wu-aic-qrcode-box canvas{display:block;margin:0 auto;max-width:100%;height:auto!important;}
         .wu-aic-qr-message{color:#a33;font-size:.9rem;margin:8px 0 0;}
@@ -1073,11 +1085,13 @@ function wu_aic_enqueue_assets() {
                     var payload = btn.getAttribute('data-copy') || '';
                     try { payload = JSON.parse(payload); } catch(err) {}
                     copyText(payload).then(function(){
-                        var old = btn.textContent;
-                        btn.textContent = '✓ 已複製指令';
-                        setTimeout(function(){ btn.textContent = old; }, 1400);
+                        var feedback = btn.querySelector('.wu-aic-copy-feedback');
+                        if(feedback){feedback.textContent = '已複製，可貼到 AI 對話中';}
+                        btn.classList.add('is-copied');
+                        btn.setAttribute('aria-label', '助理設定已複製');
+                        setTimeout(function(){if(feedback){feedback.textContent = '';}btn.classList.remove('is-copied');btn.removeAttribute('aria-label');}, 2200);
                     }).catch(function(){
-                        alert('無法自動複製。請允許剪貼簿權限，或手動選取後貼到 ChatGPT 等 AI 工具。');
+                            alert('複製未成功。請在安全連線下重試，或檢查瀏覽器的剪貼簿權限。');
                     });
                     return;
                 }
@@ -1357,10 +1371,10 @@ function wu_aic_shortcode( $atts = [] ) {
             $copy_lines[] = '- ' . wp_strip_all_tags( $block_label ) . ( $block_url ? '：' . $block_url : '' );
         }
     }
-    $copy_text  = "請扮演「" . wp_strip_all_tags( $opt['name'] ) . "」（" . wp_strip_all_tags( $opt['title'] ) . "），以繁體中文、親切清楚的方式協助訪客。\n";
-    $copy_text .= "請只根據以下品牌資料與訪客提供的資訊回答；不要臆測價格、政策或服務內容。資料不足時，坦白說明並引導訪客聯絡客服。\n\n";
-    $copy_text .= "品牌簡介：\n" . wp_strip_all_tags( $opt['bio'] ) . "\n\n";
-    $copy_text .= "名片與參考連結：\n" . implode( "\n", $copy_lines ) . "\n- AI 名片：" . esc_url_raw( $card_url );
+    $copy_text  = "你是「" . wp_strip_all_tags( $opt['name'] ) . "」，擔任「" . wp_strip_all_tags( $opt['title'] ) . "」。請以自然、真誠、有耐心的方式，協助正在了解品牌服務的訪客。\n\n";
+    $copy_text .= "【品牌背景】\n" . wp_strip_all_tags( $opt['bio'] ) . "\n\n";
+    $copy_text .= "【對話方式】\n- 使用繁體中文與口語但專業的語氣。\n- 先理解訪客想完成的事，再提供簡潔、具體且可執行的建議。\n- 需要更多資訊時，只提出最必要的追問。\n- 只根據以下品牌資料與對話內容回答；不確定的價格、政策或服務承諾不可自行推測，應坦白說明並提供客服聯絡方式。\n\n";
+    $copy_text .= "【品牌入口】\n" . implode( "\n", $copy_lines ) . "\n- AI 名片：" . esc_url_raw( $card_url );
     if ( ! empty( $opt['support_url'] ) ) {
         $copy_text .= "\n- 聯絡客服：" . esc_url_raw( $opt['support_url'] );
     }
@@ -1399,7 +1413,7 @@ function wu_aic_shortcode( $atts = [] ) {
                             class="wu-aic-tool-btn"
                             data-wu-aic-action="copy-ai"
                             data-copy="<?php echo esc_attr( wp_json_encode( $copy_text ) ); ?>"
-                        >📋 複製 AI 指令</button>
+                        >✦ 複製助理設定 <span class="wu-aic-copy-feedback" role="status" aria-live="polite"></span></button>
                     <?php endif; ?>
 
                     <?php if ( $opt['enable_qrcode'] === '1' ) : ?>

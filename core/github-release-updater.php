@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+			<h4>3.3.6</h4><ul><li>Contact Widgets 統一採用品牌綠預設按鈕色，既有舊預設灰藍值也會安全轉為綠色。</li><li>WU AI Card 改善預設助理文案、卡片留白與助理設定複製內容；移除紅色主題，並將選取狀態統一為綠色。</li><li>後台選單設定改為主帳號編輯單一網站共用配置，套用至所有管理員；舊個人覆寫保留但不再影響呈現。</li></ul>
 			<h4>3.3.5</h4><ul><li>擴大 WU AI Card 浮動按鈕觸控區，改善行動裝置點擊命中。</li><li>Quick Support 可由管理員手動加入文章與支援文件，前台不自動彙整或搜尋商品。</li><li>修復 Contact Widgets QR 卡片模式改用本機 QR 產生器，維持零外部請求。</li></ul>
 			<h4>3.3.4</h4><ul><li>WU Contact Widgets 設定頁移除舊品牌署名並修正空白區塊；匯入提示改用一般聯絡設定說明，保留舊設定識別以維持相容。</li><li>WU AI Card 左下角浮動按鈕與圖示統一採用 Quick Support 的綠色對話風格，背景模糊效果保留。</li><li>Quick Support 移除商品搜尋與自動精選／最新內容彙整，僅依訪客輸入搜尋支援文件與知識文章；完整內容入口導向 docs-center。</li></ul>
 			<h4>3.3.3</h4><ul><li>WU AI Card 左下角浮動入口改採 Quick Support 風格：開啟時模糊背景、可點背景或按 Escape 關閉；手機版保留適合觸控的卡片寬度。</li><li>浮動名片加入清楚的內容搜尋，可篩選管理員已設定的文章、商品與服務區塊，不會額外呼叫伺服器或 AI API。</li><li>「傳給 AI」改為「複製 AI 指令」，複製內容包含品牌角色、回答規則及名片參考連結，並明確提示需貼至訪客自己的 AI 工具；不會暗中傳送資料或呼叫 AI。</li><li>新增可選的客服聯絡網址，支援一般客服頁或 LINE 官方帳號；未設定時不顯示額外按鈕，原有名片區塊保留。</li><li>錯誤紀錄新增 AJAX 動作名稱與可展開的呼叫路徑，協助定位 Unknown:0 的請求來源。</li></ul>

@@ -77,7 +77,9 @@ final class WUTM_Admin_Menu_Editor {
         self::$registered_submenu = (array) $submenu;
         // The direct recovery URL displays the native menu without changing stored settings.
         if (!empty($_GET['wutm_menu_recover']) && wutm_admin_menu_editor_can_edit()) return;
-        $config = self::combined_config(get_current_user_id());
+        // One owner-edited site configuration is applied to every administrator.
+        // Legacy per-user overrides remain stored but are no longer authoritative.
+        $config = self::default_config();
         if (!$config) return;
         $items = (array) ($config['items'] ?? []);
         foreach ($menu as $index => &$entry) {
@@ -157,40 +159,18 @@ final class WUTM_Admin_Menu_Editor {
     public static function save(): void {
         if (!wutm_admin_menu_editor_can_edit()) wp_die('權限不足。', '', ['response' => 403]);
         check_admin_referer('wutm_admin_menu_save');
-        $user_id = absint($_POST['user_id'] ?? 0);
-        if ($user_id && !get_userdata($user_id)) wp_die('找不到帳號。');
         $config = self::clean_payload(wp_unslash($_POST['config'] ?? ''));
         if (!$config) wp_die('選單資料無效，未儲存。');
-        if ($user_id) {
-            $base = self::default_config();
-            foreach ($config['items'] as $id => $fields) {
-                foreach ($fields as $key => $value) {
-                    if ($value === ($base['items'][$id][$key] ?? ($key === 'hidden' ? false : ''))) unset($config['items'][$id][$key]);
-                }
-                if (!$config['items'][$id]) unset($config['items'][$id]);
-            }
-            foreach (['top_order', 'sub_order'] as $key) {
-                if (isset($config[$key]) && $config[$key] === ($base[$key] ?? [])) unset($config[$key]);
-            }
-            if (!$config['items'] && !isset($config['top_order']) && !isset($config['sub_order'])) {
-                delete_user_option($user_id, self::USER_OPTION, false);
-            } else {
-                update_user_option($user_id, self::USER_OPTION, $config, false);
-            }
-        } else {
-            update_option(self::DEFAULT_OPTION, $config, false);
-        }
-        wp_safe_redirect(add_query_arg(['page' => self::SLUG, 'user_id' => $user_id, 'saved' => 1], admin_url('admin.php')));
+        update_option(self::DEFAULT_OPTION, $config, false);
+        wp_safe_redirect(add_query_arg(['page' => self::SLUG, 'saved' => 1], admin_url('admin.php')));
         exit;
     }
 
     public static function reset(): void {
         if (!wutm_admin_menu_editor_can_edit()) wp_die('權限不足。', '', ['response' => 403]);
         check_admin_referer('wutm_admin_menu_reset');
-        $user_id = absint($_POST['user_id'] ?? 0);
-        if ($user_id) delete_user_option($user_id, self::USER_OPTION, false);
-        else delete_option(self::DEFAULT_OPTION);
-        wp_safe_redirect(add_query_arg(['page' => self::SLUG, 'user_id' => $user_id, 'reset' => 1], admin_url('admin.php')));
+        delete_option(self::DEFAULT_OPTION);
+        wp_safe_redirect(add_query_arg(['page' => self::SLUG, 'reset' => 1], admin_url('admin.php')));
         exit;
     }
 
@@ -230,11 +210,6 @@ final class WUTM_Admin_Menu_Editor {
 
     public static function page(): void {
         if (!wutm_admin_menu_editor_can_edit()) wp_die('權限不足。', '', ['response' => 403]);
-        $user_id = absint($_GET['user_id'] ?? 0);
-        $user = $user_id ? get_userdata($user_id) : null;
-        if ($user_id && !$user) $user_id = 0;
-        $search = isset($_GET['user_search']) ? sanitize_text_field(wp_unslash($_GET['user_search'])) : '';
-        $users = get_users(['number' => 50, 'search' => $search !== '' ? '*' . $search . '*' : '', 'orderby' => 'login', 'order' => 'ASC']);
         $owners = wutm_admin_menu_editor_owner_ids();
         $eligible_owners = get_users(['capability' => 'manage_options', 'orderby' => 'login', 'order' => 'ASC']);
         foreach ($owners as $owner_id) {
@@ -243,14 +218,12 @@ final class WUTM_Admin_Menu_Editor {
                 $eligible_owners[] = $owner;
             }
         }
-        if ($user && !in_array($user_id, array_map(static fn($item) => $item->ID, $users), true)) array_unshift($users, $user);
         $catalog = self::raw_catalog();
-        $config = $user_id ? self::combined_config($user_id) : self::default_config();
-        $stored = $user_id ? self::user_config($user_id) : self::default_config();
+        $config = self::default_config();
+        $stored = $config;
         $obsolete = array_diff(array_keys((array) ($stored['items'] ?? [])), array_keys($catalog));
-        $status = $user_id && self::user_config($user_id) ? '有個別調整' : '沿用預設';
         $display_menu = self::sort_entries(array_values(self::$registered_menu), (array) ($config['top_order'] ?? []), '');
-        $base = $user_id ? self::default_config() : [];
+        $base = [];
         $base_top = self::sort_entries(array_values(self::$registered_menu), (array) ($base['top_order'] ?? []), '');
         $base_order = ['top_order' => [], 'sub_order' => []];
         foreach ($base_top as $entry) $base_order['top_order'][] = self::item_id('', (string) ($entry[2] ?? ''));
@@ -268,7 +241,7 @@ final class WUTM_Admin_Menu_Editor {
             <p><a href="<?php echo esc_url(add_query_arg(['page' => self::SLUG, 'wutm_menu_recover' => 1], admin_url('admin.php'))); ?>">以原生選單開啟恢復入口</a></p>
             <section class="wutm-menu-owners">
                 <h2>誰可以編輯後台選單</h2>
-                <p>只有下方勾選的主帳號可開啟此工具、調整網站預設或其他帳號的選單。其他管理員只會看到分配給自己的選單，無法直接開啟編輯器。</p>
+                <p>只有下方勾選的主帳號可編輯網站共用選單。儲存後，所有管理員帳號都會套用相同名稱、順序與隱藏設定。</p>
                 <?php if (get_option('wutm_admin_menu_editor_owner_ids', false) === false) : ?><p class="description">尚未指定時，預設由本站管理員 Email 對應的管理帳號使用；若該帳號不存在，則由最早建立的管理員帳號使用。儲存後以勾選名單為準。</p><?php endif; ?>
                 <?php if (isset($_GET['owners_saved'])) : ?><div class="notice notice-success inline"><p>主帳號名單已儲存。</p></div><?php endif; ?>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
@@ -283,17 +256,10 @@ final class WUTM_Admin_Menu_Editor {
             </section>
             <?php if (isset($_GET['saved']) || isset($_GET['reset'])) : ?><div class="notice notice-success"><p>選單設定已更新，重新整理後台頁面即可看到結果。</p></div><?php endif; ?>
             <?php if ($obsolete) : ?><div class="notice notice-info"><p>這份配置有 <?php echo (int) count($obsolete); ?> 個已不存在的選單項目；它們不會顯示，儲存目前配置即可清除舊設定。</p></div><?php endif; ?>
-            <form method="get" action="<?php echo esc_url(admin_url('admin.php')); ?>" class="wutm-menu-target">
-                <input type="hidden" name="page" value="<?php echo esc_attr(self::SLUG); ?>">
-                <label for="wutm-menu-user">正在編輯</label>
-                <select id="wutm-menu-user" name="user_id"><option value="0">網站預設配置</option>
-                <?php foreach ($users as $candidate) : ?><option value="<?php echo (int) $candidate->ID; ?>" <?php selected($user_id, $candidate->ID); ?>><?php echo esc_html($candidate->user_login . ' (#' . $candidate->ID . ')'); ?></option><?php endforeach; ?>
-                </select><input type="search" name="user_search" value="<?php echo esc_attr($search); ?>" placeholder="搜尋帳號"><button class="button">選擇／搜尋</button>
-                <strong><?php echo esc_html($user_id ? $status : '新帳號會套用這份配置'); ?></strong>
-            </form>
+            <div class="wutm-menu-target"><strong>網站共用配置</strong><span>此配置會套用至所有管理員帳號。</span></div>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" id="wutm-menu-editor-form">
                 <?php wp_nonce_field('wutm_admin_menu_save'); ?>
-                <input type="hidden" name="action" value="wutm_admin_menu_save"><input type="hidden" name="user_id" value="<?php echo (int) $user_id; ?>">
+                <input type="hidden" name="action" value="wutm_admin_menu_save">
                 <input type="hidden" name="config" id="wutm-menu-config">
                 <input type="hidden" id="wutm-menu-base-order" value="<?php echo esc_attr(wp_json_encode($base_order)); ?>">
                 <p>拖曳項目可調整順序；名稱留空代表使用原名稱。新增外掛的選單會依原位置顯示。</p>
@@ -320,8 +286,8 @@ final class WUTM_Admin_Menu_Editor {
                 <?php submit_button('儲存這份配置'); ?>
             </form>
             <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="wutm-menu-reset" onsubmit="return confirm('確定要恢復這份選單配置？');">
-                <?php wp_nonce_field('wutm_admin_menu_reset'); ?><input type="hidden" name="action" value="wutm_admin_menu_reset"><input type="hidden" name="user_id" value="<?php echo (int) $user_id; ?>">
-                <button class="button" type="submit"><?php echo esc_html($user_id ? '清除帳號覆寫，改回沿用預設' : '恢復系統預設'); ?></button>
+                <?php wp_nonce_field('wutm_admin_menu_reset'); ?><input type="hidden" name="action" value="wutm_admin_menu_reset">
+                <button class="button" type="submit">恢復網站共用選單預設</button>
             </form>
         </div><?php
     }

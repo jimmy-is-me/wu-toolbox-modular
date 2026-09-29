@@ -76,7 +76,7 @@
     width: 46px;
     height: 46px;
     border-radius: 50%;
-    background: var(--ysch-app-color, #8fa8b8);
+    background: var(--ysch-app-color, #4fa567);
     color: var(--ysch-app-fg, #ffffff);
     box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
     transition: transform 0.15s ease;
@@ -114,7 +114,7 @@
     height: 56px;
     border: none;
     border-radius: 50%;
-    background: var(--ysch-color, #8fa8b8);
+    background: var(--ysch-color, #4fa567);
     color: #ffffff;
     cursor: pointer;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.22);

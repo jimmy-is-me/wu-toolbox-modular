@@ -109,7 +109,7 @@ $ysch_apps_defs = $ysch_apps_ready ? YSChatApps::all() : [];
             </div>
             <div class="ysch-field">
                 <label for="ysch-button-color"><?php echo esc_html__( '按鈕顏色', 'wu-contact-widgets' ); ?></label>
-                <input type="color" id="ysch-button-color" value="<?php echo esc_attr( (string) ( $settings['button_color'] ?? '#8fa8b8' ) ); ?>" />
+                <input type="color" id="ysch-button-color" value="<?php echo esc_attr( (string) ( $settings['button_color'] ?? '#4fa567' ) ); ?>" />
             </div>
         </div>
 

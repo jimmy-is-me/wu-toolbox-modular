@@ -14,9 +14,9 @@
     --ys-adm-border-light: #edf1f4;
     --ys-adm-text: #2c3e50;
     --ys-adm-text-muted: #7b8a96;
-    --ys-adm-primary: #8fa8b8;
+    --ys-adm-primary: #4fa567;
     --ys-adm-primary-dark: #6b8a9a;
-    --ys-adm-primary-light: #b3c7d3;
+    --ys-adm-primary-light: #dff0e3;
     --ys-adm-primary-bg: rgba(143, 168, 184, 0.1);
     --ys-adm-success: #7dab8e;
     --ys-adm-success-bg: #e8f3ec;
@@ -32,7 +32,7 @@
 
 /* ── Hero Header ──────────────────────────── */
 .ysch-hero {
-    background: linear-gradient(135deg, #8fa8b8 0%, #a8bcc8 50%, #b3c7d3 100%);
+    background: linear-gradient(135deg, #4fa567 0%, #68b77d 50%, #83c592 100%);
     border-radius: 12px;
     padding: 28px 32px;
     margin: 12px 20px 0 0;
@@ -333,7 +333,7 @@
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: var(--ysch-app-color, #8fa8b8);
+    background: var(--ysch-app-color, #4fa567);
     color: var(--ysch-app-fg, #fff);
 }
 

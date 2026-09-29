@@ -40,7 +40,7 @@ class YSChatMigration {
             'side'          => 20,
             'size_outer'    => 56,
             'size_inner'    => 46,
-            'button_color'  => '#8fa8b8',
+            'button_color'  => '#4fa567',
             'button_icon'   => '',
             'icon_style'    => 'contain',
             'show_desktop'  => 1,
