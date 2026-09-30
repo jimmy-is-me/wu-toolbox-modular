@@ -41,7 +41,7 @@ function wutm_modules(): array {
         'classic-features' => ['name' => '經典功能', 'description' => '啟用經典編輯器、小工具、進階工具與原始大圖上傳。', 'group' => '後台介面', 'icon' => '📝'],
         'notice-center' => ['name' => '通知整理工具', 'description' => '將後台通知集中到安全的可展開面板。', 'group' => '後台介面', 'icon' => '🔔', 'settings_page' => 'wu-notice-center'],
         'content-duplicator' => ['name' => '內容複製器', 'description' => '複製文章、頁面與自訂內容。', 'group' => '內容管理', 'icon' => '📄'],
-        'content-ordering' => ['name' => '文章及分類排序', 'description' => '集中拖曳排序文章、商品與自訂分類法。', 'group' => '內容管理', 'icon' => '↕️'],
+        'content-ordering' => ['name' => '文章及分類排序', 'description' => '在專屬設定頁拖曳排序文章、頁面、商品與分類。', 'group' => '內容管理', 'icon' => '↕️', 'settings_page' => 'wu-content-ordering'],
         'contact-widgets' => ['name' => '浮動聯絡按鈕', 'description' => '在網站前台顯示可自訂的聯絡方式按鈕。', 'group' => '前台介面', 'icon' => '💬'],
         'custom-cursor' => ['name' => '自訂網站鼠標', 'description' => '在桌面裝置顯示極簡圓環鼠標，支援連結互動、點擊效果、文字欄位切換及圓環、中心點與互動顏色設定。', 'group' => '前台介面', 'icon' => '🖱️', 'settings_page' => 'wu-custom-cursor'],
         'page-transition' => ['name' => '頁面轉場動畫', 'description' => '站內正常換頁時顯示可自訂品牌色、Logo 與文字的全螢幕轉場動畫；自動略過 WooCommerce AJAX、外部連結、下載與同頁錨點。', 'group' => '前台介面', 'icon' => '✨', 'settings_page' => 'wu-page-transition'],

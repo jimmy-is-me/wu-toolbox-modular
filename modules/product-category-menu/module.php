@@ -41,7 +41,7 @@ function wutm_pcm_admin_page(): void {
     <div class="wrap wutm-pcm-admin"><style>.wutm-pcm-admin{max-width:980px}.wutm-pcm-hero{margin:18px 0;padding:25px 28px;border-radius:16px;background:linear-gradient(135deg,#102d4d,#2771ad);color:#fff}.wutm-pcm-hero h1{margin:0 0 8px;color:#fff}.wutm-pcm-code{padding:7px 11px;border:1px solid #acd0ea;border-radius:8px;background:#eff8ff;color:#155985;font:600 13px ui-monospace,monospace;cursor:pointer}.wutm-pcm-panel{margin:18px 0;padding:22px 26px;border:1px solid #dbe4ed;border-radius:14px;background:#fff;box-shadow:0 8px 24px rgba(20,45,75,.06)}.wutm-pcm-grid{display:grid;grid-template-columns:repeat(2,minmax(240px,1fr));gap:18px 28px}.wutm-pcm-grid label{font-weight:600}.wutm-pcm-grid label>*{display:block;margin-top:7px}.wutm-pcm-grid select,.wutm-pcm-grid input[type=number]{width:100%;min-height:40px}@media(max-width:700px){.wutm-pcm-grid{grid-template-columns:1fr}}</style>
     <style>.wutm-pcm-admin .wutm-pcm-code{display:inline-block;margin-left:8px;padding:5px 10px;border-radius:6px}.wutm-pcm-admin .wutm-module-subtitle{margin:0 0 22px}.wutm-pcm-admin .wutm-pcm-panel{padding:20px 22px;border-color:#dcdcde;border-radius:8px;box-shadow:none}.wutm-pcm-admin .wutm-pcm-panel>h2{margin:0 0 18px;padding-bottom:10px;border-bottom:1px solid #e5e7eb;font-size:17px}.wutm-pcm-admin input[type=checkbox]{display:inline-block!important;margin:0 6px 0 0!important}.wutm-pcm-admin label:has(>input[type=checkbox]){display:flex;align-items:center}.wutm-pcm-admin label:has(.wp-picker-container){display:flex!important;align-items:flex-start!important;flex-direction:column}.wutm-pcm-admin label:has(.wp-picker-container) .wp-picker-container{margin-top:8px}</style>
     <h1>商品分類選單設定</h1><p class="wutm-module-subtitle">建立支援多層分類與目前分類自動展開的手風琴選單。文字大小以 px 為單位；「目前分類與展開圖示顏色」同時控制目前所在分類及加減圖示；兩種背景色分別控制一般狀態與滑鼠移入／目前分類狀態。<button type="button" class="wutm-pcm-code" onclick="navigator.clipboard.writeText('[wutm_product_categories]');this.textContent='已複製：[wutm_product_categories]'">[wutm_product_categories]　點擊複製</button></p>
-    <form method="post" action="options.php"><?php settings_fields('wutm_pcm_group'); ?><section class="wutm-pcm-panel"><h2>選單行為</h2><div class="wutm-pcm-grid"><label>預設展開狀態<select name="wutm_product_category_menu[expand_mode]"><option value="current_only" <?php selected($o['expand_mode'], 'current_only'); ?>>只展開目前分類</option><option value="expand_all" <?php selected($o['expand_mode'], 'expand_all'); ?>>全部展開</option><option value="collapse_all" <?php selected($o['expand_mode'], 'collapse_all'); ?>>全部收合</option></select></label><label><input type="checkbox" name="wutm_product_category_menu[show_count]" value="1" <?php checked($o['show_count']); ?>> 顯示商品數量</label><label><input type="checkbox" name="wutm_product_category_menu[hide_empty]" value="1" <?php checked($o['hide_empty']); ?>> 隱藏沒有商品的分類</label></div></section>
+    <form method="post" action="options.php"><?php settings_fields('wutm_pcm_group'); ?><section class="wutm-pcm-panel"><h2>選單行為</h2><div class="wutm-pcm-grid"><label>預設展開狀態<select name="wutm_product_category_menu[expand_mode]"><option value="current_only" <?php selected($o['expand_mode'], 'current_only'); ?>>只展開目前分類</option><option value="expand_all" <?php selected($o['expand_mode'], 'expand_all'); ?>>全部展開</option><option value="collapse_all" <?php selected($o['expand_mode'], 'collapse_all'); ?>>全部收合</option></select></label><label><input type="checkbox" name="wutm_product_category_menu[show_count]" value="1" <?php checked($o['show_count']); ?>> 顯示商品數量</label><label><input type="checkbox" name="wutm_product_category_menu[hide_empty]" value="1" <?php checked($o['hide_empty']); ?>> 只隱藏自己及子分類皆無商品的分類</label></div><p class="description">取消勾選即可顯示所有商品分類，包括沒有商品的分類。分類順序可在「文章及分類排序」設定頁調整。</p></section>
     <section class="wutm-pcm-panel"><h2>外觀設定</h2><div class="wutm-pcm-grid"><label>選單區塊寬度<input name="wutm_product_category_menu[width]" value="<?php echo esc_attr($o['width']); ?>"><small>預設 100%，跟隨網站內容區。</small></label><label>主分類文字大小<input type="number" min="10" max="30" name="wutm_product_category_menu[font_size]" value="<?php echo (int) $o['font_size']; ?>"></label><label>子分類文字大小<input type="number" min="10" max="30" name="wutm_product_category_menu[sub_font_size]" value="<?php echo (int) $o['sub_font_size']; ?>"></label><label>分類文字粗細<select name="wutm_product_category_menu[font_weight]"><?php foreach (['300'=>'細體','400'=>'標準','500'=>'中等','600'=>'半粗','700'=>'粗體'] as $v=>$label): ?><option value="<?php echo esc_attr($v); ?>" <?php selected($o['font_weight'], $v); ?>><?php echo esc_html($label); ?></option><?php endforeach; ?></select></label><label>所有分類文字顏色<input class="wutm-pcm-color" name="wutm_product_category_menu[text_color]" value="<?php echo esc_attr($o['text_color']); ?>"></label><label>目前分類與展開圖示顏色<input class="wutm-pcm-color" name="wutm_product_category_menu[active_color]" value="<?php echo esc_attr($o['active_color']); ?>"></label><label>主分類列背景顏色<input class="wutm-pcm-color" name="wutm_product_category_menu[row_bg]" value="<?php echo esc_attr($o['row_bg']); ?>"></label><label>滑鼠移入與目前分類背景<input class="wutm-pcm-color" name="wutm_product_category_menu[row_hover]" value="<?php echo esc_attr($o['row_hover']); ?>"></label></div></section><?php submit_button('儲存設定'); ?></form></div>
     <?php
 }
@@ -69,17 +69,60 @@ function wutm_pcm_tree(array $terms, array $children_by_parent, int $current, ar
     return $html . '</div>';
 }
 
+/** Keep ancestors visible when a populated descendant has no direct products. */
+function wutm_pcm_filter_empty(array $terms, array $children_by_parent, array &$visible_children): array {
+    $visible = [];
+    foreach ($terms as $term) {
+        $children = wutm_pcm_filter_empty($children_by_parent[(int) $term->term_id] ?? [], $children_by_parent, $visible_children);
+        if ((int) $term->count > 0 || $children) {
+            $visible[] = $term;
+            $visible_children[(int) $term->term_id] = $children;
+        }
+    }
+    return $visible;
+}
+
 function wutm_pcm_shortcode($atts): string {
     $o = wutm_pcm_options();
     $atts = shortcode_atts(['hide_empty' => (string) $o['hide_empty'], 'show_count' => (string) $o['show_count'], 'expand_mode' => $o['expand_mode']], $atts, 'wutm_product_categories');
     $hide_empty = filter_var($atts['hide_empty'], FILTER_VALIDATE_BOOLEAN);
     $show_count = filter_var($atts['show_count'], FILTER_VALIDATE_BOOLEAN);
     $mode = in_array($atts['expand_mode'], ['current_only','expand_all','collapse_all'], true) ? $atts['expand_mode'] : $o['expand_mode'];
-    $all_terms = get_terms(['taxonomy'=>'product_cat','hide_empty'=>$hide_empty,'orderby'=>'menu_order','order'=>'ASC']);
+    // Fetch every term first: hide_empty can drop an empty ancestor while a
+    // populated descendant still needs it to remain reachable in the tree.
+    $all_terms = get_terms(['taxonomy'=>'product_cat','hide_empty'=>false,'hierarchical'=>false,'orderby'=>'name','order'=>'ASC','wutm_content_ordering_ignore'=>true]);
     if (is_wp_error($all_terms) || !$all_terms) return '';
     $children_by_parent = [];
-    foreach ($all_terms as $term) $children_by_parent[(int) $term->parent][] = $term;
+    $known = [];
+    foreach ($all_terms as $term) $known[(int) $term->term_id] = true;
+    foreach ($all_terms as $term) {
+        $parent = (int) $term->parent;
+        // Legacy imports can leave an orphan; still show it at the root.
+        $children_by_parent[isset($known[$parent]) ? $parent : 0][] = $term;
+    }
+    foreach ($children_by_parent as &$siblings) {
+        $original = [];
+        foreach ($siblings as $index => $term) $original[(int) $term->term_id] = $index;
+        usort($siblings, static function ($a, $b) use ($original): int {
+            $a_value = get_term_meta($a->term_id, 'wutm_content_order_position', true);
+            $b_value = get_term_meta($b->term_id, 'wutm_content_order_position', true);
+            $a_rank = $a_value === '' ? PHP_INT_MAX : (int) $a_value;
+            $b_rank = $b_value === '' ? PHP_INT_MAX : (int) $b_value;
+            if ($a_rank !== $b_rank) return $a_rank <=> $b_rank;
+            $a_wc = get_term_meta($a->term_id, 'order', true);
+            $b_wc = get_term_meta($b->term_id, 'order', true);
+            $a_wc = $a_wc === '' ? PHP_INT_MAX : (int) $a_wc;
+            $b_wc = $b_wc === '' ? PHP_INT_MAX : (int) $b_wc;
+            return ($a_wc <=> $b_wc) ?: ($original[$a->term_id] <=> $original[$b->term_id]);
+        });
+    }
+    unset($siblings);
     $terms = $children_by_parent[0] ?? [];
+    if ($hide_empty) {
+        $visible_children = [];
+        $terms = wutm_pcm_filter_empty($terms, $children_by_parent, $visible_children);
+        $children_by_parent = $visible_children;
+    }
     if (is_wp_error($terms) || !$terms) return '';
     $current = is_tax('product_cat') ? (int) get_queried_object_id() : 0;
     $ancestors = $current ? array_map('intval', get_ancestors($current, 'product_cat')) : [];
