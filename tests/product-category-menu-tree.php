@@ -56,5 +56,6 @@ foreach (['Empty parent', 'Populated child', 'First by saved order', 'Orphan wit
 }
 if (strpos($html, 'Empty branch') !== false) throw new RuntimeException('An entirely empty branch should be hidden.');
 if (strpos($html, 'First by saved order') > strpos($html, 'Empty parent')) throw new RuntimeException('Saved category order was not applied.');
+if (strpos($html, '#wutm-pcm-test#wutm-pcm-test>.wutm-pcm-list>.wutm-pcm-item:first-child{display:block!important') === false) throw new RuntimeException('The first category must override conflicting Elementor hide rules.');
 
 echo "Product category menu hierarchy checks passed.\n";
