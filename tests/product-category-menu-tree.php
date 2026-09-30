@@ -1,6 +1,19 @@
 <?php
 /** Regression checks for complete product-category hierarchy and ordering. */
 define('ABSPATH', __DIR__ . '/');
+$wpdb = new class {
+    public string $term_taxonomy = 'wp_term_taxonomy';
+    public function get_results($sql): array {
+        return [
+            (object) ['term_id' => 1, 'parent' => 0, 'count' => 0],
+            (object) ['term_id' => 2, 'parent' => 1, 'count' => 3],
+            (object) ['term_id' => 3, 'parent' => 0, 'count' => 0],
+            (object) ['term_id' => 4, 'parent' => 0, 'count' => 2],
+            (object) ['term_id' => 5, 'parent' => 999, 'count' => 1],
+            (object) ['term_id' => 6, 'parent' => 0, 'count' => 38],
+        ];
+    }
+};
 function add_action(...$args): void {}
 function add_shortcode(...$args): void {}
 function get_option($key, $default = []) { return ['hide_empty' => 1]; }
@@ -15,6 +28,10 @@ function esc_html($value): string { return htmlspecialchars((string) $value, ENT
 function esc_url($value): string { return (string) $value; }
 function absint($value): int { return abs((int) $value); }
 function get_term_link($term): string { return 'https://example.test/category/' . $term->term_id; }
+function get_term($id, $taxonomy) {
+    if ($id === 6 && $taxonomy === 'product_cat') return (object) ['term_id' => 6, 'parent' => 0, 'name' => 'Air conditioner series', 'count' => 38];
+    return false;
+}
 function get_term_meta($id, $key, $single = true) {
     $order = [2 => 1, 4 => 0];
     return $key === 'wutm_content_order_position' ? ($order[$id] ?? '') : '';
@@ -34,7 +51,7 @@ function get_terms($args): array {
 
 require dirname(__DIR__) . '/modules/product-category-menu/module.php';
 $html = wutm_pcm_shortcode([]);
-foreach (['Empty parent', 'Populated child', 'First by saved order', 'Orphan with products'] as $name) {
+foreach (['Empty parent', 'Populated child', 'First by saved order', 'Orphan with products', 'Air conditioner series'] as $name) {
     if (strpos($html, $name) === false) throw new RuntimeException('Missing category: ' . $name);
 }
 if (strpos($html, 'Empty branch') !== false) throw new RuntimeException('An entirely empty branch should be hidden.');

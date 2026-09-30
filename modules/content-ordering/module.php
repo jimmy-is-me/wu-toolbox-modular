@@ -75,6 +75,7 @@ final class WUTM_Content_Ordering {
             list.sortable({
                 items: "> li[data-id]",
                 handle: ".wutm-co-handle",
+                cancel: "input,textarea,select,option,a",
                 axis: "y",
                 tolerance: "pointer",
                 placeholder: "wutm-co-placeholder",

@@ -82,16 +82,41 @@ function wutm_pcm_filter_empty(array $terms, array $children_by_parent, array &$
     return $visible;
 }
 
+/** Reconcile WP's filtered term query with the canonical taxonomy rows. */
+function wutm_pcm_all_product_categories(): array {
+    static $cached = null;
+    if ($cached !== null) return $cached;
+    $terms = get_terms(['taxonomy'=>'product_cat','hide_empty'=>false,'hierarchical'=>false,'orderby'=>'name','order'=>'ASC','wutm_content_ordering_ignore'=>true]);
+    if (is_wp_error($terms)) $terms = [];
+    $by_id = [];
+    foreach ($terms as $term) $by_id[(int) $term->term_id] = $term;
+
+    global $wpdb;
+    if (!isset($wpdb->term_taxonomy)) return $cached = array_values($by_id);
+    $rows = $wpdb->get_results("SELECT tt.term_id, tt.parent, tt.count FROM {$wpdb->term_taxonomy} AS tt WHERE tt.taxonomy = 'product_cat'");
+    if (!is_array($rows)) return $cached = array_values($by_id);
+    foreach ($rows as $row) {
+        $id = (int) $row->term_id;
+        $term = $by_id[$id] ?? get_term($id, 'product_cat');
+        if (!$term || is_wp_error($term)) continue;
+        $term = clone $term;
+        $term->parent = (int) $row->parent;
+        $term->count = (int) $row->count;
+        $by_id[$id] = $term;
+    }
+    return $cached = array_values($by_id);
+}
+
 function wutm_pcm_shortcode($atts): string {
     $o = wutm_pcm_options();
     $atts = shortcode_atts(['hide_empty' => (string) $o['hide_empty'], 'show_count' => (string) $o['show_count'], 'expand_mode' => $o['expand_mode']], $atts, 'wutm_product_categories');
     $hide_empty = filter_var($atts['hide_empty'], FILTER_VALIDATE_BOOLEAN);
     $show_count = filter_var($atts['show_count'], FILTER_VALIDATE_BOOLEAN);
     $mode = in_array($atts['expand_mode'], ['current_only','expand_all','collapse_all'], true) ? $atts['expand_mode'] : $o['expand_mode'];
-    // Fetch every term first: hide_empty can drop an empty ancestor while a
-    // populated descendant still needs it to remain reachable in the tree.
-    $all_terms = get_terms(['taxonomy'=>'product_cat','hide_empty'=>false,'hierarchical'=>false,'orderby'=>'name','order'=>'ASC','wutm_content_ordering_ignore'=>true]);
-    if (is_wp_error($all_terms) || !$all_terms) return '';
+    // Reconcile with taxonomy rows because other term-query filters can omit
+    // a category even when WooCommerce reports products in that category.
+    $all_terms = wutm_pcm_all_product_categories();
+    if (!$all_terms) return '';
     $children_by_parent = [];
     $known = [];
     foreach ($all_terms as $term) $known[(int) $term->term_id] = true;
