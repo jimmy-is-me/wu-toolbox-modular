@@ -815,6 +815,7 @@ class WU_WooCommerce_Optimizer {
         jQuery(function($){
             const data=window.wutm711Checkout||{rates:{}};
             const $box=$('#wutm_711_store_field'),$id=$('#cvs_store_id'),$name=$('#cvs_store_name'),$address=$('#cvs_store_address');
+            let was711=false;
             function selectedRate(){
                 const $methods=$('input[name^="shipping_method"],select[name^="shipping_method"]');
                 const $checked=$methods.filter(':checked').first();
@@ -830,10 +831,9 @@ class WU_WooCommerce_Optimizer {
                 const shipping=selectedRate(),active=shipping.indexOf('seven_eleven_pickup')!==-1||shipping.indexOf('cvs_711_shipping')!==-1,cfg=selectedConfig(),manual=cfg.mode!=='map';
                 if(active){
                     $box.stop(true,true).slideDown();
-                    // Store pickup is not a second delivery address. WooCommerce can
-                    // use the hidden TW billing country to calculate its shipping zone.
+                    // Keep the pickup recipient fields open while 7-11 is selected.
                     const $differentAddress=$('#ship-to-different-address-checkbox');
-                    if($differentAddress.is(':checked'))$differentAddress.prop('checked',false).trigger('change');
+                    if(!$differentAddress.is(':checked'))$differentAddress.prop('checked',true).trigger('change');
                     $('#billing_country_field,#billing_state_field,#billing_city_field,#billing_postcode_field,#billing_address_1_field,#billing_address_2_field,#billing_company_field,#billing_region_type_field').hide();
                     $('#shipping_country_field,#shipping_state_field,#shipping_city_field,#shipping_postcode_field,#shipping_address_1_field,#shipping_address_2_field,#shipping_company_field,#shipping_region_type_field').hide();
                     $('#shipping_phone_field').slideDown();
@@ -847,10 +847,13 @@ class WU_WooCommerce_Optimizer {
                     refreshStoreInfo();
                 } else {
                     $box.stop(true,true).slideUp();
+                    const $differentAddress=$('#ship-to-different-address-checkbox');
+                    if(was711&&$differentAddress.is(':checked'))$differentAddress.prop('checked',false).trigger('change');
                     $('#billing_country_field,#billing_state_field,#billing_city_field,#billing_postcode_field,#billing_address_1_field,#billing_address_2_field,#billing_company_field,#billing_region_type_field').show();
                     $('#shipping_country_field,#shipping_state_field,#shipping_city_field,#shipping_postcode_field,#shipping_address_1_field,#shipping_address_2_field,#shipping_company_field,#shipping_region_type_field').show();
                     $('#shipping_phone').removeAttr('required');
                 }
+                was711=active;
             }
             $(document).on('change','input[name^="shipping_method"],select[name^="shipping_method"]',toggle711);
             $(document.body).on('updated_checkout', toggle711);
