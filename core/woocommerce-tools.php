@@ -830,12 +830,14 @@ class WU_WooCommerce_Optimizer {
                 const shipping=selectedRate(),active=shipping.indexOf('seven_eleven_pickup')!==-1||shipping.indexOf('cvs_711_shipping')!==-1,cfg=selectedConfig(),manual=cfg.mode!=='map';
                 if(active){
                     $box.stop(true,true).slideDown();
-                    if(!$('#ship-to-different-address-checkbox').is(':checked')){
-                        $('#ship-to-different-address-checkbox').prop('checked', true).trigger('change');
-                    }
+                    // Store pickup is not a second delivery address. WooCommerce can
+                    // use the hidden TW billing country to calculate its shipping zone.
+                    const $differentAddress=$('#ship-to-different-address-checkbox');
+                    if($differentAddress.is(':checked'))$differentAddress.prop('checked',false).trigger('change');
+                    $('#billing_country_field,#billing_state_field,#billing_city_field,#billing_postcode_field,#billing_address_1_field,#billing_address_2_field,#billing_company_field,#billing_region_type_field').hide();
                     $('#shipping_country_field,#shipping_state_field,#shipping_city_field,#shipping_postcode_field,#shipping_address_1_field,#shipping_address_2_field,#shipping_company_field,#shipping_region_type_field').hide();
                     $('#shipping_phone_field').slideDown();
-                    $('#shipping_phone').attr('required', 'required');
+                    $('#shipping_phone').removeAttr('required');
                     if(!$('#shipping_country').val())$('#shipping_country').val('TW');
                     if(!$('#shipping_city').val())$('#shipping_city').val('超商取貨');
                     if(!$('#shipping_address_1').val())$('#shipping_address_1').val('7-11 超商取貨');
@@ -845,6 +847,7 @@ class WU_WooCommerce_Optimizer {
                     refreshStoreInfo();
                 } else {
                     $box.stop(true,true).slideUp();
+                    $('#billing_country_field,#billing_state_field,#billing_city_field,#billing_postcode_field,#billing_address_1_field,#billing_address_2_field,#billing_company_field,#billing_region_type_field').show();
                     $('#shipping_country_field,#shipping_state_field,#shipping_city_field,#shipping_postcode_field,#shipping_address_1_field,#shipping_address_2_field,#shipping_company_field,#shipping_region_type_field').show();
                     $('#shipping_phone').removeAttr('required');
                 }
@@ -1031,10 +1034,15 @@ class WU_WooCommerce_Optimizer {
             );
         }
         if ($this->selected_711_rate()) {
+            foreach (array('billing_country','billing_state','billing_city','billing_postcode','billing_address_1','billing_address_2','billing_company') as $key) {
+                if (isset($fields['billing'][$key])) $fields['billing'][$key]['required'] = false;
+            }
             foreach (array('shipping_country','shipping_state','shipping_city','shipping_postcode','shipping_address_1','shipping_address_2','shipping_company') as $key) {
                 if (isset($fields['shipping'][$key])) $fields['shipping'][$key]['required'] = false;
             }
-            $fields['shipping']['shipping_phone']['required'] = true;
+            // The shipping form stays collapsed; validate the pickup phone via
+            // validate_711_fields(), which also accepts the billing phone.
+            $fields['shipping']['shipping_phone']['required'] = false;
         }
         return $fields;
     }

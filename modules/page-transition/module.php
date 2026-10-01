@@ -1782,14 +1782,14 @@ if ( ! class_exists( 'Wumetax_Brand_Transition_v220' ) ) {
 				pointer-events:none;
 
 				transition:
-					opacity .28s
+					opacity .36s
 					cubic-bezier(
 						.22,
 						.61,
 						.36,
 						1
 					),
-					visibility .28s linear;
+					visibility 0s linear .36s;
 
 				contain:
 					layout paint;
@@ -1848,6 +1848,8 @@ if ( ! class_exists( 'Wumetax_Brand_Transition_v220' ) ) {
 				visibility:visible;
 
 				pointer-events:auto;
+
+				transition-delay:0s;
 			}
 
 
@@ -1967,14 +1969,6 @@ if ( ! class_exists( 'Wumetax_Brand_Transition_v220' ) ) {
 				transform:
 					rotate(28deg);
 
-				animation:
-					wuptRotateOne
-					1.15s
-					linear
-					infinite;
-
-				will-change:
-					transform;
 			}
 
 
@@ -1994,14 +1988,14 @@ if ( ! class_exists( 'Wumetax_Brand_Transition_v220' ) ) {
 
 				opacity:.32;
 
-				animation:
-					wuptRotateTwo
-					1.8s
-					linear
-					infinite;
+			}
 
-				will-change:
-					transform;
+			html.wupt-show .wupt-ring-one{
+				animation:wuptRotateOne 1.15s linear infinite;
+			}
+
+			html.wupt-show .wupt-ring-two{
+				animation:wuptRotateTwo 1.8s linear infinite;
 			}
 
 
@@ -2186,11 +2180,10 @@ if ( ! class_exists( 'Wumetax_Brand_Transition_v220' ) ) {
 				background:
 					var(--wupt-accent);
 
-				animation:
-					wuptDot
-					1.05s
-					infinite
-					ease-in-out;
+			}
+
+			html.wupt-show .wupt-dot{
+				animation:wuptDot 1.05s infinite ease-in-out;
 			}
 
 
@@ -2551,6 +2544,10 @@ if ( ! class_exists( 'Wumetax_Brand_Transition_v220' ) ) {
 				const html =
 					document.documentElement;
 
+				const reducedMotion =
+					window.matchMedia
+					&& window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
 
 				let leaving =
 					false;
@@ -2617,8 +2614,8 @@ if ( ! class_exists( 'Wumetax_Brand_Transition_v220' ) ) {
 				function finishArrival(){
 
 					const delay =
-						arrivedFromTransition
-							? 220
+						arrivedFromTransition && !reducedMotion
+							? 160
 							: 0;
 
 
@@ -3070,10 +3067,7 @@ if ( ! class_exists( 'Wumetax_Brand_Transition_v220' ) ) {
 
 
 
-						/*
-						 * 約 260ms：
-						 * Loader 先完整淡入再換頁。
-						 */
+						/* Let the overlay finish its 360ms fade before navigation. */
 
 						window.setTimeout(
 							function(){
@@ -3083,7 +3077,7 @@ if ( ! class_exists( 'Wumetax_Brand_Transition_v220' ) ) {
 								);
 
 							},
-							260
+							reducedMotion ? 0 : 380
 						);
 
 					}
