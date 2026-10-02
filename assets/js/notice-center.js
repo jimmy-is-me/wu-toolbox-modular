@@ -46,6 +46,7 @@
     var selector = '.notice, div.updated, div.error, .update-nag, .e-notice, .trp-notice, .fs-notice, .woocommerce-message, .woocommerce-info, .woocommerce-error, .woocommerce-admin-notice, .wc-admin-notice';
     var excludedContainers = '.postbox, .stuffbox, table, .components-notice-list, .woocommerce-layout__activity-panel';
     var collecting = false;
+    var connectionNotices = '#lost-connection-notice, #wc-lost-connection-notice, #local-storage-notice';
 
     function visible(node) {
         if (node.closest('[hidden], [aria-hidden="true"], .hidden, .hide-if-js, #lost-connection-notice, #local-storage-notice')) return false;
@@ -56,6 +57,12 @@
     function eligible(node) {
         if (!(node instanceof Element) || !node.matches(selector)) return false;
         if (panel.contains(node) || node.matches('.inline, .wutm-notice-keep')) return false;
+        // These are live connection/autosave indicators, not general notices.
+        // Leave both hidden and active states under the originating script.
+        if (node.closest(connectionNotices)) {
+            node.classList.add('wutm-notice-keep');
+            return false;
+        }
         // Core's hide-if-js notices are no-JavaScript fallbacks, not errors.
         // Moving them into the panel used to override their hidden display and
         // expose the media-grid warning even while the grid worked normally.

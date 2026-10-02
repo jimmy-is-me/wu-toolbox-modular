@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+			<h4>3.4.9</h4><ul><li>通知整理不再搬移 WordPress／WooCommerce 連線與自動儲存狀態，保留原始控制；修正面板樣式誤顯示隱藏通知，不影響真正的連線警告。</li></ul>
 			<h4>3.4.8</h4><ul><li>修正通知整理重複更新數字造成的監聽循環與後台卡頓；入口移至右上方管理列，通知預設收合，支援點擊外側與 Escape 關閉。</li></ul>
 			<h4>3.4.7</h4><ul><li>通知整理面板固定於後台內容區，避免 WooCommerce 設定頁的通知搬移影響顯示；提前啟用通知隱藏並移除定時顯示，換頁預設保持收合。</li></ul>
 			<h4>3.4.6</h4><ul><li>通知整理工具會收集外掛輸出的頁面層級通知，包括 WooCommerce 設定表單內的 Post SMTP、WPCode 與 Freemius 通知；保留欄位內嵌訊息與含表單控制項的通知在原處。</li></ul>

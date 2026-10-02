@@ -5,7 +5,10 @@ const vm = require('node:vm');
 class Element {
     constructor(fallback = false, kind = 'notice') { this.fallback = fallback; this.kind = kind; this.children = []; }
     matches(selector) { return this.kind !== '' && new RegExp('(^|[^\\w-])\\.' + this.kind + '(?![\\w-])').test(selector); }
-    closest(selector) { return selector === 'form' ? this.form || null : selector.includes('.hide-if-js') && this.fallback ? this : null; }
+    closest(selector) {
+        if (this.id && selector.split(',').map(value => value.trim()).includes('#' + this.id)) return this;
+        return selector === 'form' ? this.form || null : selector.includes('.hide-if-js') && this.fallback ? this : null;
+    }
     querySelector() { return this.hasControl ? {} : null; }
     querySelectorAll() { return this.children; }
 }
@@ -30,7 +33,13 @@ formNotice.parentElement = settingsForm;
 formNotice.hasControl = true;
 formNotice.classList = { add() {} };
 const content = new Element(false, '');
-content.children = [fallback, ordinary, commerce, pluginNotice, wpcodeNotice, inlineNotice, formNotice];
+const connectionNotices = ['lost-connection-notice', 'wc-lost-connection-notice', 'local-storage-notice'].map(id => {
+    const node = new Element(false);
+    node.id = id;
+    node.classList = { add(value) { node.kept = value; } };
+    return node;
+});
+content.children = [fallback, ordinary, commerce, pluginNotice, wpcodeNotice, inlineNotice, formNotice, ...connectionNotices];
 const items = new Element();
 items.appendChild = node => items.children.push(node);
 let textWrites = 0;
@@ -62,6 +71,7 @@ assert.deepEqual(items.children, [ordinary, commerce, pluginNotice, wpcodeNotice
 assert.equal(count.textContent, '4');
 assert.equal(panel.parentElement, content, 'Panel must escape WooCommerce header/form containers');
 assert.equal(important.textContent, '包含 1 則重要通知');
+assert.ok(connectionNotices.every(node => node.kept === 'wutm-notice-keep' && !items.children.includes(node)), 'Live connection/autosave notices must stay outside, even when active');
 const previousWrites = textWrites;
 for (let i = 0; i < 20; i++) observers[0]([{ addedNodes: [] }]);
 assert.equal(textWrites, previousWrites, 'Unchanged counters must not create observer feedback mutations');
@@ -100,4 +110,6 @@ assert.equal(details.open, false);
 const styles = fs.readFileSync('modules/notice-center/module.php', 'utf8');
 assert.ok(!styles.includes('wutm-notice-precollect-fallback'), 'No timed reveal before collection');
 assert.ok(styles.includes('details:not([open])>.wutm-notice-items{display:none!important;}'), 'Closed panel stays collapsed despite plugin styles');
+assert.ok(styles.includes('.wutm-notice-items>.hidden,'), 'Hidden notices remain hidden inside the panel');
+assert.ok(!styles.includes('wc-admin-notice{display:block;'), 'Panel must not force hidden or inline-style notices to display');
 console.log('Notice-center fallback check passed.');
