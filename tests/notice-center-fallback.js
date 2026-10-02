@@ -36,6 +36,7 @@ items.appendChild = node => items.children.push(node);
 const count = { textContent: '' };
 const important = { textContent: '' };
 const panel = new Element(false, '');
+content.insertBefore = node => { node.parentElement = content; };
 panel.contains = () => false;
 panel.querySelector = selector => selector === '.wutm-notice-items' ? items : selector === '.wutm-notice-count' ? count : important;
 panel.classList = { toggle() {} };
@@ -43,6 +44,7 @@ panel.classList = { toggle() {} };
 const context = {
     Element,
     document: {
+        documentElement: { classList: { add() {} } },
         getElementById: id => id === 'wutm-notice-center' ? panel : content,
         readyState: 'complete',
     },
@@ -52,5 +54,17 @@ const context = {
 vm.runInNewContext(fs.readFileSync('assets/js/notice-center.js', 'utf8'), context);
 assert.deepEqual(items.children, [ordinary, commerce, pluginNotice, wpcodeNotice], 'Top-level plugin notices should be collected while fallbacks and notices with form controls stay outside');
 assert.equal(count.textContent, '4');
+assert.equal(panel.parentElement, content, 'Panel must escape WooCommerce header/form containers');
 assert.equal(important.textContent, '包含 1 則重要通知');
+let ready;
+items.children = [];
+context.document.readyState = 'loading';
+context.document.addEventListener = (event, callback) => { if (event === 'DOMContentLoaded') ready = callback; };
+vm.runInNewContext(fs.readFileSync('assets/js/notice-center.js', 'utf8'), context);
+assert.equal(items.children.length, 0, 'Head script must wait for the panel markup');
+ready();
+assert.equal(count.textContent, '4', 'Head-loaded collector must initialize when markup is ready');
+const styles = fs.readFileSync('modules/notice-center/module.php', 'utf8');
+assert.ok(!styles.includes('wutm-notice-precollect-fallback'), 'No timed reveal before collection');
+assert.ok(styles.includes('details:not([open])>.wutm-notice-items{display:none!important;}'), 'Closed panel stays collapsed despite plugin styles');
 console.log('Notice-center fallback check passed.');

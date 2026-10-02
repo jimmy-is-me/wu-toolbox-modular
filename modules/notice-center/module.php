@@ -91,21 +91,21 @@ final class WUTM_Notice_Center {
         wp_register_style('wutm-notice-center', false, [], WUTM_VERSION);
         wp_enqueue_style('wutm-notice-center');
         wp_add_inline_style('wutm-notice-center', '
-            @keyframes wutm-notice-precollect-fallback{to{visibility:visible;}}
-            html.js body.wutm-notice-center-active #wpbody-content .notice:not(.inline):not(.wutm-notice-keep),
-            html.js body.wutm-notice-center-active #wpbody-content div.updated:not(.inline):not(.wutm-notice-keep),
-            html.js body.wutm-notice-center-active #wpbody-content div.error:not(.inline):not(.wutm-notice-keep),
-            html.js body.wutm-notice-center-active #wpbody-content .update-nag:not(.inline):not(.wutm-notice-keep),
-            html.js body.wutm-notice-center-active #wpbody-content .e-notice:not(.inline):not(.wutm-notice-keep),
-            html.js body.wutm-notice-center-active #wpbody-content .trp-notice:not(.inline):not(.wutm-notice-keep),
-            html.js body.wutm-notice-center-active #wpbody-content .fs-notice:not(.inline):not(.wutm-notice-keep),
-            html.js body.wutm-notice-center-active #wpbody-content .woocommerce-message:not(.inline):not(.wutm-notice-keep),
-            html.js body.wutm-notice-center-active #wpbody-content .woocommerce-info:not(.inline):not(.wutm-notice-keep),
-            html.js body.wutm-notice-center-active #wpbody-content .woocommerce-error:not(.inline):not(.wutm-notice-keep),
-            html.js body.wutm-notice-center-active #wpbody-content .woocommerce-admin-notice:not(.inline):not(.wutm-notice-keep),
-            html.js body.wutm-notice-center-active #wpbody-content .wc-admin-notice:not(.inline):not(.wutm-notice-keep){
+
+            html.wutm-notice-collector-ready body.wutm-notice-center-active #wpbody-content .notice:not(.inline):not(.wutm-notice-keep),
+            html.wutm-notice-collector-ready body.wutm-notice-center-active #wpbody-content div.updated:not(.inline):not(.wutm-notice-keep),
+            html.wutm-notice-collector-ready body.wutm-notice-center-active #wpbody-content div.error:not(.inline):not(.wutm-notice-keep),
+            html.wutm-notice-collector-ready body.wutm-notice-center-active #wpbody-content .update-nag:not(.inline):not(.wutm-notice-keep),
+            html.wutm-notice-collector-ready body.wutm-notice-center-active #wpbody-content .e-notice:not(.inline):not(.wutm-notice-keep),
+            html.wutm-notice-collector-ready body.wutm-notice-center-active #wpbody-content .trp-notice:not(.inline):not(.wutm-notice-keep),
+            html.wutm-notice-collector-ready body.wutm-notice-center-active #wpbody-content .fs-notice:not(.inline):not(.wutm-notice-keep),
+            html.wutm-notice-collector-ready body.wutm-notice-center-active #wpbody-content .woocommerce-message:not(.inline):not(.wutm-notice-keep),
+            html.wutm-notice-collector-ready body.wutm-notice-center-active #wpbody-content .woocommerce-info:not(.inline):not(.wutm-notice-keep),
+            html.wutm-notice-collector-ready body.wutm-notice-center-active #wpbody-content .woocommerce-error:not(.inline):not(.wutm-notice-keep),
+            html.wutm-notice-collector-ready body.wutm-notice-center-active #wpbody-content .woocommerce-admin-notice:not(.inline):not(.wutm-notice-keep),
+            html.wutm-notice-collector-ready body.wutm-notice-center-active #wpbody-content .wc-admin-notice:not(.inline):not(.wutm-notice-keep){
                 visibility:hidden;
-                animation:wutm-notice-precollect-fallback 0s 2s forwards;
+
             }
             #wutm-notice-center{display:none;margin:16px 0 12px;max-width:100%;}
             #wutm-notice-center.is-visible{display:block;}
@@ -114,6 +114,7 @@ final class WUTM_Notice_Center {
             #wutm-notice-center .wutm-notice-count{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:#2271b1;color:#fff;font-size:12px;}
             #wutm-notice-center .wutm-notice-important{color:#b32d2e;font-size:12px;font-weight:600;}
             #wutm-notice-center .wutm-notice-items{padding:1px 0 12px;}
+            #wutm-notice-center details:not([open])>.wutm-notice-items{display:none!important;}
             body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.notice,
             body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.updated,
             body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.error,
@@ -131,7 +132,7 @@ final class WUTM_Notice_Center {
             body.wutm-notice-center-active #wpbody-content .wutm-notice-keep{visibility:visible!important;animation:none!important;}
         ');
 
-        wp_enqueue_script('wutm-notice-center', WUTM_URL . 'assets/js/notice-center.js', [], WUTM_VERSION, true);
+        wp_enqueue_script('wutm-notice-center', WUTM_URL . 'assets/js/notice-center.js', [], WUTM_VERSION, false);
     }
 
     public static function body_class(string $classes): string {

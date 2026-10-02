@@ -1,6 +1,9 @@
 (function () {
     'use strict';
 
+    // Activate pre-collection hiding only when this script actually loads.
+    document.documentElement.classList.add('wutm-notice-collector-ready');
+    function initialize() {
     var panel = document.getElementById('wutm-notice-center');
     var content = document.getElementById('wpbody-content');
     if (!panel || !content) return;
@@ -47,6 +50,9 @@
     }
 
     function refresh() {
+        // WooCommerce and common.js relocate header/notices. Keep our panel
+        // outside their header and settings form, in a stable content root.
+        if (panel.parentElement !== content) content.insertBefore(panel, content.firstChild);
         var notices = Array.prototype.filter.call(items.children, visible);
         var errors = notices.filter(function (node) {
             return node.matches('.notice-error, div.error, .woocommerce-error');
@@ -64,8 +70,7 @@
         refresh();
     }
 
-    // This footer script can collect immediately. The stylesheet has already
-    // hidden matching notices, so they are moved before their first paint.
+    // Matching notices are hidden from first paint, without a timed reveal.
     collect(noticeRoot);
 
     var contentObserver = new MutationObserver(function (mutations) {
@@ -87,4 +92,10 @@
     // Core common.js and some plugins relocate notices during DOM ready/load.
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { collect(noticeRoot); }, {once: true});
     window.addEventListener('load', function () { collect(noticeRoot); }, {once: true});
+    }
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initialize, {once: true});
+    } else {
+        initialize();
+    }
 })();

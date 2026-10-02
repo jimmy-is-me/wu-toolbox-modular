@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+			<h4>3.4.7</h4><ul><li>通知整理面板固定於後台內容區，避免 WooCommerce 設定頁的通知搬移影響顯示；提前啟用通知隱藏並移除定時顯示，換頁預設保持收合。</li></ul>
 			<h4>3.4.6</h4><ul><li>通知整理工具會收集外掛輸出的頁面層級通知，包括 WooCommerce 設定表單內的 Post SMTP、WPCode 與 Freemius 通知；保留欄位內嵌訊息與含表單控制項的通知在原處。</li></ul>
 			<h4>3.4.5</h4><ul><li>模組面板新增全部、已開啟及未開啟篩選，預設顯示全部模組。</li><li>將離島配送與 7-11 超商取貨設定整合至 WC 優化工具，保留既有啟用狀態及運送設定。</li><li>通知整理工具納入 WooCommerce 後台常見通知與錯誤訊息，保留表單及編輯器內的情境訊息。</li></ul>
 			<h4>3.4.4</h4><ul><li>修正 7-11 超商取貨結帳切換：選擇 7-11 時自動勾選「需寄送到其他收件地址」，切換回其他運送方式時取消勾選；保留 7-11 免填帳單地址及既有門市資訊處理。</li></ul>
