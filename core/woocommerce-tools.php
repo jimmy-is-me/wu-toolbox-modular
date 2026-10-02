@@ -164,7 +164,7 @@ class WU_WooCommerce_Optimizer {
     }
     private function page_title() {
         if ($this->mode === 'shipping') return '運送優化功能';
-        return $this->mode === 'commerce' ? 'WC優化工具' : '隱藏WC工具';
+        return $this->mode === 'commerce' ? 'WC 優化工具' : '隱藏WC工具';
     }
     private function settings_group() {
         if ($this->mode === 'shipping') return 'wu_shipping_optimization_settings';
@@ -182,7 +182,9 @@ class WU_WooCommerce_Optimizer {
             'wutm_wc_onepage_checkout' => array('啟用一頁式結帳', 'onepage_checkout_callback'),
             'wutm_wc_attr_enter_add' => array('按 Enter 新增屬性數值', 'attribute_enter_add_callback'),
             'wutm_wc_variation_tags' => array('按鈕標籤顯示可變屬性', 'variation_tags_callback'),
-            'wutm_wc_virtual_order_autocomplete' => array('虛擬商品自動完成訂單', 'virtual_order_autocomplete_callback')
+            'wutm_wc_virtual_order_autocomplete' => array('虛擬商品自動完成訂單', 'virtual_order_autocomplete_callback'),
+            'wu_woo_enable_island_shipping' => array('台灣離島配送', 'enable_island_shipping_callback'),
+            'wu_woo_enable_711_shipping' => array('7-11 超商取貨', 'enable_711_shipping_callback')
         ) : array(
             'wu_woo_disable_notifications' => array('停用 WooCommerce 通知欄', 'disable_notifications_callback')
         );
@@ -193,8 +195,12 @@ class WU_WooCommerce_Optimizer {
     public function admin_init() {
         $group = $this->settings_group();
         add_settings_section($group, $this->page_title(), array($this, 'settings_section_callback'), $group);
+        if ($this->mode === 'commerce') {
+            add_settings_section($group . '_shipping', '運送與取貨', array($this, 'shipping_section_callback'), $group);
+        }
         foreach ($this->fields() as $option => $field) {
-            add_settings_field($option, $field[0], array($this, $field[1]), $group, $group);
+            $section = $this->mode === 'commerce' && in_array($option, array('wu_woo_enable_island_shipping', 'wu_woo_enable_711_shipping'), true) ? $group . '_shipping' : $group;
+            add_settings_field($option, $field[0], array($this, $field[1]), $group, $section);
         }
         if ($this->mode === 'visibility') {
             foreach ($this->admin_visibility_options() as $option => $label) {
@@ -204,9 +210,13 @@ class WU_WooCommerce_Optimizer {
     }
 
     public function settings_section_callback() {
-        if ($this->mode === 'commerce') { echo '<p>選擇需要啟用的結帳欄位功能。電子發票僅收集並顯示訂單資訊，不含發票開立或任何服務串接。</p>'; return; }
+        if ($this->mode === 'commerce') { echo '<p>選擇需要啟用的結帳與商品管理功能。發票資訊僅收集並顯示訂單資料，不會自動開立發票或串接發票服務。</p>'; return; }
         if ($this->mode === 'shipping') { echo '<p>集中管理台灣離島配送與 7-11 超商物流。7-11 支援買家手動填寫或綠界電子地圖選店，並將完整門市資訊保存至訂單。</p>'; return; }
         echo '<p>配置 WooCommerce 優化選項。所有功能均需手動啟用。隱藏選項僅整理後台選單或設定分頁，不停用相關功能、不改變權限，也不影響前台購物與結帳；取消勾選並儲存即可恢復。</p>';
+    }
+
+    public function shipping_section_callback() {
+        echo '<p>依需求啟用離島配送或 7-11 取貨；運費、免運門檻及選店方式仍在各 WooCommerce 運送區域設定。原有運送設定會保留。</p>';
     }
 
     public function disable_notifications_callback() {
@@ -286,12 +296,12 @@ class WU_WooCommerce_Optimizer {
 
         return;
         }
-        if (($this->mode === 'commerce' && get_option('wu_woo_taiwan_address')) || ($this->mode === 'shipping' && get_option('wu_woo_enable_island_shipping'))) {
+        if (($this->mode === 'commerce' && (get_option('wu_woo_taiwan_address') || get_option('wu_woo_enable_island_shipping'))) || ($this->mode === 'shipping' && get_option('wu_woo_enable_island_shipping'))) {
             add_action('init', array($this, 'register_taiwan_address'));
             add_filter('woocommerce_checkout_posted_data', array($this, 'preserve_saved_billing_fields'), 5);
         }
 
-        if ($this->mode === 'shipping' && get_option('wu_woo_enable_711_shipping')) {
+        if (in_array($this->mode, array('commerce', 'shipping'), true) && get_option('wu_woo_enable_711_shipping')) {
             add_action('init', array($this, 'register_711_shipping'));
         }
 
@@ -1615,7 +1625,7 @@ jQuery(document).ready(function($) {
                 $value = $bulk_action === 'enable' ? 1 : ($bulk_action === 'disable' ? 0 : (isset($_POST[$option]) && $_POST[$option] === '1' ? 1 : 0));
                 update_option($option, $value);
             }
-            if ($this->mode === 'shipping') {
+            if ($this->mode === 'shipping' || $this->mode === 'commerce') {
                 foreach (array('wu_woo_711_shipping_cost','wu_woo_711_free_shipping_threshold') as $option) {
                     if (isset($_POST[$option]) && is_scalar($_POST[$option])) update_option($option, max(0, intval($_POST[$option])));
                 }
@@ -1623,10 +1633,10 @@ jQuery(document).ready(function($) {
             }
             echo '<div class="notice notice-success"><p>設定已儲存。新設定於下次載入頁面生效。</p></div>';
         }
-        echo '<div class="wrap' . ($this->mode === 'shipping' ? ' wutm-shipping-admin' : '') . '">';
-        if ($this->mode === 'shipping') echo '<style>.wutm-shipping-admin{max-width:1080px}.wutm-shipping-admin>form{margin-top:20px;padding:22px 26px;border:1px solid #dcdcde;border-radius:12px;background:#fff}.wutm-shipping-admin .form-table th{width:230px}.wutm-shipping-guide{margin-top:16px;padding:16px 18px;border-left:4px solid #2271b1;border-radius:4px;background:#f6f7f7}.wutm-shipping-guide h3{margin:0 0 8px}.wutm-shipping-guide ul{margin:0 0 14px 20px;list-style:disc}.wutm-shipping-guide li{margin:6px 0}@media(max-width:782px){.wutm-shipping-admin>form{padding:16px}.wutm-shipping-admin .form-table th{width:auto}}</style>';
+        echo '<div class="wrap' . (in_array($this->mode, array('commerce', 'shipping'), true) ? ' wutm-shipping-admin' : '') . '">';
+        if (in_array($this->mode, array('commerce', 'shipping'), true)) echo '<style>.wutm-shipping-admin{max-width:1080px}.wutm-shipping-admin>form{margin-top:20px;padding:22px 26px;border:1px solid #dcdcde;border-radius:12px;background:#fff}.wutm-shipping-admin .form-table th{width:230px}.wutm-shipping-guide{margin-top:16px;padding:16px 18px;border-left:4px solid #2271b1;border-radius:4px;background:#f6f7f7}.wutm-shipping-guide h3{margin:0 0 8px}.wutm-shipping-guide ul{margin:0 0 14px 20px;list-style:disc}.wutm-shipping-guide li{margin:6px 0}@media(max-width:782px){.wutm-shipping-admin>form{padding:16px}.wutm-shipping-admin .form-table th{width:auto}}</style>';
         echo '<h1>' . esc_html($this->page_title()) . '</h1>';
-        if ($this->mode === 'commerce') echo '<p>沿用原有地址、訂單備註與電子發票設定，不需重新填寫。停用本卡片即可停止載入這些功能。</p>';
+        if ($this->mode === 'commerce') echo '<p>結帳、商品與運送設定集中於此；原有台灣地址、離島配送及 7-11 運送區域設定會保留。每項功能可單獨調整。</p>';
         if ($this->mode === 'shipping') echo '<p>啟用需要的運送工具後，再到各 WooCommerce 運送區域調整 7-11 的個別運費與門市選擇方式。停用本卡片即可停止載入這些功能。</p>';
         echo '<form method="post">';
         wp_nonce_field($group . '-options');

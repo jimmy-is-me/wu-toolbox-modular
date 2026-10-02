@@ -48,9 +48,9 @@ function wutm_render_admin_page(): void {
     <div class="wrap wutm-wrap">
       <header class="wutm-header"><div><span class="wutm-header-kicker">MODULAR ADMINISTRATION</span><h1>WU Toolbox Modular</h1><p>已啟用 <strong><?php echo esc_html((string) $enabled); ?></strong> / <?php echo esc_html((string) count($real_modules)); ?> 個模組 · 未啟用的模組完全不載入</p></div><span class="wutm-version"><i class="wutm-running-dot" aria-hidden="true"></i>v<?php echo esc_html(WUTM_VERSION); ?></span></header>
       <?php if (!$licensed): ?><div class="notice notice-warning inline"><p><strong>尚未完成授權驗證。</strong>既有模組會繼續運作，但啟用新模組前必須先完成授權。 <a class="button button-small" href="#wutm-license">前往授權與更新</a></p></div><?php endif; ?>
-      <div class="wutm-search-panel"><form class="wutm-module-search" role="search"><label class="screen-reader-text" for="wutm-module-search-input">搜尋功能</label><input id="wutm-module-search-input" type="search" placeholder="搜尋功能，例如：工具、版本、通知、結帳" autocomplete="off"><button type="submit" class="button button-primary">搜尋</button></form><div class="wutm-search-results" hidden><strong class="wutm-search-status" aria-live="polite"></strong><div class="wutm-search-result-list"></div></div></div>
+      <div class="wutm-search-panel"><form class="wutm-module-search" role="search"><label class="screen-reader-text" for="wutm-module-search-input">搜尋功能</label><input id="wutm-module-search-input" type="search" placeholder="搜尋功能，例如：工具、版本、通知、結帳" autocomplete="off"><button type="submit" class="button button-primary">搜尋</button><label class="screen-reader-text" for="wutm-module-status-filter">顯示模組</label><select id="wutm-module-status-filter" aria-label="顯示模組"><option value="all" selected>全部模組</option><option value="enabled">已開啟模組</option><option value="disabled">未開啟模組</option></select></form><div class="wutm-search-results" hidden><strong class="wutm-search-status" aria-live="polite"></strong><div class="wutm-search-result-list"></div></div></div>
       <div class="wutm-notice-slot" aria-live="polite"></div>
-      <?php foreach ($groups as $group => $items): ?><section><h2><?php echo esc_html($group); ?></h2><div class="wutm-grid">
+      <?php foreach ($groups as $group => $items): ?><section class="wutm-module-group"><h2><?php echo esc_html($group); ?></h2><div class="wutm-grid">
         <?php foreach ($items as $key => $module):
             $is_navigation = !empty($module['navigation']);
             $parent_enabled = $is_navigation && wutm_is_enabled((string) ($module['parent_module'] ?? ''));
@@ -75,14 +75,27 @@ function wutm_render_admin_page(): void {
     (function(){
         const slot=document.querySelector('.wutm-notice-slot');
         if(slot) document.querySelectorAll('#wpbody-content > .notice,.wutm-wrap > .notice,.wutm-header .notice').forEach(function(n){if(!slot.contains(n))slot.appendChild(n);});
-        const form=document.querySelector('.wutm-module-search'),input=document.getElementById('wutm-module-search-input'),results=document.querySelector('.wutm-search-results'),status=document.querySelector('.wutm-search-status'),list=document.querySelector('.wutm-search-result-list');
+        const form=document.querySelector('.wutm-module-search'),input=document.getElementById('wutm-module-search-input'),filter=document.getElementById('wutm-module-status-filter'),results=document.querySelector('.wutm-search-results'),status=document.querySelector('.wutm-search-status'),list=document.querySelector('.wutm-search-result-list');
         function clearMatches(){document.querySelectorAll('.wutm-card.is-search-match').forEach(function(card){card.classList.remove('is-search-match');});}
+        function applyFilter(){
+            if(!filter)return;
+            document.querySelectorAll('.wutm-module-group').forEach(function(group){
+                let visible=0;
+                group.querySelectorAll('.wutm-card').forEach(function(card){
+                    card.hidden=filter.value==='enabled'&&!card.classList.contains('on')||filter.value==='disabled'&&card.classList.contains('on');
+                    if(!card.hidden)visible++;
+                });
+                group.hidden=visible===0;
+            });
+            if(results){results.hidden=true;list.replaceChildren();clearMatches();}
+        }
+        if(filter){filter.addEventListener('change',applyFilter);document.addEventListener('wutm-module-state-changed',applyFilter);applyFilter();}
         if(form&&input&&results&&status&&list){
             form.addEventListener('submit',function(e){
                 e.preventDefault();clearMatches();list.replaceChildren();
                 const raw=input.value.trim(),query=raw.toLocaleLowerCase();
                 if(!query){results.hidden=false;status.textContent='請輸入要尋找的功能名稱。';input.focus();return;}
-                const matches=Array.from(document.querySelectorAll('.wutm-card')).filter(function(card){return (card.dataset.search||'').toLocaleLowerCase().includes(query);});
+                const matches=Array.from(document.querySelectorAll('.wutm-card:not([hidden])')).filter(function(card){return (card.dataset.search||'').toLocaleLowerCase().includes(query);});
                 results.hidden=false;
                 if(!matches.length){status.textContent='找不到符合「'+raw+'」的功能。';return;}
                 status.textContent='已找到 '+matches.length+' 筆：'+matches.map(function(card){return card.dataset.moduleName||'';}).join('、');
@@ -96,7 +109,7 @@ function wutm_render_admin_page(): void {
             input.addEventListener('input',function(){if(!input.value.trim()){results.hidden=true;list.replaceChildren();clearMatches();}});
         }
     }());
-    document.addEventListener('change',function(e){if(!e.target.matches('.wutm-switch input'))return;const i=e.target;i.disabled=true;fetch(ajaxurl,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({action:'wutm_toggle_module',module:i.dataset.module,enabled:i.checked?1:0,nonce:'<?php echo esc_js(wp_create_nonce('wutm_toggle_module')); ?>'})}).then(r=>r.json()).then(r=>{const card=i.closest('.wutm-card');if(!r.success){i.checked=!i.checked;const message=r.data&&r.data.message?r.data.message:'設定儲存失敗。';const slot=document.querySelector('.wutm-notice-slot');if(slot){const notice=document.createElement('div');notice.className='notice notice-error';notice.innerHTML='<p></p>';notice.querySelector('p').textContent=message;slot.replaceChildren(notice)}return}card.classList.toggle('on',i.checked);const link=card.querySelector('.wutm-settings');if(i.checked&&!link){const a=document.createElement('a');a.className='wutm-settings';a.href=card.dataset.settingsUrl;a.textContent=card.dataset.navigation==='1'?'開啟':'設定';card.querySelector('.wutm-card-body').appendChild(a)}else if(!i.checked&&link){link.remove()}}).catch(()=>i.checked=!i.checked).finally(()=>i.disabled=false)});
+    document.addEventListener('change',function(e){if(!e.target.matches('.wutm-switch input'))return;const i=e.target;i.disabled=true;fetch(ajaxurl,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({action:'wutm_toggle_module',module:i.dataset.module,enabled:i.checked?1:0,nonce:'<?php echo esc_js(wp_create_nonce('wutm_toggle_module')); ?>'})}).then(r=>r.json()).then(r=>{const card=i.closest('.wutm-card');if(!r.success){i.checked=!i.checked;const message=r.data&&r.data.message?r.data.message:'設定儲存失敗。';const slot=document.querySelector('.wutm-notice-slot');if(slot){const notice=document.createElement('div');notice.className='notice notice-error';notice.innerHTML='<p></p>';notice.querySelector('p').textContent=message;slot.replaceChildren(notice)}return}card.classList.toggle('on',i.checked);document.dispatchEvent(new Event('wutm-module-state-changed'));const link=card.querySelector('.wutm-settings');if(i.checked&&!link){const a=document.createElement('a');a.className='wutm-settings';a.href=card.dataset.settingsUrl;a.textContent=card.dataset.navigation==='1'?'開啟':'設定';card.querySelector('.wutm-card-body').appendChild(a)}else if(!i.checked&&link){link.remove()}}).catch(()=>i.checked=!i.checked).finally(()=>i.disabled=false)});
     (function(){
         const topButton=document.querySelector('.wutm-back-to-top');
         if(topButton)topButton.addEventListener('click',function(){window.scrollTo({top:0,behavior:'smooth'});});

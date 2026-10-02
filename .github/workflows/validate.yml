@@ -18,6 +18,8 @@ jobs:
         run: php tests/admin-menu-editor-owners.php
       - name: Check customer-entered product pricing
         run: php tests/product-custom-price.php
+      - name: Check WC shipping module merge
+        run: php tests/wc-shipping-merge.php
       - name: Check product category menu hierarchy
         run: php tests/product-category-menu-tree.php
       - name: Check media-grid fallback notice stays hidden

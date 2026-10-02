@@ -4,9 +4,10 @@
     var panel = document.getElementById('wutm-notice-center');
     var content = document.getElementById('wpbody-content');
     if (!panel || !content) return;
+    var noticeRoot = document.getElementById('wpbody') || content;
 
     var items = panel.querySelector('.wutm-notice-items');
-    var selector = '.notice, div.updated, div.error, .update-nag, .e-notice, .trp-notice';
+    var selector = '.notice, div.updated, div.error, .update-nag, .e-notice, .trp-notice, .woocommerce-message, .woocommerce-info, .woocommerce-error, .woocommerce-admin-notice, .wc-admin-notice';
     var excludedContainers = '.postbox, .stuffbox, table, form, .components-notice-list, .woocommerce-layout__activity-panel';
     var collecting = false;
 
@@ -43,7 +44,7 @@
     function refresh() {
         var notices = Array.prototype.filter.call(items.children, visible);
         var errors = notices.filter(function (node) {
-            return node.matches('.notice-error, div.error');
+            return node.matches('.notice-error, div.error, .woocommerce-error');
         }).length;
         panel.querySelector('.wutm-notice-count').textContent = String(notices.length);
         panel.querySelector('.wutm-notice-important').textContent = errors ? '包含 ' + errors + ' 則重要通知' : '';
@@ -60,7 +61,7 @@
 
     // This footer script can collect immediately. The stylesheet has already
     // hidden matching notices, so they are moved before their first paint.
-    collect(content);
+    collect(noticeRoot);
 
     var contentObserver = new MutationObserver(function (mutations) {
         if (collecting) return;
@@ -73,12 +74,12 @@
         collecting = false;
         refresh();
     });
-    contentObserver.observe(content, {childList: true, subtree: true});
+    contentObserver.observe(noticeRoot, {childList: true, subtree: true});
 
     var panelObserver = new MutationObserver(refresh);
     panelObserver.observe(items, {childList: true, subtree: true, attributes: true, attributeFilter: ['style', 'class', 'hidden']});
 
     // Core common.js and some plugins relocate notices during DOM ready/load.
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { collect(content); }, {once: true});
-    window.addEventListener('load', function () { collect(content); }, {once: true});
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { collect(noticeRoot); }, {once: true});
+    window.addEventListener('load', function () { collect(noticeRoot); }, {once: true});
 })();

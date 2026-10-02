@@ -3,21 +3,22 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 class Element {
-    constructor(fallback = false, isNotice = true) { this.fallback = fallback; this.isNotice = isNotice; this.children = []; }
-    matches(selector) { return this.isNotice && selector.includes('.notice'); }
+    constructor(fallback = false, kind = 'notice') { this.fallback = fallback; this.kind = kind; this.children = []; }
+    matches(selector) { return this.kind !== '' && new RegExp('(^|[^\\w-])\\.' + this.kind + '(?![\\w-])').test(selector); }
     closest(selector) { return selector.includes('.hide-if-js') && this.fallback ? this : null; }
     querySelectorAll() { return this.children; }
 }
 
 const fallback = new Element(true);
 const ordinary = new Element(false);
-const content = new Element(false, false);
-content.children = [fallback, ordinary];
+const commerce = new Element(false, 'woocommerce-error');
+const content = new Element(false, '');
+content.children = [fallback, ordinary, commerce];
 const items = new Element();
 items.appendChild = node => items.children.push(node);
 const count = { textContent: '' };
 const important = { textContent: '' };
-const panel = new Element(false, false);
+const panel = new Element(false, '');
 panel.contains = () => false;
 panel.querySelector = selector => selector === '.wutm-notice-items' ? items : selector === '.wutm-notice-count' ? count : important;
 panel.classList = { toggle() {} };
@@ -32,6 +33,7 @@ const context = {
     MutationObserver: class { observe() {} },
 };
 vm.runInNewContext(fs.readFileSync('assets/js/notice-center.js', 'utf8'), context);
-assert.deepEqual(items.children, [ordinary], 'JavaScript fallback notice must stay outside the notification panel');
-assert.equal(count.textContent, '1');
+assert.deepEqual(items.children, [ordinary, commerce], 'WooCommerce notices should be collected while JavaScript fallbacks stay outside');
+assert.equal(count.textContent, '2');
+assert.equal(important.textContent, '包含 1 則重要通知');
 console.log('Notice-center fallback check passed.');

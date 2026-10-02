@@ -97,10 +97,9 @@ function wutm_modules(): array {
         'spam-cleaner' => ['name' => '垃圾帳號清除', 'description' => '依使用者名稱關鍵字預覽並清理垃圾機器人帳號。', 'group' => '安全性', 'icon' => '🧹'],
         'transients-manager' => ['name' => 'Transients 管理', 'description' => '查看、搜尋及清理 WordPress Transients 過期暫存資料。', 'group' => '效能優化', 'icon' => '🧹'],
         'user-switcher' => ['name' => '使用者切換', 'description' => '管理員可快速切換會員帳號進行權限、訂單與前台功能測試。', 'group' => '後台介面', 'icon' => '🔄'],
-        'wc-optimization-tools' => ['name' => 'WC優化工具', 'description' => '台灣地址、訂單備註、電子發票、一頁式結帳、Enter 新增商品屬性、按鈕標籤規格及虛擬商品自動完成。', 'group' => '電商優化工具', 'icon' => '🛠️', 'requires' => 'woocommerce'],
+        'wc-optimization-tools' => ['name' => 'WC 優化工具', 'description' => '集中管理結帳與運送：台灣地址、離島配送、7-11 超商取貨、訂單備註、發票資訊，以及商品編輯與訂單流程優化。各功能可獨立開關。', 'group' => '電商優化工具', 'icon' => '🛠️', 'requires' => 'woocommerce'],
         'product-size-chart' => ['name' => '商品規格表', 'description' => '為每項商品自訂規格表欄位名稱與內容，可自由新增或移除欄位，並在前台以響應式表格呈現。', 'group' => '電商優化工具', 'icon' => '📋', 'requires' => 'woocommerce', 'settings_page' => 'wu-product-size-chart'],
         'product-faq' => ['name' => '商品問答 FAQ', 'description' => '在商品編輯頁管理問答與展開模式，並在商品頁籤以易讀的手風琴或獨立展開方式顯示。', 'group' => '電商優化工具', 'icon' => '❔', 'requires' => 'woocommerce', 'settings_page' => 'wu-product-faq'],
-        'shipping-optimization-tools' => ['name' => '運送優化功能', 'description' => '管理台灣離島配送與 7-11 超商物流，支援運費、免運門檻、免運折價券、手動填寫、綠界電子地圖、門市資料及訂單辨識。', 'group' => '電商工具', 'icon' => '🚚', 'requires' => 'woocommerce', 'settings_page' => 'wu-shipping-optimization-tools'],
         'free-shipping-notice' => ['name' => '免運門檻提示', 'description' => '統一設定單一費率、自行取貨與 7-11 超商物流的免運門檻；支援免運折價券、尚差金額與已達免運提示，折價券與新會員優惠都會計入小計。', 'group' => '電商工具', 'icon' => '🚚', 'requires' => 'woocommerce', 'settings_page' => 'wu-free-shipping-notice'],
         'product-shipping-restrict' => ['name' => '商品限制物流', 'description' => '為主商品或個別商品規格限制允許的物流方式，並依購物車商品自動顯示共同可用配送選項。', 'group' => '電商工具', 'icon' => '📍', 'requires' => 'woocommerce', 'settings_page' => 'wu-product-shipping-restrict'],
         'woocommerce-optimizer' => ['name' => '隱藏WC工具', 'description' => '整理 WooCommerce 後台選單、推廣區與頁尾。', 'group' => '電商工具', 'icon' => '🛒', 'requires' => 'woocommerce'],
@@ -297,3 +296,23 @@ add_action('plugins_loaded', function (): void {
     if (class_exists('WC_Cache_Helper')) WC_Cache_Helper::get_transient_version('shipping', true);
     update_option('wutm_shipping_merged_251', 1, false);
 }, 19);
+
+// Keep sites using the old shipping card active when its features move into
+// WC optimization. Feature-level options and shipping-zone settings stay put.
+add_action('plugins_loaded', function (): void {
+    if (get_option('wutm_wc_shipping_merged_345', false)) return;
+    $shipping_enabled = (bool) get_option(wutm_module_option('shipping-optimization-tools'), false);
+    if ($shipping_enabled && !wutm_is_enabled('wc-optimization-tools')) {
+        update_option(wutm_module_option('wc-optimization-tools'), 1, false);
+    }
+    update_option('wutm_wc_shipping_merged_345', 1, false);
+}, 19);
+
+// Existing bookmarks to the retired shipping card lead to the combined page.
+add_action('admin_init', function (): void {
+    if (!current_user_can('manage_options')) return;
+    $page = isset($_GET['page']) ? sanitize_key(wp_unslash($_GET['page'])) : '';
+    if ($page !== 'wu-shipping-optimization-tools' || !wutm_is_enabled('wc-optimization-tools')) return;
+    wp_safe_redirect(admin_url('admin.php?page=wu-wc-optimization-tools'));
+    exit;
+});
