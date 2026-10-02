@@ -98,6 +98,7 @@ final class WUTM_Notice_Center {
             html.js body.wutm-notice-center-active #wpbody-content .update-nag:not(.inline):not(.wutm-notice-keep),
             html.js body.wutm-notice-center-active #wpbody-content .e-notice:not(.inline):not(.wutm-notice-keep),
             html.js body.wutm-notice-center-active #wpbody-content .trp-notice:not(.inline):not(.wutm-notice-keep),
+            html.js body.wutm-notice-center-active #wpbody-content .fs-notice:not(.inline):not(.wutm-notice-keep),
             html.js body.wutm-notice-center-active #wpbody-content .woocommerce-message:not(.inline):not(.wutm-notice-keep),
             html.js body.wutm-notice-center-active #wpbody-content .woocommerce-info:not(.inline):not(.wutm-notice-keep),
             html.js body.wutm-notice-center-active #wpbody-content .woocommerce-error:not(.inline):not(.wutm-notice-keep),
@@ -119,11 +120,13 @@ final class WUTM_Notice_Center {
             body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.update-nag,
             body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.e-notice,
             body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.trp-notice,
+            body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.fs-notice,
             body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.woocommerce-message,
             body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.woocommerce-info,
             body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.woocommerce-error,
             body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.woocommerce-admin-notice,
             body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.wc-admin-notice{display:block;visibility:visible!important;animation:none!important;margin:10px 12px 0;}
+            body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.fs-sticky{position:static!important;}
             html.js body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.hide-if-js{display:none!important;}
             body.wutm-notice-center-active #wpbody-content .wutm-notice-keep{visibility:visible!important;animation:none!important;}
         ');

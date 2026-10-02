@@ -7,8 +7,8 @@
     var noticeRoot = document.getElementById('wpbody') || content;
 
     var items = panel.querySelector('.wutm-notice-items');
-    var selector = '.notice, div.updated, div.error, .update-nag, .e-notice, .trp-notice, .woocommerce-message, .woocommerce-info, .woocommerce-error, .woocommerce-admin-notice, .wc-admin-notice';
-    var excludedContainers = '.postbox, .stuffbox, table, form, .components-notice-list, .woocommerce-layout__activity-panel';
+    var selector = '.notice, div.updated, div.error, .update-nag, .e-notice, .trp-notice, .fs-notice, .woocommerce-message, .woocommerce-info, .woocommerce-error, .woocommerce-admin-notice, .wc-admin-notice';
+    var excludedContainers = '.postbox, .stuffbox, table, .components-notice-list, .woocommerce-layout__activity-panel';
     var collecting = false;
 
     function visible(node) {
@@ -24,7 +24,12 @@
         // Moving them into the panel used to override their hidden display and
         // expose the media-grid warning even while the grid worked normally.
         if (node.closest('.hide-if-js')) return false;
-        if (node.closest(excludedContainers)) {
+        var form = node.closest('form');
+        // Plugins such as Post SMTP and WPCode print page-level notices as
+        // direct children of WooCommerce's main settings form. Those are safe
+        // to move; nested field notices and anything with form controls are not.
+        var contextualFormNotice = form && (node.parentElement !== form || node.querySelector('input, select, textarea, button[type="submit"]'));
+        if (contextualFormNotice || node.closest(excludedContainers)) {
             node.classList.add('wutm-notice-keep');
             return false;
         }
