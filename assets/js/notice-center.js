@@ -10,6 +10,39 @@
     var noticeRoot = document.getElementById('wpbody') || content;
 
     var items = panel.querySelector('.wutm-notice-items');
+    var toolbar = document.getElementById('wp-admin-bar-wutm-notice-center');
+    var toolbarCount = toolbar && toolbar.querySelector('.wutm-toolbar-notice-count');
+    if (toolbar) {
+        toolbar.appendChild(panel);
+        panel.classList.add('is-toolbar');
+        var trigger = toolbar.querySelector('.ab-item');
+        var details = panel.querySelector('details');
+        trigger.setAttribute('aria-controls', 'wutm-notice-center');
+        trigger.setAttribute('aria-expanded', 'false');
+        trigger.addEventListener('click', function (event) {
+            event.preventDefault();
+            details.open = !details.open;
+            panel.classList.toggle('is-open', details.open);
+            trigger.setAttribute('aria-expanded', String(details.open));
+        });
+        document.addEventListener('click', function (event) {
+            if (!toolbar.contains(event.target)) {
+                details.open = false;
+                panel.classList.remove('is-open');
+                trigger.setAttribute('aria-expanded', 'false');
+            }
+        });
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && details.open) {
+                details.open = false;
+                panel.classList.remove('is-open');
+                trigger.setAttribute('aria-expanded', 'false');
+                trigger.focus();
+            }
+        });
+    } else if (panel.parentElement !== content) {
+        content.insertBefore(panel, content.firstChild);
+    }
     var selector = '.notice, div.updated, div.error, .update-nag, .e-notice, .trp-notice, .fs-notice, .woocommerce-message, .woocommerce-info, .woocommerce-error, .woocommerce-admin-notice, .wc-admin-notice';
     var excludedContainers = '.postbox, .stuffbox, table, .components-notice-list, .woocommerce-layout__activity-panel';
     var collecting = false;
@@ -50,15 +83,19 @@
     }
 
     function refresh() {
-        // WooCommerce and common.js relocate header/notices. Keep our panel
-        // outside their header and settings form, in a stable content root.
-        if (panel.parentElement !== content) content.insertBefore(panel, content.firstChild);
         var notices = Array.prototype.filter.call(items.children, visible);
         var errors = notices.filter(function (node) {
             return node.matches('.notice-error, div.error, .woocommerce-error');
         }).length;
-        panel.querySelector('.wutm-notice-count').textContent = String(notices.length);
-        panel.querySelector('.wutm-notice-important').textContent = errors ? '包含 ' + errors + ' 則重要通知' : '';
+        // Writing identical text still creates childList mutations. Never feed
+        // our own observer with an unconditional counter update.
+        var count = panel.querySelector('.wutm-notice-count');
+        var important = panel.querySelector('.wutm-notice-important');
+        var countText = String(notices.length);
+        var importantText = errors ? '包含 ' + errors + ' 則重要通知' : '';
+        if (count.textContent !== countText) count.textContent = countText;
+        if (important.textContent !== importantText) important.textContent = importantText;
+        if (toolbarCount && toolbarCount.textContent !== countText) toolbarCount.textContent = countText;
         panel.classList.toggle('is-visible', notices.length > 0);
     }
 

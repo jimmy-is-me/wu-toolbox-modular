@@ -21,6 +21,7 @@ final class WUTM_Notice_Center {
 
         add_action('admin_enqueue_scripts', [__CLASS__, 'assets']);
         add_action('in_admin_header', [__CLASS__, 'panel'], 999);
+        add_action('admin_bar_menu', [__CLASS__, 'toolbar'], 999);
         add_filter('admin_body_class', [__CLASS__, 'body_class']);
     }
 
@@ -115,6 +116,16 @@ final class WUTM_Notice_Center {
             #wutm-notice-center .wutm-notice-important{color:#b32d2e;font-size:12px;font-weight:600;}
             #wutm-notice-center .wutm-notice-items{padding:1px 0 12px;}
             #wutm-notice-center details:not([open])>.wutm-notice-items{display:none!important;}
+            #wpadminbar #wp-admin-bar-wutm-notice-center{display:block;position:relative;}
+            #wpadminbar .wutm-toolbar-notice-count{background:#2271b1;color:#fff;border-radius:10px;padding:1px 6px;margin-left:4px;}
+            #wpadminbar #wutm-notice-center.is-toolbar{display:none;position:absolute;top:100%;right:0;width:480px;max-width:calc(100vw - 24px);margin:0;z-index:99999;}
+            #wpadminbar #wutm-notice-center.is-toolbar.is-open{display:block;}
+            #wpadminbar #wutm-notice-center.is-toolbar summary{display:none;}
+            #wpadminbar #wutm-notice-center .wutm-notice-items{max-height:65vh;overflow:auto;white-space:normal;}
+            #wpadminbar #wutm-notice-center .wutm-notice-items *{font-family:inherit;font-size:13px;line-height:1.6;color:#1d2327;}
+            #wpadminbar #wutm-notice-center .wutm-notice-items a{color:#2271b1;display:inline;}
+            #wpadminbar #wutm-notice-center .wutm-notice-items p{margin:8px 0;}
+            #wpadminbar #wutm-notice-center .notice-dismiss{position:absolute;}
             body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.notice,
             body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.updated,
             body.wutm-notice-center-active #wutm-notice-center .wutm-notice-items>.error,
@@ -137,6 +148,19 @@ final class WUTM_Notice_Center {
 
     public static function body_class(string $classes): string {
         return self::can_collect_notices() ? $classes . ' wutm-notice-center-active' : $classes;
+    }
+
+    public static function toolbar($admin_bar): void {
+        if (!is_admin() || !self::can_collect_notices()) {
+            return;
+        }
+        $admin_bar->add_node([
+            'id' => 'wutm-notice-center',
+            'parent' => 'top-secondary',
+            'title' => '通知整理 <span class="wutm-toolbar-notice-count">0</span>',
+            'href' => '#wutm-notice-center',
+            'meta' => ['title' => '展開或收合後台通知'],
+        ]);
     }
 
     public static function panel(): void {

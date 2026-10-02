@@ -33,29 +33,38 @@ const content = new Element(false, '');
 content.children = [fallback, ordinary, commerce, pluginNotice, wpcodeNotice, inlineNotice, formNotice];
 const items = new Element();
 items.appendChild = node => items.children.push(node);
-const count = { textContent: '' };
-const important = { textContent: '' };
+let textWrites = 0;
+function counter() {
+    let value = '';
+    return { get textContent() { return value; }, set textContent(next) { textWrites++; value = next; } };
+}
+const count = counter();
+const important = counter();
 const panel = new Element(false, '');
 content.insertBefore = node => { node.parentElement = content; };
 panel.contains = () => false;
 panel.querySelector = selector => selector === '.wutm-notice-items' ? items : selector === '.wutm-notice-count' ? count : important;
 panel.classList = { toggle() {} };
 
+const observers = [];
 const context = {
     Element,
     document: {
         documentElement: { classList: { add() {} } },
-        getElementById: id => id === 'wutm-notice-center' ? panel : content,
+        getElementById: id => id === 'wutm-notice-center' ? panel : id === 'wp-admin-bar-wutm-notice-center' ? null : content,
         readyState: 'complete',
     },
     window: { getComputedStyle: () => ({ display: 'block', visibility: 'visible' }), addEventListener() {} },
-    MutationObserver: class { observe() {} },
+    MutationObserver: class { constructor(callback) { observers.push(callback); } observe() {} },
 };
 vm.runInNewContext(fs.readFileSync('assets/js/notice-center.js', 'utf8'), context);
 assert.deepEqual(items.children, [ordinary, commerce, pluginNotice, wpcodeNotice], 'Top-level plugin notices should be collected while fallbacks and notices with form controls stay outside');
 assert.equal(count.textContent, '4');
 assert.equal(panel.parentElement, content, 'Panel must escape WooCommerce header/form containers');
 assert.equal(important.textContent, '包含 1 則重要通知');
+const previousWrites = textWrites;
+for (let i = 0; i < 20; i++) observers[0]([{ addedNodes: [] }]);
+assert.equal(textWrites, previousWrites, 'Unchanged counters must not create observer feedback mutations');
 let ready;
 items.children = [];
 context.document.readyState = 'loading';
@@ -64,6 +73,30 @@ vm.runInNewContext(fs.readFileSync('assets/js/notice-center.js', 'utf8'), contex
 assert.equal(items.children.length, 0, 'Head script must wait for the panel markup');
 ready();
 assert.equal(count.textContent, '4', 'Head-loaded collector must initialize when markup is ready');
+const events = {};
+const toolbarCount = counter();
+const details = { open: false };
+const trigger = { setAttribute() {}, addEventListener(event, callback) { events[event] = callback; }, focus() {} };
+const toolbar = {
+    appendChild(node) { node.parentElement = this; },
+    querySelector(selector) { return selector === '.ab-item' ? trigger : toolbarCount; },
+    contains() { return false; },
+};
+const originalQuery = panel.querySelector;
+panel.querySelector = selector => selector === 'details' ? details : originalQuery(selector);
+panel.classList = { add() {}, remove() {}, toggle() {} };
+context.document.getElementById = id => id === 'wutm-notice-center' ? panel : id === 'wp-admin-bar-wutm-notice-center' ? toolbar : content;
+context.document.readyState = 'complete';
+context.document.addEventListener = (event, callback) => { events['document-' + event] = callback; };
+items.children = [];
+vm.runInNewContext(fs.readFileSync('assets/js/notice-center.js', 'utf8'), context);
+assert.equal(panel.parentElement, toolbar, 'Panel belongs in the admin toolbar, outside the observed content');
+assert.equal(toolbarCount.textContent, '4');
+assert.equal(details.open, false);
+events.click({ preventDefault() {} });
+assert.equal(details.open, true);
+events['document-keydown']({ key: 'Escape' });
+assert.equal(details.open, false);
 const styles = fs.readFileSync('modules/notice-center/module.php', 'utf8');
 assert.ok(!styles.includes('wutm-notice-precollect-fallback'), 'No timed reveal before collection');
 assert.ok(styles.includes('details:not([open])>.wutm-notice-items{display:none!important;}'), 'Closed panel stays collapsed despite plugin styles');
