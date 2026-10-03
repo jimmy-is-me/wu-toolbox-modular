@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+			<h4>3.5.0</h4><ul><li>擴充 SEO 核心：品牌／線上商店與實際作者結構化資料、關於／聯絡頁、階層麵包屑與分類 CollectionPage。</li><li>文章分類、商品分類及標籤新增 SEO 標題、摘要、Canonical 與 noindex；提供內容類型標題範本及編輯器本機內容品質／主題檢查。</li><li>Sitemap 同步排除 noindex、密碼保護內容及停用索引的作者／標籤，加入實際更新時間與大型圖片預覽控制；預設避免與主流 SEO 外掛重複輸出。</li><li>修正標題遞迴與繁中字元截斷；內容健檢採最多 200 篇抽樣與快取，不新增前台腳本、外部請求或轉址功能。</li></ul>
 			<h4>3.4.9</h4><ul><li>通知整理不再搬移 WordPress／WooCommerce 連線與自動儲存狀態，保留原始控制；修正面板樣式誤顯示隱藏通知，不影響真正的連線警告。</li></ul>
 			<h4>3.4.8</h4><ul><li>修正通知整理重複更新數字造成的監聽循環與後台卡頓；入口移至右上方管理列，通知預設收合，支援點擊外側與 Escape 關閉。</li></ul>
 			<h4>3.4.7</h4><ul><li>通知整理面板固定於後台內容區，避免 WooCommerce 設定頁的通知搬移影響顯示；提前啟用通知隱藏並移除定時顯示，換頁預設保持收合。</li></ul>
