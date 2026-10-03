@@ -3,6 +3,8 @@
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'ARRAY_A', 'ARRAY_A' );
 
+function plugin_dir_path( $file ) { return dirname( $file ) . '/'; }
+function plugin_dir_url( $file ) { return 'https://example.test/wp-content/plugins/wu-toolbox-modular/'; }
 function register_activation_hook( ...$args ) {}
 function register_deactivation_hook( ...$args ) {}
 function add_filter( ...$args ) {}
