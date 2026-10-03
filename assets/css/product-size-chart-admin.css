@@ -1,0 +1,19 @@
+.wutm-size-chart-admin{color:#183449;line-height:1.65;max-width:100%;min-width:0}
+.wutm-size-chart-admin *{box-sizing:border-box}
+.wutm-sc-intro{margin:8px 0 18px;color:#587083}
+.wutm-sc-panel,.wutm-size-chart-note-editor{margin:16px 0;padding:20px;border:1px solid #dce4ec;border-radius:10px;background:#fff;min-width:0}
+.wutm-sc-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+.wutm-sc-heading h3,.wutm-size-chart-note-editor h3{margin:0;font-size:16px}
+.wutm-sc-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));gap:14px}
+.wutm-sc-grid>label,.wutm-size-chart-column{display:block;min-width:0;float:none!important;margin:0!important;width:auto!important}
+.wutm-size-chart-column{padding:12px;border-radius:7px;background:#f4f7fa}
+.wutm-sc-cell-label,.wutm-size-chart-column>label{display:block;margin:0 0 6px;font-size:13px;font-weight:600;overflow-wrap:anywhere}
+.wutm-sc-grid input{display:block;width:100%!important;max-width:100%;min-width:0;min-height:40px;padding:8px 10px;margin:0!important;border:1px solid #b8c7d5;border-radius:6px;background:#fff;font:inherit;color:#183449}
+.wutm-size-chart-admin .button-link-delete{display:inline-block;border:0;background:none;padding:5px 0;margin:6px 0 0;color:#a63535;cursor:pointer;font-size:12px}
+.wutm-sc-row{min-width:0;border:1px solid #dce4ec;border-radius:8px;margin:16px 0 0;padding:16px;background:#f9fbfd}
+.wutm-sc-row legend{padding:0 8px;font-weight:600;color:#2271b1}
+.wutm-size-chart-note-editor .wp-editor-wrap{max-width:100%}
+#wutm-size-chart-image-preview{margin-top:14px;max-width:100%}
+#wutm-size-chart-image-preview img{display:block;max-width:min(100%,300px)!important;height:auto!important;border:1px solid #dce4ec;border-radius:6px}
+.wutm-size-chart-admin button:focus-visible,.wutm-size-chart-admin input:focus-visible{outline:2px solid #2271b1;outline-offset:2px}
+@media(max-width:600px){.wutm-sc-panel,.wutm-size-chart-note-editor{padding:14px}.wutm-sc-grid{grid-template-columns:1fr;gap:12px}.wutm-sc-row{padding:12px}.wutm-sc-heading .button{min-height:40px}.wutm-size-chart-note-editor .description{overflow-wrap:anywhere}}

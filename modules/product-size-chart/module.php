@@ -1,4 +1,13 @@
 <?php
+defined('ABSPATH') || exit;
+
+add_action('admin_enqueue_scripts', 'wutm_product_size_chart_admin_assets');
+function wutm_product_size_chart_admin_assets() {
+    $screen = get_current_screen();
+    if (!$screen || ($screen->post_type ?? '') !== 'product' || ($screen->base ?? '') !== 'post') return;
+    wp_enqueue_style('wutm-size-chart-admin', WUTM_URL . 'assets/css/product-size-chart-admin.css', array(), WUTM_VERSION);
+    wp_enqueue_script('wutm-size-chart-admin', WUTM_URL . 'assets/js/product-size-chart-admin.js', array(), WUTM_VERSION, true);
+}
 
 // 1. WooCommerce 商品規格表設定：欄位可改名、增減。
 function wutm_product_size_chart_default_columns() {
@@ -45,89 +54,53 @@ function wutm_product_size_chart_render_meta_box( $post ) {
     if ( ! is_array( $columns ) || empty( $columns ) ) $columns = wutm_product_size_chart_default_columns();
     ?>
     <div class="wutm-size-chart-admin">
-        <p class="description">欄位名稱可直接修改，也可新增或移除欄位；每列填寫商品對應的規格資料。</p>
-        <div class="wutm-size-chart-table-wrap">
-            <table id="wutm-size-chart-table" class="widefat striped">
-                <thead><tr>
+        <p class="wutm-sc-intro">先設定規格欄位，再逐列填寫資料。欄位名稱可隨時修改；所有變更會在「更新商品」後儲存。</p>
+        <section class="wutm-sc-panel"><div class="wutm-sc-heading"><h3>① 規格欄位</h3><button type="button" class="button" id="wutm-size-chart-add-column">新增規格欄位</button></div>
+            <div id="wutm-size-chart-columns" class="wutm-sc-grid">
                     <?php foreach ( $columns as $key => $column ) : $label = is_array( $column ) ? ( $column['label'] ?? '' ) : $column; ?>
-                        <th class="wutm-size-chart-column" data-column-key="<?php echo esc_attr( $key ); ?>">
-                            <label class="screen-reader-text" for="wutm-size-chart-label-<?php echo esc_attr( $key ); ?>">欄位名稱</label>
+                        <div class="wutm-size-chart-column" data-column-key="<?php echo esc_attr( $key ); ?>">
+                            <label for="wutm-size-chart-label-<?php echo esc_attr( $key ); ?>">欄位名稱</label>
                             <input id="wutm-size-chart-label-<?php echo esc_attr( $key ); ?>" type="text" name="size_chart_columns[<?php echo esc_attr( $key ); ?>][label]" value="<?php echo esc_attr( $label ); ?>" placeholder="欄位名稱" required>
                             <button type="button" class="button-link-delete wutm-size-chart-remove-column">移除欄位</button>
-                        </th>
+                        </div>
                     <?php endforeach; ?>
-                    <th class="wutm-size-chart-actions">操作</th>
-                </tr></thead>
-                <tbody>
+            </div><p class="description">移除欄位也會移除此欄資料；至少保留一個欄位。</p></section>
+        <section class="wutm-sc-panel"><div class="wutm-sc-heading"><h3>② 規格資料</h3><button type="button" class="button" id="wutm-size-chart-add-row">新增資料列</button></div>
+            <div id="wutm-size-chart-rows">
                     <?php if ( $rows ) : foreach ( $rows as $row_index => $row ) : if ( ! is_array( $row ) ) continue; ?>
-                        <tr>
+                        <fieldset class="wutm-sc-row"><legend>規格資料 <span class="wutm-sc-row-number"><?php echo (int) $row_index + 1; ?></span></legend><div class="wutm-sc-grid">
                             <?php foreach ( $columns as $key => $column ) : ?>
-                                <td data-column-key="<?php echo esc_attr( $key ); ?>"><input type="text" name="size_chart_rows[<?php echo esc_attr( $row_index ); ?>][<?php echo esc_attr( $key ); ?>]" value="<?php echo esc_attr( $row[ $key ] ?? '' ); ?>"></td>
+                                <label data-column-key="<?php echo esc_attr( $key ); ?>"><span class="wutm-sc-cell-label"><?php echo esc_html(is_array($column) ? ($column['label'] ?? '') : $column); ?></span><input type="text" name="size_chart_rows[<?php echo esc_attr( $row_index ); ?>][<?php echo esc_attr( $key ); ?>]" value="<?php echo esc_attr( $row[ $key ] ?? '' ); ?>"></label>
                             <?php endforeach; ?>
-                            <td class="wutm-size-chart-actions"><button type="button" class="button wutm-size-chart-remove-row">刪除</button></td>
-                        </tr>
+                            </div><button type="button" class="button-link-delete wutm-size-chart-remove-row">移除此列</button>
+                        </fieldset>
                     <?php endforeach; else : ?>
-                        <tr>
-                            <?php foreach ( $columns as $key => $column ) : ?><td data-column-key="<?php echo esc_attr( $key ); ?>"><input type="text" name="size_chart_rows[0][<?php echo esc_attr( $key ); ?>]" value=""></td><?php endforeach; ?>
-                            <td class="wutm-size-chart-actions"><button type="button" class="button wutm-size-chart-remove-row">刪除</button></td>
-                        </tr>
+                        <fieldset class="wutm-sc-row"><legend>規格資料 <span class="wutm-sc-row-number">1</span></legend><div class="wutm-sc-grid">
+                            <?php foreach ( $columns as $key => $column ) : ?><label data-column-key="<?php echo esc_attr( $key ); ?>"><span class="wutm-sc-cell-label"><?php echo esc_html(is_array($column) ? ($column['label'] ?? '') : $column); ?></span><input type="text" name="size_chart_rows[0][<?php echo esc_attr( $key ); ?>]" value=""></label><?php endforeach; ?>
+                            </div><button type="button" class="button-link-delete wutm-size-chart-remove-row">移除此列</button>
+                        </fieldset>
                     <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-        <p class="wutm-size-chart-controls"><button type="button" class="button" id="wutm-size-chart-add-column">新增規格欄位</button> <button type="button" class="button" id="wutm-size-chart-add-row">新增資料列</button></p>
+            </div><p class="description">可填入尺寸、數字或文字；空白資料列不會顯示在前台。</p></section>
         <div class="wutm-size-chart-note-editor">
-            <h3>規格表備註</h3>
+            <h3>③ 規格表備註（選填）</h3>
             <p class="description">選填；儲存後會顯示在前台規格表下方。可使用粗體、連結與項目清單等基本格式。</p>
             <?php wp_editor( (string) $note, 'wutm_size_chart_note', array( 'textarea_name' => 'wutm_size_chart_note', 'textarea_rows' => 4, 'teeny' => true, 'media_buttons' => false, 'quicktags' => true, 'tinymce' => array( 'toolbar1' => 'bold,italic,underline,bullist,numlist,link,unlink,undo,redo', 'toolbar2' => '' ) ) ); ?>
         </div>
         <div class="wutm-size-chart-note-editor">
-            <h3>規格表圖片（選填）</h3>
+            <h3>④ 規格表圖片（選填）</h3>
             <p class="description">可從媒體庫選擇或上傳一張圖片，顯示於前台規格表與備註下方。建議先壓縮圖片再上傳，以縮短商品頁載入時間。</p>
             <input type="hidden" id="wutm-size-chart-image-id" name="wutm_size_chart_image_id" value="<?php echo esc_attr( $image_id ); ?>">
             <div id="wutm-size-chart-image-preview"><?php if ( $image_id ) echo wp_get_attachment_image( $image_id, 'medium' ); ?></div>
             <p><button type="button" class="button" id="wutm-size-chart-select-image">選擇圖片</button> <button type="button" class="button" id="wutm-size-chart-remove-image"<?php echo $image_id ? '' : ' hidden'; ?>>移除圖片</button></p>
         </div>
     </div>
-    <style>
-        .wutm-size-chart-table-wrap{max-width:100%;overflow-x:auto}.wutm-size-chart-admin table{width:100%;min-width:900px;table-layout:fixed;border-collapse:collapse}.wutm-size-chart-admin th,.wutm-size-chart-admin td{padding:10px;vertical-align:top;box-sizing:border-box}.wutm-size-chart-admin th input,.wutm-size-chart-admin td input{display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box}.wutm-size-chart-admin .wutm-size-chart-remove-column{display:block;margin-top:6px;max-width:100%;white-space:nowrap}.wutm-size-chart-admin .wutm-size-chart-actions{width:88px;min-width:88px}.wutm-size-chart-controls{display:flex;gap:8px;flex-wrap:wrap}
-        .wutm-size-chart-note-editor{margin-top:22px;padding-top:16px;border-top:1px solid #dcdcde}.wutm-size-chart-note-editor h3{margin-top:0}.wutm-size-chart-note-editor .wp-editor-wrap{max-width:100%}
-    </style>
-    <script>
-    jQuery(function($){
-        var imageFrame;
-        $('#wutm-size-chart-select-image').on('click',function(){
-            if (!imageFrame) {
-                imageFrame=wp.media({title:'選擇規格表圖片',button:{text:'使用此圖片'},library:{type:'image'},multiple:false});
-                imageFrame.on('select',function(){var item=imageFrame.state().get('selection').first().toJSON();$('#wutm-size-chart-image-id').val(item.id);$('#wutm-size-chart-image-preview').empty().append($('<img>',{src:(item.sizes && item.sizes.medium ? item.sizes.medium.url : item.url),alt:'',style:'max-width:300px;height:auto;'}));$('#wutm-size-chart-remove-image').prop('hidden',false);});
-            }
-            imageFrame.open();
-        });
-        $('#wutm-size-chart-remove-image').on('click',function(){$('#wutm-size-chart-image-id').val('');$('#wutm-size-chart-image-preview').empty();$(this).prop('hidden',true);});
-        var $table=$('#wutm-size-chart-table'), $head=$table.find('thead tr'), $body=$table.find('tbody');
-        var rowIndex=$body.find('tr').length, columnIndex=0;
-        function keys(){return $head.find('.wutm-size-chart-column').map(function(){return String($(this).data('column-key'));}).get();}
-        function reindexRows(){ $body.find('tr').each(function(index){$(this).find('input').each(function(){var key=$(this).closest('td').data('column-key');$(this).attr('name','size_chart_rows['+index+']['+key+']');});});rowIndex=$body.find('tr').length; }
-        $('#wutm-size-chart-add-column').on('click',function(){
-            columnIndex++; var key='custom_'+Date.now()+'_'+columnIndex;
-            var $th=$('<th>',{'class':'wutm-size-chart-column','data-column-key':key});
-            $('<input>',{type:'text',name:'size_chart_columns['+key+'][label]',placeholder:'欄位名稱',required:true}).appendTo($th);
-            $('<button>',{type:'button','class':'button-link-delete wutm-size-chart-remove-column',text:'移除欄位'}).appendTo($th);
-            $th.insertBefore($head.find('.wutm-size-chart-actions'));
-            $body.find('tr').each(function(){ $('<td>',{'data-column-key':key}).append($('<input>',{type:'text',name:'size_chart_rows['+$body.find('tr').index(this)+']['+key+']'})).insertBefore($(this).find('.wutm-size-chart-actions')); });
-        });
-        $('#wutm-size-chart-add-row').on('click',function(){var $row=$('<tr>');keys().forEach(function(key){$('<td>',{'data-column-key':key}).append($('<input>',{type:'text',name:'size_chart_rows['+rowIndex+']['+key+']'})).appendTo($row);});$('<td>',{'class':'wutm-size-chart-actions'}).append($('<button>',{type:'button','class':'button wutm-size-chart-remove-row',text:'刪除'})).appendTo($row);$body.append($row);rowIndex++;});
-        $table.on('click','.wutm-size-chart-remove-column',function(){var key=$(this).closest('th').data('column-key');if(keys().length<=1){window.alert('至少保留一個規格欄位。');return;}$(this).closest('th').remove();$body.find('td[data-column-key="'+key+'"]').remove();});
-        $table.on('click','.wutm-size-chart-remove-row',function(){$(this).closest('tr').remove();reindexRows();});
-    });
-    </script>
     <?php
 }
 
 // 2. 儲存可編輯欄位與每項商品的規格資料。
 add_action( 'woocommerce_process_product_meta', 'wutm_product_size_chart_save_data' );
 function wutm_product_size_chart_save_data( $post_id ) {
-    if ( ! isset( $_POST['wutm_product_size_chart_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['wutm_product_size_chart_nonce'] ) ), 'wutm_product_size_chart_save' ) ) return;
+    if ( ! isset( $_POST['wutm_product_size_chart_nonce'] ) || !is_string($_POST['wutm_product_size_chart_nonce']) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['wutm_product_size_chart_nonce'] ) ), 'wutm_product_size_chart_save' ) ) return;
     if ( ( defined( 'DOING_AUTOSAVE' ) && DOING_AUTOSAVE ) || wp_is_post_autosave( $post_id ) || wp_is_post_revision( $post_id ) || ! current_user_can( 'edit_post', $post_id ) ) return;
 
     $posted_columns = isset( $_POST['size_chart_columns'] ) && is_array( $_POST['size_chart_columns'] ) ? wp_unslash( $_POST['size_chart_columns'] ) : array();

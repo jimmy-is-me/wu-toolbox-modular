@@ -32,6 +32,7 @@ class WU_WooCommerce_Optimizer {
         add_action('admin_menu', array($this, 'rename_woocommerce_menu'), 999);
         add_filter('admin_footer_text', array($this, 'footer_text'), PHP_INT_MAX);
         add_filter('woocommerce_settings_tabs_array', array($this, 'hide_settings_tabs'), PHP_INT_MAX);
+        add_action('admin_enqueue_scripts', array($this, 'product_visibility_assets'));
         }
         $this->load_optimizations();
     }
@@ -52,6 +53,10 @@ class WU_WooCommerce_Optimizer {
             'wu_woo_hide_payments_menu' => '隱藏主選單付款',
             'wu_woo_hide_reports' => '隱藏報表',
             'wu_woo_hide_sales_channel_filter' => '隱藏銷售通路篩選',
+            'wu_woo_hide_product_advanced' => '隱藏商品編輯：進階',
+            'wu_woo_hide_product_grouped' => '隱藏商品類型：組合商品（現有組合商品保留原類型）',
+            'wu_woo_hide_product_shipping' => '隱藏商品編輯：運送方式',
+            'wu_woo_hide_product_linked' => '隱藏商品編輯：連結商品',
             'wu_woo_custom_footer' => '頁尾顯示 Woocommerce X Wumetax（預設開啟）'
         );
     }
@@ -82,7 +87,25 @@ class WU_WooCommerce_Optimizer {
             if (get_option('wu_woo_hide_official_payments', false)) $css .= '.settings-payment-gateways__list .sortable-item:has([id^="_wc_pes_"]){display:none!important;}';
             if (get_option('wu_woo_hide_sales_channel_filter', false)) $css .= 'select[name="sales_channel"],select#filter-by-created-via,select[name="created_via"],.woocommerce-orders-filter [data-filter="sales_channel"],.woocommerce-orders-filter .woocommerce-select-control:has(option[value="sales_channel"]){display:none!important;}';
         }
+        if ($this->is_product_editor()) {
+            foreach (array('advanced' => 'advanced_product_data', 'shipping' => 'shipping_product_data', 'linked' => 'linked_product_data') as $key => $panel) {
+                if (get_option('wu_woo_hide_product_' . $key, false)) $css .= '#woocommerce-product-data .product_data_tabs li:has(a[href="#' . $panel . '"]),#woocommerce-product-data #' . $panel . '{display:none!important;}';
+            }
+            if (get_option('wu_woo_hide_product_grouped', false)) $css .= '#product-type option[value="grouped"]:not(:checked){display:none;}';
+        }
         return $css;
+    }
+
+    private function is_product_editor() {
+        $screen = get_current_screen();
+        return $screen && ($screen->post_type ?? '') === 'product' && ($screen->base ?? '') === 'post';
+    }
+
+    public function product_visibility_assets() {
+        if (!$this->is_product_editor()) return;
+        $active = false;
+        foreach (array('advanced', 'grouped', 'shipping', 'linked') as $key) if (get_option('wu_woo_hide_product_' . $key, false)) $active = true;
+        if ($active) wp_enqueue_script('wutm-wc-product-visibility', WUTM_URL . 'assets/js/wc-product-visibility.js', array('jquery'), WUTM_VERSION, true);
     }
 
     public function admin_visibility_styles() {
@@ -109,7 +132,7 @@ class WU_WooCommerce_Optimizer {
         if (!$screen) return false;
         return strpos($screen->id, 'woocommerce') !== false ||
             strpos($screen->id, 'wc-') !== false ||
-            in_array($screen->post_type, array('product', 'shop_order', 'shop_coupon'), true);
+            in_array($screen->post_type ?? '', array('product', 'shop_order', 'shop_coupon'), true);
     }
 
     public function footer_text($text) {
@@ -212,7 +235,7 @@ class WU_WooCommerce_Optimizer {
     public function settings_section_callback() {
         if ($this->mode === 'commerce') { echo '<p>選擇需要啟用的結帳與商品管理功能。發票資訊僅收集並顯示訂單資料，不會自動開立發票或串接發票服務。</p>'; return; }
         if ($this->mode === 'shipping') { echo '<p>集中管理台灣離島配送與 7-11 超商物流。7-11 支援買家手動填寫或綠界電子地圖選店，並將完整門市資訊保存至訂單。</p>'; return; }
-        echo '<p>配置 WooCommerce 優化選項。所有功能均需手動啟用。隱藏選項僅整理後台選單或設定分頁，不停用相關功能、不改變權限，也不影響前台購物與結帳；取消勾選並儲存即可恢復。</p>';
+        echo '<p>配置 WooCommerce 後台顯示。隱藏選項僅整理選單、設定分頁與商品編輯介面，不刪除欄位、不改變商品類型或權限，不停用運送、庫存、關聯商品及前台結帳。商品編輯隱藏項目預設關閉；取消勾選並儲存即可恢復。已是組合商品的商品仍保留目前類型，避免儲存時誤變更。</p>';
     }
 
     public function shipping_section_callback() {

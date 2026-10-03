@@ -6,6 +6,7 @@ final class WUTM_Shipping_Progress {
     private const PRODUCT_META = '_wutm_shipping_schedule';
     private const OVERRIDE_META = '_wutm_shipping_schedule_override';
     private const SNAPSHOT_META = '_wutm_shipping_schedule_snapshot';
+    private const TRACKING_META = '_wutm_shipping_tracking';
     private const OPTION = 'wutm_shipping_progress_options';
     private $options;
     private $product_plans = array();
@@ -13,7 +14,7 @@ final class WUTM_Shipping_Progress {
 
     public function __construct() {
         $saved = get_option(self::OPTION, array());
-        $this->options = wp_parse_args(is_array($saved) ? $saved : array(), array('page_id' => 0, 'replace_tracking' => 0));
+        $this->options = wp_parse_args(is_array($saved) ? $saved : array(), array('page_id' => 0, 'replace_tracking' => 0, 'enable_tracking' => 0));
         add_action('admin_init', array($this, 'register_settings'));
         add_action('admin_enqueue_scripts', array($this, 'admin_assets'));
         add_action('add_meta_boxes', array($this, 'meta_boxes'));
@@ -227,6 +228,12 @@ final class WUTM_Shipping_Progress {
         if (!$order instanceof WC_Order || !current_user_can('edit_shop_orders')) return;
         wp_nonce_field('wutm_sp_order_' . $order->get_id(), 'wutm_sp_order_nonce');
         echo '<div class="wutm-sp-admin"><p><strong>預設：沿用商品最新時間。</strong>如為不同出貨批次或已出貨，改為「此訂單單獨設定」，便不會隨全商品時程更動。以下說明均對客人公開；儲存訂單後生效。</p>';
+        if (!empty($this->options['enable_tracking'])) {
+            $tracking = $this->tracking($order);
+            echo '<section class="wutm-sp-admin-panel"><h3>此訂單的運送資訊</h3><p>選填；儲存訂單後會顯示於客人訂單、出貨進度查詢及通知信。不串接物流服務，也不會自動寄信或改變訂單狀態。</p><input type="hidden" name="wutm_sp_tracking[present]" value="1"><div class="wutm-sp-field-grid">';
+            foreach (array('carrier' => '運送商名稱', 'number' => '運送編號') as $key => $label) echo '<label for="wutm-sp-tracking-' . esc_attr($key) . '"><strong>' . esc_html($label) . '</strong><input id="wutm-sp-tracking-' . esc_attr($key) . '" name="wutm_sp_tracking[' . esc_attr($key) . ']" type="text" maxlength="120" value="' . esc_attr($tracking[$key]) . '" placeholder="' . esc_attr($key === 'carrier' ? '例如：黑貓宅急便、7-11' : '輸入物流／運送單號') . '"></label>';
+            echo '</div></section>';
+        }
         foreach ($this->order_plans($order) as $id => $row) {
             echo '<details class="wutm-sp-admin-card"><summary><span>' . esc_html($row['item']->get_name()) . ' × ' . esc_html($row['item']->get_quantity()) . '</span><small>' . esc_html($this->summary($row['plan'])) . '</small></summary><div class="wutm-sp-edit">';
             echo '<label class="wutm-sp-switch">設定來源<select class="wutm-sp-mode" name="wutm_sp_items[' . (int) $id . '][mode]"><option value="inherit">沿用商品最新時間</option><option value="custom" ' . selected($row['source'], 'order', false) . '>此訂單單獨設定（含已出貨／已送達）</option></select></label><fieldset>';
@@ -237,9 +244,20 @@ final class WUTM_Shipping_Progress {
     }
 
     public function save_order($order_id): void {
-        if (!current_user_can('edit_shop_orders') || !$this->valid_nonce('wutm_sp_order_nonce', 'wutm_sp_order_' . $order_id) || !isset($_POST['wutm_sp_items']) || !is_array($_POST['wutm_sp_items'])) return;
+        if (!current_user_can('edit_shop_orders') || !$this->valid_nonce('wutm_sp_order_nonce', 'wutm_sp_order_' . $order_id)) return;
+        if (isset($_POST['wutm_sp_items']) && !is_array($_POST['wutm_sp_items'])) return;
         $order = wc_get_order($order_id);
         if (!$order instanceof WC_Order) return;
+        $tracking = null;
+        if (!empty($this->options['enable_tracking']) && isset($_POST['wutm_sp_tracking']) && is_array($_POST['wutm_sp_tracking'])) {
+            $tracking = array();
+            foreach (array('carrier', 'number') as $key) {
+                $raw = $_POST['wutm_sp_tracking'][$key] ?? '';
+                if (!is_scalar($raw)) return;
+                $value = sanitize_text_field($this->text($raw));
+                $tracking[$key] = preg_match('/^(.{120})/us', $value, $match) ? $match[1] : $value;
+            }
+        }
         $changes = array();
         // Iterate real order items, never arbitrary submitted IDs from another order.
         foreach ($order->get_items('line_item') as $id => $item) {
@@ -261,6 +279,29 @@ final class WUTM_Shipping_Progress {
             else $item->delete_meta_data(self::OVERRIDE_META);
             $item->save();
         }
+        if ($tracking !== null) {
+            if ($tracking !== $this->tracking($order)) {
+                if ($tracking['carrier'] !== '' || $tracking['number'] !== '') $order->update_meta_data(self::TRACKING_META, $tracking);
+                else $order->delete_meta_data(self::TRACKING_META);
+                $order->save_meta_data();
+            }
+        }
+    }
+
+    private function tracking($order): array {
+        $saved = $order->get_meta(self::TRACKING_META, true);
+        $result = array('carrier' => '', 'number' => '');
+        foreach ($result as $key => $empty) if (is_array($saved) && isset($saved[$key]) && is_scalar($saved[$key])) $result[$key] = sanitize_text_field((string) $saved[$key]);
+        return $result;
+    }
+
+    private function tracking_html($order, bool $email = false): string {
+        if (empty($this->options['enable_tracking'])) return '';
+        $tracking = $this->tracking($order);
+        if ($tracking['carrier'] === '' && $tracking['number'] === '') return '';
+        $content = '<strong>運送資訊</strong>';
+        foreach (array('carrier' => '運送商', 'number' => '運送編號') as $key => $label) if ($tracking[$key] !== '') $content .= '<br>' . esc_html($label) . '：' . esc_html($tracking[$key]);
+        return '<div' . ($email ? ' style="margin:14px 0;padding:14px;background:#f4f7fa;"' : ' class="wutm-sp-message wutm-sp-tracking"') . '>' . $content . '</div>';
     }
 
     private function range(array $plan, string $key): string {
@@ -306,6 +347,7 @@ final class WUTM_Shipping_Progress {
         echo '<section class="wutm-sp-progress" aria-label="商品出貨進度"><div class="wutm-sp-heading"><div><p class="wutm-sp-eyebrow">SHIPPING PROGRESS</p><h2>商品出貨進度</h2></div><span class="wutm-sp-order-number">訂單 #' . esc_html($order->get_order_number()) . '</span></div>';
         echo '<p class="wutm-sp-intro">訂單狀態：' . esc_html(wc_get_order_status_name($order->get_status())) . '。預計時間以目前更新為準，非保證送達日期。重新查看本頁即可取得最新資訊。</p>';
         if ($closed) echo '<p class="wutm-sp-alert">此訂單已取消、退款或付款失敗；以下時程僅供歷史參考，不代表仍會安排出貨。</p>';
+        echo $this->tracking_html($order);
         foreach ($this->order_plans($order) as $row) {
             $plan = $row['plan'];
             $status = $plan['status'] ?? 'preparing';
@@ -333,7 +375,7 @@ final class WUTM_Shipping_Progress {
     }
 
     public function email_html($order): string {
-        $html = '';
+        $html = $this->tracking_html($order, true);
         foreach ($this->order_plans($order) as $row) {
             if (!$row['plan']) continue;
             $plan = $row['plan'];
@@ -430,7 +472,7 @@ final class WUTM_Shipping_Progress {
     public function sanitize_options($input): array {
         $input = is_array($input) ? $input : array();
         $id = absint($input['page_id'] ?? 0);
-        return array('page_id' => $id && get_post_type($id) === 'page' ? $id : 0, 'replace_tracking' => !empty($input['replace_tracking']) ? 1 : 0);
+        return array('page_id' => $id && get_post_type($id) === 'page' ? $id : 0, 'replace_tracking' => !empty($input['replace_tracking']) ? 1 : 0, 'enable_tracking' => !empty($input['enable_tracking']) ? 1 : 0);
     }
 
     public function create_page(): void {
@@ -474,6 +516,7 @@ final class WUTM_Shipping_Progress {
                     <label>查詢頁面<?php wp_dropdown_pages(array('name' => self::OPTION . '[page_id]', 'selected' => $this->options['page_id'], 'show_option_none' => '尚未指定', 'option_none_value' => 0, 'post_status' => 'publish')); ?></label>
                     <p>頁面加入短代碼：<code>[wutm_shipping_progress]</code>。指定既有頁面時不會更動原內容，請自行加入此短代碼。</p>
                     <label class="wutm-sp-switch"><input type="checkbox" name="<?php echo esc_attr(self::OPTION); ?>[replace_tracking]" value="1" <?php checked(!empty($this->options['replace_tracking'])); ?>> 將原本 <code>[woocommerce_order_tracking]</code> 改顯示出貨進度查詢（預設不替換）</label>
+                    <label class="wutm-sp-switch"><input type="checkbox" name="<?php echo esc_attr(self::OPTION); ?>[enable_tracking]" value="1" <?php checked(!empty($this->options['enable_tracking'])); ?>> 啟用每筆訂單的運送商名稱與運送編號（預設關閉）</label><p>啟用後可在訂單編輯頁填寫，客人訂單、出貨進度查詢與通知信會顯示。關閉只停止顯示與編輯，不刪除已儲存資訊。</p>
                     <?php submit_button('儲存查詢頁設定', 'secondary', 'submit', false); ?>
                 </form>
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="wutm-sp-page-actions"><input type="hidden" name="action" value="wutm_sp_create_page"><?php wp_nonce_field('wutm_sp_create_page'); ?><button type="submit" class="button button-primary" <?php disabled(!current_user_can('publish_pages')); ?>><?php echo $this->page_url() ? '保留目前查詢頁' : '一鍵建立出貨進度查詢頁'; ?></button><?php if ($this->page_url()): ?> <a class="button" href="<?php echo esc_url($this->page_url()); ?>" target="_blank" rel="noopener noreferrer">查看查詢頁</a><?php endif; ?></form>

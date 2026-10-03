@@ -2,7 +2,7 @@
 /** Shipping progress regression checks using actual module code and WC CRUD fixtures. */
 define('ABSPATH', __DIR__ . '/');
 define('WUTM_URL', '/');
-define('WUTM_VERSION', '3.5.1');
+define('WUTM_VERSION', '3.5.2');
 $options = array(); $product_meta = array(); $live_products = array(); $orders = array();
 $hooks = array(); $queries = array(); $order_reads = 0; $caps = array(); $user_id = 0; $received = false; $errors = array(); $styles = array(); $scripts = array();
 class WooCommerce {}
@@ -38,7 +38,7 @@ class WC_Order_Item_Product {
     public function save() { $this->saved++; }
 }
 class WC_Order {
-    public $items; public $status = 'processing'; public $saved = 0;
+    public $items; public $status = 'processing'; public $saved = 0; public $meta = array(); public $meta_saves = 0;
     public function __construct($items) { $this->items = $items; }
     public function get_items($type = '') { return $this->items; }
     public function get_id() { return 42; }
@@ -55,7 +55,10 @@ class WC_Order {
     public function get_formatted_shipping_address() { return 'PRIVATE_ADDRESS'; }
     public function get_formatted_billing_address() { return 'PRIVATE_BILLING'; }
     public function get_shipping_method() { return '宅配'; }
-    public function get_meta($key, $single = true) { return ''; }
+    public function get_meta($key, $single = true) { return $this->meta[$key] ?? ''; }
+    public function update_meta_data($key, $value) { $this->meta[$key] = $value; }
+    public function delete_meta_data($key) { unset($this->meta[$key]); }
+    public function save_meta_data() { $this->meta_saves++; }
 }
 function add_action($hook, $callback, ...$args) { $GLOBALS['hooks'][$hook][] = $callback; }
 function add_filter($hook, $callback, ...$args) { add_action($hook, $callback); }
@@ -257,6 +260,37 @@ $caps = array('manage_woocommerce');
 ob_start(); $replace->admin_panel(); $admin_html = ob_get_clean();
 check($catalog_query['posts_per_page'] === 12 && $catalog_query['update_post_meta_cache'], 'Catalog UI is paginated, not an unbounded scan');
 check(strpos($admin_html, 'wutm_sp_create_page') !== false && strpos($admin_html, 'wutm_sp_save_product') !== false, 'Central product editing and explicit page-creation actions visible');
+$order->meta['_wutm_shipping_tracking'] = array('carrier' => '黑貓宅急便', 'number' => 'WU-TRACK-001');
+$disabled_tracking = new WUTM_Shipping_Progress();
+check(strpos($disabled_tracking->email_html($order), 'WU-TRACK-001') === false, 'Tracking stays hidden by default');
+$caps = array('edit_shop_orders');
+$_POST = array('wutm_sp_order_nonce' => 'valid', 'wutm_sp_tracking' => array('carrier' => '不應儲存', 'number' => 'NEW'));
+$disabled_tracking->save_order(42);
+check($order->meta_saves === 0 && $order->meta['_wutm_shipping_tracking']['number'] === 'WU-TRACK-001', 'Disabled feature preserves existing tracking and ignores submitted fields');
+$options['wutm_shipping_progress_options']['enable_tracking'] = 1;
+$tracking = new WUTM_Shipping_Progress();
+$_POST['wutm_sp_order_nonce'] = 'wrong'; $tracking->save_order(42);
+check($order->meta_saves === 0, 'Tracking uses order-specific nonce guard');
+$_POST['wutm_sp_order_nonce'] = 'valid'; $caps = array(); $tracking->save_order(42);
+check($order->meta_saves === 0, 'Tracking requires order edit permission');
+$caps = array('edit_shop_orders');
+$_POST['wutm_sp_tracking'] = array('carrier' => '<b>黑貓宅急便</b>', 'number' => '001-000012345');
+$tracking->save_order(42);
+check($order->meta_saves === 1 && $order->meta['_wutm_shipping_tracking'] === array('carrier' => '黑貓宅急便', 'number' => '001-000012345'), 'Tracking-only save uses HPOS-safe meta CRUD, preserving leading zeros');
+$tracking->save_order(42); check($order->meta_saves === 1, 'Unchanged tracking does not cause another write');
+$_POST['wutm_sp_tracking']['number'] = array('malformed'); $tracking->save_order(42);
+check($order->meta_saves === 1, 'Malformed tracking cannot overwrite saved data');
+$_POST = array();
+ob_start(); $tracking->order_fields($order); $tracking_fields = ob_get_clean();
+check(strpos($tracking_fields, 'wutm_sp_tracking[number]') !== false, 'Tracking fields included in native and HPOS order metabox');
+$caps = array(); $user_id = 71;
+ob_start(); $tracking->order_details($order); $tracking_output = ob_get_clean();
+check(strpos($tracking_output, '001-000012345') !== false && strpos($tracking->email_html($order), '黑貓宅急便') !== false, 'Authorized customer and notification email see tracking');
+$user_id = 0;
+ob_start(); $tracking->order_details($order); check(ob_get_clean() === '', 'Guest cannot bypass tracking authorization');
+$caps = array('edit_shop_orders'); $_POST = array('wutm_sp_order_nonce' => 'valid', 'wutm_sp_tracking' => array('carrier' => '', 'number' => ''));
+$tracking->save_order(42); check(!$order->get_meta('_wutm_shipping_tracking'), 'Clearing both fields removes only tracking metadata');
+$_POST = array(); $caps = array('manage_woocommerce');
 $options['wutm_shipping_progress_options'] = array(); $creator = new WUTM_Shipping_Progress(); $created_pages = array();
 try { $creator->create_page(); } catch (Test_Response $error) {}
 check(!$created_pages, 'Page creation requires publish_pages capability');

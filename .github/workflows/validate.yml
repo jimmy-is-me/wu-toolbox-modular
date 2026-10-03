@@ -24,6 +24,12 @@ jobs:
         run: php tests/shipping-progress.php
       - name: Check shipping admin script
         run: node --check assets/js/shipping-progress-admin.js
+      - name: Check commerce admin data preservation and scoped assets
+        run: php tests/admin-commerce-ui.php
+      - name: Check product editor scripts
+        run: |
+          node --check assets/js/product-size-chart-admin.js
+          node --check assets/js/wc-product-visibility.js
       - name: Check product category menu hierarchy
         run: php tests/product-category-menu-tree.php
       - name: Check media-grid fallback notice stays hidden

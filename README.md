@@ -22,3 +22,5 @@ License: GPL-2.0-or-later.
 SEO 核心的功能、設定順序與發佈後驗證方式見 [SEO 核心使用說明](docs/SEO-CORE.md)。
 
 商品預計時間、不同訂單批次及客人查詢頁的設定見 [出貨進度與通知信](docs/SHIPPING-PROGRESS.md)。
+
+商品規格表的後台操作及商品編輯隱藏開關見 [電商後台介面](docs/COMMERCE-ADMIN.md)。
