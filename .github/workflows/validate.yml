@@ -20,6 +20,10 @@ jobs:
         run: php tests/product-custom-price.php
       - name: Check WC shipping module merge
         run: php tests/wc-shipping-merge.php
+      - name: Check product shipping schedules, permissions, query privacy and email compatibility
+        run: php tests/shipping-progress.php
+      - name: Check shipping admin script
+        run: node --check assets/js/shipping-progress-admin.js
       - name: Check product category menu hierarchy
         run: php tests/product-category-menu-tree.php
       - name: Check media-grid fallback notice stays hidden

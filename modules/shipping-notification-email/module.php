@@ -9,12 +9,15 @@ final class WUTM_Shipping_Notification_Email {
     private const LAST_SENT_META = '_wutm_shipping_email_last_sent';
 
     private $settings;
+    private $progress;
 
     public function __construct() {
         if (!class_exists('WooCommerce')) return;
         $saved = get_option(self::OPTION, null);
         if ($saved === null) $saved = get_option(self::LEGACY_OPTION, array());
         $this->settings = wp_parse_args(is_array($saved) ? $saved : array(), $this->defaults());
+        require_once __DIR__ . '/progress.php';
+        $this->progress = new WUTM_Shipping_Progress();
 
         add_action('admin_menu', array($this, 'menu'));
         add_action('admin_init', array($this, 'register_settings'));
@@ -61,6 +64,7 @@ final class WUTM_Shipping_Notification_Email {
 
 <p><strong>訂購商品：</strong></p>
 {items_list}
+{shipping_progress}
 
 <p><strong>送貨地點：</strong><br>{shipping_address}</p>
 
@@ -114,6 +118,7 @@ HTML;
         <div class="wrap wutm-sne-admin">
             <h1>出貨通知信設定</h1>
             <p>設定所有訂單共用的預設信件。實際寄送前，仍可在訂單編輯頁預覽並個別修改收件人、主旨與內容。</p>
+            <?php $this->progress->admin_panel(); ?>
             <form method="post" action="options.php">
                 <?php settings_fields('wutm_sne_group'); ?>
                 <section class="wutm-sne-panel">
@@ -137,7 +142,8 @@ HTML;
                         'teeny' => true,
                         'quicktags' => true,
                     )); ?>
-                    <p class="description">可用變數：<code>{shop_name}</code> <code>{billing_name}</code> <code>{order_number}</code> <code>{order_date}</code> <code>{shipped_date}</code> <code>{items_list}</code> <code>{shipping_address}</code> <code>{support_email}</code> <code>{account_url}</code> <code>{shop_url}</code> <code>{logo_html}</code></p>
+                    <p class="description">可用變數：<code>{shop_name}</code> <code>{billing_name}</code> <code>{order_number}</code> <code>{order_date}</code> <code>{shipped_date}</code> <code>{items_list}</code> <code>{shipping_progress}</code> <code>{progress_url}</code> <code>{shipping_address}</code> <code>{support_email}</code> <code>{account_url}</code> <code>{shop_url}</code> <code>{logo_html}</code></p>
+                    <p class="description">預計時間會附在通知信中；舊自訂範本未放入 <code>{shipping_progress}</code> 時，會自動附加在信末。郵件是寄送當下的資料，客人可到查詢頁查看最新時間。寄信不會自動把全部商品標記為已出貨。</p>
                     <p><button type="button" class="button" id="wutm-sne-restore">還原為預設範本</button></p>
                 </section>
                 <?php submit_button('儲存設定'); ?>
@@ -301,6 +307,8 @@ HTML;
             '{order_date}' => esc_html($created ? wc_format_datetime($created, 'Y/m/d H:i:s') : ''),
             '{shipped_date}' => esc_html(current_time('Y/m/d')),
             '{items_list}' => $items,
+            '{shipping_progress}' => $this->progress->email_html($order),
+            '{progress_url}' => esc_url($this->progress->page_url()),
             '{shipping_address}' => wp_kses_post($address),
             '{support_email}' => esc_attr($o['support_email']),
             '{account_url}' => esc_url($o['account_url']),
@@ -311,9 +319,11 @@ HTML;
         foreach ($replace as $key => $value) {
             $subject_replace[$key] = html_entity_decode(wp_strip_all_tags((string) $value), ENT_QUOTES, 'UTF-8');
         }
+        $body = wp_kses_post(strtr($o['body'], $replace));
+        if (strpos($o['body'], '{shipping_progress}') === false) $body .= $replace['{shipping_progress}'];
         return array(
             'subject' => sanitize_text_field(strtr($o['subject'], $subject_replace)),
-            'body' => wp_kses_post(strtr($o['body'], $replace)),
+            'body' => $body,
         );
     }
 
