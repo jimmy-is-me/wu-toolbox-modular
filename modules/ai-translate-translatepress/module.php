@@ -1,6 +1,6 @@
 <?php
 
- /**  * Plugin Name: Wu AI Translate for TranslatePress  * Plugin URI:  https://github.com/Ya19880104/wu-translatepress-addons  * Description: AI 翻譯外掛，支援 Gemini / Anthropic Claude / Perplexity / OpenAI ChatGPT 四種供應商。設定頁一鍵「全站掃描」探索字串（含前台實際可見文字與 TranslatePress 實際字典精準同步；避免 Builder/CSS 技術字串，並修正重複 block_type 寫入），並提供翻譯進度統計、CSV 匯出／匯入（含 Excel 相容編碼修正），匯出頁附帶可一鍵複製的 AI 翻譯指令。  * Version:     1.9.6  * Author:      Ya19880104  * Text Domain: wu-ai-translate  * Requires PHP: 7.4  */  if ( ! defined( 'ABSPATH' ) ) { 	exit; }  define( 'WU_AIT_VERSION', '1.9.6' ); define( 'WU_AIT_FILE', __FILE__ ); define( 'WU_AIT_DIR', plugin_dir_path( __FILE__ ) ); define( 'WU_AIT_URL', plugin_dir_url( __FILE__ ) ); define( 'WU_AIT_OPTION_KEY', 'wu_ait_settings' ); define( 'WU_AIT_LOG_OPTION_KEY', 'wu_ait_log' ); define( 'WU_AIT_CRON_HOOK', 'wu_ait_cron_batch_translate' );  register_activation_hook( WU_AIT_FILE, function () { 	if ( ! wp_next_scheduled( WU_AIT_CRON_HOOK ) ) { 		wp_schedule_event( time() + 60, 'wu_ait_five_minutes', WU_AIT_CRON_HOOK ); 	} } );  register_deactivation_hook( WU_AIT_FILE, function () { 	wp_clear_scheduled_hook( WU_AIT_CRON_HOOK ); } );  add_filter( 'cron_schedules', function ( $schedules ) { 	$schedules['wu_ait_five_minutes'] = array( 		'interval' => 300, 		'display'  => __( '每 5 分鐘（Wu AI 翻譯批次）', 'wu-ai-translate' ), 	); 	return $schedules; } );  function wu_ait_sanitize_model_code( string $raw ): string { 	$model = trim( $raw ); 	$model = str_replace( array( "\r", "\n", "\t" ), '', $model ); 	$model = preg_replace( '/\x{3000}/u', '', $model ); 	$model = trim( $model, "\"'“”‘’ " ); 	$model = preg_replace( '/\s+/', '', $model ); 	if ( false !== strpos( $model, '/' ) ) { 		$parts = explode( '/', $model ); 		$model = end( $parts ); 	} 	return $model; }  /**  * 移除譯文中可能殘留的語言標記前綴，例如 "[EN] Hello"、"(EN) Hello"、"EN: Hello"。  *  * 修正說明（v1.9.1）：前一版的正規表達式把括號與冒號都設為可選字元，  * 導致任何以 2~5 個英文字母開頭、後面接空格的正常英文句子（例如 "This policy..."、  * "Applicable to..."）被誤判成帶語言標記而遭到裁切，造成翻譯內容被錯誤清空、  * 匯入時「比對成功」卻「實際寫入 0 筆」。  * 新規則要求「方括號」「圓括號」或「冒號」三者之一必須明確存在才會移除，  * 一般英文句子不會受影響。  */ function wu_ait_strip_language_prefix( string $text ): string { 	$pattern = '/^\s*(?:\[[A-Za-z]{2,5}\]|\([A-Za-z]{2,5}\)|[A-Za-z]{2,5}:)\s+/u'; 	return preg_replace( $pattern, '', $text, 1 ); }  function wu_ait_get_settings() { 	$defaults = array( 		'provider'           => 'gemini', 		'api_key_gemini'     => '', 		'api_key_claude'     => '', 		'api_key_perplexity' => '', 		'api_key_openai'     => '', 		'model_gemini'       => 'gemini-3.8-flash', 		'model_claude'       => 'claude-sonnet-4-5', 		'model_perplexity'   => 'sonar-pro', 		'model_openai'       => 'gpt-4o-mini', 		'temperature'        => 0.2, 		'batch_size'         => 10, 		'auto_cron'          => 0, 		'cache_enabled'      => 1, 		'custom_glossary'    => '', 		'extra_prompt'       => '', 		'fallback_provider'  => '', 	); 	$saved = get_option( WU_AIT_OPTION_KEY, array() ); 	$saved = wp_parse_args( $saved, $defaults );  	unset( $saved['auto_discover'] );  	foreach ( array( 'gemini', 'claude', 'perplexity', 'openai' ) as $key ) { 		$field = 'model_' . $key; 		if ( ! empty( $saved[ $field ] ) ) { 			$saved[ $field ] = wu_ait_sanitize_model_code( $saved[ $field ] ); 		} 	}  	return $saved; }  function wu_ait_update_settings( array $new_settings ) { 	$current = wu_ait_get_settings(); 	$merged  = wp_parse_args( $new_settings, $current ); 	update_option( WU_AIT_OPTION_KEY, $merged ); 	return $merged; }  function wu_ait_add_log( $message, $level = 'info' ) { 	$log   = get_option( WU_AIT_LOG_OPTION_KEY, array() ); 	$entry = array( 		'time'    => current_time( 'mysql' ), 		'level'   => $level, 		'message' => is_string( $message ) ? $message : wp_json_encode( $message ), 	); 	array_unshift( $log, $entry ); 	$log = array_slice( $log, 0, 200 ); 	update_option( WU_AIT_LOG_OPTION_KEY, $log, false ); }  
+ /**  * Plugin Name: Wu AI Translate for TranslatePress  * Plugin URI:  https://github.com/Ya19880104/wu-translatepress-addons  * Description: AI 翻譯外掛，支援 Gemini / Anthropic Claude / Perplexity / OpenAI ChatGPT 四種供應商。設定頁一鍵「全站掃描」探索字串（含前台實際可見文字與 TranslatePress 實際字典精準同步；避免 Builder/CSS 技術字串，並修正重複 block_type 寫入），並提供翻譯進度統計、CSV 匯出／匯入（含 Excel 相容編碼修正），匯出頁附帶可一鍵複製的 AI 翻譯指令。  * Version:     1.9.7  * Author:      Ya19880104  * Text Domain: wu-ai-translate  * Requires PHP: 7.4  */  if ( ! defined( 'ABSPATH' ) ) { 	exit; }  define( 'WU_AIT_VERSION', '1.9.7' ); define( 'WU_AIT_FILE', __FILE__ ); define( 'WU_AIT_DIR', plugin_dir_path( __FILE__ ) ); define( 'WU_AIT_URL', plugin_dir_url( __FILE__ ) ); define( 'WU_AIT_OPTION_KEY', 'wu_ait_settings' ); define( 'WU_AIT_LOG_OPTION_KEY', 'wu_ait_log' ); define( 'WU_AIT_CRON_HOOK', 'wu_ait_cron_batch_translate' );  register_activation_hook( WU_AIT_FILE, function () { 	if ( ! wp_next_scheduled( WU_AIT_CRON_HOOK ) ) { 		wp_schedule_event( time() + 60, 'wu_ait_five_minutes', WU_AIT_CRON_HOOK ); 	} } );  register_deactivation_hook( WU_AIT_FILE, function () { 	wp_clear_scheduled_hook( WU_AIT_CRON_HOOK ); } );  add_filter( 'cron_schedules', function ( $schedules ) { 	$schedules['wu_ait_five_minutes'] = array( 		'interval' => 300, 		'display'  => __( '每 5 分鐘（Wu AI 翻譯批次）', 'wu-ai-translate' ), 	); 	return $schedules; } );  function wu_ait_sanitize_model_code( string $raw ): string { 	$model = trim( $raw ); 	$model = str_replace( array( "\r", "\n", "\t" ), '', $model ); 	$model = preg_replace( '/\x{3000}/u', '', $model ); 	$model = trim( $model, "\"'“”‘’ " ); 	$model = preg_replace( '/\s+/', '', $model ); 	if ( false !== strpos( $model, '/' ) ) { 		$parts = explode( '/', $model ); 		$model = end( $parts ); 	} 	return $model; }  /**  * 移除譯文中可能殘留的語言標記前綴，例如 "[EN] Hello"、"(EN) Hello"、"EN: Hello"。  *  * 修正說明（v1.9.1）：前一版的正規表達式把括號與冒號都設為可選字元，  * 導致任何以 2~5 個英文字母開頭、後面接空格的正常英文句子（例如 "This policy..."、  * "Applicable to..."）被誤判成帶語言標記而遭到裁切，造成翻譯內容被錯誤清空、  * 匯入時「比對成功」卻「實際寫入 0 筆」。  * 新規則要求「方括號」「圓括號」或「冒號」三者之一必須明確存在才會移除，  * 一般英文句子不會受影響。  */ function wu_ait_strip_language_prefix( string $text ): string { 	$pattern = '/^\s*(?:\[[A-Za-z]{2,5}\]|\([A-Za-z]{2,5}\)|[A-Za-z]{2,5}:)\s+/u'; 	return preg_replace( $pattern, '', $text, 1 ); }  function wu_ait_get_settings() { 	$defaults = array( 		'provider'           => 'gemini', 		'api_key_gemini'     => '', 		'api_key_claude'     => '', 		'api_key_perplexity' => '', 		'api_key_openai'     => '', 		'model_gemini'       => 'gemini-3.8-flash', 		'model_claude'       => 'claude-sonnet-4-5', 		'model_perplexity'   => 'sonar-pro', 		'model_openai'       => 'gpt-4o-mini', 		'temperature'        => 0.2, 		'batch_size'         => 10, 		'auto_cron'          => 0, 		'cache_enabled'      => 1, 		'custom_glossary'    => '', 		'extra_prompt'       => '', 		'fallback_provider'  => '', 	); 	$saved = get_option( WU_AIT_OPTION_KEY, array() ); 	$saved = wp_parse_args( $saved, $defaults );  	unset( $saved['auto_discover'] );  	foreach ( array( 'gemini', 'claude', 'perplexity', 'openai' ) as $key ) { 		$field = 'model_' . $key; 		if ( ! empty( $saved[ $field ] ) ) { 			$saved[ $field ] = wu_ait_sanitize_model_code( $saved[ $field ] ); 		} 	}  	return $saved; }  function wu_ait_update_settings( array $new_settings ) { 	$current = wu_ait_get_settings(); 	$merged  = wp_parse_args( $new_settings, $current ); 	update_option( WU_AIT_OPTION_KEY, $merged ); 	return $merged; }  function wu_ait_add_log( $message, $level = 'info' ) { 	$log   = get_option( WU_AIT_LOG_OPTION_KEY, array() ); 	$entry = array( 		'time'    => current_time( 'mysql' ), 		'level'   => $level, 		'message' => is_string( $message ) ? $message : wp_json_encode( $message ), 	); 	array_unshift( $log, $entry ); 	$log = array_slice( $log, 0, 200 ); 	update_option( WU_AIT_LOG_OPTION_KEY, $log, false ); }
 /**
  * 翻譯寫入後清除常見 WordPress / 頁面快取。
  * 不觸碰 Cloudflare 全站 Purge，避免過度清除 CDN；若站點本身有對應 hook，會一起觸發。
@@ -81,9 +81,8 @@ function wu_ait_flush_site_caches(): array {
 }
 
 	public static function discover_sitewide(): array {
-    // v1.9.6：每次全站掃描都重建清單，避免已刪除/已修改的舊文字繼續留在 CSV。
+    // 每次全站掃描都重建清單，避免已刪除/已修改的舊文字繼續留在 CSV。
     $cleaned_invalid = self::cleanup_invalid_entries();
-    update_option( self::OPTION_KEY, array(), false );
 
     $post_types = get_post_types( array( 'public' => true ), 'names' );
     $post_types = array_values( array_diff( (array) $post_types, array( 'attachment' ) ) );
@@ -104,13 +103,26 @@ function wu_ait_flush_site_caches(): array {
     $total_posts      = count( $query->posts );
     $visible_count    = 0;
     $dictionary_count = 0;
+    $visible_by_post  = array();
 
+    // First render every public page. Front-end requests may register new
+    // TranslatePress dictionary originals, so no snapshot is taken yet.
     foreach ( $query->posts as $post_id ) {
         $visible = WU_AIT_TranslatePress_Bridge::get_translatable_segments_for_post( (int) $post_id );
+        $visible_by_post[ (int) $post_id ] = $visible;
+        $visible_count += count( $visible );
+    }
+
+    WU_AIT_TranslatePress_Bridge::refresh_dictionary_originals_cache();
+    update_option( self::OPTION_KEY, array(), false );
+
+    // Match the complete, current dictionary against each page. Front-end
+    // HTML is cached from the first pass, avoiding a second HTTP request.
+    foreach ( $query->posts as $post_id ) {
+        $visible = $visible_by_post[ (int) $post_id ];
         $dict    = WU_AIT_TranslatePress_Bridge::get_dictionary_originals_for_post( (int) $post_id );
         $merged  = WU_AIT_TranslatePress_Bridge::filter_clean_candidates( array_merge( $visible, $dict ) );
 
-        $visible_count    += count( $visible );
         $dictionary_count += count( $dict );
 
         if ( ! empty( $merged ) ) {
@@ -237,6 +249,8 @@ function wu_ait_flush_site_caches(): array {
 /**  * ------------------------------------------------------------------  *  串接 TranslatePress  * ------------------------------------------------------------------  */ class WU_AIT_TranslatePress_Bridge {
 	protected static $last_write_report = array();
 	protected static $frontend_html_cache = array();
+	protected static $dictionary_originals_cache = array();
+	protected static $all_dictionary_originals_cache = null;
   	public static function get_target_languages(): array { 		if ( ! function_exists( 'trp_get_languages' ) && ! class_exists( 'TRP_Translate_Press' ) ) { 			return array(); 		} 		$trp          = TRP_Translate_Press::get_trp_instance(); 		$settings_obj = $trp->get_component( 'settings' ); 		$settings     = $settings_obj->get_settings();  		$published = isset( $settings['publish-languages'] ) ? (array) $settings['publish-languages'] : array(); 		$default   = $settings['default-language'] ?? '';  		return array_values( array_diff( $published, array( $default ) ) ); 	}  	public static function get_default_language(): string { 		if ( ! class_exists( 'TRP_Translate_Press' ) ) { 			return get_locale(); 		} 		$trp          = TRP_Translate_Press::get_trp_instance(); 		$settings_obj = $trp->get_component( 'settings' ); 		$settings     = $settings_obj->get_settings(); 		return $settings['default-language'] ?? get_locale(); 	}  	public static function dictionary_table( string $target_lang ): string {
 		global $wpdb;
 
@@ -371,14 +385,18 @@ function wu_ait_flush_site_caches(): array {
             }
 
             // D. TranslatePress 也會處理部分可見 attributes。
-            $attrs = $xpath->query( '//*[@id="wu-ait-root"]//*[@alt or @title or @placeholder or @aria-label or @data-label]' );
+            $attrs = $xpath->query( '//*[@id="wu-ait-root"]//*[@alt or @title or @placeholder or @aria-label or @data-label or @data-tooltip or @value]' );
             if ( $attrs ) {
                 foreach ( $attrs as $el ) {
                     if ( self::dom_node_is_non_translatable( $el ) ) {
                         continue;
                     }
-                    foreach ( array( 'alt', 'title', 'placeholder', 'aria-label', 'data-label' ) as $attr ) {
+                    foreach ( array( 'alt', 'title', 'placeholder', 'aria-label', 'data-label', 'data-tooltip', 'value' ) as $attr ) {
                         if ( ! $el->hasAttribute( $attr ) ) {
+                            continue;
+                        }
+                        // Text input values are user data; only button values are visible labels.
+                        if ( 'value' === $attr && ( 'input' !== strtolower( $el->tagName ) || ! in_array( strtolower( $el->getAttribute( 'type' ) ), array( 'button', 'submit', 'reset' ), true ) ) ) {
                             continue;
                         }
                         $candidate = self::normalize_translatable_candidate( $el->getAttribute( $attr ) );
@@ -497,7 +515,9 @@ protected static function normalize_translatable_candidate( string $text ): stri
     if ( preg_match( '/^(?:opacity|transform|filter|color|background|background-color|border|box-shadow|transition|animation|display|position|overflow|visibility|width|height|margin|padding|gap|flex|grid)(?:\s*,\s*(?:opacity|transform|filter|color|background|background-color|border|box-shadow|transition|animation|display|position|overflow|visibility|width|height|margin|padding|gap|flex|grid))+$/i', $plain ) ) {
         return false;
     }
-    if ( ( false !== strpos( $plain, '{' ) && false !== strpos( $plain, '}' ) && false !== strpos( $plain, ':' ) ) || ( substr_count( $plain, ';' ) >= 2 && substr_count( $plain, ':' ) >= 2 ) ) {
+    // A placeholder followed by punctuation ("您好 {name}: ...") is prose,
+    // not a CSS block. Require a declaration inside the braces to skip it.
+    if ( preg_match( '/\{[^{}]*[a-z-]+\s*:\s*[^{}]*\}/i', $plain ) || ( substr_count( $plain, ';' ) >= 2 && substr_count( $plain, ':' ) >= 2 ) ) {
         return false;
     }
     if ( preg_match( '/^(?:[a-z-]+\s*:\s*[^;]+;?\s*){1,}$/i', $plain ) ) {
@@ -660,6 +680,7 @@ protected static function fetch_frontend_html_for_post( int $post_id ): string {
 
     $body = (string) wp_remote_retrieve_body( $response );
     self::$frontend_html_cache[ $post_id ] = $body;
+    self::refresh_dictionary_originals_cache();
     return $body;
 }
 
@@ -679,6 +700,10 @@ protected static function fetch_frontend_segments_for_post( int $post_id ): arra
 public static function get_dictionary_originals_for_language( string $target_lang ): array {
     global $wpdb;
 
+    if ( isset( self::$dictionary_originals_cache[ $target_lang ] ) ) {
+        return self::$dictionary_originals_cache[ $target_lang ];
+    }
+
     if ( '' === $target_lang || ! self::dictionary_table_exists( $target_lang ) ) {
         return array();
     }
@@ -697,7 +722,13 @@ public static function get_dictionary_originals_for_language( string $target_lan
         return array();
     }
 
-    return self::filter_clean_candidates( (array) $rows );
+    self::$dictionary_originals_cache[ $target_lang ] = self::filter_clean_candidates( (array) $rows );
+    return self::$dictionary_originals_cache[ $target_lang ];
+}
+
+public static function refresh_dictionary_originals_cache(): void {
+    self::$dictionary_originals_cache = array();
+    self::$all_dictionary_originals_cache = null;
 }
 
 /**
@@ -717,12 +748,29 @@ protected static function normalize_dictionary_match_key( string $text ): string
     return trim( (string) $text );
 }
 
+/**
+ * TranslatePress may store a post title inside a metadata container. A plain
+ * title translation can be reused only when the container has one text node.
+ */
+protected static function title_wrapper_parts( string $original ): array {
+    if ( ! preg_match( '~^(\s*<trp-post-container\b[^>]*>)([^<>]*)(</trp-post-container>\s*)$~siu', $original, $parts ) ) {
+        return array();
+    }
+    if ( '' === trim( html_entity_decode( $parts[2], ENT_QUOTES | ENT_HTML5, 'UTF-8' ) ) ) {
+        return array();
+    }
+    return $parts;
+}
+
 public static function get_dictionary_originals_for_post( int $post_id, string $target_lang = '' ): array {
     $post = get_post( $post_id );
     if ( ! $post ) {
         return array();
     }
 
+    // A source-page render may register previously unseen TranslatePress rows.
+    // Fetch it before taking the dictionary snapshot for this post.
+    $frontend_html = self::fetch_frontend_html_for_post( $post_id );
     $dictionary = ( '' !== $target_lang )
         ? self::get_dictionary_originals_for_language( $target_lang )
         : self::get_all_dictionary_originals();
@@ -731,10 +779,9 @@ public static function get_dictionary_originals_for_post( int $post_id, string $
         return array();
     }
 
-    $frontend_html = self::fetch_frontend_html_for_post( $post_id );
     $rendered      = (string) apply_filters( 'the_content', (string) $post->post_content );
     $raw_corpus    = implode( "\n", array(
-        (string) get_the_title( $post_id ),
+        (string) $post->post_title,
         (string) $post->post_excerpt,
         (string) $post->post_content,
         $rendered,
@@ -785,7 +832,9 @@ protected static function get_translatable_segments_for_post_without_dictionary(
     }
 
     $segments = array();
-    $title = trim( get_the_title( $post_id ) );
+    // get_the_title() can be filtered into a TranslatePress post container.
+    // The stored title is the stable source string used by the dictionary.
+    $title = trim( (string) $post->post_title );
     if ( self::is_translatable_candidate( $title ) ) {
         $segments[] = $title;
     }
@@ -809,11 +858,15 @@ protected static function get_translatable_segments_for_post_without_dictionary(
 }
 
 public static function get_all_dictionary_originals(): array {
+    if ( null !== self::$all_dictionary_originals_cache ) {
+        return self::$all_dictionary_originals_cache;
+    }
     $all = array();
     foreach ( self::get_target_languages() as $target_lang ) {
         $all = array_merge( $all, self::get_dictionary_originals_for_language( $target_lang ) );
     }
-    return self::filter_clean_candidates( $all );
+    self::$all_dictionary_originals_cache = self::filter_clean_candidates( $all );
+    return self::$all_dictionary_originals_cache;
 }
 
 	public static function filter_untranslated( array $segments, string $target_lang ): array {
@@ -903,6 +956,7 @@ public static function get_all_dictionary_originals(): array {
         'rows_updated'       => 0,
         'exact_matches'      => 0,
         'normalized_matches' => 0,
+        'title_wrapper_matches' => 0,
         'multi_row_matches'  => 0,
         'skipped'            => 0,
         'errors'             => array(),
@@ -931,8 +985,9 @@ public static function get_all_dictionary_originals(): array {
 
     // 一次建立目前字典索引，解決同一 original 同時存在 regular / active translation block 的情況。
     $all_rows = $wpdb->get_results( "SELECT id, original, translated, status" . ( in_array( 'block_type', $columns, true ) ? ', block_type' : '' ) . " FROM `{$table}`", ARRAY_A ); // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-    $exact_index      = array();
-    $normalized_index = array();
+    $exact_index         = array();
+    $normalized_index    = array();
+    $title_wrapper_index = array();
 
     foreach ( (array) $all_rows as $row ) {
         $original = (string) $row['original'];
@@ -942,11 +997,20 @@ public static function get_all_dictionary_originals(): array {
         }
         $exact_index[ $original ][] = $row;
 
-        // 正規化 fallback 只允許 regular string，避免把純文字譯文誤塞進 HTML translation block。
-        if ( 0 === $bt ) {
+        // A regular dictionary row can still contain HTML. Never put a plain
+        // translation into an HTML original through the normalized fallback.
+        if ( 0 === $bt && false === strpos( $original, '<' ) ) {
             $key = self::normalize_dictionary_match_key( $original );
             if ( '' !== $key ) {
                 $normalized_index[ $key ][] = $row;
+            }
+        }
+
+        $wrapper = self::title_wrapper_parts( $original );
+        if ( ! empty( $wrapper ) && ( 0 === $bt || 1 === $bt ) ) {
+            $key = self::normalize_dictionary_match_key( $wrapper[2] );
+            if ( '' !== $key ) {
+                $title_wrapper_index[ $key ][] = $row;
             }
         }
     }
@@ -964,23 +1028,43 @@ public static function get_all_dictionary_originals(): array {
         $rows = $exact_index[ $original ] ?? array();
         $mode = 'exact';
 
-        if ( empty( $rows ) ) {
+        if ( empty( $rows ) && false === strpos( $original, '<' ) && false === strpos( $translated, '<' ) ) {
             $key  = self::normalize_dictionary_match_key( $original );
             $rows = ( '' !== $key && isset( $normalized_index[ $key ] ) ) ? $normalized_index[ $key ] : array();
             $mode = 'normalized';
         }
 
-        if ( ! empty( $rows ) ) {
-            $ids = array_values( array_unique( array_map( function ( $r ) { return (int) $r['id']; }, $rows ) ) );
+        // Keep the title wrapper intact. Only fill an untranslated wrapper;
+        // an explicit CSV row for that exact wrapper takes precedence.
+        $wrapper_rows = array();
+        if ( false === strpos( $original, '<' ) && false === strpos( $translated, '<' ) ) {
+            $key = self::normalize_dictionary_match_key( $original );
+            foreach ( $title_wrapper_index[ $key ] ?? array() as $row ) {
+                if ( '' !== trim( (string) $row['translated'] ) || isset( $original_to_translated[ $row['original'] ] ) ) {
+                    continue;
+                }
+                $wrapper_rows[] = $row;
+            }
+        }
+
+        if ( ! empty( $rows ) || ! empty( $wrapper_rows ) ) {
+            $ids = array_values( array_unique( array_map( function ( $r ) { return (int) $r['id']; }, array_merge( $rows, $wrapper_rows ) ) ) );
             if ( count( $ids ) > 1 ) {
                 self::$last_write_report['multi_row_matches']++;
             }
 
+            $wrapper_translations = array();
+            foreach ( $wrapper_rows as $wrapper_row ) {
+                $parts = self::title_wrapper_parts( (string) $wrapper_row['original'] );
+                $wrapper_translations[ (int) $wrapper_row['id'] ] = $parts[1] . esc_html( $translated ) . $parts[3];
+            }
+
             $ok_rows = 0;
             foreach ( $ids as $id ) {
+                $row_translation = $wrapper_translations[ $id ] ?? $translated;
                 $result = $wpdb->update(
                     $table,
-                    array( 'translated' => $translated, 'status' => 1 ),
+                    array( 'translated' => $row_translation, 'status' => 1 ),
                     array( 'id' => $id ),
                     array( '%s', '%d' ),
                     array( '%d' )
@@ -988,6 +1072,9 @@ public static function get_all_dictionary_originals(): array {
                 if ( false !== $result ) {
                     $ok_rows++;
                     self::$last_write_report['rows_updated']++;
+                    if ( isset( $wrapper_translations[ $id ] ) ) {
+                        self::$last_write_report['title_wrapper_matches']++;
+                    }
                 } else {
                     $msg = '更新翻譯失敗：' . ( $wpdb->last_error ?: '未知資料庫錯誤' );
                     self::$last_write_report['errors'][] = $msg;
@@ -1000,9 +1087,9 @@ public static function get_all_dictionary_originals(): array {
                 $written_strings++;
                 self::$last_write_report['written']++;
                 self::$last_write_report['updated']++;
-                if ( 'exact' === $mode ) {
+                if ( ! empty( $rows ) && 'exact' === $mode ) {
                     self::$last_write_report['exact_matches']++;
-                } else {
+                } elseif ( ! empty( $rows ) ) {
                     self::$last_write_report['normalized_matches']++;
                 }
             }
@@ -1034,6 +1121,7 @@ public static function get_all_dictionary_originals(): array {
         }
     }
 
+    self::refresh_dictionary_originals_cache();
     return $written_strings;
 }
 
@@ -1580,7 +1668,7 @@ public static function build_ai_prompt( string $target_lang, string $source_lang
 		$partial = ! empty( $parsed['skipped'] ) || ! empty( $parsed['malformed_rows'] );
 
 		wu_ait_add_log( sprintf(
-			'匯入 CSV：語言 %s，CSV %d 列，可匯入 %d 筆，成功寫入 %d 個字串，實際更新 %d 個字典列；exact %d、normalized %d、多列同步 %d、空白 %d、資料表 %s。',
+			'匯入 CSV：語言 %s，CSV %d 列，可匯入 %d 筆，成功寫入 %d 個字串，實際更新 %d 個字典列；exact %d、normalized %d、標題容器 %d、多列同步 %d、空白 %d、資料表 %s。',
 			$lang,
 			$parsed['total_rows'],
 			$parsed['matched'],
@@ -1588,6 +1676,7 @@ public static function build_ai_prompt( string $target_lang, string $source_lang
 			$write_report['rows_updated'] ?? 0,
 			$write_report['exact_matches'] ?? 0,
 			$write_report['normalized_matches'] ?? 0,
+			$write_report['title_wrapper_matches'] ?? 0,
 			$write_report['multi_row_matches'] ?? 0,
 			$parsed['skipped'],
 			$write_report['table'] ?? '未知'
@@ -1610,6 +1699,7 @@ public static function build_ai_prompt( string $target_lang, string $source_lang
 			'rows_updated'       => $write_report['rows_updated'] ?? 0,
 			'exact_matches'      => $write_report['exact_matches'] ?? 0,
 			'normalized_matches' => $write_report['normalized_matches'] ?? 0,
+			'title_wrapper_matches' => $write_report['title_wrapper_matches'] ?? 0,
 			'multi_row_matches'  => $write_report['multi_row_matches'] ?? 0,
 			'inserted'           => $write_report['inserted'] ?? 0,
 			'cache_flushed'      => $flushed_cache,
@@ -1630,6 +1720,7 @@ function wu_ait_render_settings_page() { 	if ( ! current_user_can( 'manage_optio
 							<?php if ( ! empty( $import_result['rows_updated'] ) ) : ?> 實際同步 <?php echo esc_html( $import_result['rows_updated'] ); ?> 個 TranslatePress 字典列。<?php endif; ?>
 							<?php if ( ! empty( $import_result['multi_row_matches'] ) ) : ?> 其中 <?php echo esc_html( $import_result['multi_row_matches'] ); ?> 個原文同時更新了 regular / translation block 重複列。<?php endif; ?>
 							<?php if ( ! empty( $import_result['normalized_matches'] ) ) : ?> 另有 <?php echo esc_html( $import_result['normalized_matches'] ); ?> 筆以空白/換行正規化比對成功。<?php endif; ?>
+							<?php if ( ! empty( $import_result['title_wrapper_matches'] ) ) : ?> 已補齊 <?php echo esc_html( $import_result['title_wrapper_matches'] ); ?> 個 TranslatePress 標題容器譯文。<?php endif; ?>
 							<?php if ( ! empty( $import_result['inserted'] ) ) : ?> 新增 <?php echo esc_html( $import_result['inserted'] ); ?> 筆 regular string。<?php endif; ?>
 							<?php if ( ! empty( $import_result['encoding'] ) ) : ?> 編碼：<?php echo esc_html( $import_result['encoding'] ); ?>。<?php endif; ?>
 							<?php if ( ! empty( $import_result['delimiter'] ) ) : ?> 分隔符：<?php echo esc_html( $import_result['delimiter'] ); ?>。<?php endif; ?>
