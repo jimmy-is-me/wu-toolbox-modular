@@ -38,7 +38,7 @@ jobs:
         run: php tests/seo-core.php
       - name: Check TranslatePress discovery and dictionary writes
         run: php tests/ai-translate-translatepress.php
-      - name: Check translated pages bypass HTML page cache
+      - name: Check translated page exclusions and cache integrity
         run: php tests/page-cache-translatepress.php
       - name: Check SEO editor analysis
         run: |

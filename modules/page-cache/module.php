@@ -17,12 +17,18 @@ final class WUTM_Page_Cache {
 	private static string $request_url = '';
 	private static string $device_variant = 'desktop';
 	private static bool $capturing = false;
+	private static int $capture_level = 0;
 
 	public static function init(): void {
 		if ( ! get_option( 'wutm_page_cache_device_variants_264', false ) ) {
 			$count = self::clear_cache();
 			self::record_invalidation( '升級裝置獨立快取', $count, 'all' );
 			update_option( 'wutm_page_cache_device_variants_264', 1, false );
+		}
+		if ( ! get_option( 'wutm_page_cache_safe_gzip_353', false ) ) {
+			$count = self::clear_cache();
+			self::record_invalidation( '升級安全頁面快取格式', $count, 'all' );
+			update_option( 'wutm_page_cache_safe_gzip_353', 1, false );
 		}
 		add_action( 'template_redirect', array( __CLASS__, 'serve_or_capture' ), -100 );
 		add_action( 'send_headers', array( __CLASS__, 'apply_exclusion_headers' ), 1 );
@@ -32,6 +38,9 @@ final class WUTM_Page_Cache {
 		add_action( 'admin_head', array( __CLASS__, 'admin_bar_styles' ) );
 		add_action( 'admin_post_wutm_page_cache_save', array( __CLASS__, 'save_settings' ) );
 		add_action( 'admin_post_wutm_page_cache_clear', array( __CLASS__, 'clear_from_request' ) );
+		add_action( 'upgrader_process_complete', array( __CLASS__, 'clear_on_global_change' ), 99 );
+		add_action( 'activated_plugin', array( __CLASS__, 'clear_on_global_change' ), 99 );
+		add_action( 'deactivated_plugin', array( __CLASS__, 'clear_on_global_change' ), 99 );
 		if ( ! empty( self::settings()['auto_invalidate'] ) ) {
 			add_action( 'save_post', array( __CLASS__, 'invalidate_post' ), 99, 3 );
 			add_action( 'before_delete_post', array( __CLASS__, 'invalidate_post_before_delete' ), 99, 2 );
@@ -67,7 +76,7 @@ final class WUTM_Page_Cache {
 	/** Coordinate cache reads/writes with cleanup of this module's cache directory. */
 	private static function acquire_cache_lock( int $operation, bool $non_blocking = true ) {
 		$directory = self::cache_dir();
-		if ( ! wp_mkdir_p( $directory ) ) {
+		if ( ! is_dir( $directory ) && ! wp_mkdir_p( $directory ) ) {
 			return false;
 		}
 		$handle = @fopen( $directory . '.wutm-cache.lock', 'c' );
@@ -123,7 +132,7 @@ final class WUTM_Page_Cache {
 			return false;
 		}
 		foreach ( array_keys( $_COOKIE ) as $cookie_name ) {
-			if ( preg_match( '/^(?:wutm_404_redirect_notice|wordpress_logged_in_|wordpress_sec_|wp-postpass_|comment_author_|woocommerce_items_in_cart|woocommerce_cart_hash|wp_woocommerce_session_)/', (string) $cookie_name ) ) {
+			if ( preg_match( '/^(?:PHPSESSID|wutm_404_redirect_notice|wordpress_logged_in_|wordpress_sec_|wp-postpass_|comment_author_|woocommerce_items_in_cart|woocommerce_cart_hash|woocommerce_recently_viewed|wp_woocommerce_session_|edd_items_in_cart|edd_cart_token)/i', (string) $cookie_name ) ) {
 				return false;
 			}
 		}
@@ -216,60 +225,58 @@ final class WUTM_Page_Cache {
 	}
 
 	public static function serve_or_capture(): void {
-		if ( ! self::request_is_cacheable() || ! function_exists( 'gzencode' ) ) {
+		if ( ! self::request_is_cacheable() || headers_sent() || ! function_exists( 'gzencode' ) || ! function_exists( 'gzdecode' ) ) {
 			return;
 		}
 		self::resolve_request();
 		$ttl = max( 60, absint( self::settings()['ttl'] ) );
 
-		if ( is_readable( self::$cache_file ) && time() - (int) filemtime( self::$cache_file ) < $ttl ) {
+		if ( is_readable( self::$cache_file ) && time() - (int) @filemtime( self::$cache_file ) < $ttl ) {
 			$cache_lock = self::acquire_cache_lock( LOCK_SH );
 			$compressed = false;
 			if ( false !== $cache_lock ) {
-				if ( is_readable( self::$cache_file ) ) {
-					$compressed = file_get_contents( self::$cache_file );
+				clearstatcache( true, self::$cache_file );
+				if ( is_readable( self::$cache_file ) && time() - (int) @filemtime( self::$cache_file ) < $ttl && @filesize( self::$cache_file ) <= 8 * MB_IN_BYTES ) {
+					$compressed = @file_get_contents( self::$cache_file );
 				}
 				self::release_cache_lock( $cache_lock );
 			}
-			if ( false !== $compressed ) {
+			$decoded = is_string( $compressed ) ? @gzdecode( $compressed, 32 * MB_IN_BYTES ) : false;
+			if ( is_string( $decoded ) && self::is_complete_html( $decoded ) ) {
 				header( 'Content-Type: text/html; charset=' . get_bloginfo( 'charset' ) );
 				header( 'Vary: Accept-Encoding, User-Agent', false );
 				header( 'X-WUTM-Page-Cache: HIT' );
 				header( 'X-WUTM-Cache-Device: ' . self::$device_variant );
-				$accepts_gzip = ! empty( $_SERVER['HTTP_ACCEPT_ENCODING'] ) && false !== stripos( wp_unslash( $_SERVER['HTTP_ACCEPT_ENCODING'] ), 'gzip' );
-				if ( $accepts_gzip ) {
-					header( 'Content-Encoding: gzip' );
-					header( 'Content-Length: ' . strlen( $compressed ) );
-					echo $compressed; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Stored compressed HTML response.
-				} else {
-					$decoded = gzdecode( $compressed );
-					if ( false === $decoded ) {
-						return;
-					}
-					echo $decoded; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Stored HTML response.
-				}
+				// WordPress/translation output buffers may change the final bytes. Let the web server compress the response.
+				echo $decoded; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Validated stored HTML response.
 				exit;
 			}
 		}
 
 		self::$capturing = true;
 		ob_start();
+		self::$capture_level = ob_get_level();
 		header( 'X-WUTM-Page-Cache: MISS' );
 		header( 'X-WUTM-Cache-Device: ' . self::$device_variant );
 		header( 'Vary: Accept-Encoding, User-Agent', false );
 	}
 
 	public static function store_captured_page(): void {
-		if ( ! self::$capturing || ! self::$cache_file || ob_get_level() < 1 || 200 !== http_response_code() ) {
+		if ( ! self::$capturing || ! self::$cache_file || ob_get_level() !== self::$capture_level || 200 !== http_response_code() || connection_aborted() ) {
+			return;
+		}
+		$error = error_get_last();
+		if ( $error && in_array( $error['type'], array( E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR ), true ) ) {
 			return;
 		}
 		$html = ob_get_contents();
-		if ( ! is_string( $html ) || '' === trim( $html ) || false === stripos( $html, '<html' ) ) {
+		if ( ! is_string( $html ) || strlen( $html ) > 4 * MB_IN_BYTES || ! self::is_complete_html( $html ) ) {
 			return;
 		}
 		foreach ( headers_list() as $header ) {
 			if ( 0 === stripos( $header, 'Set-Cookie:' )
 				|| 0 === stripos( $header, 'Content-Encoding:' )
+				|| 0 === stripos( $header, 'Content-Length:' )
 				|| ( 0 === stripos( $header, 'Content-Type:' ) && false === stripos( $header, 'text/html' ) )
 				|| ( 0 === stripos( $header, 'Cache-Control:' ) && preg_match( '/(?:no-store|no-cache|private)/i', $header ) ) ) {
 				return;
@@ -280,15 +287,40 @@ final class WUTM_Page_Cache {
 		if ( false === $compressed ) {
 			return;
 		}
-		$cache_lock = self::acquire_cache_lock( LOCK_SH );
+		$meta = array_merge( array( 'url' => self::$request_url, 'device' => self::$device_variant, 'created' => time(), 'original_size' => strlen( $html ) ), self::current_cache_context() );
+		$encoded_meta = wp_json_encode( $meta );
+		if ( ! is_string( $encoded_meta ) ) {
+			return;
+		}
+		$cache_lock = self::acquire_cache_lock( LOCK_EX );
 		if ( false === $cache_lock ) {
 			return;
 		}
-		if ( false !== file_put_contents( self::$cache_file, $compressed, LOCK_EX ) ) {
-			$meta = array_merge( array( 'url' => self::$request_url, 'device' => self::$device_variant, 'created' => time(), 'original_size' => strlen( $html ) ), self::current_cache_context() );
-			file_put_contents( self::$cache_file . '.json', wp_json_encode( $meta ), LOCK_EX );
-		}
+		self::write_cache_atomically( $compressed, $encoded_meta );
 		self::release_cache_lock( $cache_lock );
+	}
+
+	private static function is_complete_html( string $html ): bool {
+		return false !== stripos( $html, '<html' ) && false !== stripos( $html, '</html>' );
+	}
+
+	/** Readers hold a shared lock; publish only finished cache and metadata files. */
+	private static function write_cache_atomically( string $compressed, string $metadata ): void {
+		$cache_tmp = @tempnam( self::cache_dir(), '.wutm-' );
+		$meta_tmp = @tempnam( self::cache_dir(), '.wutm-' );
+		if ( false === $cache_tmp || false === $meta_tmp ) {
+			if ( false !== $cache_tmp ) @unlink( $cache_tmp );
+			if ( false !== $meta_tmp ) @unlink( $meta_tmp );
+			return;
+		}
+		$complete = @file_put_contents( $cache_tmp, $compressed ) === strlen( $compressed )
+			&& @file_put_contents( $meta_tmp, $metadata ) === strlen( $metadata );
+		if ( $complete && @rename( $cache_tmp, self::$cache_file ) && ! @rename( $meta_tmp, self::$cache_file . '.json' ) ) {
+			@unlink( self::$cache_file );
+			@unlink( self::$cache_file . '.json' );
+		}
+		if ( is_file( $cache_tmp ) ) @unlink( $cache_tmp );
+		if ( is_file( $meta_tmp ) ) @unlink( $meta_tmp );
 	}
 
 	private static function current_cache_context(): array {
@@ -402,7 +434,7 @@ final class WUTM_Page_Cache {
 		if ( ! is_dir( $root ) || is_link( $root ) ) {
 			return 0;
 		}
-		$cache_lock = self::acquire_cache_lock( LOCK_EX );
+		$cache_lock = self::acquire_cache_lock( LOCK_EX, false );
 		if ( false === $cache_lock ) {
 			return 0;
 		}
