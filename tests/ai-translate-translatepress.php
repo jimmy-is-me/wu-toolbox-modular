@@ -8,7 +8,9 @@ function plugin_dir_url( $file ) { return 'https://example.test/wp-content/plugi
 function register_activation_hook( ...$args ) {}
 function register_deactivation_hook( ...$args ) {}
 function add_filter( ...$args ) {}
-function add_action( ...$args ) {}
+function add_action( $hook, $callback, ...$args ) { $GLOBALS['registered_actions'][$hook][] = $callback; }
+function add_submenu_page( ...$args ) { $GLOBALS['registered_menus'][] = $args; }
+function do_action( $hook, ...$args ) { $GLOBALS['emitted_actions'][] = $hook; }
 function get_locale() { return 'zh_TW'; }
 function get_option( $key, $default = false ) { return $GLOBALS['options'][ $key ] ?? $default; }
 function update_option( $key, $value, $autoload = null ) { $GLOBALS['options'][ $key ] = $value; return true; }
@@ -194,4 +196,7 @@ check( in_array( '<span>第一頁動態中文</span>', $originals, true ), 'A di
 $single = WU_AIT_TranslatePress_Bridge::get_dictionary_originals_for_post( 3, 'en_US' );
 check( in_array( '<span>單頁新增字典</span>', $single, true ), 'Single-post dictionary matching must follow its front-end render' );
 
+foreach ( $GLOBALS['registered_actions']['admin_menu'] as $callback ) $callback();
+check( $GLOBALS['registered_menus'][0][0] === 'wu-toolbox-modular' && $GLOBALS['registered_menus'][0][4] === 'wu-ai-translate', 'AI settings use the Toolbox submenu' );
+check( in_array( 'wutm_translation_dictionary_updated', $GLOBALS['emitted_actions'], true ), 'Successful dictionary writes emit cache invalidation' );
 echo "AI TranslatePress regression tests passed.\n";

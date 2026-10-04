@@ -18,17 +18,21 @@ final class WUTM_Page_Cache {
 	private static string $request_url = '';
 	private static string $device_variant = 'desktop';
 	private static bool $capturing = false;
+	private static bool $translation_buffer = false;
+	private static string $language = '';
 	private static string $generation = '';
 	private static array $context = array();
 
 	public static function init(): void {
-		if ( is_admin() && current_user_can( 'manage_options' ) && ! get_option( 'wutm_page_cache_output_354', false ) ) {
+		if ( is_admin() && current_user_can( 'manage_options' ) && ! get_option( 'wutm_page_cache_output_355', false ) ) {
 			$count = self::clear_cache();
-			self::record_invalidation( '升級完整輸出快取引擎', $count, 'all' );
+			self::record_invalidation( '升級多語言完整輸出快取引擎', $count, 'all' );
 			update_option( 'wutm_page_cache_device_variants_264', 1, false );
 			update_option( 'wutm_page_cache_output_354', 1, false );
+			update_option( 'wutm_page_cache_output_355', 1, false );
 			update_option( 'wutm_page_cache_safe_gzip_353', 1, false );
 		}
+		add_action( 'init', array( __CLASS__, 'prepare_translation_buffer' ), PHP_INT_MIN );
 		// Allow canonical redirects and other plugins' privacy exclusions to run first.
 		add_action( 'template_redirect', array( __CLASS__, 'serve_or_capture' ), PHP_INT_MAX );
 		add_action( 'send_headers', array( __CLASS__, 'apply_exclusion_headers' ), 1 );
@@ -54,7 +58,19 @@ final class WUTM_Page_Cache {
 			add_action( 'customize_save_after', array( __CLASS__, 'clear_on_global_change' ), 99 );
 			add_action( 'wp_update_nav_menu', array( __CLASS__, 'clear_on_global_change' ), 99 );
 			add_action( 'update_option_sidebars_widgets', array( __CLASS__, 'clear_on_global_change' ), 99 );
+			add_action( 'trp_save_editor_translations_regular_strings', array( __CLASS__, 'clear_on_translation_change' ), 99 );
+			add_action( 'trp_save_editor_translations_gettext_strings', array( __CLASS__, 'clear_on_translation_change' ), 99 );
+			add_action( 'update_option_trp_settings', array( __CLASS__, 'clear_on_translation_change' ), 99 );
+			add_action( 'wutm_translation_dictionary_updated', array( __CLASS__, 'clear_on_translation_change' ), 99 );
 		}
+	}
+
+	/** Capture outside TranslatePress's init buffer, after its translation is complete. */
+	public static function prepare_translation_buffer(): void {
+		if ( ! class_exists( 'TRP_Translate_Press' ) || is_admin() || is_user_logged_in() || wp_doing_ajax() || wp_doing_cron()
+			|| 'GET' !== ( $_SERVER['REQUEST_METHOD'] ?? '' ) || ! empty( $_GET ) ) return;
+		self::$translation_buffer = true;
+		ob_start( array( __CLASS__, 'store_captured_page' ), self::MAX_HTML_BYTES + 1 );
 	}
 
 	private static function defaults(): array {
@@ -133,7 +149,6 @@ final class WUTM_Page_Cache {
 			return 'excluded-path';
 		}
 
-		if ( self::is_translatepress_translation( $uri ) ) return 'translation-page';
 
 		if ( function_exists( 'is_cart' ) && ( is_cart() || is_checkout() || is_account_page() ) ) {
 			return 'commerce-page';
@@ -215,8 +230,11 @@ final class WUTM_Page_Cache {
 		$path = wp_parse_url( $uri, PHP_URL_PATH ) ?: '/';
 		$scheme = is_ssl() ? 'https' : 'http';
 		self::$device_variant = self::detect_device_variant();
+		global $TRP_LANGUAGE;
+		$trp = class_exists( 'TRP_Translate_Press' ) ? get_option( 'trp_settings', array() ) : array();
+		self::$language = is_string( $TRP_LANGUAGE ) ? sanitize_text_field( $TRP_LANGUAGE ) : (string) ( $trp['default-language'] ?? '' );
 		self::$request_url = $scheme . '://' . $host . $path;
-		self::$cache_file  = self::cache_dir() . hash( 'sha256', 'device-v2|' . self::$device_variant . '|' . $scheme . '|' . $host . '|' . $path ) . '.html.gz';
+		self::$cache_file  = self::cache_dir() . hash( 'sha256', 'device-v3|' . self::$device_variant . '|' . self::$language . '|' . $scheme . '|' . $host . '|' . $path ) . '.html.gz';
 	}
 
 	private static function detect_device_variant(): string {
@@ -257,6 +275,8 @@ final class WUTM_Page_Cache {
 				header( 'Vary: Accept-Encoding, User-Agent', false );
 				self::report_result( 'HIT', 'cache-hit' );
 				header( 'X-WUTM-Cache-Device: ' . self::$device_variant );
+				// Stored HTML is already translated. Do not parse/translate it a second time.
+				if ( class_exists( 'TRP_Translate_Press' ) ) add_filter( 'trp_stop_translating_page', '__return_true', PHP_INT_MAX );
 				// Preserve v3.5.3: leave network compression to the existing web server.
 				echo $decoded; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Validated stored HTML.
 
@@ -264,6 +284,10 @@ final class WUTM_Page_Cache {
 			}
 		}
 
+		if ( class_exists( 'TRP_Translate_Press' ) && ! self::$translation_buffer ) {
+			self::report_result( 'BYPASS', 'translation-buffer-unavailable' );
+			return;
+		}
 		$cache_lock = self::acquire_cache_lock( LOCK_SH );
 		if ( false === $cache_lock ) {
 			self::report_result( 'BYPASS', 'directory-or-lock' );
@@ -275,7 +299,7 @@ final class WUTM_Page_Cache {
 		self::$capturing = true;
 		// Our own final buffer receives the output of nested theme/WP buffers.
 		// A size threshold bounds memory; streamed/partial output is never cached.
-		ob_start( array( __CLASS__, 'store_captured_page' ), self::MAX_HTML_BYTES + 1 );
+		if ( ! self::$translation_buffer ) ob_start( array( __CLASS__, 'store_captured_page' ), self::MAX_HTML_BYTES + 1 );
 		self::report_result( 'MISS', 'awaiting-output' );
 		header( 'X-WUTM-Cache-Device: ' . self::$device_variant );
 		header( 'Vary: Accept-Encoding, User-Agent', false );
@@ -302,7 +326,10 @@ final class WUTM_Page_Cache {
 
 	/** Output handlers must return the original response, even if caching fails. */
 	public static function store_captured_page( string $html, int $phase ): string {
-		if ( ! self::$capturing ) return $html;
+		if ( ! self::$capturing ) {
+			self::$translation_buffer = false;
+			return $html;
+		}
 		if ( ! ( $phase & PHP_OUTPUT_HANDLER_FINAL ) || ( $phase & PHP_OUTPUT_HANDLER_CLEAN ) ) {
 			self::$capturing = false;
 			try { self::report_result( 'BYPASS', 'streamed-output', false ); } catch ( Throwable $error ) { /* Keep streamed responses intact. */ }
@@ -340,7 +367,7 @@ final class WUTM_Page_Cache {
 	/** Publish metadata and compressed HTML by rename, never a half-written response. */
 	private static function persist_html( string $html ): void {
 		$compressed = gzencode( $html, 6 );
-		$metadata = wp_json_encode( array_merge( array( 'url' => self::$request_url, 'device' => self::$device_variant, 'created' => time(), 'original_size' => strlen( $html ) ), self::$context ) );
+		$metadata = wp_json_encode( array_merge( array( 'url' => self::$request_url, 'device' => self::$device_variant, 'language' => self::$language, 'created' => time(), 'original_size' => strlen( $html ) ), self::$context ) );
 		if ( ! is_string( $compressed ) || ! is_string( $metadata ) ) {
 			self::report_result( 'BYPASS', 'write-error', false );
 			return;
@@ -466,6 +493,11 @@ final class WUTM_Page_Cache {
 	public static function clear_on_global_change(): void {
 		$count = self::clear_cache();
 		self::record_invalidation( '全站外觀或導覽變更', $count, 'all' );
+	}
+
+	public static function clear_on_translation_change(): void {
+		$count = self::clear_cache();
+		self::record_invalidation( '翻譯內容或語言設定更新', $count, 'all' );
 	}
 
 	private static function invalidate_related( int $post_id, string $post_type, string $reason ): void {
@@ -668,7 +700,7 @@ final class WUTM_Page_Cache {
 			'dynamic-request' => '登入、搜尋、預覽或其他動態請求不共用快取',
 			'rest-request' => 'REST API 不建立頁面快取', 'do-not-cache' => '其他功能指定此頁不可快取',
 			'method-or-query' => '非 GET 請求或網址帶查詢參數', 'system-path' => 'WordPress 系統網址',
-			'excluded-path' => '符合免快取路徑', 'translation-page' => 'TranslatePress 次要語言頁',
+			'excluded-path' => '符合免快取路徑', 'translation-buffer-unavailable' => '翻譯輸出尚未準備完成',
 			'commerce-page' => '購物車、結帳或會員中心', 'private-cookie' => '訪客帶有購物車、登入或工作階段 Cookie',
 			'private-response' => '回應有 Cookie、禁止快取、非 HTML 或自訂編碼／長度標頭',
 			'http-status' => '回應不是 HTTP 200', 'headers-sent' => '頁面開始前已有內容輸出',
@@ -727,7 +759,7 @@ final class WUTM_Page_Cache {
 				<h2>環境與安全檢查</h2><div class="wutm-cache-checks">
 					<div><strong>GZIP 壓縮</strong><span><?php echo $diagnostics['gzip'] ? '可用：gzencode／gzdecode' : '不可用：請洽主機商啟用 PHP zlib'; ?></span></div>
 					<div><strong>目錄讀寫</strong><span><?php echo $diagnostics['directory'] ? '已通過實際寫入測試' : '無法建立或寫入，或正被清理鎖定；請稍後重試或檢查權限'; ?></span></div>
-					<div><strong>安全排除</strong><span>保留登入、Cookie、交易、翻譯與禁止快取回應的保護</span></div>
+					<div><strong>安全排除</strong><span>登入與交易頁仍排除；翻譯頁依語言分開快取</span></div>
 					<div><strong>建立完整頁面</strong><span>巢狀輸出完成後才寫入；串流／不完整 HTML／超過 4 MB 會略過</span></div>
 				</div>
 				<dl class="wutm-cache-activity">
@@ -735,14 +767,14 @@ final class WUTM_Page_Cache {
 					<div><dt>最近清除</dt><dd><?php echo ! empty( $last['time'] ) ? esc_html( wp_date( 'Y-m-d H:i:s', absint( $last['time'] ) ) . '｜' . (string) ( $last['reason'] ?? '' ) . '｜' . absint( $last['count'] ?? 0 ) . ' 個版本' ) : '尚無紀錄'; ?></dd></div>
 					<div><dt>快取目錄</dt><dd><code><?php echo esc_html( self::cache_dir() ); ?></code></dd></div>
 				</dl>
-				<div class="wutm-cache-note"><strong>驗證步驟</strong><ol><li>從管理列「頁面快取」進入此頁並清除舊快取。</li><li>新的無痕視窗開啟公開原始語言頁面兩次，不登入、不加入購物車、不加查詢參數。</li><li>瀏覽器網路面板第一次應為 <code>X-WUTM-Page-Cache: MISS</code>，第二次為 <code>HIT</code>；<code>BYPASS</code> 的原因見 <code>X-WUTM-Cache-Reason</code>。</li><li>若一直為 MISS，查看最近診斷與目錄讀寫；若完全沒有 WU 標頭與紀錄，檢查模組是否啟用，以及其他快取是否先回應。</li></ol></div>
+				<div class="wutm-cache-note"><strong>驗證步驟</strong><ol><li>從管理列「頁面快取」進入此頁並清除舊快取。</li><li>新的無痕視窗開啟公開頁面（含 /en/ 等翻譯頁）兩次，不登入、不加入購物車、不加查詢參數。</li><li>瀏覽器網路面板第一次應為 <code>X-WUTM-Page-Cache: MISS</code>，第二次為 <code>HIT</code>；<code>BYPASS</code> 的原因見 <code>X-WUTM-Cache-Reason</code>。</li><li>若一直為 MISS，查看最近診斷與目錄讀寫；若完全沒有 WU 標頭與紀錄，檢查模組是否啟用，以及其他快取是否先回應。</li></ol></div>
 			<?php elseif ( 'settings' === $tab ) : ?>
 				<h2>快取效能設定</h2><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><?php wp_nonce_field( self::NONCE ); ?><input type="hidden" name="action" value="wutm_page_cache_save"><input type="hidden" name="return_tab" value="settings"><input type="hidden" name="settings_form" value="1">
 				<div class="wutm-cache-field"><label for="wutm-cache-ttl">快取有效期限（秒）</label><input id="wutm-cache-ttl" type="number" min="60" max="<?php echo esc_attr( WEEK_IN_SECONDS ); ?>" name="ttl" value="<?php echo esc_attr( $settings['ttl'] ); ?>"><p>預設 3600 秒（1 小時），可設定 60 秒至 7 天。儲存時清除舊快取。</p></div>
 				<div class="wutm-cache-field"><label><input type="checkbox" name="auto_invalidate" value="1" <?php checked( ! empty( $settings['auto_invalidate'] ) ); ?>> 內容更新時自動清除相關快取</label><p>預設開啟。文章、頁面、商品、分類與留言更新會清除相關版本；選單、外觀或外掛更新會清除全部。關閉後仍保留外掛更新時的安全清除。</p></div>
 				<?php submit_button( '儲存快取設定' ); ?></form><div class="wutm-cache-note"><strong>效能設計</strong><p>前台不載入本模組的 CSS／JS，不排程預熱、不輪詢、不逐次寫資料庫。只在此管理頁掃描統計；診斷只抽樣原因代碼，不記錄網址、IP 或 Cookie 值。</p></div>
 			<?php else : ?>
-				<h2>免快取頁面</h2><p>原有設定完整保留。為需要即時或個人化內容的頁面新增排除路徑。</p><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><?php wp_nonce_field( self::NONCE ); ?><input type="hidden" name="action" value="wutm_page_cache_save"><input type="hidden" name="return_tab" value="exclusions"><div class="wutm-cache-field"><label for="wutm-cache-excluded">網址路徑（每行一個）</label><textarea id="wutm-cache-excluded" name="excluded_uri" rows="9" class="large-text code" placeholder="/dashboard/&#10;/booking/"><?php echo esc_textarea( $settings['excluded_uri'] ); ?></textarea><p>以網址片段比對，例如 <code>/dashboard/</code> 也會排除下層頁面。登入、結帳與購物車等敏感請求仍會自動排除。</p></div><?php submit_button( '儲存免快取頁面' ); ?></form>
+				<h2>免快取頁面</h2><p>原有設定完整保留。公開翻譯頁已支援快取；若此處曾加入 /en/ 等翻譯路徑，請移除該行後清除快取。交易與個人化頁面仍應排除。</p><form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>"><?php wp_nonce_field( self::NONCE ); ?><input type="hidden" name="action" value="wutm_page_cache_save"><input type="hidden" name="return_tab" value="exclusions"><div class="wutm-cache-field"><label for="wutm-cache-excluded">網址路徑（每行一個）</label><textarea id="wutm-cache-excluded" name="excluded_uri" rows="9" class="large-text code" placeholder="/dashboard/&#10;/booking/"><?php echo esc_textarea( $settings['excluded_uri'] ); ?></textarea><p>以網址片段比對，例如 <code>/dashboard/</code> 也會排除下層頁面。登入、結帳與購物車等敏感請求仍會自動排除。</p></div><?php submit_button( '儲存免快取頁面' ); ?></form>
 			<?php endif; ?>
 			</section>
 		</div>

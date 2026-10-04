@@ -38,12 +38,19 @@ jobs:
         run: php tests/seo-core.php
       - name: Check TranslatePress discovery and dictionary writes
         run: php tests/ai-translate-translatepress.php
-      - name: Check translated page exclusions and cache integrity
+      - name: Check translated language detection and cache integrity
         run: php tests/page-cache-translatepress.php
       - name: Check page cache policy, permissions and scoped assets
         run: php tests/page-cache-policy.php
       - name: Check page cache with real HTTP requests and nested output buffers
         run: node tests/page-cache-http.js
+      - name: Check FAQ permissions, preservation and interface script loading
+        run: |
+          php tests/interface-fixture.php policy
+          node --check assets/js/product-faq-admin.js
+          node --check assets/js/custom-cursor.js
+          node --check assets/js/page-transition.js
+          node tests/page-transition-state.js
       - name: Check SEO editor analysis
         run: |
           npm install --prefix "$RUNNER_TEMP/wutm-seo-tests" linkedom@0.18.12 --no-audit --no-fund

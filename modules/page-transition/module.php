@@ -20,7 +20,7 @@
  * - prefers-reduced-motion 相容
  *
  * 後台：
- * 設定 → Wumetax 轉場動畫
+ * 設定 → 頁面轉場動畫
  *
  * 可設定：
  * 1. 動畫主色
@@ -118,12 +118,12 @@ if ( ! class_exists( 'Wumetax_Brand_Transition_v220' ) ) {
 
 
 			add_action(
-				'wp_footer',
+				'wp_enqueue_scripts',
 				[
 					__CLASS__,
 					'frontend_script',
 				],
-				99999
+				99
 			);
 
 		}
@@ -348,8 +348,8 @@ if ( ! class_exists( 'Wumetax_Brand_Transition_v220' ) ) {
 
 			add_submenu_page(
 				'wu-toolbox-modular',
-				'Wumetax 轉場動畫',
-				'Wumetax 轉場動畫',
+				'頁面轉場動畫',
+				'頁面轉場動畫',
 				'manage_options',
 				self::PAGE_SLUG,
 				[
@@ -864,10 +864,11 @@ if ( ! class_exists( 'Wumetax_Brand_Transition_v220' ) ) {
 			<div class="wrap wutm-module-wrap wupt-admin">
 
 
-				<h1>Wumetax 轉場動畫</h1>
+				<h1>頁面轉場動畫</h1>
 
 				<p class="wutm-module-subtitle">
 					設定網站換頁時顯示的品牌顏色、Logo 與文字。
+					快速換頁不顯示動畫；較慢的導向才顯示，抵達後自然收起，不刻意延遲換頁。
 					設定完成後會自動套用到全站站內換頁。
 				</p>
 
@@ -2310,68 +2311,24 @@ if ( ! class_exists( 'Wumetax_Brand_Transition_v220' ) ) {
 
 
 
+			<style>
+			#wumetax-transition{transition:opacity .18s ease-out,visibility 0s linear .18s}
+			html.wupt-show #wumetax-transition{transition:opacity .18s ease-out;pointer-events:none}
+			.wupt-inner{transition:opacity .18s ease-out,transform .18s ease-out}
+			</style>
 			<script id="wumetax-transition-v220-early">
-
-			(function(){
-
-				'use strict';
-
-
+			(function(){'use strict';
+				var root=document.documentElement,key='wumetax_page_transition_v220';
+				function clear(){root.classList.remove('wupt-show');try{sessionStorage.removeItem(key)}catch(e){}}
 				try{
-
-					const raw =
-						sessionStorage.getItem(
-							'wumetax_page_transition_v220'
-						);
-
-
-					const startedAt =
-						raw
-							? parseInt(
-								raw,
-								10
-							)
-							: 0;
-
-
-					const fresh =
-						startedAt > 0
-						&&
-						(
-							Date.now()
-							-
-							startedAt
-						)
-						<
-						8000;
-
-
-					if(
-						fresh
-					){
-
-						document
-							.documentElement
-							.classList
-							.add(
-								'wupt-show'
-							);
-
-					}else if(
-						raw
-					){
-
-						sessionStorage.removeItem(
-							'wumetax_page_transition_v220'
-						);
-
-					}
-
-				}catch(error){}
-
-
+					var marker=JSON.parse(sessionStorage.getItem(key)||'null'),age=marker?Date.now()-marker.time:0;
+					if(marker&&marker.url===location.href&&age>=0&&age<8000&&!matchMedia('(prefers-reduced-motion:reduce)').matches)root.classList.add('wupt-show');
+					else clear();
+				}catch(e){clear()}
+				document.addEventListener('DOMContentLoaded',clear,{once:true});
+				window.addEventListener('pageshow',clear);
+				window.setTimeout(clear,8000);
 			})();
-
 			</script>
 
 
@@ -2527,572 +2484,9 @@ if ( ! class_exists( 'Wumetax_Brand_Transition_v220' ) ) {
 		 * ===================================================== */
 
 		public static function frontend_script() {
-
-			if ( is_admin() ) {
-				return;
-			}
-
-			?>
-
-			<script id="wumetax-transition-v220-js">
-
-			(function(){
-
-				'use strict';
-
-
-				const html =
-					document.documentElement;
-
-				const reducedMotion =
-					window.matchMedia
-					&& window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-
-				let leaving =
-					false;
-
-
-				let arrivedFromTransition =
-					false;
-
-
-
-				/* =================================================
-				   CHECK ARRIVAL
-				   ================================================= */
-
-				try{
-
-					const raw =
-						sessionStorage.getItem(
-							'wumetax_page_transition_v220'
-						);
-
-
-					const startedAt =
-						raw
-							? parseInt(
-								raw,
-								10
-							)
-							: 0;
-
-
-					arrivedFromTransition =
-						startedAt > 0
-						&&
-						(
-							Date.now()
-							-
-							startedAt
-						)
-						<
-						8000;
-
-
-					if(
-						!arrivedFromTransition
-						&&
-						raw
-					){
-
-						sessionStorage.removeItem(
-							'wumetax_page_transition_v220'
-						);
-
-					}
-
-				}catch(error){}
-
-
-
-				/* =================================================
-				   FINISH ARRIVAL
-				   ================================================= */
-
-				function finishArrival(){
-
-					const delay =
-						arrivedFromTransition && !reducedMotion
-							? 160
-							: 0;
-
-
-					window.setTimeout(
-						function(){
-
-							html.classList.remove(
-								'wupt-show'
-							);
-
-
-							try{
-
-								sessionStorage.removeItem(
-									'wumetax_page_transition_v220'
-								);
-
-							}catch(error){}
-
-
-							leaving =
-								false;
-
-						},
-						delay
-					);
-
-				}
-
-
-
-				/*
-				 * 不等待整頁圖片載入。
-				 * DOM Ready 後即可關閉 Loader。
-				 */
-
-				if(
-					arrivedFromTransition
-				){
-
-					if(
-						document.readyState ===
-							'loading'
-					){
-
-						document.addEventListener(
-							'DOMContentLoaded',
-							finishArrival,
-							{
-								once:true
-							}
-						);
-
-					}else{
-
-						finishArrival();
-
-					}
-
-				}else{
-
-					html.classList.remove(
-						'wupt-show'
-					);
-
-				}
-
-
-
-				/* =================================================
-				   BACK / FORWARD CACHE
-				   ================================================= */
-
-				window.addEventListener(
-					'pageshow',
-					function(event){
-
-						if(
-							!event.persisted
-						){
-
-							return;
-
-						}
-
-
-						html.classList.remove(
-							'wupt-show'
-						);
-
-
-						leaving =
-							false;
-
-
-						try{
-
-							sessionStorage.removeItem(
-								'wumetax_page_transition_v220'
-							);
-
-						}catch(error){}
-
-					}
-				);
-
-
-
-				/* =================================================
-				   CHECK LINK
-				   ================================================= */
-
-				function canTransition(
-					link,
-					event
-				){
-
-					if(
-						!link
-						||
-						leaving
-						||
-						event.defaultPrevented
-					){
-
-						return false;
-
-					}
-
-
-
-					/*
-					 * Modifier keys
-					 */
-
-					if(
-						event.metaKey
-						||
-						event.ctrlKey
-						||
-						event.shiftKey
-						||
-						event.altKey
-					){
-
-						return false;
-
-					}
-
-
-
-					/*
-					 * 非左鍵
-					 */
-
-					if(
-						typeof event.button !==
-							'undefined'
-						&&
-						event.button !== 0
-					){
-
-						return false;
-
-					}
-
-
-
-					/*
-					 * WP Admin Bar
-					 */
-
-					if(
-						link.closest(
-							'#wpadminbar'
-						)
-					){
-
-						return false;
-
-					}
-
-
-
-					/*
-					 * Download / new window
-					 */
-
-					if(
-						link.hasAttribute(
-							'download'
-						)
-						||
-						link.target ===
-							'_blank'
-					){
-
-						return false;
-
-					}
-
-
-
-					/*
-					 * 手動忽略
-					 */
-
-					if(
-						link.hasAttribute(
-							'data-no-transition'
-						)
-						||
-						link.closest(
-							'[data-no-transition]'
-						)
-					){
-
-						return false;
-
-					}
-
-
-
-					/*
-					 * WooCommerce AJAX
-					 */
-
-					if(
-						link.matches(
-							'.ajax_add_to_cart, .add_to_cart_button, .remove_from_cart_button'
-						)
-						||
-						link.closest(
-							'.ajax_add_to_cart, .add_to_cart_button, .remove_from_cart_button'
-						)
-					){
-
-						return false;
-
-					}
-
-
-
-					const href =
-						link.getAttribute(
-							'href'
-						);
-
-
-
-					if(
-						!href
-						||
-						href === '#'
-					){
-
-						return false;
-
-					}
-
-
-
-					if(
-						href.startsWith(
-							'mailto:'
-						)
-						||
-						href.startsWith(
-							'tel:'
-						)
-						||
-						href.startsWith(
-							'javascript:'
-						)
-					){
-
-						return false;
-
-					}
-
-
-
-					let url;
-
-
-
-					try{
-
-						url =
-							new URL(
-								link.href,
-								window.location.href
-							);
-
-					}catch(error){
-
-						return false;
-
-					}
-
-
-
-					/*
-					 * 外部網站
-					 */
-
-					if(
-						url.origin !==
-							window.location.origin
-					){
-
-						return false;
-
-					}
-
-
-
-					/*
-					 * WordPress 後台
-					 */
-
-					if(
-						url.pathname.startsWith(
-							'/wp-admin/'
-						)
-						||
-						url.pathname.includes(
-							'wp-login.php'
-						)
-					){
-
-						return false;
-
-					}
-
-
-
-					/*
-					 * 完全相同 URL
-					 */
-
-					if(
-						url.href ===
-							window.location.href
-					){
-
-						return false;
-
-					}
-
-
-
-					/*
-					 * 同頁 anchor
-					 */
-
-					if(
-						url.pathname ===
-							window.location.pathname
-						&&
-						url.search ===
-							window.location.search
-						&&
-						url.hash
-					){
-
-						return false;
-
-					}
-
-
-
-					return true;
-
-				}
-
-
-
-				/* =================================================
-				   CLICK
-				   ================================================= */
-
-				document.addEventListener(
-					'click',
-					function(event){
-
-						if(
-							!(
-								event.target
-								instanceof
-								Element
-							)
-						){
-
-							return;
-
-						}
-
-
-						const link =
-							event.target.closest(
-								'a'
-							);
-
-
-
-						if(
-							!canTransition(
-								link,
-								event
-							)
-						){
-
-							return;
-
-						}
-
-
-
-						event.preventDefault();
-
-
-						leaving =
-							true;
-
-
-
-						try{
-
-							sessionStorage.setItem(
-								'wumetax_page_transition_v220',
-								String(
-									Date.now()
-								)
-							);
-
-						}catch(error){}
-
-
-
-						html.classList.add(
-							'wupt-show'
-						);
-
-
-
-						const destination =
-							link.href;
-
-
-
-						/* Let the overlay finish its 360ms fade before navigation. */
-
-						window.setTimeout(
-							function(){
-
-								window.location.assign(
-									destination
-								);
-
-							},
-							reducedMotion ? 0 : 380
-						);
-
-					}
-				);
-
-
-			})();
-
-			</script>
-
-
-			<?php
-
+			if ( is_admin() ) return;
+			wp_enqueue_script( 'wutm-page-transition', WUTM_URL . 'assets/js/page-transition.js', array(), WUTM_VERSION, true );
 		}
-
 
 	}
 

@@ -85,7 +85,17 @@ async function checkBypass(url, reason, headers = {}, method = 'GET') {
   await checkBypass('/server-error/', 'http-status');
   await checkBypass('/normal/?token=secret', 'method-or-query');
   await checkBypass('/normal/', 'method-or-query', {}, 'POST');
-  await checkBypass('/en/product/', 'translation-page');
+  const english = await checkCached('/en/product/');
+  assert.ok(english.body.includes('ENGLISH-TRANSLATED'), 'Save translated HTML, not the inner Chinese template');
+  const chinese = await checkCached('/product/');
+  assert.ok(chinese.body.includes('CHINESE-DEFAULT'));
+  const cookieEnglish = await checkCached('/product/', { Cookie: 'trp_language=en_US' });
+  assert.ok(cookieEnglish.body.includes('ENGLISH-TRANSLATED'), 'Language global separates cookie/domain language variants');
+  assert.equal((await request('/product/')).body, chinese.body, 'Cookie language does not poison default-language cache');
+  await checkBypass('/en/checkout/', 'excluded-path');
+  await checkBypass('/en/product/', 'private-cookie', { Cookie: 'woocommerce_cart_hash=x' });
+  await checkBypass('/en/product/?trp-edit-translation=preview', 'method-or-query');
+  await checkBypass('/translation-buffer-flushed/', 'translation-buffer-unavailable');
   await checkBypass('/late-private/', 'do-not-cache');
   await checkBypass('/cookie/', 'private-response');
   await checkBypass('/private/', 'private-response');

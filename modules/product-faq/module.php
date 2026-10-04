@@ -7,7 +7,7 @@
  * _custom_faq_behavior
  *
  * 特點：
- * - 後台維持簡潔表格式設定
+ * - 後台採響應式問答卡片設定
  * - 前台 FAQ 不限制寬度，完全跟隨商品頁籤容器
  * - 手機板不額外限制 FAQ 寬度或調整樣式
  * - 不載入外部字型、圖片、第三方 JS
@@ -63,9 +63,11 @@ function wutm_product_faq_render_admin_row( $question = '', $answer = '', $edito
         $editor_id = wp_unique_id( 'wutm-product-faq-answer-' );
     }
     ?>
-    <tr>
+    <tr class="wutm-faq-row">
         <td>
+            <span class="wutm-faq-field-label">問題</span>
             <input
+                aria-label="問題"
                 type="text"
                 name="faq_question[]"
                 value="<?php echo esc_attr( $question ); ?>"
@@ -74,6 +76,7 @@ function wutm_product_faq_render_admin_row( $question = '', $answer = '', $edito
         </td>
 
         <td>
+            <span class="wutm-faq-field-label">答案</span>
             <div class="wutm-faq-editor" data-editor-id="<?php echo esc_attr( $editor_id ); ?>">
                 <div class="wutm-faq-toolbar" role="toolbar" aria-label="答案格式">
                     <button type="button" class="button wutm-faq-format" data-command="bold" aria-label="粗體"><strong>B</strong></button>
@@ -81,17 +84,18 @@ function wutm_product_faq_render_admin_row( $question = '', $answer = '', $edito
                     <label>字級 <select class="wutm-faq-size" aria-label="字級"><option value="3">一般</option><option value="2">較小</option><option value="4">較大</option><option value="5">大</option></select></label>
                     <button type="button" class="button wutm-faq-format" data-command="insertParagraph">換行</button>
                 </div>
-                <div id="<?php echo esc_attr( $editor_id ); ?>" class="wutm-faq-editable" contenteditable="true" role="textbox" aria-multiline="true" data-placeholder="例如：目前皆有現貨，下單後依配送時程出貨。"><?php echo wp_kses_post( $answer ); ?></div>
+                <div id="<?php echo esc_attr( $editor_id ); ?>" class="wutm-faq-editable" contenteditable="true" role="textbox" aria-label="答案" aria-multiline="true" data-placeholder="例如：目前皆有現貨，下單後依配送時程出貨。"><?php echo wp_kses_post( $answer ); ?></div>
                 <textarea class="wutm-faq-answer-value" name="faq_answer[]" hidden><?php echo esc_textarea( $answer ); ?></textarea>
             </div>
         </td>
 
         <td class="wutm-product-faq-admin-action">
+            <span class="wutm-faq-index">問答</span>
             <button
                 type="button"
                 class="button wutm-product-faq-remove-row"
             >
-                刪除
+                移除問答
             </button>
         </td>
     </tr>
@@ -135,6 +139,7 @@ function wutm_product_faq_render_meta_box( $post ) {
     ?>
 
     <div class="wutm-product-faq-admin">
+        <p class="wutm-faq-admin-intro">集中編輯商品常見問題。可新增問答、設定答案格式；完成後請更新商品儲存。</p>
         <p class="wutm-product-faq-admin-setting">
             <label for="wutm-product-faq-behavior">
                 <strong>問答展開模式：</strong>
@@ -602,315 +607,8 @@ function wutm_product_faq_admin_assets( $hook ) {
         return;
     }
 
-    wp_register_style(
-        'wutm-product-faq-admin-style',
-        false,
-        array(),
-        '5.0.0'
-    );
-
-    wp_enqueue_style(
-        'wutm-product-faq-admin-style'
-    );
-
-    $css = <<<'CSS'
-#wutm_product_faq_box .inside {
-    margin: 0;
-    padding: 0;
-}
-
-#wutm_product_faq_box .wutm-product-faq-admin,
-#wutm_product_faq_box .wutm-product-faq-admin * {
-    box-sizing: border-box;
-}
-
-.wutm-product-faq-admin {
-    padding: 16px;
-}
-
-.wutm-product-faq-admin-setting {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin: 0 0 14px;
-}
-
-.wutm-product-faq-admin-setting label {
-    font-size: 13px;
-}
-
-.wutm-product-faq-admin-setting select {
-    max-width: 100%;
-}
-
-.wutm-product-faq-table-wrap {
-    width: 100%;
-    overflow-x: auto;
-}
-
-.wutm-product-faq-admin-table {
-    width: 100%;
-    border-collapse: collapse;
-    text-align: left;
-}
-
-.wutm-product-faq-admin-table th,
-.wutm-product-faq-admin-table td {
-    padding: 10px 8px;
-    border-bottom: 1px solid #e5e7eb;
-    vertical-align: top;
-}
-
-.wutm-product-faq-admin-table th {
-    color: #374151;
-    font-size: 13px;
-    font-weight: 600;
-}
-
-.wutm-product-faq-admin-table th:first-child {
-    width: 35%;
-}
-
-.wutm-product-faq-admin-table th:nth-child(2) {
-    width: 55%;
-}
-
-.wutm-product-faq-admin-table th:last-child {
-    width: 10%;
-    min-width: 75px;
-}
-
-.wutm-product-faq-admin-table input,
-.wutm-product-faq-admin-table textarea {
-    display: block;
-    width: 100%;
-    max-width: none;
-    margin: 0;
-    font-size: 13px;
-}
-
-.wutm-faq-toolbar {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 6px;
-    border: 1px solid #c3c4c7;
-    border-bottom: 0;
-    background: #f6f7f7;
-}
-
-.wutm-faq-toolbar label {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    color: #50575e;
-    font-size: 12px;
-}
-
-.wutm-faq-toolbar input[type="color"] {
-    width: 30px;
-    height: 28px;
-    padding: 2px;
-}
-
-.wutm-faq-toolbar select {
-    min-height: 28px;
-    width: auto;
-}
-
-.wutm-faq-editable {
-    min-height: 100px;
-    padding: 10px;
-    border: 1px solid #8c8f94;
-    background: #fff;
-    line-height: 1.6;
-    overflow-wrap: anywhere;
-}
-
-.wutm-faq-editable:focus {
-    border-color: #2271b1;
-    box-shadow: 0 0 0 1px #2271b1;
-    outline: 2px solid transparent;
-}
-
-.wutm-faq-editable:empty::before {
-    color: #8c8f94;
-    content: attr(data-placeholder);
-}
-
-.wutm-faq-answer-value[hidden] {
-    display: none !important;
-}
-
-.wutm-product-faq-admin-table textarea {
-    min-height: 78px;
-    resize: vertical;
-}
-
-.wutm-product-faq-admin-action {
-    white-space: nowrap;
-}
-
-.wutm-product-faq-admin-footer {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin: 16px 0 0;
-}
-
-.wutm-product-faq-admin-footer span {
-    color: #646970;
-    font-size: 12px;
-}
-CSS;
-
-    wp_add_inline_style(
-        'wutm-product-faq-admin-style',
-        $css
-    );
-
-    add_action(
-        'admin_print_footer_scripts',
-        'wutm_product_faq_admin_script',
-        99
-    );
-}
-
-function wutm_product_faq_admin_script() {
-    ?>
-    <script>
-    (function () {
-        'use strict';
-
-        var box = document.getElementById('wutm_product_faq_box');
-
-        if (!box) {
-            return;
-        }
-
-        var tableBody = box.querySelector(
-            '#wutm-product-faq-table tbody'
-        );
-
-        var addButton = box.querySelector(
-            '#wutm-product-faq-add-row'
-        );
-
-        var template = box.querySelector(
-            '#wutm-product-faq-row-template'
-        );
-
-        if (!tableBody || !addButton || !template) {
-            return;
-        }
-
-        var editorCounter = 0;
-        function saveSelection(editor) {
-            var selection = window.getSelection();
-            if (!selection || !selection.rangeCount) return;
-            var range = selection.getRangeAt(0);
-            if (editor.contains(range.commonAncestorContainer)) {
-                editor.closest('.wutm-faq-editor').savedRange = range.cloneRange();
-            }
-        }
-        function restoreSelection(editor) {
-            var wrapper = editor.closest('.wutm-faq-editor');
-            if (!wrapper || !wrapper.savedRange) return;
-            editor.focus();
-            var selection = window.getSelection();
-            selection.removeAllRanges();
-            selection.addRange(wrapper.savedRange);
-        }
-        function syncEditor(editor) {
-            var wrapper = editor.closest('.wutm-faq-editor');
-            var value = wrapper && wrapper.querySelector('.wutm-faq-answer-value');
-            if (value) value.value = editor.innerHTML;
-        }
-
-        addButton.addEventListener('click', function () {
-            var rowFragment = template.content.cloneNode(true);
-            rowFragment.querySelectorAll('.wutm-faq-editable').forEach(function (editor) {
-                editorCounter += 1;
-                editor.id = 'wutm-product-faq-answer-new-' + Date.now() + '-' + editorCounter;
-                editor.closest('.wutm-faq-editor').dataset.editorId = editor.id;
-            });
-            tableBody.appendChild(rowFragment);
-
-            var rows = tableBody.querySelectorAll('tr');
-            var lastRow = rows[rows.length - 1];
-
-            if (lastRow) {
-                var input = lastRow.querySelector(
-                    'input[name="faq_question[]"]'
-                );
-
-                if (input) {
-                    input.focus();
-                }
-            }
-        });
-
-        tableBody.addEventListener('keyup', function (event) {
-            if (event.target.matches('.wutm-faq-editable')) saveSelection(event.target);
-        });
-        tableBody.addEventListener('mouseup', function (event) {
-            if (event.target.matches('.wutm-faq-editable')) saveSelection(event.target);
-        });
-        tableBody.addEventListener('mousedown', function (event) {
-            if (event.target.closest('.wutm-faq-format')) event.preventDefault();
-        });
-
-        tableBody.addEventListener('click', function (event) {
-            var formatButton = event.target.closest('.wutm-faq-format');
-            if (formatButton && tableBody.contains(formatButton)) {
-                event.preventDefault();
-                var editor = formatButton.closest('.wutm-faq-editor').querySelector('.wutm-faq-editable');
-                restoreSelection(editor);
-                document.execCommand(formatButton.dataset.command, false, null);
-                syncEditor(editor);
-                return;
-            }
-
-            var button = event.target.closest(
-                '.wutm-product-faq-remove-row'
-            );
-
-            if (!button || !tableBody.contains(button)) {
-                return;
-            }
-
-            var row = button.closest('tr');
-
-            if (row) {
-                row.remove();
-            }
-        });
-
-        tableBody.addEventListener('input', function (event) {
-            if (event.target.matches('.wutm-faq-editable')) syncEditor(event.target);
-        });
-        tableBody.addEventListener('change', function (event) {
-            var wrapper = event.target.closest('.wutm-faq-editor');
-            if (!wrapper) return;
-            var editor = wrapper.querySelector('.wutm-faq-editable');
-            restoreSelection(editor);
-            if (event.target.matches('.wutm-faq-color')) {
-                document.execCommand('foreColor', false, event.target.value);
-            } else if (event.target.matches('.wutm-faq-size')) {
-                document.execCommand('fontSize', false, event.target.value);
-            }
-            syncEditor(editor);
-        });
-        var productForm = box.closest('form');
-        if (productForm) productForm.addEventListener('submit', function () {
-            box.querySelectorAll('.wutm-faq-editable').forEach(syncEditor);
-        });
-    })();
-    </script>
-    <?php
+    wp_enqueue_style( 'wutm-product-faq-admin-style', WUTM_URL . 'assets/css/product-faq-admin.css', array(), WUTM_VERSION );
+    wp_enqueue_script( 'wutm-product-faq-admin', WUTM_URL . 'assets/js/product-faq-admin.js', array(), WUTM_VERSION, true );
 }
 
 /* =========================================================

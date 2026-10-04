@@ -8,11 +8,14 @@ define( 'WUTM_URL', '/' );
 define( 'WUTM_VERSION', 'test' );
 $mode = trim( parse_url( $_SERVER['REQUEST_URI'], PHP_URL_PATH ), '/' );
 $hooks = array();
-$options = array( 'wutm_page_cache_device_variants_264' => 1, 'wutm_page_cache_output_354' => 1, 'wutm_page_cache_settings' => array( 'auto_invalidate' => 1, 'ttl' => 60 ), 'trp_settings' => array( 'default-language' => 'zh_TW', 'publish-languages' => array( 'zh_TW', 'en_US' ), 'url-slugs' => array( 'zh_TW' => 'zh', 'en_US' => 'en' ) ) );
+$options = array( 'wutm_page_cache_device_variants_264' => 1, 'wutm_page_cache_output_354' => 1, 'wutm_page_cache_output_355' => 1, 'wutm_page_cache_settings' => array( 'auto_invalidate' => 1, 'ttl' => 60 ), 'trp_settings' => array( 'default-language' => 'zh_TW', 'publish-languages' => array( 'zh_TW', 'en_US' ), 'url-slugs' => array( 'zh_TW' => 'zh', 'en_US' => 'en' ) ) );
 class TRP_Translate_Press {}
 function get_option( $key, $default = false ) { return $GLOBALS['options'][$key] ?? $default; }
 function update_option( $key, $value, $autoload = null ) { $GLOBALS['options'][$key] = $value; }
 function add_action( $hook, $callback, $priority = 10, $args = 1 ) { $GLOBALS['hooks'][$hook][$priority][] = $callback; }
+function add_filter( $hook, $callback, $priority = 10, $args = 1 ) { add_action( $hook, $callback, $priority, $args ); }
+function __return_true() { return true; }
+function apply_filters( $hook, $value ) { $groups = $GLOBALS['hooks'][$hook] ?? array(); ksort( $groups ); foreach ( $groups as $callbacks ) foreach ( $callbacks as $callback ) $value = $callback( $value ); return $value; }
 function do_action( $hook ) { $groups = $GLOBALS['hooks'][$hook] ?? array(); ksort( $groups ); foreach ( $groups as $callbacks ) foreach ( $callbacks as $callback ) $callback(); }
 function wp_parse_args( $value, $defaults ) { return array_merge( $defaults, $value ); }
 function trailingslashit( $value ) { return rtrim( $value, '/\\' ) . '/'; }
@@ -99,6 +102,17 @@ if ( $mode === 'outer-gzip' ) ob_start( 'ob_gzhandler' );
 if ( $mode === 'non-html' ) header( 'Content-Type: application/json' );
 if ( $mode === 'vary-cookie' ) header( 'Vary: Cookie' );
 if ( $mode === 'vary-language' ) header( 'Vary: Accept-Language' );
+$TRP_LANGUAGE = str_starts_with( $mode, 'en/' ) || ( $_COOKIE['trp_language'] ?? '' ) === 'en_US' ? 'en_US' : 'zh_TW';
+add_action( 'init', function () {
+    if ( is_admin() || is_user_logged_in() || ! empty( $_GET ) || 'GET' !== $_SERVER['REQUEST_METHOD'] ) return;
+    ob_start( function ( $html ) {
+        if ( apply_filters( 'trp_stop_translating_page', false ) ) return $html;
+        if ( str_contains( $html, 'ENGLISH-TRANSLATED' ) ) return str_replace( 'ENGLISH-TRANSLATED', 'WRONG-DOUBLE-TRANSLATION', $html );
+        return str_replace( 'before-transform', 'en_US' === $GLOBALS['TRP_LANGUAGE'] ? 'ENGLISH-TRANSLATED' : 'CHINESE-DEFAULT', $html );
+    } );
+}, 0 );
+do_action( 'init' );
+if ( $mode === 'translation-buffer-flushed' ) { while ( ob_get_level() ) ob_end_flush(); }
 do_action( 'send_headers' ); do_action( 'template_redirect' );
 if ( $mode === 'late-cookie' ) setcookie( 'private_session', 'late' );
 if ( $mode === 'late-flag' ) define( 'DONOTCACHEPAGE', true );
@@ -107,6 +121,7 @@ if ( $mode === 'transformed' ) ob_start( fn( $html ) => str_replace( 'before-tra
 if ( $mode === 'invalidated-during-render' ) WUTM_Page_Cache::clear_on_global_change();
 echo '<!doctype html><html><head><title>Fixture</title></head><body><main>before-transform ' . esc_html( $mode ) . ' ' . microtime( true ) . '</main>';
 if ( $mode === 'large' ) echo str_repeat( 'x', 4194400 );
+if ( in_array( $mode, array( 'chunked', 'cleaned' ), true ) && ob_get_level() > 1 ) ob_end_flush();
 if ( $mode === 'chunked' ) ob_flush();
 if ( $mode === 'cleaned' ) ob_clean();
 echo '</body></html>';

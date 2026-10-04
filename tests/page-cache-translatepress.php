@@ -87,4 +87,4 @@ rmdir( $cache_dir );
 rmdir( dirname( $cache_dir ) );
 rmdir( WP_CONTENT_DIR );
 
-echo "TranslatePress exclusions and page-cache integrity passed.\n";
+echo "TranslatePress language detection and page-cache integrity passed.\n";
