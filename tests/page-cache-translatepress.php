@@ -18,6 +18,9 @@ function get_option( $name, $default = false ) {
 	return $default;
 }
 function add_action() {}
+function wp_parse_args( $args, $defaults ) {
+	return array_merge( $defaults, $args );
+}
 function home_url( $path = '' ) {
 	global $site_url;
 	return rtrim( $site_url, '/' ) . '/' . ltrim( $path, '/' );
