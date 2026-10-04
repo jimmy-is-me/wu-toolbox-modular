@@ -40,6 +40,10 @@ jobs:
         run: php tests/ai-translate-translatepress.php
       - name: Check translated page exclusions and cache integrity
         run: php tests/page-cache-translatepress.php
+      - name: Check page cache policy, permissions and scoped assets
+        run: php tests/page-cache-policy.php
+      - name: Check page cache with real HTTP requests and nested output buffers
+        run: node tests/page-cache-http.js
       - name: Check SEO editor analysis
         run: |
           npm install --prefix "$RUNNER_TEMP/wutm-seo-tests" linkedom@0.18.12 --no-audit --no-fund

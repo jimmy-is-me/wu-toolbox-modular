@@ -19,6 +19,7 @@ function get_option( $name, $default = false ) {
 	return $default;
 }
 function add_action() {}
+function is_admin() { return false; }
 function wp_parse_args( $args, $defaults ) {
 	return array_merge( $defaults, $args );
 }

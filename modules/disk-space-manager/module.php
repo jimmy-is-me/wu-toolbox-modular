@@ -234,6 +234,11 @@ class DSM_Disk_Space_Manager {
             $lock_path = $cache_dir . DIRECTORY_SEPARATOR . '.wutm-cache.lock';
             $lock_handle = @fopen( $lock_path, 'c' );
             if ( false !== $lock_handle && @flock( $lock_handle, LOCK_EX | LOCK_NB ) ) {
+                // In-flight page renders must not repopulate the cache after this cleanup.
+                $generation_path = $cache_dir . DIRECTORY_SEPARATOR . '.wutm-generation';
+                if ( ! is_link( $generation_path ) ) {
+                    @file_put_contents( $generation_path, wp_generate_password( 24, false, false ), LOCK_EX );
+                }
                 $cache_freed = $this->delete_dir_contents( $cache_dir );
                 @flock( $lock_handle, LOCK_UN );
             } else {
@@ -260,7 +265,7 @@ class DSM_Disk_Space_Manager {
             if ( $item === '.' || $item === '..' ) continue;
             $path = $dir . DIRECTORY_SEPARATOR . $item;
             // 保留協調 page-cache 讀寫與清理的鎖檔，且不跟隨符號連結。
-            if ( $item === '.wutm-cache.lock' || is_link( $path ) ) continue;
+            if ( $item === '.wutm-cache.lock' || $item === '.wutm-generation' || is_link( $path ) ) continue;
             if ( is_dir( $path ) ) {
                 $freed += $this->delete_dir_contents( $path );
                 @rmdir( $path );
