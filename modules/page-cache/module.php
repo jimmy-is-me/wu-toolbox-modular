@@ -115,6 +115,9 @@ final class WUTM_Page_Cache {
 		if ( self::is_excluded_uri( $uri ) ) {
 			return false;
 		}
+		if ( self::is_translatepress_translation( $uri ) ) {
+			return false;
+		}
 
 		if ( function_exists( 'is_cart' ) && ( is_cart() || is_checkout() || is_account_page() ) ) {
 			return false;
@@ -125,6 +128,47 @@ final class WUTM_Page_Cache {
 			}
 		}
 		return true;
+	}
+
+	/** TranslatePress must finish its HTML output buffer before a translated page is sent. */
+	private static function is_translatepress_translation( string $uri ): bool {
+		if ( ! class_exists( 'TRP_Translate_Press' ) ) {
+			return false;
+		}
+		$settings = get_option( 'trp_settings', array() );
+		if ( ! is_array( $settings ) ) {
+			return false;
+		}
+		$default = $settings['default-language'] ?? '';
+		$published = $settings['publish-languages'] ?? $settings['translation-languages'] ?? array();
+		if ( ! is_array( $published ) ) {
+			return false;
+		}
+		global $TRP_LANGUAGE;
+		if ( is_string( $TRP_LANGUAGE ) && '' !== $TRP_LANGUAGE && $TRP_LANGUAGE !== $default && in_array( $TRP_LANGUAGE, $published, true ) ) {
+			return true;
+		}
+		$path = (string) wp_parse_url( $uri, PHP_URL_PATH );
+		$home_path = (string) wp_parse_url( home_url( '/' ), PHP_URL_PATH );
+		if ( '' !== $home_path && '/' !== $home_path ) {
+			$home_path = '/' . trim( $home_path, '/' );
+			if ( 0 !== strpos( $path, $home_path . '/' ) ) {
+				return false;
+			}
+			$path = substr( $path, strlen( $home_path ) );
+		}
+		$first_segment = strtolower( strtok( trim( $path, '/' ), '/' ) ?: '' );
+		$slugs = isset( $settings['url-slugs'] ) && is_array( $settings['url-slugs'] ) ? $settings['url-slugs'] : array();
+		foreach ( $published as $language ) {
+			if ( ! is_string( $language ) || $language === $default ) {
+				continue;
+			}
+			$slug = isset( $slugs[ $language ] ) ? trim( (string) $slugs[ $language ], '/' ) : strtolower( strtok( str_replace( '-', '_', $language ), '_' ) ?: '' );
+			if ( '' !== $slug && $first_segment === strtolower( $slug ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	private static function is_excluded_uri( string $uri ): bool {

@@ -38,6 +38,8 @@ jobs:
         run: php tests/seo-core.php
       - name: Check TranslatePress discovery and dictionary writes
         run: php tests/ai-translate-translatepress.php
+      - name: Check translated pages bypass HTML page cache
+        run: php tests/page-cache-translatepress.php
       - name: Check SEO editor analysis
         run: |
           npm install --prefix "$RUNNER_TEMP/wutm-seo-tests" linkedom@0.18.12 --no-audit --no-fund
