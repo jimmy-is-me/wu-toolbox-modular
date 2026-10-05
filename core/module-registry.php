@@ -25,6 +25,8 @@ function wutm_modules(): array {
         'smart-301-redirects' => ['name' => '301 指向', 'description' => '建立可快取的 301 永久轉址規則，支援站內／外部目標、萬用字元與命中統計。', 'group' => '內容管理', 'icon' => '↗️', 'settings_page' => 'wu-smart-301-redirects'],
         'admin-bar-cleaner' => ['name' => '後台介面管理', 'description' => '管理 WordPress 管理列、後台頁尾、側邊選單、角色權限與顯示項目。', 'group' => '後台介面', 'icon' => '🎛️'],
         'admin-menu-editor' => ['name' => '後台選單編輯器', 'description' => '由指定主帳號管理所有管理員共用的後台選單順序、顯示名稱及可見性。', 'group' => '後台介面', 'icon' => '↕️', 'settings_page' => 'wu-admin-menu-editor'],
+        'content-overview' => ['name' => '內容總覽', 'description' => '集中瀏覽頁面父子階層與文章分類，並搜尋、篩選及排序商品；商品欄位可依個人帳號設定，支援快速查看與編輯。', 'group' => '內容總覽', 'icon' => '🗂️', 'settings_page' => 'wco-content-overview'],
+        'google-maps' => ['name' => 'Google 地圖', 'description' => '管理多筆 Google Maps 地點，以短代碼或區塊加入頁面；支援完整寬高、對齊、色彩效果、資訊卡與導航，不需 API 金鑰。', 'group' => '內容管理', 'icon' => '📍', 'settings_page' => 'edit.php?post_type=wumetax_map', 'settings_url' => 'edit.php?post_type=wumetax_map'],
         'audit-logger' => ['name' => '操作日誌', 'description' => '記錄使用者登入、文章、設定及其他重要後台活動，方便追查操作紀錄。', 'group' => '安全性', 'icon' => '📋'],
         'visitor-tracking' => ['name' => '瀏覽追蹤數據', 'description' => '以非同步方式統計訪客與會員瀏覽、目前在線、熱門頁排行及 CSV 匯出，並提供保留期限與資料量安全上限。', 'group' => '監控追蹤', 'icon' => '📈', 'settings_page' => 'wu-visitor-tracker'],
         'advanced-tracking-manager' => ['name' => '進階追蹤管理', 'description' => '管理 GA4、GTM、Google Ads、Meta Pixel 與診斷。', 'group' => '監控追蹤', 'icon' => '🎯'],
@@ -36,7 +38,7 @@ function wutm_modules(): array {
         'wpvivid' => ['name' => 'WPvivid', 'description' => '快速安裝與啟用官方 WPvivid 備份還原外掛。', 'group' => '備份還原', 'icon' => '🗃️', 'settings_page' => 'wu-wpvivid', 'tag' => '第三方外掛'],
         'media-library-manager' => ['name' => '媒體庫管理', 'description' => '在 WordPress 媒體庫內以資料夾側欄建立、篩選與拖放整理媒體檔案。', 'group' => '媒體工具', 'icon' => '🗂️', 'settings_page' => 'wu-media-library-manager'],
         'media-sync' => ['name' => '媒體掃描匯入', 'description' => '掃描 uploads 中未登錄的檔案，再選擇匯入媒體庫。', 'group' => '媒體工具', 'icon' => '🔍', 'settings_page' => 'wu-media-sync'],
-        'disable-wordpress-updates' => ['name' => '停用所有更新', 'description' => '停止 WordPress 核心、外掛與佈景主題的更新檢查及自動更新。', 'group' => '後台介面', 'icon' => '⏸️', 'settings_page' => 'wu-disable-wordpress-updates'],
+        'disable-wordpress-updates' => ['name' => '停用所有更新', 'description' => '停止 WordPress 核心、外掛與佈景主題的更新檢查及自動更新。', 'group' => '特殊工具', 'icon' => '⏸️', 'settings_page' => 'wu-disable-wordpress-updates'],
         'captcha' => ['name' => '驗證碼', 'description' => '以驗證碼保護登入、註冊與留言表單，降低機器人、垃圾留言與暴力登入。', 'group' => '安全性', 'icon' => '🤖'],
         'classic-features' => ['name' => '經典功能', 'description' => '啟用經典編輯器、小工具、進階工具與原始大圖上傳。', 'group' => '後台介面', 'icon' => '📝'],
         'notice-center' => ['name' => '通知整理工具', 'description' => '將後台通知集中到安全的可展開面板。', 'group' => '後台介面', 'icon' => '🔔', 'settings_page' => 'wu-notice-center'],
@@ -119,7 +121,7 @@ function wutm_grouped_modules(): array {
     }
 
     $ordered = [];
-    foreach (['後台介面', '前台介面', '內容管理', 'SEO', 'AI功能', '效能優化'] as $group) {
+    foreach (['後台介面', '內容總覽', '前台介面', '內容管理', 'SEO', 'AI功能', '效能優化'] as $group) {
         if (!isset($groups[$group])) continue;
         $ordered[$group] = $groups[$group];
         unset($groups[$group]);

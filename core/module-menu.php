@@ -16,6 +16,7 @@ add_action('admin_enqueue_scripts', function (): void {
         || $page === 'wu-toolbox-modular'
         || strpos($page, 'wu-') === 0
         || strpos($page, 'wumetax-') === 0
+        || ($page === 'wco-content-overview' && wutm_is_enabled('content-overview'))
         || strpos($page, 'site-ai-') === 0;
     if (!$is_wu_screen) return;
 

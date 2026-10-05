@@ -14,6 +14,10 @@ jobs:
         run: find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
       - name: Check member loyalty promotion calculations
         run: php tests/member-loyalty-promotion-policy.php
+      - name: Check maps and content overview preservation, permissions and scope
+        run: |
+          php tests/content-modules.php
+          php tests/content-modules.php frontend
       - name: Check admin menu editor ownership
         run: php tests/admin-menu-editor-owners.php
       - name: Check customer-entered product pricing
@@ -59,6 +63,7 @@ jobs:
         run: |
           npm install --prefix "$RUNNER_TEMP/wutm-seo-tests" linkedom@0.18.12 --no-audit --no-fund
           NODE_PATH="$RUNNER_TEMP/wutm-seo-tests/node_modules" node tests/seo-analysis.js
+          NODE_PATH="$RUNNER_TEMP/wutm-seo-tests/node_modules" node tests/content-modules-ui.js
       - name: Check changelog is current
         shell: bash
         run: |
