@@ -13,7 +13,10 @@ function add_submenu_page( ...$args ) { $GLOBALS['registered_menus'][] = $args; 
 function do_action( $hook, ...$args ) { $GLOBALS['emitted_actions'][] = $hook; }
 function get_locale() { return 'zh_TW'; }
 function get_option( $key, $default = false ) { return $GLOBALS['options'][ $key ] ?? $default; }
-function update_option( $key, $value, $autoload = null ) { $GLOBALS['options'][ $key ] = $value; return true; }
+function update_option( $key, $value, $autoload = null ) {
+    if ( ( $GLOBALS['fail_option'] ?? '' ) === $key ) return false;
+    $GLOBALS['options'][ $key ] = $value; return true;
+}
 function current_time( $type ) { return '2026-10-04 00:00:00'; }
 function wp_json_encode( $value, $flags = 0 ) { return json_encode( $value, $flags ); }
 function wp_strip_all_tags( $value ) { return strip_tags( $value ); }
@@ -30,6 +33,7 @@ function wp_remote_retrieve_response_code( $response ) { return $response['code'
 function wp_remote_retrieve_body( $response ) { return $response['body']; }
 function wp_remote_get( $url, $args ) {
     $GLOBALS['remote_requests']++;
+    if ( ! empty( $GLOBALS['fail_frontend'] ) ) { return array( 'code' => 504, 'body' => '' ); }
     if ( false !== strpos( $url, '/single/' ) ) {
         $GLOBALS['wpdb']->rows[] = dictionary_row( 2, '<span>單頁新增字典</span>', '', 0 );
         return array( 'code' => 200, 'body' => '<body><span>單頁新增字典</span></body>' );
@@ -43,7 +47,7 @@ function wp_remote_get( $url, $args ) {
 
 class WP_Query {
     public $posts = array( 1, 2 );
-    public function __construct( $args ) {}
+    public function __construct( $args ) { $this->posts = $GLOBALS['scan_ids'] ?? array( 1, 2 ); }
 }
 class TRP_Translate_Press {
     public static function get_trp_instance() { return new self(); }

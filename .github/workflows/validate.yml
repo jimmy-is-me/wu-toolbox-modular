@@ -38,6 +38,10 @@ jobs:
         run: php tests/seo-core.php
       - name: Check TranslatePress discovery and dictionary writes
         run: php tests/ai-translate-translatepress.php
+      - name: Check resumable AI scan, publication integrity and error handling
+        run: |
+          php tests/ai-translate-batched-scan.php
+          node tests/ai-translate-scan.js
       - name: Check translated language detection and cache integrity
         run: php tests/page-cache-translatepress.php
       - name: Check page cache policy, permissions and scoped assets
