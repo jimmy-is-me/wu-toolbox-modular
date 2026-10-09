@@ -17,6 +17,8 @@ function current_user_can(...$args){return $GLOBALS['caps'];}
 function wp_doing_ajax(){return $GLOBALS['ajax'];}
 function get_option($key,$default=false){return $GLOBALS['options'][$key]??$default;}
 function update_option($key,$value,...$args){$GLOBALS['options'][$key]=$value;}
+function flush_rewrite_rules($hard){check($hard===false,'Soft rewrite refresh only');$GLOBALS['flushes']=($GLOBALS['flushes']??0)+1;}
+function get_term_link($term,$tax){return '/product-badge/'.$term->slug.'/';}
 function term_exists($slug,...$args){foreach($GLOBALS['terms'] as $term)if($term->slug===$slug)return $term->term_id;return false;}
 function wp_insert_term($name,$tax,$args){$id=count($GLOBALS['terms'])+1;$GLOBALS['terms'][$id]=(object)['term_id'=>$id,'name'=>$name,'slug'=>$args['slug']];return ['term_id'=>$id];}
 function is_wp_error($x){return false;}
@@ -60,10 +62,19 @@ require dirname(__DIR__).'/modules/product-badges/module.php';
 check(!$queries&&!$styles&&!$writes,'Module boot adds no query/write/assets');
 WCRM_Product_Marks::register();
 check($taxKey==='wcrm_product_mark'&&$taxonomy['show_in_menu']&&$taxonomy['capabilities']['assign_terms']==='edit_products','Existing taxonomy and native Products menu preserved');
+check($taxonomy['public']&&$taxonomy['publicly_queryable']&&$taxonomy['show_in_nav_menus'],'Public product archives and native menu taxonomy');
+check($taxonomy['query_var']===$taxKey&&$taxonomy['rewrite']['slug']==='product-badge'&&!$taxonomy['rewrite']['with_front'],'Stable badge archive URLs');
+$ajax=true;WCRM_Product_Marks::refresh_archive_rules();check(empty($flushes),'AJAX never refreshes rewrite rules');
+$ajax=false;$caps=false;WCRM_Product_Marks::refresh_archive_rules();check(empty($flushes),'No unprivileged rewrite refresh');
+$caps=true;WCRM_Product_Marks::refresh_archive_rules();WCRM_Product_Marks::refresh_archive_rules();check($flushes===1,'Rewrite rules refresh once only');
+check(WCRM_Product_Marks::show_menu_box(['add-wcrm_product_mark','other'],(object)['id'=>'nav-menus'])===['other'],'Badge picker visible in default menu screen');
+check(WCRM_Product_Marks::show_menu_box(['other'],(object)['id'=>'post'])===['other'],'Other screen preferences preserved');
 $ajax=true;WCRM_Product_Marks::seed();check(!$terms,'No seeding on AJAX');
 $ajax=false;WCRM_Product_Marks::seed();check(count($terms)===3&&$options['wcrm_seeded_v1']===1,'Default badges seeded once');
 $termMeta[1]['_wcrm_bg']='#123456';WCRM_Product_Marks::seed();check($termMeta[1]['_wcrm_bg']==='#123456','Existing badge colors preserved');
 $termMeta[2]['_wcrm_enabled']='0';
+check(strpos(WCRM_Product_Marks::term_column('', 'wcrm_archive', 2),'/product-badge/hot-buy/')!==false,'Disabled visual badge keeps its archive link');
+check(isset(WCRM_Product_Marks::term_columns([])['wcrm_archive']),'Archive link management column');
 $terms[3]->name='優惠 <安全測試>';
 $mode=$argv[1]??'policy';
 if($mode==='visual'){

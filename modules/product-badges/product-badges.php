@@ -23,6 +23,8 @@ if ( ! class_exists( 'WCRM_Product_Marks' ) ) {
 
             add_action( 'init', array( __CLASS__, 'register' ), 20 );
             add_action( 'admin_init', array( __CLASS__, 'seed' ) );
+            add_action( 'admin_init', array( __CLASS__, 'refresh_archive_rules' ) );
+            add_filter( 'default_hidden_meta_boxes', array( __CLASS__, 'show_menu_box' ), 10, 2 );
 
             add_action(
                 self::TAX . '_add_form_fields',
@@ -145,18 +147,18 @@ if ( ! class_exists( 'WCRM_Product_Marks' ) ) {
                         'back_to_items' => '返回商品徽章',
                     ),
                     'hierarchical'       => false,
-                    'public'             => false,
-                    'publicly_queryable' => false,
+                    'public'             => true,
+                    'publicly_queryable' => true,
                     'show_ui'            => true,
                     'show_in_menu'       => true,
-                    'show_in_nav_menus'  => false,
+                    'show_in_nav_menus'  => true,
                     'show_tagcloud'      => false,
                     'show_in_rest'       => false,
                     'show_in_quick_edit' => false,
                     'show_admin_column'  => false,
                     'meta_box_cb'        => false,
-                    'rewrite'            => false,
-                    'query_var'          => false,
+                    'rewrite'            => array('slug' => 'product-badge', 'with_front' => false),
+                    'query_var'          => self::TAX,
                     'capabilities'       => array(
                         'manage_terms' => 'manage_woocommerce',
                         'edit_terms'   => 'manage_woocommerce',
@@ -165,6 +167,21 @@ if ( ! class_exists( 'WCRM_Product_Marks' ) ) {
                     ),
                 )
             );
+        }
+
+        public static function refresh_archive_rules() {
+            // Refresh only once after this archive format is introduced, never on visitor requests.
+            if (wp_doing_ajax() || !current_user_can('manage_options') || !taxonomy_exists(self::TAX)
+                || get_option('wcrm_archive_rules_version') === '1') return;
+            flush_rewrite_rules(false);
+            update_option('wcrm_archive_rules_version', '1', false);
+        }
+
+        public static function show_menu_box($hidden, $screen) {
+            if (isset($screen->id) && $screen->id === 'nav-menus') {
+                return array_values(array_diff($hidden, array('add-' . self::TAX)));
+            }
+            return $hidden;
         }
 
         private static function nonce_valid( $field, $action ) {
@@ -433,6 +450,7 @@ if ( ! class_exists( 'WCRM_Product_Marks' ) ) {
         }
 
         public static function add_fields() {
+            echo '<p class="description">每個徽章都有商品集合頁，可在「外觀 → 選單 → 商品徽章」加入選單；若未看到此區塊，可在顯示項目設定勾選「商品徽章」。停用僅隱藏圖片徽章，集合頁仍保留。</p>';
             self::controls();
         }
 
@@ -515,6 +533,7 @@ if ( ! class_exists( 'WCRM_Product_Marks' ) ) {
             $columns['wcrm_preview'] = '徽章預覽';
             $columns['wcrm_order']   = '順序';
             $columns['wcrm_status']  = '前台狀態';
+            $columns['wcrm_archive'] = '商品集合頁';
 
             return $columns;
         }
@@ -543,6 +562,9 @@ if ( ! class_exists( 'WCRM_Product_Marks' ) ) {
 
                 case 'wcrm_status':
                     return $v['enabled'] ? '顯示' : '停用';
+                case 'wcrm_archive':
+                    $url = get_term_link($term, self::TAX);
+                    return is_wp_error($url) ? '' : '<a href="' . esc_url($url) . '">查看商品集合</a>';
             }
 
             return $content;
