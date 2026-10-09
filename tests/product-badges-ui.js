@@ -17,7 +17,7 @@ for(const width of [1440,390,320]){
  assert.equal(await page.locator('.woocommerce-product-gallery>.wcrm-marks--single').count(),1);
  assert.equal(await page.locator('.wcrm-single-source').count(),0);
  assert.equal(await page.locator('head #wcrm-product-marks-inline').count(),1,'Late badge CSS survives fallback removal');
- assert.equal(await page.locator('.woocommerce-product-gallery .wcrm-mark').first().evaluate(el=>getComputedStyle(el).position),'relative','Badge styles remain applied');
+ assert.equal(await page.locator('.woocommerce-product-gallery .wcrm-mark').first().evaluate(el=>getComputedStyle(el).fontWeight),'600','Badge styles remain applied');
  assert.equal(await page.locator('input[name="wcrm_marks[]"]:checked').count(),3,'Multi-select includes disabled choices');
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'RWD without overflow '+width);
  await page.screenshot({path:path.join(out,'badges-'+width+'.png'),fullPage:true});
