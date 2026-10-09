@@ -18,6 +18,10 @@ jobs:
         run: |
           php tests/content-modules.php
           php tests/content-modules.php frontend
+      - name: Check product badge preservation and scoped loading
+        run: |
+          php tests/product-badges.php
+          node tests/product-badges-ui.js
       - name: Check admin menu editor ownership
         run: php tests/admin-menu-editor-owners.php
       - name: Check customer-entered product pricing
