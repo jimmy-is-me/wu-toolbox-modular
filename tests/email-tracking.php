@@ -40,9 +40,14 @@ function wp_send_json_success($data){throw new JsonResult(true,$data);}
 function admin_url($path){return 'https://example.test/wp-admin/'.$path;}
 function add_query_arg($args,$url){return $url.'?'.http_build_query($args);}
 function plugins_url($path,...$args){return '/'.$path;}
+function add_submenu_page($parent,$title,$label,$cap,$slug,$callback){
+    $GLOBALS['email_menu']=[$parent,$slug,$callback];
+    // WP uses the sanitized parent title ("WU Toolbox"), not "wu-toolbox-modular".
+    return 'wu-toolbox_page_'.$slug;
+}
 function wp_enqueue_style(...$args){$GLOBALS['assets'][]=$args;}
 function wp_enqueue_script(...$args){$GLOBALS['assets'][]=$args;}
-function wp_localize_script(...$args){}
+function wp_localize_script($handle,$name,$data){$GLOBALS['localized'][$name]=$data;}
 function wp_create_nonce(...$args){return 'valid';}
 class FakeEmailDB{
  public $prefix='wp_',$queries=[],$inserted=[],$deleteResult=0,$detail=null,$insertResult=1;
@@ -97,11 +102,26 @@ $_POST=['id'=>1];$caps=false;try{wu_email_log_detail();}catch(JsonResult $e){che
 $caps=true;$nonce=false;try{wu_email_log_detail();check(false,'Nonce required');}catch(RuntimeException $e){check($e->getMessage()==='nonce','Nonce rejection');}$nonce=true;
 $wpdb->detail=$row;try{wu_email_log_detail();}catch(JsonResult $e){$detail=$e->result;check($detail[0]&&strpos($detail[1]['preview'],'PRIVATE BODY')!==false,'Authorized detail on demand');}
 foreach($hooks['admin_enqueue_scripts'] as $fn)$fn('post.php');check(!$assets,'Other admin screens have no assets');
-foreach($hooks['admin_enqueue_scripts'] as $fn)$fn('wu-toolbox-modular_page_wu-email-tracking');check(count($assets)===2,'Assets scoped to settings screen');
+foreach($hooks['admin_menu'] as $fn)$fn();
+check($GLOBALS['wu_email_tracking_page_hook']==='wu-toolbox_page_wu-email-tracking','Actual menu registration captures parent-title hook');
+foreach(['wu-toolbox_page_wu-email-tracking','renamed-toolbox_page_wu-email-tracking','wu-toolbox-modular_page_wu-email-tracking'] as $hook){
+    $assets=[];foreach($hooks['admin_enqueue_scripts'] as $fn)$fn($hook);check(count($assets)===2,'Assets load for actual and renamed parent: '.$hook);
+}
+$GLOBALS['wu_email_tracking_page_hook']='custom_registered_mail_screen';$assets=[];
+foreach($hooks['admin_enqueue_scripts'] as $fn)$fn('custom_registered_mail_screen');check(count($assets)===2,'Registered hook works without assumed suffix');
+$caps=false;$assets=[];foreach($hooks['admin_enqueue_scripts'] as $fn)$fn('wu-toolbox_page_wu-email-tracking');check(!$assets,'Non-admin never loads mail assets');$caps=true;
+$assets=[];foreach($hooks['admin_enqueue_scripts'] as $fn)$fn('wu-toolbox_page_wu-email-other');check(!$assets,'Other Toolbox pages remain isolated');
+foreach($hooks['admin_enqueue_scripts'] as $fn)$fn('wu-toolbox_page_wu-email-tracking');
 $wpdb->queries=[];$_GET=[];ob_start();wu_email_render_logs();$html=ob_get_clean();
 check(count($wpdb->queries)===4,'Bounded list + summary + trends + methods, four queries only');
 foreach($wpdb->queries as $sql)check(strpos($sql,'SELECT *')===false&&!preg_match('/\bmessage\b/',$sql),'No bodies in list queries');
 check(strpos($html,'LIMIT')===false&&strpos($html,'&lt;img src=x')!==false&&strpos($html,'PRIVATE BODY')===false,'List escapes titles and excludes private body');
-if(($argv[1]??'')==='visual'){echo '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font:14px Arial;margin:16px;background:#f0f0f1}input,select{box-sizing:border-box}table{width:100%;border-collapse:collapse}td,th{padding:10px;text-align:left}.button{padding:8px;display:inline-block}dialog:not([open]){display:none}</style><style>'.file_get_contents(dirname(__DIR__).'/modules/email-tracking/admin.css').'</style>'.$html;exit;}
+if(($argv[1]??'')==='visual'){
+    echo '<!doctype html><html><head><base href="https://example.test/"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font:14px Arial;margin:16px;background:#f0f0f1}input,select{box-sizing:border-box}table{width:100%;border-collapse:collapse}td,th{padding:10px;text-align:left}.button{padding:8px;display:inline-block}dialog:not([open]){display:none}</style>';
+    foreach($assets as $asset)if($asset[0]==='wu-email-admin'&&substr($asset[1],-4)==='.css')echo '<link rel="stylesheet" href="'.esc_attr($asset[1]).'">';
+    echo '</head><body>'.$html.'<script>window.wuEmailAdmin='.json_encode($GLOBALS['localized']['wuEmailAdmin']).';</script>';
+    foreach($assets as $asset)if($asset[0]==='wu-email-admin'&&substr($asset[1],-3)==='.js')echo '<script src="'.esc_attr($asset[1]).'"></script>';
+    echo '</body></html>';exit;
+}
 if(($argv[1]??'')==='detail'){echo json_encode(['success'=>true,'data'=>$detail[1]]);exit;}
 echo "Email tracking passed: privacy, bounded content, filters, retention, independent quotas, protected detail and scoped queries/assets.\n";

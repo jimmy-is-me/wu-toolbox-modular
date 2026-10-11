@@ -162,7 +162,12 @@ function wu_email_render_logs() {
 }
 
 add_action('admin_enqueue_scripts',function($hook){
-    if ($hook!=='wu-toolbox-modular_page_wu-email-tracking' || !current_user_can('manage_options')) return;
+    // WordPress derives the hook prefix from the parent menu's title, not its slug.
+    // Use the actual registered hook; the unique page suffix also supports menu renaming.
+    $registered = $GLOBALS['wu_email_tracking_page_hook'] ?? '';
+    $suffix = '_page_wu-email-tracking';
+    if (!current_user_can('manage_options') || !is_string($hook)
+        || !(($registered && $hook === $registered) || substr($hook, -strlen($suffix)) === $suffix)) return;
     wp_enqueue_style('wu-email-admin',plugins_url('admin.css',__FILE__),[],WUTM_VERSION);
     wp_enqueue_script('wu-email-admin',plugins_url('admin.js',__FILE__),[],WUTM_VERSION,true);
     wp_localize_script('wu-email-admin','wuEmailAdmin',['url'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('wu_email_detail')]);

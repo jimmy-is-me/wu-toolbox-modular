@@ -10,11 +10,12 @@ const {chromium}=require('playwright');
  const detail=execFileSync(php,['tests/email-tracking.php','detail'],{encoding:'utf8'});
  const out=process.env.WUTM_VISUAL_OUTPUT;fs.mkdirSync(out,{recursive:true});
  let trackerFetched=false;await page.route('https://tracker.test/**',route=>{trackerFetched=true;return route.abort();});
+ await page.route('https://example.test/admin.css',route=>route.fulfill({contentType:'text/css',body:fs.readFileSync('modules/email-tracking/admin.css','utf8')}));
+ await page.route('https://example.test/admin.js',route=>route.fulfill({contentType:'application/javascript',body:fs.readFileSync('modules/email-tracking/admin.js','utf8')}));
  await page.route('https://example.test/wp-admin/admin-ajax.php',route=>route.fulfill({status:200,contentType:'application/json',body:detail,headers:{'access-control-allow-origin':'*'}}));
  for(const width of [1440,390,320]){
   await page.setViewportSize({width,height:900});await page.setContent(markup);
-  await page.evaluate(()=>window.wuEmailAdmin={url:'https://example.test/wp-admin/admin-ajax.php',nonce:'valid'});
-  await page.addScriptTag({path:'modules/email-tracking/admin.js'});
+  assert.equal(await page.locator('.wu-mail-metrics').evaluate(el=>getComputedStyle(el).display),'grid','Enqueued CSS loaded through the page');
   assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'RWD page overflow '+width);
   const before=requests.length;await page.waitForTimeout(50);assert.equal(requests.length,before,'No polling');
   await page.locator('.wu-mail-view').click();await page.locator('.wu-mail-detail-meta dd').first().waitFor();

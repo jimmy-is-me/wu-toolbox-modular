@@ -146,7 +146,7 @@ add_action('admin_init', function() {
 // ===== Menu Registration =====
 
 add_action('admin_menu', function() {
-    add_submenu_page(
+    $GLOBALS['wu_email_tracking_page_hook'] = add_submenu_page(
         'wu-toolbox-modular',
         '郵件追蹤管理',
         '郵件追蹤管理',
