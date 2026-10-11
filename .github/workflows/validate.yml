@@ -14,6 +14,10 @@ jobs:
         run: find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
       - name: Check member loyalty promotion calculations
         run: php tests/member-loyalty-promotion-policy.php
+      - name: Check email log privacy, retention, quotas and scoped loading
+        run: |
+          php tests/email-tracking.php
+          node --check modules/email-tracking/admin.js
       - name: Check maps and content overview preservation, permissions and scope
         run: |
           php tests/content-modules.php
