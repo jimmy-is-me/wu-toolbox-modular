@@ -77,6 +77,7 @@ function wutm_modules(): array {
         'hide-login-page' => ['name' => '隱藏登入頁', 'description' => '變更 wp-login.php 登入網址，使用自訂登入 URL 隱藏預設入口。', 'group' => '安全性', 'icon' => '🔒'],
         'login-limiter' => ['name' => '登入限制', 'description' => '限制登入失敗次數並暫時封鎖來源，防止密碼暴力破解。', 'group' => '安全性', 'icon' => '🛡️'],
         'woocommerce' => ['name' => 'WooCommerce', 'description' => '快速安裝與啟用官方 WooCommerce 外掛。', 'group' => '電商工具', 'icon' => '🛒', 'tag' => '第三方外掛', 'settings_page' => 'wu-woocommerce'],
+        'wc-live-insights' => ['name' => 'Woo即時營運分析', 'description' => '即時查看營收、商品銷售、顧客、庫存、商品貢獻及獲利行銷；支援成本快照、期間補錄與 CSV，面板保留於主選單「營運管理」。', 'group' => '電商工具', 'icon' => '📊', 'requires' => 'woocommerce', 'settings_page' => 'wu-wc-live-insights'],
         'product-custom-price' => ['name' => '商品自填金額', 'description' => '在指定商品開放顧客輸入購買金額，支援金額範圍、預設值、級距提示、購物車獨立計價與訂單紀錄。', 'group' => '電商工具', 'icon' => '💵', 'requires' => 'woocommerce', 'settings_url' => 'edit.php?post_type=product'],
         'product-badges' => ['name' => '商品徽章', 'description' => '管理徽章色彩、順序與顯示狀態，支援商品多選、快速編輯、列表預覽及商品頁圖片徽章；保留短代碼與商品選單新增入口。', 'group' => '電商工具', 'icon' => '🏷️', 'requires' => 'woocommerce', 'settings_page' => 'edit-tags.php?taxonomy=wcrm_product_mark&post_type=product', 'settings_url' => 'edit-tags.php?taxonomy=wcrm_product_mark&post_type=product'],
         'simple-message-board' => ['name' => '簡易留言板', 'description' => '以短代碼建立聯絡留言表單，並在後台集中回覆與管理客戶留言。', 'group' => '電商工具', 'icon' => '💬', 'settings_page' => 'wu-simple-message-board', 'related_pages' => ['edit.php?post_type=wutm_message']],

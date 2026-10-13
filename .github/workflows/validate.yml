@@ -18,6 +18,11 @@ jobs:
         run: |
           php tests/email-tracking.php
           node --check modules/email-tracking/admin.js
+      - name: Check live WooCommerce insights preservation, limits and scope
+        run: |
+          php tests/wc-live-insights.php
+          php tests/wc-live-insights.php legacy
+          node tests/wc-live-insights-ui.js
       - name: Check maps and content overview preservation, permissions and scope
         run: |
           php tests/content-modules.php
