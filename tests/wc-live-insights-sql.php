@@ -35,7 +35,7 @@ $schema=[
  'woocommerce_order_itemmeta'=>'meta_id bigint auto_increment primary key,order_item_id bigint,meta_key varchar(100),meta_value text,KEY item_key(order_item_id,meta_key)',
  'term_relationships'=>'object_id bigint,term_taxonomy_id bigint,PRIMARY KEY(object_id,term_taxonomy_id)',
  'term_taxonomy'=>'term_taxonomy_id bigint primary key,term_id bigint,taxonomy varchar(32)',
- 'terms'=>'term_id bigint primary key,name varchar(255)',
+ 'terms'=>'term_id bigint primary key,name varchar(255),slug varchar(255)',
 ];
 foreach($schema as $table=>$columns)$wpdb->pdo->exec('CREATE TABLE '.$wpdb->prefix.$table.' ('.$columns.')');
 $local=wp_date('Y-m-d').' 12:00:00';
