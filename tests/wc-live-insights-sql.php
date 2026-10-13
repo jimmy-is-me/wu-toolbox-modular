@@ -78,6 +78,11 @@ foreach([false,true] as $storage){
  foreach(['orders'=>2,'gross'=>1500,'refunds'=>200,'collected'=>1300,'net'=>1150,'tax'=>100,'shipping'=>50,'customers'=>2,'member_revenue'=>800] as $key=>$expected)check(abs((float)$summary[$key]-$expected)<0.0001,'Real SQL summary '.$key);
  $sales=call_insights('rows',call_insights('sales_sql',$s));
  foreach(['qty'=>2,'revenue'=>1100,'cogs'=>100,'estimated_cost'=>1,'missing_cost'=>0] as $key=>$expected)check(abs((float)$sales[0][$key]-$expected)<0.0001,'Real SQL item/refund '.$key);
+ // Invalid snapshots must not become known zero; copied native refund costs are prorated.
+ $wpdb->pdo->exec("UPDATE ".$wpdb->prefix."woocommerce_order_itemmeta SET meta_value='invalid' WHERE meta_key='_jmi_unit_cost_snapshot'");
+ $native=call_insights('rows',call_insights('sales_sql',$s));
+ check((float)$native[0]['cogs']===100.0&&(int)$native[0]['missing_cost']===0,'Native partial-refund cost fallback');
+ $wpdb->pdo->exec("UPDATE ".$wpdb->prefix."woocommerce_order_itemmeta SET meta_value='50' WHERE meta_key='_jmi_unit_cost_snapshot'");
  foreach(['overview','products','customers','stock','abc','finance'] as $tab){
   $s['tab']=$tab;$before=$orderReads;$result=call_insights('job_start',$s);
   for($n=0;!empty($result['pending'])&&$n<8;$n++)$result=call_insights('job_step',$result['token'],$result['seq']);
@@ -92,5 +97,22 @@ foreach([false,true] as $storage){
   $count=count($wpdb->queries);check(call_insights('cached_report',$s)['cached']===true,'Warm report '.$tab);
   check(count($wpdb->queries)===$count,'Warm report zero SQL '.$tab);
  }
+}
+// Exercise a real cursor boundary, not just a mocked list of IDs.
+$wpdb->pdo->beginTransaction();
+for($id=1000;$id<=1500;$id++){
+ $wpdb->insert('posts',['ID'=>$id,'post_parent'=>0,'post_type'=>'shop_order','post_status'=>'wc-completed','post_date'=>$local,'post_date_gmt'=>$utc,'post_title'=>'Bulk fixture']);
+ $wpdb->insert('wc_orders',['id'=>$id,'parent_order_id'=>0,'type'=>'shop_order','status'=>'wc-completed','currency'=>'TWD','total_amount'=>100,'tax_amount'=>0,'customer_id'=>0,'billing_email'=>'','date_created_gmt'=>$utc]);
+ foreach(['_order_currency'=>'TWD','_order_total'=>'100'] as $key=>$value)$wpdb->insert('postmeta',['post_id'=>$id,'meta_key'=>$key,'meta_value'=>$value]);
+}
+$wpdb->pdo->commit();
+foreach([false,true] as $storage){
+ $hpos=$storage;$transients=[];$s=call_insights('state');$s['tab']='overview';$before=$orderReads;
+ $result=call_insights('job_start',$s);$result=call_insights('job_step',$result['token'],0);
+ check($result['pending']&&$result['done']===500,'Real first batch is bounded to 500 IDs');
+ for($n=0;!empty($result['pending'])&&$n<8;$n++)$result=call_insights('job_step',$result['token'],$result['seq']);
+ $cached=call_insights('job_load',call_insights('ready_key',$s));
+ check(empty($result['pending'])&&$cached['current']['orders']===503&&$cached['current']['collected']===51400.0,'Cursor boundary has no lost or duplicate orders');
+ check($orderReads===$before,'Large aggregate still uses no WC order objects');
 }
 echo "Real MySQL passed: HPOS and legacy, all six reports, tax/shipping/refunds, costs, currency/status exclusions, zero order-object aggregation, zero-SQL warm views.\n";
