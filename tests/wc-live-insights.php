@@ -28,6 +28,7 @@ function is_wp_error($s){return false;}
 function selected($a,$b,$echo=true){$s=$a===$b?'selected':'';if($echo)echo $s;return $s;}
 function checked($a,$b,$echo=true){$s=$a===$b?'checked':'';if($echo)echo $s;return $s;}
 function admin_url($s){return 'https://example.test/wp-admin/'.$s;}
+function plugins_url($name,...$args){return 'https://example.test/plugins/wc-live-insights/'.$name;}
 function add_query_arg($args,$url){return $url.'?'.http_build_query($args);}
 function get_option($key,$default=false){return $GLOBALS['options'][$key]??$default;}
 function update_option($key,$value,...$args){$GLOBALS['options'][$key]=$value;}
@@ -47,7 +48,7 @@ function wc_get_is_paid_statuses(){return ['processing','completed'];}
 function wc_get_order_statuses(){return ['wc-processing'=>'處理中','wc-completed'=>'完成','wc-refunded'=>'退款','wc-cancelled'=>'取消','wc-pending'=>'待付款'];}
 function wc_get_order_status_name($s){return wc_get_order_statuses()[$s]??$s;}
 function wc_get_order($id){$GLOBALS['orderReads']++;return $GLOBALS['orders'][$id]??null;}
-function wc_get_orders($args){$GLOBALS['orderQueries'][]=$args;return (object)['orders'=>array_slice(array_values($GLOBALS['orders']),0,15),'total'=>count($GLOBALS['orders']),'max_num_pages'=>2];}
+function wc_get_orders($args){$GLOBALS['orderQueries'][]=$args;if(($args['return']??'')==='ids')return array_slice(array_keys($GLOBALS['orders']),$args['offset']??0,$args['limit']);return (object)['orders'=>array_slice(array_values($GLOBALS['orders']),0,15),'total'=>count($GLOBALS['orders']),'max_num_pages'=>2];}
 function wp_create_nonce(...$args){return 'fixture-nonce';}
 function wp_nonce_field(...$args){echo '<input type="hidden" name="_wpnonce" value="fixture-nonce">';}
 function check_admin_referer(...$args){if(!$GLOBALS['nonce'])throw new \RuntimeException('nonce');}
@@ -94,6 +95,10 @@ class FakeInsightsDB{
  function get_var($sql){$this->queries[]=$sql;return strpos($sql,'GET_LOCK')!==false?($this->locked?'1':'0'):'1';}
  function get_results($sql,$format){$this->queries[]=$sql;
   if(strpos($sql,' AS id ')!==false)return array_map(static function($id){return ['id'=>$id];},array_shift($this->batches)??[]);
+  if(strpos($sql,' AS category_id')!==false)return [['object_id'=>11,'category_id'=>2]];
+  if(strpos($sql,'historical_name')!==false)return [['product_id'=>11,'historical_name'=>'商品 <安全測試>','qty'=>1,'revenue'=>700,'sold_qty'=>2,'refund_qty'=>1,'refund_amount'=>100,'orders'=>1,'cogs'=>50,'missing_cost'=>0,'estimated_cost'=>0,'last_sale'=>wp_date('Y-m-d H:i:s')]];
+  if(strpos($sql,'COALESCE(r.refund_total')!==false)return [['order_id'=>1,'status'=>'wc-processing','user_id'=>3,'email'=>'buyer@example.test','first_name'=>'Buyer','last_name'=>'Fixture','date_created'=>wp_date('Y-m-d H:i:s'),'total_sales'=>1000,'refund_total'=>200,'net_total'=>840,'refund_tax'=>20,'refund_shipping'=>10,'tax_total'=>100,'shipping_total'=>60,'discount_total'=>50,'refund_records'=>1]];
+  if(strpos($sql,' AS order_id')!==false)return [['status'=>'wc-processing']];
   if(strpos($sql,'configured_cost')!==false)return [['product_id'=>11,'name'=>'商品 <安全測試>','post_status'=>'publish','sku'=>'FIXTURE','configured_cost'=>'50']];
   if(strpos($sql,' AS total')!==false)return [['total'=>1,'outofstock'=>0,'low'=>0,'onbackorder'=>0,'unmanaged'=>0]];
   return [];
@@ -117,15 +122,15 @@ require dirname(__DIR__).'/core/module-registry.php';$entry=wutm_modules()['wc-l
 ob_start();wutm_wc_live_insights_settings();$settings_html=ob_get_clean();check(!$wpdb->queries&&!$orderReads,'Settings do not query reports');
 ob_start();JMI_WC_Admin_Insights::render();$shell=ob_get_clean();check(!$wpdb->queries&&!$orderReads,'Main dashboard loads shell only');
 check(substr_count($shell,'<a class="nav-tab')===6&&strpos($shell,'jmi-live-config')!==false,'All six original report tabs and live configuration');
-$state=call_insights('state');check($state['days']===30&&JMI_WC_Admin_Insights::BATCH_ORDERS===40&&JMI_WC_Admin_Insights::MAX_DAYS===366,'Original bounds');
+$state=call_insights('state');check($state['days']===30&&JMI_WC_Admin_Insights::BATCH_ORDERS===500&&JMI_WC_Admin_Insights::MAX_DAYS===366,'Read-only bulk bounds and preserved date range');
 check(call_insights('date','2026-02-31')===false,'Invalid calendar dates rejected');
 $_GET=['from'=>'2020-01-01','to'=>wp_date('Y-m-d')];expect_error(static function(){call_insights('state');},'366');$_GET=[];
 $hpos=true;$bounds=call_insights('bounds',['from'=>'2026-10-01','to'=>'2026-10-01']);check($bounds===['2026-09-30 16:00:00','2026-10-01 16:00:00'],'HPOS UTC and inclusive local day');
 $hpos=false;check(call_insights('bounds',['from'=>'2026-10-01','to'=>'2026-10-01'])===['2026-10-01 00:00:00','2026-10-02 00:00:00'],'Legacy local boundaries');
 expect_error(static function(){call_insights('rows','DELETE FROM orders');},'唯讀');
 $wpdb->version='unknown';expect_error(static function(){call_insights('rows','SELECT 1');},'無法確認');$wpdb->version='8.0.36';
-call_insights('rows','SELECT 1');check(strpos(end($wpdb->queries),'MAX_EXECUTION_TIME(8000)')!==false,'MySQL execution limit');
-$wpdb->version='10.6.0-MariaDB';call_insights('rows','SELECT 1');check(strpos(end($wpdb->queries),'max_statement_time=8')!==false,'MariaDB execution limit');$wpdb->version='8.0.36';
+call_insights('rows','SELECT 1');check(strpos(end($wpdb->queries),'MAX_EXECUTION_TIME(1500)')!==false,'MySQL execution limit');
+$wpdb->version='10.6.0-MariaDB';call_insights('rows','SELECT 1');check(strpos(end($wpdb->queries),'max_statement_time=1.5')!==false,'MariaDB execution limit');$wpdb->version='8.0.36';
 $clock=new \ReflectionProperty('JMI_WC_Admin_Insights','started');if(PHP_VERSION_ID<80100)$clock->setAccessible(true);$clock->setValue(null,microtime(true)-26);
 expect_error(static function(){call_insights('check_deadline');},'時間已達');$clock->setValue(null,0);
 expect_error(static function(){call_insights('job_store','oversized-fixture',['data'=>random_bytes(3200000)]);},'暫存記憶體');
@@ -151,19 +156,25 @@ $finance=call_insights('finance_values',$state,$job['current'],['cogs'=>50,'miss
 check($finance['gross_profit']===620.0&&$finance['net_profit']===500.0&&$finance['roas']===6.0&&$finance['cvr']===0.02&&$finance['inventory_days']===60.0,'Finance definitions and original context retained');
 $missing=call_insights('finance_values',$state,$job['current'],['cogs'=>50,'missing_cost'=>1,'estimated_cost'=>0]);check($missing['cogs']===null&&$missing['net_profit']===null,'Missing costs are not fabricated');
 $state['tab']='products';$pending=call_insights('job_start',$state);check($pending['pending']&&max($GLOBALS['ttls'])===600,'User-bound temporary job starts without report query');
-$wpdb->batches=[range(1,41),[41]];for($id=1;$id<=41;$id++){$orders[$id]=clone $order;$orders[$id]->id=$id;}
-$beforeReads=$orderReads;$progress=call_insights('job_step',$pending['token'],0);check($progress['pending']&&$progress['done']===40&&$orderReads-$beforeReads===40,'One step reads at most 40 original orders');
+$wpdb->batches=[range(1,501),[501]];for($id=1;$id<=501;$id++){$orders[$id]=clone $order;$orders[$id]->id=$id;}
+$beforeReads=$orderReads;$progress=call_insights('job_step',$pending['token'],0);check($progress['pending']&&$progress['done']===500&&$orderReads-$beforeReads===0,'One bulk step processes IDs without creating WC order objects');
 expect_error(static function()use($pending){call_insights('job_step',$pending['token'],0);},'重複');
 $done=call_insights('job_step',$pending['token'],1);check(!isset($done['pending'])&&isset($done['html'],$done['csv'])&&strpos($done['html'],'FIXTURE')!==false,'Complete products report and CSV');
+check($orderReads===$beforeReads,'Entire aggregate report performs zero order-object reads');
+$queryCount=count($wpdb->queries);$cached=call_insights('cached_report',$state);check($cached['cached']&&$cached['read_at']===$done['read_at']&&count($wpdb->queries)===$queryCount,'Warm snapshot reads without report SQL');
+$pageState=$state;$pageState['pg']=2;check(call_insights('cached_report',$pageState)['cached']&&count($wpdb->queries)===$queryCount,'Pagination reuses aggregate snapshot without order scan');
 check(!isset($transients[call_insights('job_key',$pending['token'])]),'Completed report not retained in transient');
 expect_error(static function()use($pending){call_insights('job_step',$pending['token'],0);},'過期');
 $pending=call_insights('job_start',$state);$user=18;check(call_insights('job_load',$pending['token'])===false,'Another user cannot read job');$user=17;
 $saved=call_insights('job_load',$pending['token']);$saved['phase_done']=20000;call_insights('job_store',$pending['token'],$saved);$wpdb->batches=[[1]];
 expect_error(static function()use($pending){call_insights('job_step',$pending['token'],0);},'20,000');
 $pending=call_insights('job_start',$state);$currency='USD';expect_error(static function()use($pending){call_insights('job_step',$pending['token'],0);},'幣別');$currency='TWD';
+$pending=call_insights('job_start',$state);$paused=call_insights('job_load',$pending['token']);$paused['run_deadline']=time()-1;call_insights('job_store',$pending['token'],$paused);
+expect_error(static function()use($pending){call_insights('job_step',$pending['token'],0);},'暫停');$wpdb->batches=[[1]];call_insights('job_step',$pending['token'],0,true);
+$pending=call_insights('job_start',$state);call_insights('cancel_job',$pending['token']);expect_error(static function()use($pending){call_insights('job_step',$pending['token'],0);},'停止');
 $_SERVER['REQUEST_METHOD']='POST';$_POST=['jmi_save_context'=>1,'context'=>['converted_sessions'=>'10','sessions'=>'2']];$before=$options;expect_error(static function(){JMI_WC_Admin_Insights::save_context();},'不得大於');check($options===$before,'Invalid manual context does not overwrite old settings');$_POST=[];
 $mode=$argv[1]??'policy';
-if($mode==='shell'){if(isset($argv[2])){$_GET=['tab'=>$argv[2]];ob_start();JMI_WC_Admin_Insights::render();$shell=ob_get_clean();}echo '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font:14px Arial;margin:18px;background:#f0f0f1}input{max-width:100%}</style>'.$shell;exit;}
+if($mode==='shell'){if(isset($argv[2])){$_GET=['tab'=>$argv[2]];if(($argv[3]??'')==='cold')delete_transient(call_insights('job_key',call_insights('ready_key',call_insights('state'))));ob_start();JMI_WC_Admin_Insights::render();$shell=ob_get_clean();}echo '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font:14px Arial;margin:18px;background:#f0f0f1}input{max-width:100%}</style>'.$shell;exit;}
 if($mode==='settings'){echo '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font:14px Arial;margin:18px;background:#f0f0f1}a{display:inline-block}</style>'.$settings_html;exit;}
 if($mode==='overview'){$state['tab']='overview';$job['s']=$state;$job['previous_s']=$state;$job['current']['customers']=1;$data=call_insights('job_finish',$job);echo json_encode(call_insights('report_payload',$state,$data));exit;}
 if($mode==='orders'){echo json_encode(call_insights('orders_page',2));exit;}

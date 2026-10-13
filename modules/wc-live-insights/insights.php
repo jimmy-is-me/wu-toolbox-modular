@@ -94,8 +94,8 @@ final class JMI_WC_Admin_Insights {
     }
 
     private static $started = 0;
-    const QUERY_MS = 8000;
-    const REQUEST_SECONDS = 25;
+    const QUERY_MS = 1500;
+    const REQUEST_SECONDS = 5;
     const MAX_ORDERS = 20000;
     const MAX_PRODUCT_GROUPS = 5000;
 
@@ -283,8 +283,9 @@ final class JMI_WC_Admin_Insights {
             " . implode( ',', $select ) . " FROM ($h) o INNER JOIN $items i ON i.order_id=o.order_id AND i.order_item_type='line_item'
             LEFT JOIN $meta m ON m.order_item_id=i.order_item_id AND m.meta_key IN ('" . implode( "','", $keys ) . "')
             GROUP BY i.order_item_id, i.order_item_name, o.order_id, $original, o.date_created";
-        $snapshot = "NULLIF(x.unit_cost,'')";
-        $native = "NULLIF(x.native_cost,'')";
+        $numeric = static function($column){return "CASE WHEN $column REGEXP '^[-+]?[0-9]+([.][0-9]+)?$' THEN $column ELSE NULL END";};
+        $snapshot = $numeric('x.unit_cost');
+        $native = $numeric('x.native_cost');
         $extra = '';
         if ( $refund ) {
             // WooCommerce 退款會複製原品項資料；不可把複製的整列 COGS 當成部分退貨成本。
@@ -292,10 +293,10 @@ final class JMI_WC_Admin_Insights {
                 LEFT JOIN $meta ou ON ou.order_item_id=oi.order_item_id AND ou.meta_key='_jmi_unit_cost_snapshot'
                 LEFT JOIN $meta oq ON oq.order_item_id=oi.order_item_id AND oq.meta_key='_qty'
                 LEFT JOIN $meta oc ON oc.order_item_id=oi.order_item_id AND oc.meta_key='_cogs_value'";
-            $snapshot = "COALESCE(NULLIF(x.unit_cost,''),NULLIF(ou.meta_value,''))";
-            $native = "CASE WHEN CAST(oq.meta_value AS DECIMAL(26,8))>0 THEN NULLIF(oc.meta_value,'') ELSE NULL END";
+            $snapshot = 'COALESCE('.$numeric('x.unit_cost').','.$numeric('ou.meta_value').')';
+            $native = "CASE WHEN CAST(oq.meta_value AS DECIMAL(26,8))>0 THEN ".$numeric('oc.meta_value')." ELSE NULL END";
         }
-        $unit = "COALESCE($snapshot,NULLIF(cost.meta_value,''),NULLIF(parent_cost.meta_value,''))";
+        $unit = "COALESCE($snapshot,".$numeric('cost.meta_value').','.$numeric('parent_cost.meta_value').')';
         $is_refund = $refund ? 1 : 0;
         $signed_native = $refund ? "CAST(x.qty AS DECIMAL(26,8))*ABS(CAST(oc.meta_value AS DECIMAL(26,8)))/NULLIF(CAST(oq.meta_value AS DECIMAL(26,8)),0)" : 'ABS(CAST(x.native_cost AS DECIMAL(26,8)))';
         return "SELECT CAST(COALESCE(x.product_id,0) AS UNSIGNED) AS product_id,
@@ -457,6 +458,11 @@ final class JMI_WC_Admin_Insights {
         if ( ! class_exists( 'WooCommerce' ) ) { wp_send_json_error( array( 'message' => '請先啟用 WooCommerce。' ), 400 ); }
         $ob = ob_get_level();
         try {
+            if (($_POST['operation'] ?? '') === 'report_cancel') {
+                $token = isset($_POST['token']) && is_string($_POST['token']) ? sanitize_text_field(wp_unslash($_POST['token'])) : '';
+                self::cancel_job($token);
+                wp_send_json_success(['cancelled'=>true]);
+            }
             if(isset($_POST['operation'])&&$_POST['operation']==='orders_page'){
                 $page=isset($_POST['order_page'])?min(10000,max(1,absint($_POST['order_page']))):1;
                 wp_send_json_success(self::orders_page($page));
@@ -464,7 +470,7 @@ final class JMI_WC_Admin_Insights {
             if(isset($_POST['operation'])&&$_POST['operation']==='report_step'){
                 $token=isset($_POST['token'])&&is_string($_POST['token'])?sanitize_text_field(wp_unslash($_POST['token'])):'';
                 $seq=isset($_POST['seq'])&&is_scalar($_POST['seq'])?absint($_POST['seq']):0;
-                wp_send_json_success(self::job_step($token,$seq));
+                wp_send_json_success(self::job_step($token,$seq,($_POST['resume']??'')==='1'));
             }
             if ( isset( $_POST['operation'] ) && $_POST['operation'] === 'lifetime' ) {
                 $email = isset( $_POST['email'] ) && is_string( $_POST['email'] ) ? sanitize_email( wp_unslash( $_POST['email'] ) ) : '';
@@ -481,12 +487,14 @@ final class JMI_WC_Admin_Insights {
             wp_send_json_success(self::job_start($s));
         } catch ( Throwable $e ) {
             while ( ob_get_level() > $ob ) { ob_end_clean(); }
-            wp_send_json_error( array( 'message'=>$e->getMessage() ), 400 );
+            wp_send_json_error( array( 'message'=>$e->getMessage(), 'paused'=>$e->getCode()===429 ), 400 );
         }
     }
 
-    // 僅在面板開啟期間分批讀取；暫存只是未完成工作狀態，完成報表不跨請求快取。
-    const BATCH_ORDERS = 40;
+    // Only an explicit refresh starts work. Finished snapshots are reused for five minutes.
+    const BATCH_ORDERS = 500;
+    const REPORT_TTL = 300;
+    const ENGINE = 'bulk-363';
     const JOB_TTL = 600;
     const JOB_BYTES = 4194304;
     private static $batch_ids = null;
@@ -499,7 +507,7 @@ final class JMI_WC_Admin_Insights {
     private static function job_key( $token ) { return 'jmi_wci_job_'.get_current_user_id().'_'.$token; }
 
     /** 將分批進度壓縮到 transient，不再儲存幾千到幾萬筆訂單 ID。 */
-    private static function job_store( $token, $job ) {
+    private static function job_store( $token, $job, $ttl = self::JOB_TTL ) {
         $serialized = serialize( $job );
         if (strlen($serialized) > 32 * 1024 * 1024) { throw new RuntimeException('讀取進度超過記憶體限制，請縮短期間。'); }
         $data = function_exists( 'gzcompress' ) ? gzcompress( $serialized, 3 ) : false;
@@ -508,7 +516,7 @@ final class JMI_WC_Admin_Insights {
         if ( strlen( serialize( $record ) ) > self::JOB_BYTES ) {
             throw new RuntimeException( '目前資料量超過暫存記憶體限制，請縮短日期區間，避免主機負載過高。' );
         }
-        if ( ! set_transient( self::job_key( $token ), $record, self::JOB_TTL ) ) {
+        if ( ! set_transient( self::job_key( $token ), $record, $ttl ) ) {
             throw new RuntimeException( '無法保存分批讀取進度，請確認 WordPress transient／物件快取設定。' );
         }
     }
@@ -540,15 +548,65 @@ final class JMI_WC_Admin_Insights {
         return array_fill_keys( array( 'orders','gross','refunds','collected','net','tax','shipping','discounts','refunded_orders','missing_refunds','customers','member_revenue' ), 0 );
     }
 
+    private static function ready_key($s) {
+        $scope = [self::ENGINE,$s['tab'],$s['from'],$s['to'],self::hpos(),get_woocommerce_currency(),wp_timezone_string(),self::statuses()];
+        if ($s['tab']==='stock') $scope[] = [$s['q'],$s['stock'],$s['pg']];
+        return 'ready_' . md5(wp_json_encode($scope));
+    }
+
+    private static function cached_report($s) {
+        $ready = self::job_load(self::ready_key($s));
+        if (!$ready || ($ready['engine']??'')!==self::ENGINE || empty($ready['completed_at'])) return false;
+        $context = $s['tab']==='finance' ? self::context($s) : [];
+        $fingerprint = md5(wp_json_encode([$s,$context]));
+        if (($ready['fingerprint']??'')===$fingerprint) {
+            $payload=$ready['payload'];$payload['cached']=true;return $payload;
+        }
+        $key='view_'.md5(wp_json_encode([self::ready_key($s),$ready['build_id'],$fingerprint]));
+        $view=self::job_load($key);
+        if ($view && isset($view['payload'])) {$payload=$view['payload'];$payload['cached']=true;return $payload;}
+        if ($s['tab']==='stock') return false;
+        $ready['s']=$s;
+        // No order scan here: paging/sorting reuse complete aggregate data.
+        $payload=self::report_payload($s,self::job_finish($ready));
+        $payload['read_at']=$ready['completed_at'];$payload['cached']=true;
+        $remaining=max(1,self::REPORT_TTL-(time()-(int)$ready['completed_timestamp']));
+        self::job_store($key,['payload'=>$payload],$remaining);
+        return $payload;
+    }
+
+    private static function save_ready($job,$payload) {
+        $job['engine']=self::ENGINE;$job['completed_at']=$payload['read_at'];$job['completed_timestamp']=time();
+        $job['fingerprint']=md5(wp_json_encode([$job['s'],$job['s']['tab']==='finance'?self::context($job['s']):[]]));
+        $job['payload']=$payload;
+        self::job_store(self::ready_key($job['s']),$job,self::REPORT_TTL);
+    }
+
+    private static function cancel_job($token) {
+        if (!preg_match('/^[a-zA-Z0-9-]{12,64}$/',$token)) return;
+        set_transient(self::job_key($token).'_cancel',1,self::JOB_TTL);
+        delete_transient(self::job_key($token));
+        $active='jmi_wci_active_'.get_current_user_id();
+        if (get_transient($active)===$token) delete_transient($active);
+    }
+
+    private static function check_cancelled($token) {
+        if (get_transient(self::job_key($token).'_cancel')) throw new RuntimeException('讀取已停止。');
+    }
+
     private static function job_start( $s ) {
         return self::with_lock( function() use ( $s ) {
             $active = 'jmi_wci_active_' . get_current_user_id();
             $old = get_transient( $active );
             if ( is_string( $old ) ) { delete_transient( self::job_key( $old ) ); }
             delete_transient( $active );
-            if ( $s['tab'] === 'stock' ) { return self::report_payload( $s, self::stock( $s ) ); }
+            if ( $s['tab'] === 'stock' ) {
+                $payload=self::report_payload($s,self::stock($s));
+                self::save_ready(['s'=>$s,'build_id'=>wp_generate_uuid4()],$payload);
+                return $payload;
+            }
             $token = str_replace( '-', '', wp_generate_uuid4() );
-            $job = array( 's'=>$s, 'hpos'=>self::hpos(), 'currency'=>get_woocommerce_currency(),
+            $job = array( 's'=>$s, 'hpos'=>self::hpos(), 'currency'=>get_woocommerce_currency(), 'engine'=>self::ENGINE,'build_id'=>$token,'run_deadline'=>time()+20,
                 'cursor'=>0, 'phase'=>'current', 'done'=>0, 'seq'=>0,
                 'current'=>self::summary_empty(), 'previous'=>self::summary_empty(),
                 'previous_s'=>null, 'customers'=>array(), 'daily'=>array(), 'statuses'=>array(), 'categories'=>array(), 'sales'=>array() );
@@ -725,11 +783,73 @@ final class JMI_WC_Admin_Insights {
         unset($r);
     }
 
-    private static function job_step( $token, $seq ) {
+    private static function bulk_accumulate(&$job,$s,$ids,$previous) {
+        self::$batch_ids=$ids;
+        try {
+            $tab=$job['s']['tab'];$target=$previous?'previous':'current';
+            if ($tab==='overview' && !$previous) {
+                foreach(self::rows(self::headers($s,false,false)) as $row) {
+                    $status=$row['status'];$job['statuses'][$status]=($job['statuses'][$status]??0)+1;
+                }
+            }
+            if (in_array($tab,['overview','customers','finance'],true)) {
+                foreach(self::rows(self::cohort($s)) as $row) {
+                    self::check_deadline();
+                    $gross=(float)$row['total_sales'];$refund=(float)$row['refund_total'];
+                    $collected=$gross-$refund;
+                    $net=(float)$row['net_total']-$refund+(float)$row['refund_tax']+(float)$row['refund_shipping'];
+                    $refunded=$refund>0||$row['status']==='wc-refunded';
+                    $sum=&$job[$target];$sum['orders']++;$sum['gross']+=$gross;$sum['refunds']+=$refund;
+                    $sum['collected']+=$collected;$sum['net']+=$net;
+                    $sum['tax']+=(float)$row['tax_total']-(float)$row['refund_tax'];
+                    $sum['shipping']+=(float)$row['shipping_total']-(float)$row['refund_shipping'];
+                    $sum['discounts']+=(float)$row['discount_total'];$sum['refunded_orders']+=(int)$refunded;
+                    $sum['missing_refunds']+=(int)($row['status']==='wc-refunded'&&(int)$row['refund_records']===0);
+                    if((int)$row['user_id']>0)$sum['member_revenue']+=$collected;unset($sum);
+                    if($previous)continue;
+                    $email=(string)$row['email'];$uid=(int)$row['user_id'];$when=(string)$row['date_created'];
+                    $key=$email!==''?'e:'.$email:($uid>0?'u:'.$uid:'o:'.$row['order_id']);
+                    if($tab==='overview') {
+                        $job['customers'][$key]=($job['customers'][$key]??0)+1;$day=substr($when,0,10);
+                        if(!isset($job['daily'][$day]))$job['daily'][$day]=['day'=>$day,'orders'=>0,'collected'=>0,'net'=>0];
+                        $job['daily'][$day]['orders']++;$job['daily'][$day]['collected']+=$collected;$job['daily'][$day]['net']+=$net;
+                    } elseif($tab==='customers') {
+                        if(!isset($job['customers'][$key]))$job['customers'][$key]=['identity_key'=>$key,'user_id'=>0,'email'=>$email,'first_name'=>'','last_name'=>'','orders'=>0,'collected'=>0,'refunds'=>0,'refunded_orders'=>0,'first_order'=>$when,'last_order'=>$when,'matched'=>true];
+                        $c=&$job['customers'][$key];$c['orders']++;$c['collected']+=$collected;$c['refunds']+=$refund;$c['refunded_orders']+=(int)$refunded;
+                        $c['user_id']=max($c['user_id'],$uid);$c['first_name']=$row['first_name']?:$c['first_name'];$c['last_name']=$row['last_name']?:$c['last_name'];
+                        $c['first_order']=min($c['first_order'],$when);$c['last_order']=max($c['last_order'],$when);unset($c);
+                    }
+                }
+            }
+            if(!$previous&&in_array($tab,['overview','products','abc','finance'],true)) {
+                $sales=self::rows(self::sales_sql($s).' LIMIT '.(self::MAX_PRODUCT_GROUPS+1));
+                if(count($sales)>self::MAX_PRODUCT_GROUPS)throw new RuntimeException('商品群組超過 5,000 個，請縮短期間。');
+                if($tab==='overview') {
+                    global $wpdb;$categories=[];$pids=array_filter(array_map('absint',array_column($sales,'product_id')));
+                    if($pids)foreach(self::rows("SELECT tr.object_id,MIN(tt.term_id) AS category_id FROM {$wpdb->term_relationships} tr INNER JOIN {$wpdb->term_taxonomy} tt ON tt.term_taxonomy_id=tr.term_taxonomy_id WHERE tt.taxonomy='product_cat' AND tr.object_id IN (".implode(',',$pids).") GROUP BY tr.object_id") as $c)$categories[(int)$c['object_id']]=(int)$c['category_id'];
+                    foreach($sales as $row){$id=$categories[(int)$row['product_id']]??0;$job['categories'][$id]=($job['categories'][$id]??0)+(float)$row['revenue'];}
+                } else {
+                    foreach($sales as $row) {
+                        $id=(int)$row['product_id'];
+                        if(!isset($job['sales'][$id]))$job['sales'][$id]=['product_id'=>$id,'historical_name'=>$row['historical_name'],'qty'=>0,'revenue'=>0,'sold_qty'=>0,'refund_qty'=>0,'refund_amount'=>0,'orders'=>0,'cogs'=>0,'missing_cost'=>0,'estimated_cost'=>0,'last_sale'=>null];
+                        $r=&$job['sales'][$id];foreach(['qty','revenue','sold_qty','refund_qty','refund_amount','orders','cogs','missing_cost','estimated_cost'] as $field)$r[$field]+=(float)$row[$field];
+                        if($row['last_sale'])$r['last_sale']=$r['last_sale']?max($r['last_sale'],$row['last_sale']):$row['last_sale'];unset($r);
+                    }
+                    if(count($job['sales'])>self::MAX_PRODUCT_GROUPS)throw new RuntimeException('商品群組超過 5,000 個，請縮短期間。');
+                }
+            }
+        } finally {self::$batch_ids=null;}
+    }
+
+    private static function job_step( $token, $seq, $resume = false ) {
         if ( ! preg_match( '/^[a-zA-Z0-9-]{12,64}$/', $token ) ) { throw new RuntimeException( '讀取進度無效，請重新讀取。' ); }
-        return self::with_lock( function() use ( $token, $seq ) {
+        return self::with_lock( function() use ( $token, $seq, $resume ) {
+            self::check_cancelled($token);
             $job = self::job_load( $token );
             if ( ! $job || (int)$job['seq'] !== $seq ) { throw new RuntimeException( '讀取進度已過期，或目前頁面重複送出讀取請求，請重新讀取。' ); }
+            if (($job['engine']??'')!==self::ENGINE) throw new RuntimeException('舊版進度已失效，請重新讀取。');
+            if ($resume) $job['run_deadline']=time()+20;
+            if (time()>($job['run_deadline']??0)) throw new RuntimeException('本輪讀取已暫停，請按繼續讀取；不會持續占用網站。',429);
             if ( $job['hpos'] !== self::hpos() || $job['currency'] !== get_woocommerce_currency() ) {
                 delete_transient( self::job_key( $token ) );
                 throw new RuntimeException( '商店訂單儲存方式或幣別已變更，請重新讀取。' );
@@ -742,18 +862,8 @@ final class JMI_WC_Admin_Insights {
                 $phase_done = (int)($job['phase_done'] ?? 0) + count($ids);
                 if ($phase_done > self::MAX_ORDERS) { throw new RuntimeException('此期間超過 20,000 張訂單，請缩短日期；未顯示不完整統計。'); }
                 $job['phase_done'] = $phase_done;
-                $orders = array();
-                foreach ( $ids as $id ) {
-                    self::check_deadline();
-                    $order = wc_get_order( $id );
-                    if ( $order instanceof WC_Order ) { $orders[] = $order; }
-                }
-                if ( in_array( $job['s']['tab'], array( 'overview','customers','finance' ), true ) ) {
-                    self::job_accumulate_orders( $job, $orders, $previous );
-                }
-                if ( ! $previous && in_array( $job['s']['tab'], array( 'products','abc','finance' ), true ) ) {
-                    self::job_accumulate_sales( $job, $orders );
-                }
+                self::bulk_accumulate($job,$s,$ids,$previous);
+                self::check_cancelled($token);
                 $job['cursor'] = (int) end( $ids );
                 $job['done'] += count( $ids );
             }
@@ -764,12 +874,20 @@ final class JMI_WC_Admin_Insights {
                     $job['cursor'] = 0;
                     $job['phase_done'] = 0;
                 } else {
+                    if($job['s']['tab']==='products') {
+                        $catalog_s=$job['s'];$catalog_s['q']='';$job['catalog']=self::catalog_rows($catalog_s);
+                    } elseif($job['s']['tab']==='abc' && $job['sales']) {
+                        $job['catalog']=self::catalog_rows($job['s'],array_keys($job['sales']));
+                    }
                     $payload = self::report_payload( $job['s'], self::job_finish( $job ) );
+                    self::check_cancelled($token);
+                    self::save_ready($job,$payload);
                     delete_transient( self::job_key( $token ) );
                     delete_transient( 'jmi_wci_active_' . get_current_user_id() );
                     return $payload;
                 }
             }
+            self::check_cancelled($token);
             self::job_store( $token, $job );
             return array( 'pending'=>true, 'token'=>$token, 'seq'=>$job['seq'],
                 'done'=>$job['done'], 'total'=>null, 'phase'=>$job['phase'] );
@@ -803,7 +921,7 @@ final class JMI_WC_Admin_Insights {
             return array('current'=>$job['current'],'previous'=>$job['previous'],'previous_from'=>$job['previous_s']['from'],'previous_to'=>$job['previous_s']['to'],'repeat'=>array('customers'=>count($job['customers']),'repeat_customers'=>$repeat),'daily'=>array_values($job['daily']),'statuses'=>$statuses,'categories'=>$category_rows);
         }
         if($tab==='customers'){
-            $rows=array_values(array_filter($job['customers'],function($r){return $r['matched'];}));
+            $rows=array_values(array_filter($job['customers'],function($r)use($s){return $s['q']===''||self::text_contains($r['first_name'].' '.$r['last_name'].' '.$r['email'],$s['q']);}));
             usort($rows,function($a,$b){return $b['collected']<=>$a['collected'] ?: strcmp($a['identity_key'],$b['identity_key']);});
             return self::page_data(array_slice($rows,($s['pg']-1)*self::PER_PAGE,self::PER_PAGE+1));
         }
@@ -813,11 +931,12 @@ final class JMI_WC_Admin_Insights {
         }
         if($tab==='products'){
             $rows=array();$defaults=array('qty'=>0,'revenue'=>0,'sold_qty'=>0,'refund_qty'=>0,'refund_amount'=>0,'orders'=>0,'cogs'=>0,'missing_cost'=>0,'estimated_cost'=>0,'last_sale'=>null);
-            foreach(self::catalog_rows($s) as $r){$r+=($sales[$r['product_id']]??$defaults);if($s['sales']==='sold'&&$r['sold_qty']<=0||$s['sales']==='zero'&&$r['sold_qty']!=0){continue;}$rows[]=$r;}
+            $catalog=$s['q']===''&&isset($job['catalog'])?$job['catalog']:self::catalog_rows($s);
+            foreach($catalog as $r){$r+=($sales[$r['product_id']]??$defaults);if($s['sales']==='sold'&&$r['sold_qty']<=0||$s['sales']==='zero'&&$r['sold_qty']!=0){continue;}$rows[]=$r;}
             usort($rows,function($a,$b)use($s){if($s['sort']==='name'){$cmp=strcmp($a['name'],$b['name']);}else{$key=$s['sort']==='quantity'?'qty':'revenue';$cmp=$b[$key]<=>$a[$key];}return $cmp ?: ($a['product_id']<=>$b['product_id']);});
             return self::page_data(array_slice($rows,($s['pg']-1)*self::PER_PAGE,self::PER_PAGE+1));
         }
-        $names=array();if($sales){foreach(self::catalog_rows($s,array_keys($sales)) as $r){$names[$r['product_id']]=$r['name'];}}
+        $names=array();if($sales){foreach($job['catalog']??self::catalog_rows($s,array_keys($sales)) as $r){$names[$r['product_id']]=$r['name'];}}
         $rows=array_values($sales);usort($rows,function($a,$b){return $b['revenue']<=>$a['revenue'] ?: ($a['product_id']<=>$b['product_id']);});
         $total=0;foreach($rows as $r){$total+=max(0,(float)$r['revenue']);}$cumulative=0;$counts=array('A'=>0,'B'=>0,'C'=>0);
         foreach($rows as &$r){$r['name']=$names[$r['product_id']]??$r['historical_name'];$r['share']=self::rate(max(0,(float)$r['revenue']),$total);$r['abc']=$r['revenue']>0&&$total>0?($cumulative<80?'A':($cumulative<95?'B':'C')):'C';$cumulative+=$r['share'];$r['cumulative']=$cumulative;$counts[$r['abc']]++;}unset($r);
@@ -1342,8 +1461,11 @@ final class JMI_WC_Admin_Insights {
 
     private static function orders_page( $page ) {
         $limit=15;
-        $result=wc_get_orders(array('type'=>'shop_order','status'=>array_keys(wc_get_order_statuses()),'limit'=>$limit,'page'=>$page,'paginate'=>true,'orderby'=>'date','order'=>'DESC','return'=>'objects'));
-        $orders=isset($result->orders)?$result->orders:array();
+        $cache='jmi_wci_orders_'.get_current_user_id().'_'.md5(wp_json_encode([self::ENGINE,self::hpos(),$page,array_keys(wc_get_order_statuses())]));
+        $saved=get_transient($cache);if(is_array($saved)&&isset($saved['html']))return $saved;
+        // Read one extra ID to discover the next page; never COUNT the entire shop.
+        $ids=wc_get_orders(array('type'=>'shop_order','status'=>array_keys(wc_get_order_statuses()),'limit'=>$limit+1,'offset'=>($page-1)*$limit,'paginate'=>false,'orderby'=>'date','order'=>'DESC','return'=>'ids'));
+        $more=count($ids)>$limit;$orders=[];foreach(array_slice($ids,0,$limit) as $id){$order=wc_get_order($id);if($order instanceof WC_Order)$orders[]=$order;}
         ob_start();
         foreach($orders as $order){
             if(!$order instanceof WC_Order){continue;}
@@ -1364,17 +1486,18 @@ final class JMI_WC_Admin_Insights {
             echo '<td class="jmi-right jmi-order-muted">'.esc_html($formatted).'</td></tr>';
         }
         if(!$orders){echo '<tr><td colspan="7" class="jmi-empty">此頁沒有訂單</td></tr>';}
-        return array('html'=>ob_get_clean(),'page'=>$page,'pages'=>max(1,(int)$result->max_num_pages),'total'=>(int)$result->total);
+        $payload=array('html'=>ob_get_clean(),'page'=>$page,'pages'=>$page+($more?1:0),'total'=>null,'more'=>$more,'read_at'=>wp_date('Y-m-d H:i:s'));
+        set_transient($cache,$payload,30);return $payload;
     }
 
     private static function overview_orders() {
         $href=self::hpos()?admin_url('admin.php?page=wc-orders'):admin_url('edit.php?post_type=shop_order');
-        echo '<section class="jmi-pulse-panel jmi-recent"><header class="jmi-pulse-panel-head"><div><h2 id="jmi-order-heading">所有訂單</h2><p id="jmi-order-description">全站正式訂單 · 每頁 15 筆 · 不受上方日期範圍限制</p></div><div class="jmi-order-actions"><button type="button" class="button jmi-pulse-btn" id="jmi-filter-orders" aria-expanded="false">☷ 篩選</button></div></header>';
+        echo '<section class="jmi-pulse-panel jmi-recent"><header class="jmi-pulse-panel-head"><div><h2 id="jmi-order-heading">所有訂單</h2><p id="jmi-order-description">按需載入 · 每頁 15 筆 · 不受上方日期範圍限制 · 不重算全店總筆數</p></div><div class="jmi-order-actions"><button type="button" class="button jmi-pulse-btn" id="jmi-orders-load">讀取訂單列表</button><button type="button" class="button jmi-pulse-btn" id="jmi-filter-orders" aria-expanded="false">☷ 篩選</button></div></header>';
         echo '<div class="jmi-order-filterbox" hidden><label>搜尋本頁 <input type="search" id="jmi-order-q" placeholder="訂單編號、顧客或商品" autocomplete="off"></label><label>訂單狀態 <select id="jmi-order-status"><option value="">全部狀態</option>';
         foreach(wc_get_order_statuses() as $key=>$label){echo '<option value="'.esc_attr($key).'">'.esc_html($label).'</option>';}
         echo '</select></label></div><div class="jmi-order-scroll"><table class="jmi-order-table"><thead><tr><th>訂單編號</th><th>客戶</th><th>商品</th><th>付款方式</th><th class="jmi-right">金額</th><th>狀態</th><th class="jmi-right">時間</th></tr></thead><tbody id="jmi-order-rows">';
-        try{$initial=self::orders_page(1);echo $initial['html'];$pages=$initial['pages'];$total=$initial['total'];}catch(Throwable $e){echo '<tr><td colspan="7" class="jmi-empty">訂單暫時無法讀取，請由訂單管理檢視</td></tr>';$pages=1;$total=0;}
-        echo '</tbody></table></div><div class="jmi-recent-bottom"><span id="jmi-order-count">共 '.self::num($total).' 筆 · 第 1 / '.self::num($pages).' 頁</span><div class="jmi-order-actions"><button type="button" class="button" id="jmi-order-prev" disabled>上一頁</button><button type="button" class="button" id="jmi-order-next" '.($pages<=1?'disabled':'').'>下一頁</button><a href="'.esc_url($href).'">前往訂單管理 <span aria-hidden="true">→</span></a></div></div><p id="jmi-order-error" role="alert" hidden></p></section>';
+        echo '<tr><td colspan="7" class="jmi-empty">按讀取訂單列表才查詢，不會在整理報表時另外讀取整店訂單。</td></tr>';
+        echo '</tbody></table></div><div class="jmi-recent-bottom"><span id="jmi-order-count">尚未讀取訂單列表</span><div class="jmi-order-actions"><button type="button" class="button" id="jmi-order-prev" disabled>上一頁</button><button type="button" class="button" id="jmi-order-next" disabled>下一頁</button><a href="'.esc_url($href).'">前往訂單管理 <span aria-hidden="true">→</span></a></div></div><p id="jmi-order-error" role="alert" hidden></p></section>';
     }
 
     private static function view_overview( $s, $d ) {
@@ -1385,7 +1508,7 @@ final class JMI_WC_Admin_Insights {
         $current_refund=self::rate($c['refunded_orders'],$c['orders']);
         $previous_refund=self::rate($p['refunded_orders'],$p['orders']);
         $series=self::overview_series($s,$d['daily']);
-        echo '<div class="jmi-pulse-overview"><div class="jmi-pulse-context"><span class="jmi-live-dot"></span><span>已讀取的即時報表</span><span class="jmi-pulse-period">'.esc_html($s['from'].' — '.$s['to']).'</span><span>與 '.esc_html($d['previous_from'].' — '.$d['previous_to']).' 比較</span></div>';
+        echo '<div class="jmi-pulse-overview"><div class="jmi-pulse-context"><span class="jmi-live-dot"></span><span>已完成的期間報表（資料時間見上方）</span><span class="jmi-pulse-period">'.esc_html($s['from'].' — '.$s['to']).'</span><span>與 '.esc_html($d['previous_from'].' — '.$d['previous_to']).' 比較</span></div>';
         echo '<div class="jmi-pulse-kpis">';
         self::overview_kpi('期間營收',self::money($c['collected']),self::overview_change($c['collected'],$p['collected']),self::overview_spark($series,'collected'),'有效訂單淨額，已扣退款');
         self::overview_kpi('期間訂單',self::num($c['orders']).'<span class="jmi-unit"> 筆</span>',self::overview_change($c['orders'],$p['orders']),self::overview_spark($series,'orders'),'目前有效的正式訂單');
@@ -1485,9 +1608,10 @@ final class JMI_WC_Admin_Insights {
         self::styles();echo '<style>.jmi-wrap{overflow-wrap:anywhere}.jmi-filter input[type=search]{max-width:260px}.jmi-context-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}.jmi-context-grid label{display:flex;flex-direction:column;gap:6px}.jmi-context-grid input{width:100%;min-height:38px;box-sizing:border-box}.jmi-fieldset{border:1px solid #dbe3ec;border-radius:10px;margin:20px 0;padding:18px}.jmi-fieldset legend{padding:0 8px;font-weight:700;color:#334155}.jmi-lifetime-result{display:block;max-width:270px;line-height:1.7}.jmi-wrap .nav-tab-wrapper{display:flex;flex-wrap:wrap;gap:8px;border:0;margin:18px 0;padding:0}.jmi-wrap .nav-tab{float:none;margin:0;background:#fff;border:1px solid #dbe3ec;border-radius:8px;padding:10px 16px;color:#334155;text-decoration:none}.jmi-wrap .nav-tab-active{background:#2563eb;border-color:#2563eb;color:#fff}.jmi-load-status{padding:14px;background:#fff;border-left:4px solid #2563eb}.jmi-load-status[data-error="true"]{border-color:#b91c1c}.jmi-wrap .jmi-toolbar{justify-content:flex-start}@media(max-width:480px){.jmi-context-grid{grid-template-columns:1fr}.jmi-fieldset{padding:12px}.jmi-wrap .nav-tab{padding:8px 12px}}</style>';
         echo '<div class="wrap jmi-wrap" id="jmi-insights"><h1>WUMETAX · 電商營運分析</h1><p class="jmi-sub">直接讀取 WooCommerce 訂單、退款、商品與庫存 · '.esc_html(get_woocommerce_currency()).' · 商店時區 '.esc_html(wp_timezone_string()).'</p>';
         try{$s=self::state();echo '<nav class="nav-tab-wrapper" aria-label="報表分類">';foreach(array('overview'=>'營運總覽','products'=>'商品銷售','customers'=>'顧客消費','stock'=>'庫存報表','abc'=>'商品貢獻排行','finance'=>'獲利與行銷') as $tab=>$label){echo '<a class="nav-tab'.($s['tab']===$tab?' nav-tab-active':'').'" href="'.esc_url(self::url($s,array('tab'=>$tab,'pg'=>1,'q'=>''))).'">'.esc_html($label).'</a>';}echo '</nav>';self::filters($s);
-            echo '<p>按訂單 ID 分頁讀取（每批最多 40 張），數千張訂單也無須一次載入。完成後才顯示完整統計；系統不會在背景自動刷新。</p><div class="jmi-toolbar"><button type="button" class="button button-primary" id="jmi-reload">重新讀取即時資料</button><button type="button" class="button jmi-export" disabled>匯出目前報表 CSV</button><span id="jmi-read-at"></span></div><p class="jmi-load-status" role="status" aria-live="polite">準備讀取報表…</p><div id="jmi-report" aria-busy="true"></div><noscript><p>請開啟 JavaScript；本面板採按需非同步讀取，避免統計拖慢後台頁面開啟。</p></noscript>';
+            $cached=self::cached_report($s);
+            echo '<p>優先顯示 5 分鐘內完成的報表，開啟／切換頁面不會自動重算。按「更新報表」才按訂單 ID 分批查詢，每批最多 '.self::BATCH_ORDERS.' 張；單輪最多讀取約 20 秒後暫停，可繼續或停止。</p><div class="jmi-toolbar"><button type="button" class="button button-primary" id="jmi-reload">更新報表</button><button type="button" class="button" id="jmi-stop" hidden>停止後續讀取</button><button type="button" class="button jmi-export" disabled>匯出目前報表 CSV</button><span id="jmi-read-at"></span></div><p class="jmi-load-status" role="status" aria-live="polite">'.($cached?'顯示最近完成的報表（快取），資料時間：'.esc_html($cached['read_at']).'；需要最新資料請按更新。':'尚無此範圍的完成報表；請按更新報表。建議先使用近 7 天。').'</p><div id="jmi-report" aria-busy="false">'.($cached?$cached['html']:'<div class="jmi-panel"><h2>準備就緒</h2><p>目前沒有執行訂單查詢，其他網站功能不需等待此面板計算。</p></div>').'</div><noscript><p>請開啟 JavaScript 後按更新報表。</p></noscript>';
             echo '<details class="jmi-help"><summary>統計定義與資料來源</summary><ul>';foreach(array(
-                '資料來自商店目前已儲存的訂單、退款與商品庫存。每次重新讀取都重新計算。',
+                '資料來自商店已儲存的訂單、退款與商品庫存。完成報表保留 5 分鐘並顯示資料时间；只有手動更新才重新計算。',
                 '只合計目前商店基礎幣別的訂單，其他幣別不混加；並非多幣別換算工具。',
                 '日期為訂單建立日期與商店時區。有效狀態為已付款狀態加已退款。取消率分母包含待付款、失敗等正式原單，排除垃圾桶與結帳草稿。',
                 '退款依原單歸戶，包括該原單之後才發生的退款。退款狀態不等於實際退款金額；沒有退款紀錄時不自行推估。',
@@ -1495,79 +1619,21 @@ final class JMI_WC_Admin_Insights {
                 '商品銷售與退貨來自實際訂單品項；未分配至商品的退款不會自行拆分。退款率不是物流退貨率。',
                 '顧客以帳單 Email 優先歸戶，無 Email 用會員 ID，兩者皆無則每單獨立；相同 Email 視為同一身份，Email 改變則分開。',
                 '累積淨消費是歷史觀察值，並非預測終身價值。新客表示第一張目前有效的原單位於本期；舊客表示在本期開始前已有目前有效的原單。',
-                '訂單報表透過 ID 游標分頁，每批最多 40 張原單，不會一次載入數千張訂單；各批分開請求，統計完整完成後才顯示。',
+                '訂單報表透過限定 ID 的批次查詢，每批最多 500 張，不逐張載入完整訂單物件；各批間隔至少半秒，單輪 20 秒後暫停，完成後才顯示完整統計。',
                 '毛利不等於現金；淨利為依補錄費用計算的稅前營運估算。CVR／ROAS／CAC／ROI／放棄率的時間、幣別、歸因與工作階段定義須一致。',
                 '庫存周轉率需要本期平均庫存成本。商品建立日、最近售出日與最後補貨日都不等於現存批次庫齡；未提供入庫批次資料時不顯示真實庫齡。',
                 'CSV 匯出已載入的報表：總覽每日數據、獲利指標或目前頁明細；不為匯出重新查詢。',
             ) as $note){echo '<li>'.esc_html($note).'</li>';}echo '</ul></details>';
-            self::live_script($s);
+            self::live_script($s,$cached);
         }catch(Throwable $e){echo '<div class="notice notice-error"><p>'.esc_html($e->getMessage()).'</p></div><a class="button" href="'.esc_url(admin_url('admin.php?page='.self::SLUG)).'">回到預設報表</a>';}
         echo '</div>';
     }
 
-    private static function live_script( $s ) {
-        $config=array('state'=>$s,'url'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('jmi_wci_live'));
+    private static function live_script( $s, $cached = false ) {
+        $metadata=$cached?['csv'=>$cached['csv'],'read_at'=>$cached['read_at'],'currency'=>$cached['currency']]:false;
+        $config=array('state'=>$s,'cached'=>$metadata,'batch'=>self::BATCH_ORDERS,'url'=>admin_url('admin-ajax.php'),'nonce'=>wp_create_nonce('jmi_wci_live'));
         echo '<script type="application/json" id="jmi-live-config">'.wp_json_encode($config,JSON_HEX_TAG|JSON_HEX_AMP|JSON_HEX_APOS|JSON_HEX_QUOT).'</script>';
-        echo <<<'JMI_JS'
-<script>(function(){
-    'use strict';
-    const root=document.getElementById('jmi-insights');if(!root)return;
-    root.classList.add('jmi-js');const config=JSON.parse(document.getElementById('jmi-live-config').textContent);
-    const panel=root.querySelector('#jmi-report'),status=root.querySelector('.jmi-load-status'),reload=root.querySelector('#jmi-reload'),exportButton=root.querySelector('.jmi-export'),readAt=root.querySelector('#jmi-read-at');
-    let busy=false,csv=null,successfulRead='';
-    async function request(fields){
-        const body=new URLSearchParams(Object.assign({action:'jmi_wci_live',nonce:config.nonce},fields));
-        const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),35000);let response;try{response=await fetch(config.url,{method:'POST',credentials:'same-origin',body,cache:'no-store',signal:controller.signal});}catch(e){throw new Error(e.name==='AbortError'?'本批讀取超時，請稍後重新讀取。':'連線未完成，請稍後重新讀取。');}finally{clearTimeout(timer);}
-        let result;try{result=await response.json();}catch(e){throw new Error('伺服器沒有回傳有效資料，請重新登入或檢查網站錯誤紀錄。');}
-        if(!result.success)throw new Error(result.data&&result.data.message?result.data.message:'請求失敗；請重新登入確認權限。');return result.data;
-    }
-    async function load(){
-        if(busy)return;busy=true;reload.disabled=true;exportButton.disabled=true;panel.setAttribute('aria-busy','true');status.dataset.error='false';status.textContent='正在讀取即時資料…';
-        try{let data=await request(Object.assign({},config.state,{operation:'report_start'}));while(data.pending){if(document.hidden){status.textContent='頁面在背景，已暫停整理；回到此頁繼續。';await new Promise(resolve=>document.addEventListener('visibilitychange',resolve,{once:true}));continue;}status.textContent='分頁讀取中：已處理 '+data.done+' 張訂單'+(data.phase==='previous'?'（正在整理前期比較）':'')+'，每批最多 40 張，完成後顯示完整統計…';await new Promise(resolve=>setTimeout(resolve,180));if(document.hidden)continue;data=await request({operation:'report_step',token:data.token,seq:data.seq});}panel.innerHTML=data.html;orderPage=1;orderPages=1;csv=data.csv;successfulRead=data.read_at;readAt.textContent='本次讀取：'+successfulRead+' · '+data.currency;status.textContent='已讀取本次資料。新訂單或退款後可按「重新讀取」，不會自動輪詢。';exportButton.disabled=false;}
-        catch(e){status.dataset.error='true';status.textContent=e.message+(successfulRead?' 以下保留 '+successfulRead+' 的上次結果，更新未完成。':'');exportButton.disabled=!csv;}
-        finally{busy=false;reload.disabled=false;panel.setAttribute('aria-busy','false');}
-    }
-    function filterRecent(){
-        const q=(panel.querySelector('#jmi-order-q')?.value||'').trim().toLocaleLowerCase();
-        const selected=panel.querySelector('#jmi-order-status')?.value||'';
-        let shown=0;panel.querySelectorAll('.jmi-order-table tbody tr[data-status]').forEach(function(row){
-            const ok=(!selected||row.dataset.status===selected)&&(!q||(row.dataset.search||'').toLocaleLowerCase().includes(q));
-            row.hidden=!ok;if(ok)shown++;
-        });
-        let empty=panel.querySelector('.jmi-search-empty');if(!empty){empty=document.createElement('tr');empty.className='jmi-search-empty';empty.innerHTML='<td colspan="7" class="jmi-empty">本頁沒有符合條件的訂單</td>';panel.querySelector('#jmi-order-rows')?.appendChild(empty);}empty.hidden=shown>0;
-    }
-    panel.addEventListener('click',function(e){const b=e.target.closest('#jmi-filter-orders');if(!b)return;
-        const filters=panel.querySelector('.jmi-order-filterbox');if(!filters)return;
-        const next=filters.hidden;filters.hidden=!next;b.setAttribute('aria-expanded',next?'true':'false');
-        if(next)panel.querySelector('#jmi-order-q')?.focus();
-    });
-    panel.addEventListener('input',function(e){if(e.target.matches('#jmi-order-q'))filterRecent();});
-    panel.addEventListener('change',function(e){if(e.target.matches('#jmi-order-status'))filterRecent();});
-    let orderPage=1,orderPages=1;
-    async function showOrderPage(page){
-        const rows=panel.querySelector('#jmi-order-rows'),err=panel.querySelector('#jmi-order-error');if(!rows)return;
-        const prev=panel.querySelector('#jmi-order-prev'),next=panel.querySelector('#jmi-order-next');prev.disabled=true;next.disabled=true;err.hidden=true;rows.setAttribute('aria-busy','true');
-        try{const data=await request({operation:'orders_page',order_page:page});rows.innerHTML=data.html;orderPage=data.page;orderPages=data.pages;
-            panel.querySelector('#jmi-order-count').textContent='共 '+Number(data.total).toLocaleString()+' 筆 · 第 '+orderPage+' / '+orderPages+' 頁';
-            const q=panel.querySelector('#jmi-order-q');if(q)q.value='';const state=panel.querySelector('#jmi-order-status');if(state)state.value='';
-            prev.disabled=orderPage<=1;next.disabled=orderPage>=orderPages;
-        }catch(e){err.textContent=e.message;err.hidden=false;prev.disabled=orderPage<=1;next.disabled=orderPage>=orderPages;}
-        finally{rows.removeAttribute('aria-busy');}
-    }
-    panel.addEventListener('click',function(e){if(e.target.closest('#jmi-order-prev')){showOrderPage(orderPage-1);}else if(e.target.closest('#jmi-order-next')){showOrderPage(orderPage+1);}});
-    function trendDetail(e){const point=e.target.closest('.jmi-trend-point');if(!point)return;const detail=point.closest('.jmi-pulse-chart').querySelector('.jmi-trend-detail');detail.textContent=point.dataset.day+' · 當日營收 '+point.dataset.total;}
-    panel.addEventListener('pointerover',trendDetail);panel.addEventListener('focusin',trendDetail);
-    reload.addEventListener('click',load);
-    exportButton.addEventListener('click',function(){if(!csv)return;function cell(v){let s=v==null?'':String(v);if(typeof v!=='number'&&(/^[\s\u0000-\u001f]*[=+@-]/.test(s)||/^[\t\r\n]/.test(s)))s="'"+s;return '"'+s.replace(/"/g,'""')+'"';}
-        const output='\ufeff'+csv.map(r=>r.map(cell).join(',')).join('\r\n'),url=URL.createObjectURL(new Blob([output],{type:'text/csv;charset=utf-8;'})),a=document.createElement('a');a.href=url;a.download='wc-live-'+config.state.tab+'-'+config.state.from+'-'+config.state.to+'-page-'+config.state.pg+'.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
-    });
-    panel.addEventListener('click',async function(event){const button=event.target.closest('.jmi-lifetime');if(!button||busy)return;busy=true;button.disabled=true;reload.disabled=true;const result=button.parentNode.querySelector('.jmi-lifetime-result');result.textContent='讀取顧客歷史中…';
-        try{const data=await request({operation:'lifetime',email:button.dataset.email,user_id:button.dataset.user});const h=data.lifetime;const kind=!h.first_order?'無有效訂單':(h.first_order.slice(0,10)<config.state.from?'本期舊客':'本期新客');result.textContent=kind+' · 累積淨消費 '+data.currency+' '+Number(h.collected).toLocaleString(undefined,{maximumFractionDigits:2})+' · '+h.orders+' 張有效原單 · 第一單 '+(h.first_order||'—')+' · 讀取 '+data.read_at;}
-        catch(e){result.textContent=e.message;}finally{busy=false;button.disabled=false;reload.disabled=false;}
-    });
-    load();
-})();</script>
-JMI_JS;
+        echo '<script src="'.esc_url(plugins_url('live.js',__FILE__).'?ver='.WUTM_VERSION).'" defer></script>';
     }
 
 }

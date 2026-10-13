@@ -8,6 +8,16 @@ permissions:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: fixture-only
+          MYSQL_DATABASE: wci_fixture
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -pfixture-only"
+          --health-interval=10s --health-timeout=5s --health-retries=10
     steps:
       - uses: actions/checkout@v4
       - name: Check PHP syntax
@@ -23,6 +33,10 @@ jobs:
           php tests/wc-live-insights.php
           php tests/wc-live-insights.php legacy
           node tests/wc-live-insights-ui.js
+      - name: Check real SQL reports against disposable HPOS and legacy fixtures
+        env:
+          WUTM_TEST_MYSQL_DB: wci_fixture
+        run: php tests/wc-live-insights-sql.php
       - name: Check maps and content overview preservation, permissions and scope
         run: |
           php tests/content-modules.php
