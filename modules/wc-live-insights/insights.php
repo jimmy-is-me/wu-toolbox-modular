@@ -326,7 +326,7 @@ final class JMI_WC_Admin_Insights {
             SUM(CASE WHEN cost_basis='missing' THEN 1 ELSE 0 END) AS missing_cost,
             SUM(CASE WHEN cost_basis='current' THEN 1 ELSE 0 END) AS estimated_cost,
             MAX(CASE WHEN is_refund=0 THEN date_created ELSE NULL END) AS last_sale
-            FROM ($originals UNION ALL $refunds) lines GROUP BY product_id";
+            FROM ($originals UNION ALL $refunds) sale_lines GROUP BY product_id";
     }
 
     private static function overview( $s ) {
