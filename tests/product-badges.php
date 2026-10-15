@@ -53,7 +53,8 @@ function wp_register_style(...$args){}
 function wp_enqueue_style($key){$GLOBALS['styles'][]=$key;}
 function wp_add_inline_style($key,$css){$GLOBALS['inlineStyles'][$key][]=$css;}
 function wp_register_script(...$args){}
-function wp_enqueue_script($key){$GLOBALS['scripts'][]=$key;}
+function wp_enqueue_script($key,...$args){$GLOBALS['scripts'][]=$key;$GLOBALS['scriptArgs'][$key]=$args;}
+function plugins_url($name,$file){return 'https://example.test/modules/product-badges/'.$name;}
 function wp_add_inline_script($key,$js,...$args){$GLOBALS['inlineScripts'][$key][]=$js;}
 function did_action($key){return $key==='wp_print_styles'&&$GLOBALS['head']?1:0;}
 function add_meta_box(...$args){$GLOBALS['boxArgs']=$args;}
@@ -77,6 +78,23 @@ check(strpos(WCRM_Product_Marks::term_column('', 'wcrm_archive', 2),'/product-ba
 check(isset(WCRM_Product_Marks::term_columns([])['wcrm_archive']),'Archive link management column');
 $terms[3]->name='優惠 <安全測試>';
 $mode=$argv[1]??'policy';
+if($mode==='ue-ajax'){
+ $ajax=true;$head=false;ob_start();WCRM_Product_Marks::unlimited_elements(7);$fragment=ob_get_clean();
+ check(str_contains($fragment,'<style id="wcrm-product-marks-inline">'),'First AJAX-only badge contains its own CSS without a WordPress head');
+ echo $fragment;exit;
+}
+if($mode==='ue'){
+ $head=true;
+ echo '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{font:16px Arial;margin:20px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.ue-item{min-width:0;border:1px solid #ddd}.media img{display:block;width:100%;height:230px;background:#eff6ff}.media a{display:block}.title{padding:20px}@media(max-width:500px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}</style><div class="grid" id="fixture-grid">';
+ foreach([7,8,9] as $id){
+  echo '<div class="ue-item" data-fixture-id="'.$id.'"><div class="media"><a href="#product-'.$id.'"><picture><img alt="商品 '.$id.'" width="300" height="230" src="data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'300\' height=\'230\'%3E%3Crect x=\'110\' y=\'50\' width=\'80\' height=\'140\' fill=\'%23cbd5e1\'/%3E%3C/svg%3E"></picture></a><span class="other-plugin-label">其他標示</span></div>';
+  $product=new WC_Product($id);WCRM_Product_Marks::loop();
+  // UE's authoritative item ID must work even with a stale global product.
+  $product=new WC_Product(8);WCRM_Product_Marks::unlimited_elements($id);
+  echo '<div class="title">商品 '.$id.'</div></div>';
+ }
+ echo '</div>';exit;
+}
 if($mode==='visual'){
  $screen=(object)['post_type'=>'product','taxonomy'=>'wcrm_product_mark'];WCRM_Product_Marks::admin_assets('edit-tags.php');
  $head=true;$product=new WC_Product(7);
@@ -99,6 +117,17 @@ $product=new WC_Product(7);ob_start();WCRM_Product_Marks::single();$singleHtml=o
 $filterFlags['wcrm_auto_loop_display']=false;ob_start();WCRM_Product_Marks::loop();check(ob_get_clean()==='','Original loop display filter preserved');
 $single=true;WCRM_Product_Marks::frontend_assets();check($scripts===['wcrm-single-badges'],'Gallery script only for marked single products');
 $assignments[7]=[];$scripts=[];WCRM_Product_Marks::frontend_assets();check(!$scripts,'No gallery script for unmarked single product');$assignments[7]=[1,3];
+unset($filterFlags['wcrm_auto_loop_display']);
+$scripts=[];$beforeQueries=$queries;
+WCRM_Product_Marks::unlimited_elements_assets(new class{function get_name(){return 'heading';}});
+check(!$scripts&&$queries===$beforeQueries,'Non-UE widgets perform no badge queries or script loading');
+WCRM_Product_Marks::unlimited_elements_assets(new class{function get_name(){return 'ucaddon_woocommerce_product_grid';}});
+check($scripts===['wcrm-ue-badges'],'UE grid prepares script even before AJAX returns marked products');
+$scripts=[];$product=new WC_Product(8);ob_start();WCRM_Product_Marks::unlimited_elements(7);$ue=ob_get_clean();
+check(str_contains($ue,'新上架')&&str_contains($ue,'data-wcrm-product="7"'),'UE integration uses item ID, not stale global product');
+check($scripts===['wcrm-ue-badges'],'UE assets only when rendered or a Woo widget requests them');
+foreach([8,999,[],new stdClass(),'<script>'] as $id){ob_start();WCRM_Product_Marks::unlimited_elements($id);check(ob_get_clean()==='','Unmarked/invalid UE product produces no markup');}
+$filterFlags['wcrm_auto_loop_display']=false;ob_start();WCRM_Product_Marks::unlimited_elements(7);check(ob_get_clean()==='','UE respects existing auto-display opt-out');unset($filterFlags['wcrm_auto_loop_display']);
 $before=$assignments[7];$_POST=[];WCRM_Product_Marks::save_product(7,(object)['ID'=>7]);check($assignments[7]===$before,'Absent product nonce preserves assignments');
 $_POST=['wcrm_product_nonce'=>['bad'],'wcrm_marks'=>[]];WCRM_Product_Marks::save_product(7,null);check($assignments[7]===$before,'Malformed nonce preserves assignments');
 $_POST=['wcrm_product_nonce'=>'valid','wcrm_marks'=>[1,3,1,999,[2]]];WCRM_Product_Marks::save_product(7,null);check($assignments[7]===[1,3],'Valid IDs only, multi-select retained');

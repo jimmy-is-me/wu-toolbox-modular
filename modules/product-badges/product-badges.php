@@ -20,6 +20,9 @@ if ( ! class_exists( 'WCRM_Product_Marks' ) ) {
         const VERSION = WUTM_VERSION;
 
         public static function boot() {
+            // UE supplies the actual item ID even when the Woo global product is unrelated.
+            add_action('ue_woocommerce_product_integrations', array(__CLASS__, 'unlimited_elements'), 20, 1);
+            add_action('elementor/frontend/widget/before_render', array(__CLASS__, 'unlimited_elements_assets'), 10, 1);
 
             add_action( 'init', array( __CLASS__, 'register' ), 20 );
             add_action( 'admin_init', array( __CLASS__, 'seed' ) );
@@ -1136,11 +1139,31 @@ JS
                     $product
                 )
             ) {
-                echo self::html(
+                echo str_replace('wcrm-marks ', 'wcrm-marks wcrm-marks--auto-loop ', self::html(
                     $product->get_id(),
                     true
-                );
+                ));
             }
+        }
+
+        public static function unlimited_elements_assets($widget = null) {
+            if ($widget !== null) {
+                if (!is_object($widget) || !method_exists($widget, 'get_name')) return;
+                // Only Woo widgets from Unlimited Elements, not every Elementor widget/page.
+                if (!preg_match('/^ucaddon_(?:woocommerce|woo)_/', $widget->get_name())) return;
+            }
+            wp_enqueue_script('wcrm-ue-badges', plugins_url('unlimited-elements.js', __FILE__), array('jquery'), self::VERSION, true);
+        }
+
+        public static function unlimited_elements($product_id) {
+            if (!function_exists('wc_get_product') || !taxonomy_exists(self::TAX)) return;
+            if (!is_scalar($product_id) || !ctype_digit((string)$product_id) || (int)$product_id < 1) return;
+            $product = wc_get_product((int)$product_id);
+            if (!$product || !apply_filters('wcrm_auto_loop_display', true, $product)) return;
+            $html = self::html($product->get_id(), true);
+            if ($html === '') return;
+            self::unlimited_elements_assets();
+            echo '<span class="wcrm-ue-source" data-wcrm-product="'.esc_attr($product->get_id()).'">'.$html.'</span>';
         }
 
         public static function single() {
@@ -1206,7 +1229,7 @@ JS
             if (self::$style_emitted) return '';
             self::$style_emitted = true;
             $css = self::frontend_css();
-            if (did_action('wp_print_styles')) return '<style id="wcrm-product-marks-inline">' . $css . '</style>';
+            if (did_action('wp_print_styles') || (function_exists('wp_doing_ajax') && wp_doing_ajax())) return '<style id="wcrm-product-marks-inline">' . $css . '</style>';
             wp_register_style('wcrm-product-marks', false, array(), self::VERSION);
             wp_enqueue_style('wcrm-product-marks');
             wp_add_inline_style('wcrm-product-marks', $css);
@@ -1219,6 +1242,8 @@ ul.products li.product,
                 .wcrm-mark-anchor {
                     position: relative;
                 }
+                .wcrm-ue-source { display: contents; }
+                .wcrm-ue-image-inline { display: inline-block; max-width: 100%; }
 
                 .wcrm-marks {
                     display: flex;

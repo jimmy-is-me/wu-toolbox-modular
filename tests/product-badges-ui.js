@@ -3,6 +3,9 @@ const {execFileSync}=require('node:child_process');
 const php=process.env.WUTM_TEST_PHP||'php';
 const scripts=JSON.parse(execFileSync(php,['tests/product-badges.php','scripts'],{encoding:'utf8'}));
 new vm.Script(scripts.admin);new vm.Script(scripts.front);
+const ueScript=fs.readFileSync('modules/product-badges/unlimited-elements.js','utf8');new vm.Script(ueScript);
+const ueAjax=execFileSync(php,['tests/product-badges.php','ue-ajax'],{encoding:'utf8'});
+assert.match(ueAjax,/<style id="wcrm-product-marks-inline">/);
 if(!process.env.WUTM_TEST_JQUERY){console.log('Badge scripts syntax passed.');process.exit(0);}
 const {chromium}=require('playwright');
 (async()=>{
@@ -35,6 +38,36 @@ assert.equal(await page.locator('input[name="wcrm_quick_ready"]').inputValue(),'
 assert.equal(await page.locator('input[type="checkbox"]:disabled').count(),3);
 assert.equal(await page.locator('.wcrm-quick-error').isVisible(),true);
 assert.equal(await page.evaluate(()=>window.originalCalls),2,'Original quick-edit handler retained');
+let network=0;page.on('request',request=>{if(/^https?:/.test(request.url()))network++;});
+for(const width of [1440,390,320]){
+ await page.setViewportSize({width,height:900});
+ await page.setContent(execFileSync(php,['tests/product-badges.php','ue'],{encoding:'utf8'}));
+ await page.evaluate(()=>{delete window.wcrmUEBadges;});
+ await page.addScriptTag({path:process.env.WUTM_TEST_JQUERY});
+ await page.addScriptTag({content:ueScript});await page.waitForTimeout(80);
+ assert.equal(await page.locator('.wcrm-marks--ue').count(),2,'Marked product and variation display');
+ assert.equal(await page.locator('.wcrm-marks--auto-loop').count(),0,'Native hook output deduplicated');
+ assert.equal(await page.locator('[data-fixture-id="8"] .wcrm-marks').count(),0,'Unmarked product untouched');
+ assert.equal(await page.locator('.other-plugin-label').count(),3,'Other plugins labels retained');
+ for(const id of [7,9]){
+  const marks=page.locator('[data-fixture-id="'+id+'"] .wcrm-marks--ue');
+  const box=await marks.boundingBox(),media=await page.locator('[data-fixture-id="'+id+'"] .media a').boundingBox();
+  assert.ok(box.x>=media.x-1&&box.x+box.width<=media.x+media.width+1&&box.y>=media.y,'Badge stays on image at '+width);
+  assert.ok(box.y+box.height<=media.y+media.height+1,'Badge does not overlap product title');
+ }
+ assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'UE RWD '+width);
+ await page.screenshot({path:path.join(out,'badges-ue-'+width+'.png'),fullPage:true});
+ const source=ueAjax.replace('新上架','更新徽章');
+ await page.evaluate(source=>{jQuery('[data-fixture-id="7"]').append(source);jQuery('#fixture-grid').trigger('uc_ajax_refreshed');},source);
+ assert.equal(await page.locator('[data-fixture-id="7"] .wcrm-marks--ue').count(),1,'AJAX replaces, not duplicates');
+ assert.match(await page.locator('[data-fixture-id="7"] .wcrm-marks--ue').textContent(),/更新徽章/);
+ await page.evaluate(source=>{jQuery('[data-fixture-id="9"]').append(source);jQuery('body').trigger('uc_ajax_refreshed_body',[jQuery('#fixture-grid')]);},source);
+ assert.equal(await page.locator('[data-fixture-id="9"] .wcrm-marks--ue').count(),1,'Official body AJAX event supported');
+ await page.addScriptTag({content:ueScript});await page.evaluate(()=>jQuery('#fixture-grid').trigger('uc_ajax_refreshed'));
+ assert.equal(await page.locator('.wcrm-marks--ue').count(),2,'Repeated script/events are idempotent');
+ assert.equal(await page.locator('head #wcrm-product-marks-inline').count(),1,'AJAX CSS promoted once, not lost or repeatedly appended');
+}
+assert.equal(network,0,'UE integration performs no HTTP lookup or polling');
 assert.deepEqual(errors,[]);
 console.log('Badge Chromium passed: RWD, gallery placement, multi-select and quick-edit failure safeguards.');
 }finally{await browser.close();}
