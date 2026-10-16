@@ -50,7 +50,10 @@ jobs:
       - name: Check customer-entered product pricing
         run: php tests/product-custom-price.php
       - name: Check WC shipping module merge
-        run: php tests/wc-shipping-merge.php
+        run: |
+          php tests/wc-shipping-merge.php
+          php tests/711-phone.php
+          node tests/711-phone-ui.js
       - name: Check product shipping schedules, permissions, query privacy and email compatibility
         run: php tests/shipping-progress.php
       - name: Check shipping admin script

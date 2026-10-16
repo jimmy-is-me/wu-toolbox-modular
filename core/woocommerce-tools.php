@@ -732,6 +732,7 @@ class WU_WooCommerce_Optimizer {
             $methods = (array) WC()->session->get('chosen_shipping_methods', array());
         }
         foreach ($methods as $method) {
+            if (!is_scalar($method)) continue;
             $method = sanitize_text_field((string) $method);
             if ($this->is_711_rate($method)) return $method;
         }
@@ -849,19 +850,28 @@ class WU_WooCommerce_Optimizer {
             const data=window.wutm711Checkout||{rates:{}};
             const $box=$('#wutm_711_store_field'),$id=$('#cvs_store_id'),$name=$('#cvs_store_name'),$address=$('#cvs_store_address');
             let was711=false;
+            function requirePickupPhone(active){
+                const $phone=$('#shipping_phone'),$field=$('#shipping_phone_field'),$label=$field.find('label[for="shipping_phone"]');
+                let original=$phone.attr('data-wutm-phone-required-default');
+                if(original===undefined){original=$phone.prop('required')||$field.hasClass('validate-required')?'1':'0';$phone.attr('data-wutm-phone-required-default',original);}
+                const required=active||original==='1';
+                $phone.prop('required',required).attr('aria-required',required?'true':'false');
+                $field.toggleClass('validate-required',required);
+                if(required&&!$label.find('.required').length)$label.append(' <abbr class="required" title="必填">*</abbr>');
+                if(!required&&!$label.find('.optional').length)$label.append(' <span class="optional">（選填）</span>');
+                $label.find('.required').toggle(required);$label.find('.optional').toggle(!required);
+                if(!required)$field.removeClass('woocommerce-invalid-required-field');
+            }
             function selectedRate(){
                 const $methods=$('input[name^="shipping_method"],select[name^="shipping_method"]');
-                const $checked=$methods.filter(':checked').first();
-                if($checked.length)return String($checked.val()||'');
-                const $single=$methods.filter('input[type="hidden"]').first();
-                if($single.length)return String($single.val()||'');
-                const $select=$methods.filter('select').first();
-                return String($select.length?$select.val()||'':'');
+                const rates=$methods.filter(':checked,input[type="hidden"],select').map(function(){return String($(this).val()||'')}).get();
+                return rates.find(rate=>rate.indexOf('seven_eleven_pickup')!==-1||rate.indexOf('cvs_711_shipping')!==-1)||rates[0]||'';
             }
             function selectedConfig(){const rate=selectedRate();return data.rates[rate]||{mode:'manual',merchantId:'2000132',mapUrl:'https://logistics-stage.ecpay.com.tw/Express/map'}}
             function refreshStoreInfo(){const complete=$id.val()&&$name.val()&&$address.val();$('#wutm_711_store_info').toggleClass('is-selected',!!complete).html(complete?'<strong>已選擇門市</strong><br>'+ $('<div>').text($name.val()+'（店號 '+$id.val()+'）').html()+'<br>'+ $('<div>').text($address.val()).html():'目前尚未選擇門市')}
             function toggle711(){
                 const shipping=selectedRate(),active=shipping.indexOf('seven_eleven_pickup')!==-1||shipping.indexOf('cvs_711_shipping')!==-1,cfg=selectedConfig(),manual=cfg.mode!=='map';
+                requirePickupPhone(active);
                 if(active){
                     $box.stop(true,true).slideDown();
                     // Keep the pickup recipient fields open while 7-11 is selected.
@@ -870,7 +880,6 @@ class WU_WooCommerce_Optimizer {
                     $('#billing_country_field,#billing_state_field,#billing_city_field,#billing_postcode_field,#billing_address_1_field,#billing_address_2_field,#billing_company_field,#billing_region_type_field').hide();
                     $('#shipping_country_field,#shipping_state_field,#shipping_city_field,#shipping_postcode_field,#shipping_address_1_field,#shipping_address_2_field,#shipping_company_field,#shipping_region_type_field').hide();
                     $('#shipping_phone_field').slideDown();
-                    $('#shipping_phone').removeAttr('required');
                     if(!$('#shipping_country').val())$('#shipping_country').val('TW');
                     if(!$('#shipping_city').val())$('#shipping_city').val('超商取貨');
                     if(!$('#shipping_address_1').val())$('#shipping_address_1').val('7-11 超商取貨');
@@ -884,7 +893,6 @@ class WU_WooCommerce_Optimizer {
                     if(was711&&$differentAddress.is(':checked'))$differentAddress.prop('checked',false).trigger('change');
                     $('#billing_country_field,#billing_state_field,#billing_city_field,#billing_postcode_field,#billing_address_1_field,#billing_address_2_field,#billing_company_field,#billing_region_type_field').show();
                     $('#shipping_country_field,#shipping_state_field,#shipping_city_field,#shipping_postcode_field,#shipping_address_1_field,#shipping_address_2_field,#shipping_company_field,#shipping_region_type_field').show();
-                    $('#shipping_phone').removeAttr('required');
                 }
                 was711=active;
             }
@@ -905,7 +913,9 @@ class WU_WooCommerce_Optimizer {
         $store_address = sanitize_text_field(wp_unslash($_POST['cvs_store_address'] ?? $_POST['seven_store_address'] ?? ''));
         if ($store_id === '' || $store_name === '' || $store_address === '') wc_add_notice('請完整填寫或選擇 7-11 門市店號、名稱與地址。', 'error');
         if ($store_id !== '' && !preg_match('/^[A-Za-z0-9]{3,9}$/', $store_id)) wc_add_notice('7-11 門市店號格式不正確，請輸入 3 至 9 碼英數字。', 'error');
-        if (empty($_POST['shipping_phone']) && empty($_POST['billing_phone'])) wc_add_notice('請填寫取件人聯絡電話。', 'error');
+        $phone = isset($_POST['shipping_phone']) && is_scalar($_POST['shipping_phone'])
+            ? trim(sanitize_text_field(wp_unslash((string) $_POST['shipping_phone']))) : '';
+        if ($phone === '') wc_add_notice('7-11 取貨請填寫收件者聯絡電話。', 'error');
     }
 
     public function save_711_fields($order) {
@@ -1069,6 +1079,11 @@ class WU_WooCommerce_Optimizer {
                 'validate' => array('phone')
             );
         }
+        // Preserve another extension's normal delivery requirement when leaving pickup.
+        if (!isset($fields['shipping']['shipping_phone']['custom_attributes']['data-wutm-phone-required-default'])) {
+            $fields['shipping']['shipping_phone']['custom_attributes']['data-wutm-phone-required-default'] =
+                !empty($fields['shipping']['shipping_phone']['required']) ? '1' : '0';
+        }
         if ($this->selected_711_rate()) {
             foreach (array('billing_country','billing_state','billing_city','billing_postcode','billing_address_1','billing_address_2','billing_company') as $key) {
                 if (isset($fields['billing'][$key])) $fields['billing'][$key]['required'] = false;
@@ -1076,9 +1091,7 @@ class WU_WooCommerce_Optimizer {
             foreach (array('shipping_country','shipping_state','shipping_city','shipping_postcode','shipping_address_1','shipping_address_2','shipping_company') as $key) {
                 if (isset($fields['shipping'][$key])) $fields['shipping'][$key]['required'] = false;
             }
-            // The shipping form stays collapsed; validate the pickup phone via
-            // validate_711_fields(), which also accepts the billing phone.
-            $fields['shipping']['shipping_phone']['required'] = false;
+            $fields['shipping']['shipping_phone']['required'] = true;
         }
         return $fields;
     }
