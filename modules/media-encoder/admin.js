@@ -12,6 +12,7 @@
   root.querySelectorAll('[data-load]').forEach(b=>b.disabled=loading||job);
   $('#wme-prev').disabled=loading||job||!history.length;$('#wme-next').disabled=loading||job||!more;
   $('#wme-batch').disabled=loading||job||!supported||!rows.some(r=>r.convertible);
+  root.querySelectorAll('[data-convert]').forEach(b=>b.disabled=loading||job||!supported);
  }
  function draw(){
   const list=rows.filter(r=>(filter==='all'||(filter==='ready'?r.convertible:r.mime==='image/webp'))&&(r.name+' '+r.title).toLocaleLowerCase().includes(q.toLocaleLowerCase()));

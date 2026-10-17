@@ -14,13 +14,13 @@ const shell=execFileSync(process.env.WUTM_TEST_PHP||'php',[...args,'tests/media-
    {id:100,name:'brand-story.png',title:'品牌故事',mime:'image/png',width:2400,height:1600,bytes:1240000,thumb:'',edit:'#edit-100',convertible:true,saving:null},
    {id:99,name:'studio.webp',title:'工作室',mime:'image/webp',width:1920,height:1280,bytes:240000,thumb:'',edit:'#edit-99',convertible:false,saving:400000},
    {id:98,name:'animation.gif',title:'動態圖片',mime:'image/gif',width:400,height:300,bytes:480000,thumb:'',edit:'#edit-98',convertible:false,saving:null}
-  ];let fail=false,hold=false,converted=0;
+  ];let fail=false,hold=false,converted=0,extra=false,pauseRound=false;
   await page.route('https://example.test/wp-admin/admin-ajax.php',async route=>{
    const fields=Object.fromEntries(new URLSearchParams(route.request().postData()));calls.push(fields);
    if(fail)return route.fulfill({status:500,contentType:'text/html',body:'<!doctype html>Server error',headers:{'access-control-allow-origin':'*'}});
    let data;
-   if(fields.operation==='list')data={rows:fields.cursor==='0'?structuredClone(base):[{...base[0],id:97,name:'older.png'}],cursor:fields.cursor==='0'?98:97,more:fields.cursor==='0',at:'2026-10-17 12:30:00'};
-   else {if(hold)await new Promise(resolve=>setTimeout(resolve,500));converted++;const row={...base[0],id:Number(fields.id),name:'brand-story.webp',mime:'image/webp',convertible:false,bytes:340000,saving:900000};data={row,record:{name:'brand-story.png',before:1240000,after:340000,at:'2026-10-17 12:31:00'}};}
+   if(fields.operation==='list')data={rows:fields.cursor==='0'?[...structuredClone(base),...(extra?[{...base[0],id:97,name:'batch-second.png'}]:[])]:[{...base[0],id:97,name:'older.png'}],cursor:fields.cursor==='0'?98:97,more:fields.cursor==='0',at:'2026-10-17 12:30:00'};
+   else {if(hold)await new Promise(resolve=>setTimeout(resolve,500));if(pauseRound){pauseRound=false;await page.evaluate(()=>window.wmeTestClock=30000);}converted++;const row={...base[0],id:Number(fields.id),name:'brand-story.webp',mime:'image/webp',convertible:false,bytes:340000,saving:900000};data={row,record:{name:'brand-story.png',before:1240000,after:340000,at:'2026-10-17 12:31:00'}};}
    return route.fulfill({contentType:'application/json',body:JSON.stringify({success:true,data}),headers:{'access-control-allow-origin':'*'}});
   });
   for(const width of [1440,768,390,320]){
@@ -67,6 +67,18 @@ const shell=execFileSync(process.env.WUTM_TEST_PHP||'php',[...args,'tests/media-
   await page.locator('#wme-batch').click();assert.equal(await page.locator('#wme-pause').isEnabled(),true,'Stop button resets for next round');
   await page.locator('#wme-job').waitFor({state:'hidden'});
   const finished=calls.length;await page.waitForTimeout(800);assert.equal(calls.length,finished,'No recurring polling after completion');
+  extra=true;hold=false;
+  await page.evaluate(()=>{window.wmeTestClock=0;Object.defineProperty(performance,'now',{configurable:true,value:()=>window.wmeTestClock});});
+  await page.locator('[data-load]').last().click();await page.waitForFunction(()=>document.querySelector('#wme-rows').textContent.includes('batch-second.png'));
+  pauseRound=true;await page.locator('#wme-batch').click();await page.locator('#wme-resume').waitFor();
+  const paused=calls.length;await page.waitForTimeout(700);assert.equal(calls.length,paused,'Round budget pauses without polling');
+  await page.locator('#wme-resume').click();await page.locator('#wme-job').waitFor({state:'hidden'});
+  assert.equal(calls.length,paused+1,'Explicit resume sends only the remaining image');
+  await page.evaluate(()=>window.wmeTestClock=0);
+  await page.locator('[data-load]').last().click();await page.waitForFunction(()=>document.querySelector('#wme-rows').textContent.includes('batch-second.png'));
+  pauseRound=true;await page.locator('#wme-batch').click();await page.locator('#wme-resume').waitFor();
+  const beforeStop=calls.length;await page.locator('#wme-pause').click();await page.locator('#wme-job').waitFor({state:'hidden'});
+  await page.waitForTimeout(700);assert.equal(calls.length,beforeStop,'Paused queue can be cancelled without resuming');
   assert.ok(calls.every(c=>c.action==='wutm_media_admin'&&c.nonce==='fixture-nonce'));
   assert.deepEqual(errors,[]);
   console.log('Media Chromium passed: scoped loading, real layout at four widths, original settings, bounded pagination, filters, errors, batch, stop/restart and no polling.');
