@@ -91,7 +91,7 @@ function wutm_modules(): array {
         'discord-notifications' => ['name' => 'Discord 通知工具', 'description' => '將 WooCommerce 訂單與狀態變更即時通知到 Discord。', 'group' => '電商工具', 'icon' => '🔔', 'requires' => 'woocommerce', 'settings_page' => 'wu-discord-notifications'],
         'order-status-manager' => ['name' => '訂單狀態管理', 'description' => '新增、檢視、改名或停用訂單狀態，同步後台、帳號訂單與通知標題。', 'group' => '電商工具', 'icon' => '🏷️', 'requires' => 'woocommerce', 'settings_page' => 'wu-order-status-manager'],
         'order-bulk-actions-manager' => ['name' => '訂單批次操作管理', 'description' => '集中管理傳統與 HPOS 訂單列表的批次操作，可逐項顯示、隱藏或快速全部切換。', 'group' => '電商工具', 'icon' => '🎛️', 'requires' => 'woocommerce', 'settings_page' => 'wu-order-bulk-actions-manager'],
-        'media-encoder' => ['name' => '媒體編碼器', 'description' => '圖片上傳縮圖、WebP 自動或單張轉換、品質設定、記憶體檢查與縮圖尺寸停用管理。', 'group' => '媒體工具', 'icon' => '🎬'],
+        'media-encoder' => ['name' => '媒體編碼器', 'description' => '輕量媒體工作台：分頁清單、WebP 自動／單張／逐張批次轉換、品質與尺寸限制、記憶體檢查及縮圖停用管理。', 'group' => '媒體工具', 'icon' => '🎬'],
         'moving-mode' => ['name' => '維護模式', 'description' => '網站維護期間暫停訪客存取，向前台顯示維護頁面。', 'group' => '效能優化', 'icon' => '🚧'],
         'post-optimization' => ['name' => '文章瀏覽及目錄', 'description' => '統計文章瀏覽量、顯示熱門文章，並依標題自動建立文章目錄。', 'group' => '內容管理', 'icon' => '👁️'],
         'revision-manager' => ['name' => '版本管理', 'description' => '設定文章與頁面的修訂版本數量，控制及清理歷史版本。', 'group' => '內容管理', 'icon' => '🗂️'],

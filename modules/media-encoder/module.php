@@ -29,7 +29,8 @@ function wutm_media_settings(): array {
 function wutm_media_get_system_status(): array {
     $gd_info = function_exists('gd_info') ? gd_info() : [];
     $gd_webp = isset($gd_info['WebP Support']) && $gd_info['WebP Support'];
-    $imagick_webp = class_exists('Imagick') && count(preg_grep('/WEBP/i', (array) \Imagick::queryFormats())) > 0;
+    try { $imagick_webp = class_exists('Imagick') && count(preg_grep('/WEBP/i', (array) \Imagick::queryFormats())) > 0; }
+    catch (Throwable $e) { $imagick_webp = false; }
 
     return [
         'gd_webp' => $gd_webp,
@@ -188,39 +189,8 @@ function wutm_ajax_convert_single_webp() {
     $post_id = isset($_POST['attachment_id']) ? intval($_POST['attachment_id']) : 0;
     check_ajax_referer('wutm_convert_single_' . $post_id);
     if (!current_user_can('edit_post', $post_id)) wp_send_json_error('權限不足');
-
-    $file_path = get_attached_file($post_id);
-    if (!file_exists($file_path)) wp_send_json_error('找不到原始檔案');
-    if (mime_content_type($file_path) === 'image/webp') wp_send_json_error('此圖片已經是 WebP 格式');
-
-    $s = wutm_media_settings();
-    $saved = wutm_media_to_webp($file_path, (int) $s['quality']);
-    if (is_wp_error($saved)) wp_send_json_error($saved->get_error_message());
-
-    $new_file_path = $saved['path'];
-    $old_meta = wp_get_attachment_metadata($post_id);
-
-    // 刪除舊的原始檔案與所有舊縮圖
-    $upload_dir = wp_upload_dir();
-    $base_dir = trailingslashit($upload_dir['basedir']) . dirname(get_post_meta($post_id, '_wp_attached_file', true)) . '/';
-
-    @unlink($file_path); // 刪原圖
-    if (is_array($old_meta) && isset($old_meta['sizes'])) {
-        foreach ($old_meta['sizes'] as $size) {
-            @unlink($base_dir . $size['file']);
-        }
-    }
-
-    // 更新資料庫資訊
-    $new_relative_path = _wp_relative_upload_path($new_file_path);
-    update_attached_file($post_id, $new_file_path);
-    wp_update_post(['ID' => $post_id, 'post_mime_type' => 'image/webp']);
-
-    // 重新產生縮圖與 Metadata
-    require_once(ABSPATH . 'wp-admin/includes/image.php');
-    $new_meta = wp_generate_attachment_metadata($post_id, $new_file_path);
-    wp_update_attachment_metadata($post_id, $new_meta);
-
+    $result = wutm_media_convert_attachment($post_id, true);
+    if (is_wp_error($result)) wp_send_json_error($result->get_error_message());
     wp_send_json_success('轉換完成');
 }
 // ==========================================
@@ -257,8 +227,8 @@ add_action('admin_post_wutm_save_media_encoder', function () {
     if (!current_user_can('manage_options')) wp_die(esc_html__('權限不足。', 'wu-toolbox-modular'));
     check_admin_referer('wutm_save_media_encoder');
 
-    $sizes = array_keys(wutm_media_sizes());
-    $formats = array_values(array_intersect(['jpeg','png','gif'], array_map('sanitize_key', (array) ($_POST['formats'] ?? []))));
+    $sizes = array_merge(array_keys(wutm_media_sizes()), ['scaled']);
+    $formats = array_values(array_intersect(['jpeg','png','gif'], array_map('sanitize_key', array_filter((array) ($_POST['formats'] ?? []), 'is_scalar'))));
 
     $data = [
         'webp_enabled' => !empty($_POST['webp_enabled']),
@@ -268,14 +238,14 @@ add_action('admin_post_wutm_save_media_encoder', function () {
         'resize_enabled' => !empty($_POST['resize_enabled']),
         'max_width' => min(10000, absint($_POST['max_width'] ?? 2560)),
         'max_height' => min(10000, absint($_POST['max_height'] ?? 0)),
-        'disabled_sizes' => array_values(array_intersect($sizes, array_map('sanitize_key', (array) ($_POST['disabled_sizes'] ?? [])))),
+        'disabled_sizes' => array_values(array_intersect($sizes, array_map('sanitize_key', array_filter((array) ($_POST['disabled_sizes'] ?? []), 'is_scalar')))),
     ];
     update_option(WUTM_MEDIA_OPTION, $data, false);
     wp_safe_redirect(add_query_arg(['page' => 'wu-media-encoder', 'updated' => '1'], admin_url('admin.php')));
     exit;
 });
 
-function wutm_media_settings_page(): void {
+function wutm_media_legacy_settings_page(): void {
     if (!current_user_can('manage_options')) return;
     $s = wutm_media_settings();
     $sizes = wutm_media_sizes();
@@ -414,3 +384,4 @@ function wutm_media_settings_page(): void {
     </div>
     <?php
 }
+if (is_admin()) require_once __DIR__ . '/admin.php';
