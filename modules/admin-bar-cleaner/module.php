@@ -11,6 +11,7 @@
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
+require_once __DIR__ . '/admin-style.php';
 
 class WU_Admin_Bar_Cleaner {
 
@@ -313,6 +314,12 @@ class WU_Admin_Bar_Cleaner {
     public function admin_page(): void {
         if ( ! current_user_can( 'manage_options' ) ) {
             wp_die( '權限不足' );
+        }
+        $appearance = isset($_GET['tab']) && $_GET['tab'] === 'appearance';
+        echo '<nav class="nav-tab-wrapper" aria-label="後台介面管理"><a class="nav-tab ' . (!$appearance ? 'nav-tab-active' : '') . '" href="' . esc_url(admin_url('admin.php?page=wu-admin-bar-cleaner')) . '">介面與權限</a><a class="nav-tab ' . ($appearance ? 'nav-tab-active' : '') . '" href="' . esc_url(admin_url('admin.php?page=wu-admin-bar-cleaner&tab=appearance')) . '">後台風格</a></nav>';
+        if ($appearance) {
+            WUTM_Admin_Style::settings_page();
+            return;
         }
 
         if ( isset( $_POST['submit'] ) ) {

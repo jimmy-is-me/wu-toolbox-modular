@@ -31,7 +31,8 @@ const shell=execFileSync(process.env.WUTM_TEST_PHP||'php',[...args,'tests/media-
    await page.addScriptTag({content:script});const start=calls.length;await page.waitForTimeout(150);
    assert.equal(calls.length,start,'Opening page never scans library');
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Cold RWD '+width);
-   assert.equal(await page.locator('.wme-hero h2').evaluate(el=>getComputedStyle(el).color),'rgb(240, 245, 255)','Hero text stays readable with shared admin CSS');
+   assert.equal(await page.locator('.wme-hero').count(),0,'Duplicate hero removed');
+   assert.equal(await page.locator('.wme-ring').count(),1,'Compact ring preserved');
    await page.locator('[data-load]').first().click();await page.waitForFunction(()=>document.querySelector('#wme-stat-count').textContent==='3');
    assert.equal(await page.locator('#wme-rows tr').count(),3);
    await page.locator('[data-tab="overview"]').click();

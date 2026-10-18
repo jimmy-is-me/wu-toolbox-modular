@@ -26,6 +26,7 @@ jobs:
         run: |
           php tests/admin-design.php
           php tests/admin-enhancements.php
+          php tests/style-youtube.php
           node --check assets/js/admin-design.js
       - name: Check member loyalty promotion calculations
         run: php tests/member-loyalty-promotion-policy.php
@@ -144,3 +145,4 @@ jobs:
           export NODE_PATH="$RUNNER_TEMP/wutm-admin-tests/node_modules"
           export WUTM_TEST_CHROME="$(node -p "require('playwright').chromium.executablePath()")"
           node tests/admin-enhancements-ui.js
+          node tests/style-youtube-ui.js
