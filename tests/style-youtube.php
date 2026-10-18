@@ -33,6 +33,7 @@ if($mode==='style'){
  echo '<!doctype html><html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body class="'.WUTM_Admin_Style::body_class('wutm-admin-screen').'"><main id="wpbody-content">';WUTM_Admin_Style::settings_page();echo '</main><style>'.implode("\n",$inline).'</style></body></html>';exit;
 }
 if($mode==='youtube'){echo '<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body class="wutm-admin-screen"><main id="wpbody-content">';wutm_cyp_options_page_html();echo '</main></body>';exit;}
+if($mode==='facade'){wutm_cyp_enqueue_inline_css();echo '<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><style>'.implode("\n",$inline).'</style>'.wutm_cyp_filter_youtube_embed('<iframe src="https://www.youtube.com/embed/abcdefghijk" title="Test"></iframe>','https://youtu.be/abcdefghijk',[],1);exit;}
 function check($v,$message){if(!$v)throw new RuntimeException($message);}
 WUTM_Admin_Style::admin_assets('dashboard');WUTM_Admin_Style::front_assets();WUTM_Admin_Style::login_assets();check(!$styles,'Native default loads no styling or fonts');
 check(WUTM_Admin_Style::footer('Original')==='Original','New feature preserves existing footer before configured');

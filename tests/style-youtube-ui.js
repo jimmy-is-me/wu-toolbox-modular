@@ -20,6 +20,8 @@ const render=(...args)=>execFileSync(php,['tests/style-youtube.php',...args],{en
    await page.close();
   }
   const page=await browser.newPage();await page.setContent(render('youtube'));assert.equal(await page.locator('input[type=checkbox]').count(),10);await page.close();
+  const nojs=await browser.newPage({javaScriptEnabled:false});await nojs.route('**youtube**',r=>r.abort());await nojs.setContent(render('facade'));
+  const iframe=await nojs.locator('noscript iframe').boundingBox(),facade=await nojs.locator('.cyp-facade').boundingBox();assert.ok(iframe.width>200&&iframe.height>100&&iframe.width>=facade.width-1,'No-JS iframe occupies the facade area');await nojs.close();
   for(const lazy of [1,0]){
    const page=await browser.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));let loads=0,fail=true;
    const mock=`window.players=[];window.Plyr=class {constructor(el,options){this.el=el;this.options=options;this.handlers={};this.playing=false;players.push(this);}on(n,fn){this.handlers[n]=fn;}once(n,fn){if(n==='ready')setTimeout(fn,0);}play(){this.playing=true;this.handlers.play?.();return Promise.resolve();}pause(){this.playing=false;}destroy(fn){this.el.remove();fn();}};`;

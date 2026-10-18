@@ -300,6 +300,7 @@ function wutm_cyp_enqueue_inline_css() {
     $color = $color ? $color : '#000000';
 
     $css = '.cyp-video{--plyr-color-main:' . $color . ';--cyp-color:' . $color . ';position:relative;width:100%;margin:1.5em 0;border-radius:8px;overflow:hidden;background:#000;aspect-ratio:16/9;box-shadow:0 4px 15px rgba(0,0,0,.1)}'
+        . '.cyp-video noscript iframe{position:absolute;inset:0;z-index:4;width:100%;height:100%;border:0}'
         . '.cyp-video.cyp-ready{aspect-ratio:auto}'
         . '.cyp-video .cyp-facade{position:absolute;inset:0;z-index:3;display:block;width:100%;height:100%;margin:0;padding:0;border:0;border-radius:0;background:#000;box-shadow:none;cursor:pointer;appearance:none;-webkit-appearance:none}'
         . '.cyp-video .cyp-facade img{display:block;width:100%;height:100%;object-fit:cover;opacity:.95}'
