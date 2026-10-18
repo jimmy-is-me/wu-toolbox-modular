@@ -3,8 +3,8 @@
  */
 .wutm-admin-screen {
   --wutm-ink:#0f172a; --wutm-muted:#475569; --wutm-line:#dce4ee;
-  --wutm-paper:#f8fafc; --wutm-panel:#fff; --wutm-blue:#2563eb;
-  --wutm-blue-dark:#1d4ed8; --wutm-mint:#047857; --wutm-radius:14px;
+  --wutm-paper:#f8fafc; --wutm-panel:#fff; --wutm-blue:#4f46e5;
+  --wutm-blue-dark:#4338ca; --wutm-mint:#047857; --wutm-radius:14px;
   /* Compatibility tokens consumed by existing module templates. */
   --wutm-wp-text:var(--wutm-ink); --wutm-wp-muted:var(--wutm-muted);
   --wutm-wp-border:var(--wutm-line); --wutm-wp-border-dark:#94a3b8;
@@ -26,7 +26,7 @@
 .wutm-admin-screen .wutm-ui-root :is(.wutm-ui-header,.wutm-ui-title),.wutm-admin-screen .wutm-ui-root.wutm-ui-header {
   box-sizing:border-box; position:relative; isolation:isolate; overflow:hidden;
   margin:0 0 24px!important; padding:28px 30px!important; border:1px solid #233d64!important;
-  border-radius:var(--wutm-radius)!important; background:linear-gradient(115deg,#0c1930,#123458 65%,#14536b)!important;
+  border-radius:var(--wutm-radius)!important; background:linear-gradient(117deg,#111d49,#262b78 49%,#5731a2)!important;
   color:#fff!important; box-shadow:none!important;
 }
 .wutm-admin-screen .wutm-ui-title { font-size:28px!important; font-weight:750; line-height:1.5!important; }
@@ -186,6 +186,25 @@
 .wutm-admin-screen .wutm-ui-root .wu-mail-panel :is(input,select) { min-height:40px; }
 /* Contact widgets renders its hero as a separate top-level node. */
 .wutm-admin-screen #wpbody-content > .ysch-hero.wutm-ui-header {
-  background:linear-gradient(115deg,#0c1930,#123458 65%,#14536b)!important;
+  background:linear-gradient(117deg,#111d49,#262b78 49%,#5731a2)!important;
   color:#fff!important;border-color:#233d64!important;
 }
+/* Match the supplied light Tech Precision reference without remote fonts or blur. */
+.wutm-admin-screen .wutm-ui-header::before,.wutm-admin-screen .wutm-ui-title::before { background-image:radial-gradient(#c7d2fe33 1px,transparent 1px);background-size:18px 18px; }
+.wutm-admin-screen .wutm-metric-track > span { background:linear-gradient(90deg,#91a7ff,#d6b7ff); }
+.wutm-admin-screen .wutm-card { box-shadow:0 4px 16px -10px #4f46e52b; }
+.wutm-admin-screen .wutm-card:hover { border-color:#c7d2fe;background:#fff;box-shadow:0 10px 24px -16px #4f46e56b; }
+.wutm-admin-screen .wutm-card::before,.wutm-admin-screen .wutm-switch input:checked + span { background:linear-gradient(90deg,#4f46e5,#7c3aed); }
+.wutm-admin-screen .wutm-icon { background:#eef2ff;border-color:#e0e7ff;color:#4f46e5; }
+.wutm-admin-screen .wutm-ui-root > .wutm-ui-title { background:linear-gradient(110deg,#fff 8%,#f6f6ff 80%,#eae7ff)!important;color:#0f172a!important;border-color:#d9e0f1!important; }
+.wutm-admin-screen .wutm-ui-root > .wutm-ui-title::before { display:none; }
+.wutm-cursor-preview { --cursor-ring:#78807c;--cursor-dot:#4fa567;--cursor-hover:#3a7a4f;position:relative;overflow:hidden;min-height:180px;padding:18px;border:1px dashed #c7d2fe;border-radius:12px;background:radial-gradient(#c7d2fe77 1px,transparent 1px) 0 0/18px 18px; }
+.wutm-cursor-preview p { margin-top:0; }
+.wutm-preview-pointer { position:absolute;left:70%;top:55%;width:28px;height:28px;transform:translate(-50%,-50%);pointer-events:none; }
+.wutm-preview-pointer i,.wutm-preview-pointer b { position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);border-radius:50%;transition:width .16s,height .16s,background .16s; }
+.wutm-preview-pointer i { width:26px;height:26px;border:1px solid var(--cursor-ring); }
+.wutm-preview-pointer b { width:5px;height:5px;background:var(--cursor-dot);box-shadow:0 0 0 4px #94a3b81a; }
+.wutm-cursor-preview.is-hover i { width:44px;height:44px;border-color:var(--cursor-hover); }
+.wutm-cursor-preview.is-hover b { width:10px;height:10px;background:var(--cursor-hover); }
+.wutm-cursor-preview.is-down .wutm-preview-pointer { transform:translate(-50%,-50%) scale(.85); }
+@media(hover:hover) and (pointer:fine) { .wutm-cursor-preview,.wutm-cursor-preview * { cursor:none!important; } }

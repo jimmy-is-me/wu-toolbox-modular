@@ -58,6 +58,12 @@ const render = mode => execFileSync(php, [...phpArgs, 'tests/admin-design.php', 
    assert.equal(await page.locator('form').getAttribute('action'),'options.php');
    await page.locator('#wutm-cursor-ring').fill('#112233');
    assert.equal(await page.locator('#wutm-cursor-ring + code').textContent(),'#112233');
+   assert.equal(await page.locator('.wutm-cursor-preview').evaluate(e=>getComputedStyle(e).getPropertyValue('--cursor-ring')),'#112233');
+   const previewButton=await page.locator('.wutm-cursor-preview button').boundingBox();
+   await page.mouse.move(previewButton.x+10,previewButton.y+10);
+   assert.ok(await page.locator('.wutm-cursor-preview.is-hover').count(),'Live hover preview');
+   await page.mouse.down();assert.ok(await page.locator('.wutm-cursor-preview.is-down').count());await page.mouse.up();
+   await page.mouse.move(0,0);assert.equal(await page.locator('.wutm-cursor-preview.is-hover').count(),0);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Settings overflow '+width);
    const unchanged=await page.locator('#wutm-cursor-dot').inputValue();assert.equal(unchanged,'#4fa567');
    if(process.env.WUTM_VISUAL_OUTPUT) await page.screenshot({path:path.join(process.env.WUTM_VISUAL_OUTPUT,'settings-'+width+'.png')});

@@ -788,8 +788,12 @@ function wumf_assign_new_upload( $attachment_id ) {
  * 6) Admin UI assets / styles
  * --------------------------------------------------------- */
 add_action( 'admin_enqueue_scripts', 'wumf_admin_assets' );
+add_action( 'wp_enqueue_media', 'wumf_admin_assets' );
+function wumf_has_media_ui() {
+    return is_admin() && (wp_script_is('media-views', 'enqueued') || wp_script_is('media-views', 'done'));
+}
 function wumf_admin_assets() {
-    if ( ! wumf_can_manage() ) {
+    if ( ! wumf_can_manage() || ! wumf_has_media_ui() ) {
         return;
     }
 
@@ -801,14 +805,13 @@ function wumf_admin_assets() {
 
 add_action( 'admin_head', 'wumf_admin_css' );
 function wumf_admin_css() {
-    if ( ! wumf_can_manage() ) {
+    if ( ! wumf_can_manage() || ! wumf_has_media_ui() ) {
         return;
     }
     ?>
     <style id="wumf-admin-css">
         :root{--wumf-panel-width:258px}
         .attachments-browser.wumf-has-folders{
-            position:relative!important;
             box-sizing:border-box!important;
             --wumf-panel-width:258px;
             --wumf-panel-top:0px;
@@ -818,25 +821,26 @@ function wumf_admin_css() {
             left:var(--wumf-panel-width)!important;
             inset-inline-start:var(--wumf-panel-width)!important;
         }
-        /* WP 6.8+ wraps the grid in attachments-wrapper. On upload.php the
-           wrapper participates in layout, so reserve the folder width there. */
+        /* Preserve core's right inset for attachment details in modal frames. */
         .attachments-browser.wumf-has-folders > .attachments-wrapper{
             box-sizing:border-box!important;
-            margin-inline-start:var(--wumf-panel-width)!important;
-            width:calc(100% - var(--wumf-panel-width))!important;
+            left:var(--wumf-panel-width)!important;
+            inset-inline-start:var(--wumf-panel-width)!important;
+            margin-inline-start:0!important;
+            width:auto!important;
         }
         .attachments-browser.wumf-has-folders > .attachments-wrapper > .attachments{
             left:0!important;
             inset-inline-start:0!important;
         }
-        /* In wp.media the grid is absolutely positioned relative to the browser,
-           not to attachments-wrapper. Moving only the wrapper leaves the first
-           thumbnail column underneath the folder panel. Keep WordPress' own
-           right inset (attachment-details sidebar) and shift the grid itself. */
-        .media-modal .attachments-browser.wumf-has-folders > .attachments-wrapper > .attachments{
-            left:var(--wumf-panel-width)!important;
-            inset-inline-start:var(--wumf-panel-width)!important;
+        /* upload.php's mode-grid is static flow, unlike modal viewports. */
+        .media-frame.mode-grid .attachments-browser.wumf-has-folders > .attachments-wrapper,
+        .media-frame.mode-grid .attachments-browser.wumf-has-folders > .attachments{
+            margin-inline-start:var(--wumf-panel-width)!important;
+            width:calc(100% - var(--wumf-panel-width))!important;
         }
+        .media-frame.mode-grid .attachments-browser.wumf-has-folders{min-height:420px;}
+        .media-frame.mode-grid .attachments-browser.wumf-has-folders > .media-toolbar.wp-filter{position:relative;}
         .wumf-panel{
             position:absolute;
             left:0;
@@ -885,9 +889,6 @@ function wumf_admin_css() {
            toolbar's own responsive layout. */
         .media-modal .attachments-browser.wumf-has-folders{--wumf-panel-width:230px;--wumf-panel-top:0px}
         .media-modal .attachments-browser.wumf-has-folders .wumf-panel{max-width:34%;}
-        @supports (inset-inline-start:1px){
-            .attachments-browser.wumf-has-folders > .attachments{left:auto!important;right:auto!important;}
-        }
         @media(max-width:782px){
             .attachments-browser.wumf-has-folders{--wumf-panel-width:190px}
             .media-modal .attachments-browser.wumf-has-folders{--wumf-panel-width:clamp(150px,28vw,210px)}
@@ -921,19 +922,26 @@ function wumf_admin_css() {
             top:calc(var(--wumf-panel-top) + var(--wumf-mobile-panel-height))!important;
             left:0!important;
             inset-inline-start:0!important;
-            right:0!important;
-            width:100%!important;
+            width:auto!important;
         }
         .attachments-browser.wumf-has-folders.wumf-compact > .attachments-wrapper{
+            left:0!important;
+            inset-inline-start:0!important;
+            top:calc(var(--wumf-panel-top) + var(--wumf-mobile-panel-height))!important;
             margin-inline-start:0!important;
-            margin-top:var(--wumf-mobile-panel-height)!important;
-            width:100%!important;
+            width:auto!important;
         }
         .attachments-browser.wumf-has-folders.wumf-compact > .attachments-wrapper > .attachments,
         .media-modal .attachments-browser.wumf-has-folders.wumf-compact > .attachments-wrapper > .attachments{
             left:0!important;
             inset-inline-start:0!important;
             right:0!important;
+        }
+        .media-frame.mode-grid .attachments-browser.wumf-has-folders.wumf-compact > .attachments-wrapper,
+        .media-frame.mode-grid .attachments-browser.wumf-has-folders.wumf-compact > .attachments{
+            margin-inline-start:0!important;
+            margin-top:var(--wumf-mobile-panel-height)!important;
+            width:100%!important;
         }
     </style>
     <?php
@@ -946,7 +954,7 @@ function wumf_admin_css() {
 // those scripts so jQuery, media-views and sortable dependencies are available.
 add_action( 'admin_print_footer_scripts', 'wumf_admin_js', 20 );
 function wumf_admin_js() {
-    if ( ! wumf_can_manage() ) {
+    if ( ! wumf_can_manage() || ! wumf_has_media_ui() ) {
         return;
     }
 
@@ -1257,6 +1265,7 @@ function wumf_admin_js() {
                 syncBrowserLayout($browser);
             };
             if(window.ResizeObserver){
+                targets.push($browser[0]);
                 const observer=new ResizeObserver(update);
                 targets.forEach(function(target){ observer.observe(target); });
                 $browser.data('wumfLayoutObserver',observer);

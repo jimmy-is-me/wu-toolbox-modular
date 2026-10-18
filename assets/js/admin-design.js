@@ -40,6 +40,28 @@
             const code = input.nextElementSibling;
             if (code && code.tagName === 'CODE') input.addEventListener('input', () => { code.textContent = input.value; });
         });
+        const preview = content.querySelector('.wutm-cursor-preview');
+        if (preview) {
+            const pointer = preview.querySelector('.wutm-preview-pointer');
+            const colors = () => ['ring','dot','hover'].forEach(key => {
+                const field = document.getElementById('wutm-cursor-' + key);
+                if (field) preview.style.setProperty('--cursor-' + key, field.value);
+            });
+            colors();
+            ['ring','dot','hover'].forEach(key => document.getElementById('wutm-cursor-' + key)?.addEventListener('input', colors));
+            preview.addEventListener('pointermove', event => {
+                if (event.pointerType === 'touch') return;
+                const rect = preview.getBoundingClientRect();
+                pointer.style.left = (event.clientX - rect.left) + 'px';
+                pointer.style.top = (event.clientY - rect.top) + 'px';
+                preview.classList.toggle('is-hover', !!event.target.closest('button,a'));
+            });
+            preview.addEventListener('pointerleave', () => {
+                pointer.style.left = '70%'; pointer.style.top = '55%'; preview.classList.remove('is-hover','is-down');
+            });
+            preview.addEventListener('pointerdown', () => preview.classList.add('is-down'));
+            ['pointerup','pointercancel','blur'].forEach(name => preview.addEventListener(name, () => preview.classList.remove('is-down')));
+        }
     }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
     else init();

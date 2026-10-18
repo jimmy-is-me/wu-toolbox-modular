@@ -62,6 +62,8 @@ final class WUTM_Content_Ordering {
     public static function assets(string $hook): void {
         if (sanitize_key(wp_unslash($_GET['page'] ?? '')) !== self::SLUG) return;
         wp_enqueue_script('jquery-ui-sortable');
+        wp_enqueue_style('wutm-ordering-tree', WUTM_URL . 'assets/css/ordering-tree.css', [], WUTM_VERSION);
+        wp_enqueue_script('wutm-ordering-tree', WUTM_URL . 'assets/js/ordering-tree.js', ['jquery-ui-sortable'], WUTM_VERSION, true);
         wp_add_inline_script('jquery-ui-sortable', 'window.WUTMNativeOrdering=' . wp_json_encode([
             'nonce' => wp_create_nonce('wutm_content_ordering'),
             'error' => '排序未能儲存，請重新整理頁面後再試。',
@@ -109,20 +111,6 @@ final class WUTM_Content_Ordering {
             $parents = get_terms(['taxonomy' => $object, 'hide_empty' => false, 'orderby' => 'name', 'wutm_content_ordering_ignore' => true]);
             if (is_wp_error($parents)) $parents = [];
             if ($parent && !in_array($parent, array_map(static fn($term) => (int) $term->term_id, $parents), true)) $parent = 0;
-            $items = get_terms(['taxonomy' => $object, 'parent' => $parent, 'hide_empty' => false, 'orderby' => 'name', 'wutm_content_ordering_ignore' => true]);
-            if (is_wp_error($items)) $items = [];
-            usort($items, static function ($a, $b): int {
-                $a_order = get_term_meta($a->term_id, self::TERM_META, true);
-                $b_order = get_term_meta($b->term_id, self::TERM_META, true);
-                $a_order = $a_order === '' ? PHP_INT_MAX : (int) $a_order;
-                $b_order = $b_order === '' ? PHP_INT_MAX : (int) $b_order;
-                if ($a_order !== $b_order) return $a_order <=> $b_order;
-                $a_wc = get_term_meta($a->term_id, 'order', true);
-                $b_wc = get_term_meta($b->term_id, 'order', true);
-                $a_wc = $a_wc === '' ? PHP_INT_MAX : (int) $a_wc;
-                $b_wc = $b_wc === '' ? PHP_INT_MAX : (int) $b_wc;
-                return ($a_wc <=> $b_wc) ?: strnatcasecmp($a->name, $b->name);
-            });
         } else {
             $kind = 'posts';
             if (!isset($types[$object])) $object = 'post';
@@ -134,7 +122,16 @@ final class WUTM_Content_Ordering {
             <p class="wutm-module-subtitle">所有排序都在此頁操作；選擇內容類型或分類法後，拖曳項目即可儲存。</p>
             <style>.wutm-co-panel{max-width:960px;margin:18px 0;padding:22px;background:#fff;border:1px solid #dcdcde;border-radius:8px}.wutm-co-panel h2{margin:0 0 15px}.wutm-co-picker{display:flex;gap:12px;flex-wrap:wrap;align-items:end}.wutm-co-picker label{display:grid;gap:5px;font-weight:600}.wutm-co-picker select{min-width:210px}.wutm-co-list{max-width:960px;margin:0;padding:0;list-style:none}.wutm-co-list li{display:flex;align-items:center;gap:12px;min-height:49px;margin:0 0 6px;padding:5px 13px;background:#fff;border:1px solid #dcdcde;border-radius:7px}.wutm-co-handle{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border:1px solid #c3c4c7;border-radius:5px;background:#f6f7f7;cursor:grab}.wutm-co-placeholder{height:49px;border:2px dashed #2271b1!important;background:#f0f6fc!important}.wutm-co-saving{opacity:.65}.wutm-co-list small{margin-left:auto;color:#646970}.wutm-co-status{min-height:24px;color:#2271b1}</style>
             <section class="wutm-co-panel"><h2>選擇排序清單</h2><form method="get" class="wutm-co-picker"><input type="hidden" name="page" value="<?php echo esc_attr(self::SLUG); ?>"><label>項目種類<select name="kind" onchange="this.form.submit()"><option value="posts" <?php selected($kind, 'posts'); ?>>文章、頁面與商品</option><option value="terms" <?php selected($kind, 'terms'); ?>>分類</option></select></label><label>選擇項目<select name="object" onchange="this.form.submit()"><option value="">請選擇</option><?php foreach (($kind === 'terms' ? $taxonomies : $types) as $key => $type): ?><option value="<?php echo esc_attr($key); ?>" <?php selected($object, $key); ?>><?php echo esc_html($type->labels->name ?? $key); ?></option><?php endforeach; ?></select></label><?php if ($kind === 'terms'): ?><label>上層分類<select name="parent" onchange="this.form.submit()"><option value="0" <?php selected($parent, 0); ?>>頂層分類</option><?php foreach ($parents as $term): ?><option value="<?php echo (int) $term->term_id; ?>" <?php selected($parent, (int) $term->term_id); ?>><?php echo esc_html($term->name); ?></option><?php endforeach; ?></select></label><?php endif; ?><button class="button" type="submit">顯示</button></form><p class="description">分類只在同一個上層分類下排序；如需排序子分類，請先選擇其上層分類。</p></section>
-            <section class="wutm-co-panel"><h2>拖曳排序</h2><p id="wutm-co-status" class="wutm-co-status" role="status"></p><?php if ($items): ?><ul id="wutm-co-list" class="wutm-co-list" data-kind="<?php echo esc_attr($kind); ?>" data-object="<?php echo esc_attr($object); ?>" data-parent="<?php echo (int) $parent; ?>"><?php foreach ($items as $item): ?><li data-id="<?php echo (int) ($kind === 'terms' ? $item->term_id : $item->ID); ?>"><button class="wutm-co-handle" type="button" aria-label="拖曳排序 <?php echo esc_attr($kind === 'terms' ? $item->name : $item->post_title); ?>"><span class="dashicons dashicons-menu"></span></button><span><?php echo esc_html($kind === 'terms' ? $item->name : ($item->post_title ?: '(無標題)')); ?></span><?php if ($kind === 'terms' && !empty($item->count)): ?><small><?php echo (int) $item->count; ?> 件商品／內容</small><?php endif; ?></li><?php endforeach; ?></ul><?php else: ?><p>此清單目前沒有項目。</p><?php endif; ?></section>
+            <?php if ($kind === 'terms'): ?>
+            <section class="wutm-co-panel" id="wutm-co-tree" data-object="<?php echo esc_attr($object); ?>">
+                <h2>分類階層排序</h2><p>搜尋會保留上層路徑；可拖曳同層分類或使用上下移動，子分類會跟隨。完成後按儲存，分類所屬上層不會改變。</p>
+                <div class="wutm-tree-tools"><label>搜尋分類 <input type="search" id="wutm-tree-search" placeholder="輸入分類名稱"></label><button type="button" class="button" data-tree-expand="true">全部展開</button><button type="button" class="button" data-tree-expand="false">全部收合</button></div>
+                <?php self::render_tree($parents); ?>
+                <div class="wutm-tree-save"><span id="wutm-tree-status" role="status">尚無變更</span><button type="button" class="button button-primary" id="wutm-tree-save" disabled>儲存分類排序</button></div>
+            </section>
+            <?php else: ?>
+            <section class="wutm-co-panel"><h2>拖曳排序</h2><p id="wutm-co-status" class="wutm-co-status" role="status"></p><?php if ($items): ?><ul id="wutm-co-list" class="wutm-co-list" data-kind="posts" data-object="<?php echo esc_attr($object); ?>" data-parent="0"><?php foreach ($items as $item): ?><li data-id="<?php echo (int) $item->ID; ?>"><button class="wutm-co-handle" type="button" aria-label="拖曳排序 <?php echo esc_attr($item->post_title); ?>"><span class="dashicons dashicons-menu"></span></button><span><?php echo esc_html($item->post_title ?: '(無標題)'); ?></span></li><?php endforeach; ?></ul><?php else: ?><p>此清單目前沒有項目。</p><?php endif; ?></section>
+            <?php endif; ?>
 
             <section class="wutm-co-panel">
                 <h2>排序套用設定</h2>
@@ -149,6 +146,39 @@ final class WUTM_Content_Ordering {
             </section>
         </div>
         <?php
+    }
+
+    public static function render_tree(array $terms): void {
+        $groups = [];
+        foreach ($terms as $term) $groups[(int) $term->parent][] = $term;
+        foreach ($groups as &$siblings) {
+            usort($siblings, static function ($a, $b): int {
+                $position = static function ($term) {
+                    $value = get_term_meta($term->term_id, self::TERM_META, true);
+                    if ($value === '') $value = get_term_meta($term->term_id, 'order', true);
+                    return $value === '' ? PHP_INT_MAX : (int) $value;
+                };
+                return ($position($a) <=> $position($b)) ?: strnatcasecmp($a->name, $b->name);
+            });
+        }
+        unset($siblings);
+        $seen = [];
+        $render = static function ($parent, $depth = 0) use (&$render, &$groups, &$seen): void {
+            if (empty($groups[$parent]) || $depth > 50) return;
+            echo '<ul class="wutm-tree-list" data-parent="' . (int) $parent . '">';
+            foreach ($groups[$parent] as $term) {
+                $id = (int) $term->term_id;
+                if (isset($seen[$id])) continue;
+                $seen[$id] = true;
+                echo '<li data-id="' . $id . '" data-name="' . esc_attr($term->name) . '"><div class="wutm-tree-row">';
+                if (!empty($groups[$id])) echo '<button type="button" class="wutm-tree-toggle" aria-expanded="true" aria-label="展開或收合 ' . esc_attr($term->name) . '">▾</button>';
+                echo '<button type="button" class="wutm-tree-handle" aria-label="拖曳 ' . esc_attr($term->name) . '">⠿</button><span>▱ ' . esc_html($term->name) . '</span><small>' . (int) $term->count . ' 篇</small><button type="button" data-move="up" aria-label="向上移動 ' . esc_attr($term->name) . '">↑</button><button type="button" data-move="down" aria-label="向下移動 ' . esc_attr($term->name) . '">↓</button></div>';
+                $render($id, $depth + 1);
+                echo '</li>';
+            }
+            echo '</ul>';
+        };
+        $render(0);
     }
 
     public static function save_settings(): void {
@@ -201,7 +231,10 @@ final class WUTM_Content_Ordering {
             if (!$term || is_wp_error($term) || (int) $term->parent !== $parent) wp_send_json_error(['message' => '分類層級不符'], 400);
         }
         foreach ($ids as $position => $term_id) {
-            if (get_term_meta($term_id, self::TERM_META, true) !== (string) $position) update_term_meta($term_id, self::TERM_META, $position);
+            if ((string) get_term_meta($term_id, self::TERM_META, true) !== (string) $position) {
+                $saved = update_term_meta($term_id, self::TERM_META, $position);
+                if (is_wp_error($saved) || $saved === false) wp_send_json_error(['message' => '部分分類未能儲存，請重試。'], 500);
+            }
         }
         wp_send_json_success();
     }

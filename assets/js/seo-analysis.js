@@ -34,7 +34,35 @@
             checks.push({ ok: String(title || '').toLocaleLowerCase().includes(topic), text: '標題自然提及主要主題' });
             checks.push({ ok: text.slice(0, 300).toLocaleLowerCase().includes(topic), text: '開頭清楚說明主要主題' });
         }
-        return { checks: checks, characters: Array.from(text).length };
+        var explanations = [
+            '用一句話說明本頁解決的問題。標題可以自然提及主題，不必重複同一詞。',
+            '摘要應交代對象、可獲得的答案與特色；搜尋引擎可能改寫摘要。',
+            '小標題幫助閱讀層級；短頁面不必為了通過檢查硬加標題。',
+            '連到能補充本頁問題的相關內容，連結文字要讓讀者知道會看到什麼。',
+            '有意義的圖片描述畫面重點；純裝飾圖保留 alt=""，不要塞入關鍵字。',
+            '數據與主張應能被查證，連到原始資料比只增加連結數量更重要。',
+            '可使用自然同義詞；這項僅比對字面，不代表搜尋意圖符合或排名能力。',
+            '開頭先讓讀者知道文章回答什麼；不必強迫精確關鍵字出現。'
+        ];
+        checks.forEach(function (check, index) { check.help = explanations[index]; });
+        var sequence = Array.from(doc.querySelectorAll('h1,h2,h3,h4,h5,h6'));
+        var previous = 1, skipped = 0;
+        sequence.forEach(function (heading) { var level = Number(heading.tagName.slice(1)); if (level > previous + 1) skipped++; previous = level; });
+        var paragraphs = Array.from(doc.querySelectorAll('p')).map(function (p) { return p.textContent.trim(); }).filter(Boolean);
+        var longParagraphs = paragraphs.filter(function (p) { return Array.from(p).length > 300; }).length;
+        var questions = sequence.filter(function (h) { return /[?？]|如何|什麼|為何|是否|怎麼/.test(h.textContent); });
+        var answered = questions.filter(function (h) {
+            var next = h.nextElementSibling;
+            return next && /^(P|UL|OL|TABLE|DIV)$/.test(next.tagName) && next.textContent.trim().length > 0;
+        }).length;
+        var guidance = [
+            { ok: skipped === 0, text: '標題層級：' + skipped + ' 處跳級', help: '依 H2 → H3 組織子題。只分析編輯內容，不含主題自動輸出的頁面 H1。' },
+            { ok: longParagraphs === 0, text: '閱讀段落：' + longParagraphs + ' 段超過 300 字', help: '這是閱讀提醒，不是排名門檻；依語意拆段，步驟或比較可用清單、表格。' },
+            { ok: paragraphs.length > 0, text: '開頭答案與搜尋意圖（請人工確認）', help: '先交代「這是什麼、適用誰、結論是什麼」，再補限制與例外。系統無法判斷答案是否正確。' },
+            { ok: questions.length ? answered === questions.length : true, text: '問答段落：' + questions.length + ' 個問題標題，' + answered + ' 個緊接文字答案', help: '有常見疑問時再補 FAQ，讓每段可獨立理解；不強制加入 FAQ，也不自動產生不可見的結構化內容。' },
+            { ok: true, text: '原創經驗、作者與資料時效（人工複查）', help: '補實際案例、方法、作者背景與資料日期；這些無法靠格式或關鍵字推斷。AI 引用與收錄不保證，無須特殊 AI 標記。' }
+        ];
+        return { checks: checks, guidance: guidance, characters: Array.from(text).length };
     }
     root.WUTMSEOAnalysis = { analyze: analyze };
     if (typeof document === 'undefined') return;
@@ -51,9 +79,14 @@
             var topic = document.getElementById('wu-seo-topic');
             var result = analyze(html, title.value || audit.dataset.fallbackTitle, desc.value || audit.dataset.fallbackDesc, topic.value, output.dataset.url);
             output.replaceChildren();
-            result.checks.forEach(function (check) {
+            result.checks.concat(result.guidance || []).forEach(function (check) {
                 var item = document.createElement('li');
-                item.textContent = (check.ok ? '✓ ' : '建議確認：') + check.text;
+                var details = document.createElement('details');
+                var summary = document.createElement('summary');
+                summary.textContent = (check.ok ? '參考：' : '建議確認：') + check.text;
+                var explanation = document.createElement('p');
+                explanation.textContent = check.help || '';
+                details.append(summary, explanation); item.appendChild(details);
                 output.appendChild(item);
             });
         }

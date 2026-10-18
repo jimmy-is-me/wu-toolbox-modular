@@ -69,6 +69,11 @@ function wutm_custom_cursor_settings_page(): void {
             <?php settings_fields('wutm_custom_cursor_group'); ?>
             <div class="card" style="max-width:900px;padding:24px;">
                 <h2 style="margin-top:0;">鼠標顏色</h2>
+                <section class="wutm-cursor-preview" aria-label="鼠標即時預覽" tabindex="0">
+                    <p>即時預覽 · 移動滑鼠查看，顏色調整不需先儲存</p>
+                    <button type="button" class="button">試試互動效果</button>
+                    <span class="wutm-preview-pointer" aria-hidden="true"><i></i><b></b></span>
+                </section>
                 <table class="form-table" role="presentation">
                     <tr>
                         <th scope="row"><label for="wutm-cursor-ring">圓環顏色</label></th>

@@ -14,6 +14,12 @@ assert.equal(result.checks[4].ok, false, 'Missing alt flagged; empty decorative 
 assert.equal(result.checks[5].text.includes('1 個'), true, 'Only HTTP reference links count');
 assert.equal(result.checks[6].ok, true);
 assert.equal(result.checks[7].ok, true);
+assert.equal(result.guidance.length,5,'New structural and answer guidance');
+assert.ok(result.checks.every(check=>check.help),'Every original check explains why');
+const extra=analyze('<h4>如何開始？</h4><p>先確認需求。</p><p>'+ '長'.repeat(301)+'</p>','title','desc','','https://example.test/');
+assert.equal(extra.guidance[0].ok,false,'Skipped heading level flagged');
+assert.equal(extra.guidance[1].ok,false,'Long paragraph flagged');
+assert.ok(extra.guidance[3].text.includes('1 個緊接文字答案'),'Question followed by answer identified');
 assert.equal(analyze('<p>內容</p>', '', '', '', 'https://example.test/').checks.length, 6, 'No forced keyword checks when no topic is configured');
 assert.equal(analyze('<script>主題</script><p>其他文字</p>', 'title', 'desc', '主題', 'https://example.test/').checks[7].ok, false, 'Scripts do not count as visible content');
 const php = fs.readFileSync('modules/seo-core/module.php', 'utf8');

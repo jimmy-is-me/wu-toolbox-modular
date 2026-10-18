@@ -1163,7 +1163,7 @@ function App(){
    ),
    e(PanelBody,{title:'內容品質與主題',initialOpen:false},
      e(TextControl,{label:'主要主題（只供編輯參考，不輸出 meta keywords）',value:String(meta._wu_seo_topic||''),onChange:function(v){setMeta('_wu_seo_topic',v);}}),
-     e('ul',null,analysis.checks.map(function(check,i){return e('li',{key:i},(check.ok?'✓ ':'建議確認：')+check.text);})),
+     e('ul',null,analysis.checks.concat(analysis.guidance||[]).map(function(check,i){return e('li',{key:i},e('details',null,e('summary',null,(check.ok?'參考：':'建議確認：')+check.text),e('p',null,check.help||'')));})),
      e('p',null,'請補充原創經驗、可信來源與實際作者資訊。檢查不判定真偽、E-E-A-T 或排名；不需要為了分數堆疊關鍵字。')
    ),
    e(PanelBody,{title:'社群分享',initialOpen:false},

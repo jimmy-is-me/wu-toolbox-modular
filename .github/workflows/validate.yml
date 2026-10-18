@@ -25,6 +25,7 @@ jobs:
       - name: Check shared admin design ownership and settings contract
         run: |
           php tests/admin-design.php
+          php tests/admin-enhancements.php
           node --check assets/js/admin-design.js
       - name: Check member loyalty promotion calculations
         run: php tests/member-loyalty-promotion-policy.php
@@ -136,3 +137,10 @@ jobs:
           export NODE_PATH="$RUNNER_TEMP/wutm-admin-tests/node_modules"
           export WUTM_TEST_CHROME="$(node -p "require('playwright').chromium.executablePath()")"
           node tests/admin-design-ui.js
+      - name: Check media viewport layouts and nested taxonomy sorting
+        run: |
+          curl -fsSL https://wordpress.org/wordpress-6.8.3.tar.gz | tar -xz -C "$RUNNER_TEMP"
+          export WUTM_TEST_WP="$RUNNER_TEMP/wordpress"
+          export NODE_PATH="$RUNNER_TEMP/wutm-admin-tests/node_modules"
+          export WUTM_TEST_CHROME="$(node -p "require('playwright').chromium.executablePath()")"
+          node tests/admin-enhancements-ui.js

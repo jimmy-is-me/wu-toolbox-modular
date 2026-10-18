@@ -1,0 +1,12 @@
+.wutm-tree-tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+.wutm-tree-list{list-style:none;margin:0;padding:0}
+.wutm-tree-list .wutm-tree-list{margin-left:24px}
+.wutm-tree-list li{margin:7px 0}
+.wutm-tree-row{display:flex;align-items:center;gap:10px;min-height:50px;padding:8px 12px;border:1px solid #dce4ee;border-radius:10px;background:white}
+.wutm-tree-row>span{flex:1;min-width:0;overflow-wrap:anywhere}
+.wutm-tree-row small{color:#64748b;white-space:nowrap}
+.wutm-tree-row button{border:0;background:#f1f5f9;border-radius:6px;min-width:30px;min-height:32px;cursor:pointer;color:#334155}
+.wutm-tree-row .wutm-tree-handle{cursor:grab}
+.wutm-tree-save{display:flex;gap:12px;align-items:center;justify-content:space-between;margin-top:20px;padding:14px;background:#f8fafc;border:1px solid #dce4ee;border-radius:10px;position:sticky;bottom:16px;z-index:2}
+#wutm-co-tree [hidden]{display:none!important}
+@media(max-width:600px){.wutm-tree-list .wutm-tree-list{margin-left:12px}.wutm-tree-row{gap:5px;padding:6px}.wutm-tree-row small{font-size:10px}.wutm-tree-save{flex-wrap:wrap}}
