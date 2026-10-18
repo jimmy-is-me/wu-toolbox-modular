@@ -18,6 +18,10 @@ jobs:
         run: |
           set -euo pipefail
           find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
+      - name: Validate shared admin presentation ownership
+        run: |
+          php tests/admin-design.php
+          node --check assets/js/admin-design.js
       - name: Validate tag and plugin version
         shell: bash
         run: |

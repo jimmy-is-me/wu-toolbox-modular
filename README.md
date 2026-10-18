@@ -26,3 +26,5 @@ SEO 核心的功能、設定順序與發佈後驗證方式見 [SEO 核心使用�
 商品規格表的後台操作及商品編輯隱藏開關見 [電商後台介面](docs/COMMERCE-ADMIN.md)。
 
 頁面快取的狀態、排除原因及訪客驗證方式見 [頁面快取與網站速度](docs/PAGE-CACHE.md)。
+
+後台 Tech Precision 共用呈現架構、驗證與範圍見 [後台外觀](docs/ADMIN-DESIGN.md)。

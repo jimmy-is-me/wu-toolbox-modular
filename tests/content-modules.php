@@ -224,6 +224,8 @@ check(array_search('wu-admin-menu-editor',$slugs)<array_search('wco-content-over
 $entry=array_values(array_filter($submenu['wu-toolbox-modular'],static fn($entry)=>$entry[2]==='edit.php?post_type=wumetax_map'))[0];
 check($entry[0]==='Google 地圖','Native map entry uses card label');
 $styles=[];$_GET=['page'=>'wco-content-overview'];
-foreach($hooks['admin_enqueue_scripts'][10] as $callback)$callback('unrelated-hook');
-check($styles===['wutm-admin'],'Shared appearance supports WordPress actual parent hook and overview slug');
+// Shared styling now follows actual callback ownership, never an untrusted URL prefix.
+$wp_filter['wu-toolbox_page_wco-content-overview'] = (object) ['callbacks' => [10 => [['function' => [WUTM_Content_Overview::class, 'render']]]]];
+foreach($hooks['admin_enqueue_scripts'][100] as $callback)$callback('unrelated-hook');
+check($styles===['wutm-admin'],'Shared appearance supports the actual registered content overview callback');
 echo "Content modules passed: contracts, data preservation, security, trees, paginated products, query cleanup and scoped assets.\n";
