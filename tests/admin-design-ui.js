@@ -11,9 +11,9 @@ const fontDir=process.env.WUTM_TEST_FONT_DIR;
 const fontCSS=fontDir ? '@font-face{font-family:"Noto Sans TC";src:url(data:font/woff2;base64,'+fs.readFileSync(path.join(fontDir,'noto-sans-tc-chinese-traditional-400-normal.woff2')).toString('base64')+')}body{font-family:"Noto Sans TC",sans-serif!important}' : '';
 const render = mode => execFileSync(php, [...phpArgs, 'tests/admin-design.php', mode], {cwd:root,encoding:'utf8'});
 (async () => {
- const dashboard=render('dashboard'), settings=render('settings');
+ const dashboard=render('dashboard'), settings=render('settings'), shared=render('shared');
  const server=http.createServer((req,res)=>{
-  if(req.url==='/dashboard'||req.url==='/settings') {res.setHeader('Content-Type','text/html; charset=utf-8');return res.end(req.url==='/dashboard'?dashboard:settings);}
+  if(['/dashboard','/settings','/shared'].includes(req.url)) {res.setHeader('Content-Type','text/html; charset=utf-8');return res.end(req.url==='/dashboard'?dashboard:req.url==='/shared'?shared:settings);}
   if(req.url.startsWith('/assets/')) {res.setHeader('Content-Type',req.url.endsWith('.css')?'text/css':'application/javascript');return res.end(fs.readFileSync(path.join(root,req.url)));}
   res.writeHead(404).end();
  });
@@ -22,6 +22,10 @@ const render = mode => execFileSync(php, [...phpArgs, 'tests/admin-design.php', 
  const origin='http://127.0.0.1:'+server.address().port;
  const browser=await chromium.launch({headless:true,executablePath:process.env.WUTM_TEST_CHROME,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
  try {
+  const sharedPage=await browser.newPage();await sharedPage.goto(origin+'/shared');
+  assert.equal(await sharedPage.locator('.wutm-card').count(),1,'Shared dashboard only contains opened cards');
+  assert.equal(await sharedPage.locator('.wutm-switch,.wutm-share-control,.wutm-license-panel').count(),0,'No module activation, owner sharing controls or license panel in shared dashboard');
+  assert.ok(await sharedPage.locator('.wutm-settings').count(),'Shared card opens original settings');await sharedPage.close();
   for(const width of [1440,1024,768,390,320]) {
    const page=await browser.newPage({viewport:{width,height:1000}}),errors=[];
    page.on('pageerror',e=>errors.push(e.message));

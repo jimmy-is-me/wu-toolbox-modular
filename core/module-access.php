@@ -21,6 +21,14 @@ function wutm_toolbox_hidden(): bool { return (bool) get_option('wutm_hide_toolb
 function wutm_toolbox_can_manage(): bool {
     return current_user_can('manage_options') && (!wutm_toolbox_hidden() || wutm_toolbox_is_owner());
 }
+function wutm_toolbox_shared_modules(): array {
+    return array_filter(wutm_modules(), static function ($module, $key): bool {
+        return wutm_module_can_share($key, $module) && wutm_module_is_shared($key) && wutm_shared_module_available($key, $module);
+    }, ARRAY_FILTER_USE_BOTH);
+}
+function wutm_toolbox_can_view(): bool {
+    return wutm_toolbox_can_manage() || (current_user_can('manage_options') && (bool) wutm_toolbox_shared_modules());
+}
 function wutm_module_can_share(string $key, array $module): bool {
     return empty($module['navigation']) && ($module['tag'] ?? '') !== '第三方外掛' && $key !== 'admin-menu-editor';
 }
@@ -73,22 +81,17 @@ add_action('admin_post_wutm_toolbox_visibility', function (): void {
     exit;
 });
 
-/** Keep the original registered page hook and callback, including its assets/load hooks.
- * Only add a native menu link: no duplicate callback, redirect or AJAX request.
- */
+/** One Toolbox dashboard; retain original registered page hooks. */
 add_action('admin_menu', function (): void {
     if (!current_user_can('manage_options')) return;
-    global $menu;
-    if (!wutm_toolbox_is_owner()) {
-        foreach (wutm_modules() as $key => $module) {
-            if (!wutm_module_can_share($key, $module) || !wutm_shared_module_available($key, $module) || !wutm_module_is_shared($key)) continue;
-            $url = !empty($module['settings_url']) ? (string) $module['settings_url'] : 'admin.php?page=' . ($module['settings_page'] ?? 'wu-' . $key);
-            // Registry is trusted, but keep navigation on this site's admin paths.
-            if (strpos($url, '://') !== false || strpos($url, '//') === 0) continue;
-            $duplicate = false;
-            foreach ((array) $menu as $entry) if (($entry[2] ?? '') === $url || ($entry[2] ?? '') === ($module['settings_page'] ?? 'wu-' . $key)) $duplicate = true;
-            if (!$duplicate) $menu[] = [$module['name'], 'manage_options', $url, $module['name'], 'menu-top', 'wutm-shared-' . $key, 'dashicons-admin-generic'];
-        }
-        if (wutm_toolbox_hidden()) remove_menu_page('wu-toolbox-modular');
+    global $submenu;
+    if (!wutm_toolbox_can_manage()) {
+        if (!wutm_toolbox_can_view()) { remove_menu_page('wu-toolbox-modular'); return; }
+        $submenu['wu-toolbox-modular'] = array_values(array_filter($submenu['wu-toolbox-modular'] ?? [], static function ($entry): bool {
+            $slug = (string) ($entry[2] ?? '');
+            if ($slug === 'wu-toolbox-modular' || wutm_is_shared_menu_target($slug)) return true;
+            foreach (wutm_toolbox_shared_modules() as $module) if (in_array($slug, (array) ($module['related_pages'] ?? []), true)) return true;
+            return false;
+        }));
     }
 }, PHP_INT_MAX);

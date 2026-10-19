@@ -13,11 +13,12 @@ async function jquery(page,sortable=false) {
 (async()=>{
  const browser=await chromium.launch({headless:true,executablePath:process.env.WUTM_TEST_CHROME});
  try {
-  for(const width of [1440,768,390]) for(const modal of [true,false]) for(const wrapped of [true,false]) {
+  for(const width of [1440,768,390]) for(const modal of [true,false]) for(const wrapped of [true,false]) for(const builder of [false,true]) {
+   if(!modal && builder)continue;
    const page=await browser.newPage({viewport:{width,height:950}}),errors=[];
    page.on('pageerror',e=>errors.push(e.message));
    const grid='<ul class="attachments"><li class="attachment" style="width:100px;height:100px;background:#dbeafe">商品圖片</li></ul>';
-   await page.setContent('<body class="wp-core-ui upload-php"><div class="'+(modal?'media-modal':'')+'"><div class="media-frame '+(modal?'':'mode-grid')+'"><div class="media-frame-content"><div class="attachments-browser hide-sidebar '+(wrapped?'has-load-more':'')+'"><div class="media-toolbar '+(modal?'':'wp-filter')+'"><button>篩選媒體</button></div>'+(wrapped?'<div class="attachments-wrapper">'+grid+'</div>':grid)+'</div></div></div></div>');
+   await page.setContent('<body class="wp-core-ui '+(modal?'post-php':'upload-php')+'"><div class="'+(modal?'media-modal':'')+'"><div class="media-frame '+(modal&&!builder?'':'mode-grid')+'"><div class="media-frame-content"><div class="attachments-browser hide-sidebar '+(wrapped?'has-load-more':'')+'"><div class="media-toolbar '+(modal?'':'wp-filter')+'"><button>篩選媒體</button></div>'+(wrapped?'<div class="attachments-wrapper">'+grid+'</div>':grid)+'</div></div></div></div>');
    await page.addStyleTag({content:readWP('wp-admin/css/common.css')+readWP('wp-includes/css/media-views.css')+readWP('wp-admin/css/media.css')});
    await page.addStyleTag({content:'body{margin:0}.media-modal{inset:10px}.media-frame{height:800px}.media-frame-content{left:0;top:0;bottom:0}.media-toolbar{height:72px;box-sizing:border-box}'});
    await page.addStyleTag({content:mediaCSS});await jquery(page);
@@ -34,6 +35,8 @@ async function jquery(page,sortable=false) {
    if(boxes.compact) assert.ok(boxes.grid.y>=boxes.panel.bottom-2,'Mobile grid below drawer '+JSON.stringify({width,modal,wrapped,boxes}));
    else assert.ok(boxes.grid.x>=boxes.panel.right-2,'Grid beside pane '+JSON.stringify({width,modal,wrapped,boxes}));
    assert.ok(boxes.grid.width>60,'Grid has usable width');assert.deepEqual(errors,[]);
+   const panelHit=await page.locator('.wumf-title').evaluate(e=>{const r=e.getBoundingClientRect();const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return !!hit&&!!hit.closest('.wumf-panel');});
+   assert.ok(panelHit,'Folder title must actually be clickable/visible above thumbnails, not just have a correct rectangle');
    if(modal && width===1440){
     await page.evaluate(()=>document.querySelector('.attachments-browser').classList.remove('hide-sidebar'));
     const right=await page.evaluate(()=>{const b=document.querySelector('.attachments-browser').getBoundingClientRect();const g=document.querySelector('.attachments-wrapper,.attachments').getBoundingClientRect();return b.right-g.right;});
@@ -60,6 +63,6 @@ async function jquery(page,sortable=false) {
   await page.waitForFunction(()=>document.querySelector('[role=status]').textContent==='分類順序已儲存');
   const requests=await page.evaluate(()=>saved);assert.equal(requests[1].parent,'1');assert.deepEqual(requests[1].ids,['4','3']);
   assert.equal(await page.locator('#wutm-tree-save').isEnabled(),false);
-  console.log('Native media layout (12 cases) and nested tree search, controls, persistence and retry passed.');
+  console.log('Native media layout (18 upload/editor/builder cases) and nested tree search, controls, persistence and retry passed.');
  } finally {await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

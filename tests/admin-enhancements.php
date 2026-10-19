@@ -31,6 +31,8 @@ if ($mode === 'media-css') { wumf_admin_css(); exit; }
 if ($mode === 'media-js') { wumf_admin_js(); exit; }
 function check($ok,$message) { if (!$ok) throw new RuntimeException($message); }
 $media_ui=false; ob_start(); wumf_admin_css(); wumf_admin_js(); check(ob_get_clean()==='', 'No media observers/scripts/styles on unrelated admin screens'); $media_ui=true;
+ob_start(); wumf_admin_css(); $late_css=ob_get_clean(); check(strpos($late_css,'wumf-admin-css')!==false,'Media styles can be printed after late media enqueue');
+ob_start(); wumf_admin_css(); check(ob_get_clean()==='', 'Head/footer fallback emits media CSS once only');
 function save_result($ids,$parent=0) {
     $_POST=['taxonomy'=>'category','parent'=>$parent,'ids'=>$ids];
     try { WUTM_Content_Ordering::save_terms(); } catch (JSONResult $result) { return $result->success; }

@@ -31,11 +31,11 @@ try {
     do_action('admin_menu');
     $hook = get_plugin_page_hook('wu-custom-cursor', 'admin.php');
     if (!$hook || !has_action($hook, 'wutm_custom_cursor_settings_page') || !user_can_access_admin_page()) throw new RuntimeException('Original WordPress page hook/capability routing failed after hiding parent');
-    if (!array_filter($menu, static fn($entry) => $entry[2] === 'admin.php?page=wu-custom-cursor')) throw new RuntimeException('Shared link missing');
-    if (array_filter($menu, static fn($entry) => $entry[2] === 'wu-toolbox-modular')) throw new RuntimeException('Toolbox should be hidden');
+    if (array_filter($menu, static fn($entry) => $entry[2] === 'admin.php?page=wu-custom-cursor')) throw new RuntimeException('Individual module top-level links must not be created');
+    if (!array_filter($menu, static fn($entry) => $entry[2] === 'wu-toolbox-modular')) throw new RuntimeException('Shared Toolbox dashboard missing');
     ob_start(); do_action($hook); $html = ob_get_clean();
     if (strpos($html, 'wutm_custom_cursor_options[ring_color]') === false || strpos($html, 'options.php') === false) throw new RuntimeException('Original settings callback/form did not render');
-    echo "Real WordPress shared-menu routing passed: hidden parent, original registered hook, capability check and settings form.\n";
+    echo "Real WordPress shared-menu routing passed: one Toolbox menu, original registered hook, capability check and settings form.\n";
 } finally {
     wp_set_current_user($owner);
     wp_delete_user($other);

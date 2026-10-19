@@ -48,6 +48,7 @@ final class WUTM_Page_Cache {
 		add_action( 'deactivated_plugin', array( __CLASS__, 'clear_on_global_change' ), 99 );
 		if ( ! empty( self::settings()['auto_invalidate'] ) ) {
 			add_action( 'save_post', array( __CLASS__, 'invalidate_post' ), 99, 3 );
+			add_action( 'wutm_product_sale_closed', array( __CLASS__, 'invalidate_sale_cutoff' ), 99 );
 			add_action( 'before_delete_post', array( __CLASS__, 'invalidate_post_before_delete' ), 99, 2 );
 			add_action( 'set_object_terms', array( __CLASS__, 'invalidate_object_terms' ), 99, 6 );
 			add_action( 'edited_term', array( __CLASS__, 'invalidate_term' ), 99, 3 );
@@ -465,6 +466,10 @@ final class WUTM_Page_Cache {
 	public static function invalidate_post( int $post_id, WP_Post $post, bool $update ): void {
 		if ( wp_is_post_revision( $post_id ) || wp_is_post_autosave( $post_id ) ) return;
 		self::invalidate_related( $post_id, $post->post_type, '儲存' . $post->post_type );
+	}
+
+	public static function invalidate_sale_cutoff( int $post_id ): void {
+		if ( get_post_type( $post_id ) === 'product' ) self::invalidate_related( $post_id, 'product', '購買截止' );
 	}
 
 	public static function invalidate_post_before_delete( int $post_id, WP_Post $post ): void {

@@ -804,10 +804,16 @@ function wumf_admin_assets() {
 }
 
 add_action( 'admin_head', 'wumf_admin_css' );
+// Builders may enqueue media after admin_head. Emit the same styles before our
+// footer script in that case, once only, rather than mounting an unstyled pane.
+add_action( 'admin_print_footer_scripts', 'wumf_admin_css', 19 );
 function wumf_admin_css() {
     if ( ! wumf_can_manage() || ! wumf_has_media_ui() ) {
         return;
     }
+    static $printed = false;
+    if ($printed) return;
+    $printed = true;
     ?>
     <style id="wumf-admin-css">
         :root{--wumf-panel-width:258px}
@@ -889,6 +895,24 @@ function wumf_admin_css() {
            toolbar's own responsive layout. */
         .media-modal .attachments-browser.wumf-has-folders{--wumf-panel-width:230px;--wumf-panel-top:0px}
         .media-modal .attachments-browser.wumf-has-folders .wumf-panel{max-width:34%;}
+        /* Modal grids are absolute viewports, even when a builder adds mode-grid.
+           Reserve an actual left column, retain the native details sidebar, and
+           stop thumbnail wrappers from painting on top of the folder controls. */
+        .media-modal .media-frame .attachments-browser.wumf-has-folders > .wumf-panel{z-index:100!important;max-width:none}
+        .media-modal .media-frame .attachments-browser.wumf-has-folders > .attachments,
+        .media-modal .media-frame .attachments-browser.wumf-has-folders > .attachments-wrapper{
+            position:absolute!important;left:var(--wumf-panel-width)!important;inset-inline-start:var(--wumf-panel-width)!important;
+            top:var(--wumf-panel-top)!important;margin:0!important;width:auto!important;overflow:auto;box-sizing:border-box;z-index:1;
+        }
+        .media-modal .media-frame .attachments-browser.wumf-has-folders > .attachments-wrapper > .attachments{
+            position:relative!important;left:0!important;right:0!important;inset-inline-start:0!important;top:0!important;
+            margin:0!important;width:100%!important;box-sizing:border-box;
+        }
+        .media-modal .media-frame .attachments-browser.wumf-has-folders.wumf-compact > .attachments,
+        .media-modal .media-frame .attachments-browser.wumf-has-folders.wumf-compact > .attachments-wrapper{
+            left:0!important;inset-inline-start:0!important;margin:0!important;
+            top:calc(var(--wumf-panel-top) + var(--wumf-mobile-panel-height))!important;
+        }
         @media(max-width:782px){
             .attachments-browser.wumf-has-folders{--wumf-panel-width:190px}
             .media-modal .attachments-browser.wumf-has-folders{--wumf-panel-width:clamp(150px,28vw,210px)}

@@ -33,14 +33,14 @@ try {
     wutm_product_save_and_schedule_unpublish_from_box($ids[2], get_post($ids[2]), true);
     unpublish_assert(wp_next_scheduled(WUTM_UNPUBLISH_HOOK, [$ids[2]]) === $alarm, 'Real missing alarm repair failed');
     do_action('wutm_product_unpublish_recovery');
-    unpublish_assert(get_post_status($ids[0]) === 'draft' && get_post_status($ids[1]) === 'draft', 'Real SQL due-deadline query or CRUD draft transition failed');
+    unpublish_assert(get_post_status($ids[0]) === 'publish' && get_post_status($ids[1]) === 'publish' && get_post_meta($ids[0], '_wutm_sale_closed_at', true), 'Real SQL due-deadline query or CRUD draft transition failed');
     unpublish_assert(get_post_status($ids[2]) === 'publish' && get_post_status($ids[3]) === 'publish', 'Future/unscheduled products were changed');
     unpublish_assert(get_post_meta($ids[0], '_wutm_unpublish_result', true)['status'] === 'success', 'Result not persisted');
-    unpublish_assert(get_post_meta($ids[0], '_expiration_datetime', true) === '', 'Completed deadline not cleaned');
+    unpublish_assert(get_post_meta($ids[0], '_expiration_datetime', true) === $past, 'Published product deadline must remain for purchase blocking');
     // Stale callback must observe a new future value instead of drafting early.
     do_action(WUTM_UNPUBLISH_HOOK, $ids[2]);
     unpublish_assert(get_post_status($ids[2]) === 'publish', 'Stale event unpublished a future product');
-    echo "Real WordPress/MySQL unpublish integration passed: timezone, native cron repair, bounded SQL recovery, status hooks, result persistence and untouched future products.\n";
+    echo "Real WordPress/MySQL unpublish integration passed: timezone, native cron repair, bounded SQL recovery, published status, result persistence and untouched future products.\n";
 } finally {
     $_POST = [];
     foreach ($ids as $id) { wp_clear_scheduled_hook(WUTM_UNPUBLISH_HOOK, [$id]); wp_delete_post($id, true); }

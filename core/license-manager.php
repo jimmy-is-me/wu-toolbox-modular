@@ -360,7 +360,7 @@ final class WUTM_License_Manager {
                 <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                     <input type="hidden" name="action" value="wutm_toolbox_visibility"><?php wp_nonce_field('wutm_toolbox_visibility'); ?>
                     <label><input type="checkbox" name="hide_toolbox" value="1" <?php checked(wutm_toolbox_hidden()); ?>> 向其他管理員隱藏 WumetaxToolkit</label>
-                    <p class="description">預設開啟，與「後台介面管理」模組無關。主帳號（ID：<?php echo esc_html(implode('、', wutm_toolbox_owner_ids())); ?>）保留完整管理入口；其他管理員可從主選單使用卡片上已開放的模組。這是選單顯示設定，不會降低 WordPress 管理員本來的權限。</p>
+                    <p class="description">預設開啟，與「後台介面管理」模組無關。主帳號（ID：<?php echo esc_html(implode('、', wutm_toolbox_owner_ids())); ?>）保留完整管理入口；其他管理員會看到 Toolbox 面板，僅顯示已開放模組的卡片。這是選單顯示設定，不會降低 WordPress 管理員本來的權限。</p>
                     <?php submit_button('儲存顯示設定'); ?>
                 </form>
             </div>

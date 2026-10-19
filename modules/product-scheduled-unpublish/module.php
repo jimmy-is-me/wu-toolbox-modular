@@ -1,7 +1,7 @@
 <?php
 /**
  * WooCommerce 商品排程下架
- * 在商品編輯頁「發佈」區塊加入排程下架時間,時間到後自動轉為草稿
+ * 在商品編輯頁「發佈」區塊設定購買截止，時間到保持發佈、只停止購買
  * 並在商品列表新增「排程下架」欄位,方便一覽與排序
  */
 
@@ -25,24 +25,14 @@ function wutm_product_add_unpublish_field_to_publish_box( $post ) {
 	// 自訂 nonce,獨立於編輯頁整體 nonce,避免第三方繞過寫入
 	wp_nonce_field( 'wu_unpublish_nonce_action', 'wu_unpublish_nonce' );
 
-	echo '<div class="misc-pub-section misc-pub-unpublish" style="border-top: 1px solid #eee; margin-top: 10px; padding-top: 10px;">';
-	echo '<span class="dashicons dashicons-clock" style="color: #82878c; line-height: 20px; padding-right: 3px;"></span> ';
-	echo '<label for="_expiration_datetime"><strong>排程下架：</strong></label>';
-	echo '<div style="margin-top: 5px;">';
-	echo '<input type="datetime-local" id="_expiration_datetime" name="_expiration_datetime" value="' . esc_attr( $saved_time ) . '" style="width: 100%;" />';
-	echo '<p style="font-size:11px;color:#666;margin:4px 0">依網站時區：' . esc_html(wp_timezone_string()) . '。儲存更新後生效，到期轉為草稿；清空可取消。</p>';
     $timestamp = wutm_product_unpublish_timestamp($saved_time);
-    $next = wp_next_scheduled(WUTM_UNPUBLISH_HOOK, [(int) $post->ID]);
-    if ($timestamp) {
-        $hint = get_post_status($post->ID) !== 'publish' ? '商品目前未發佈；重新發佈時會重新檢查。' : ($timestamp <= time() ? '已到期，等待下架／補執行。' : ($next ? '已建立排程：' . wp_date('Y-m-d H:i', $next) : '排程尚未建立，請重新儲存「更新」以修復。'));
-        echo '<p class="description">' . esc_html($hint) . '</p>';
-    }
-    $result = get_post_meta($post->ID, '_wutm_unpublish_result', true);
-    if (is_array($result) && !empty($result['message'])) echo '<p class="description">最近處理：' . esc_html($result['message']) . '（' . esc_html(wp_date('Y-m-d H:i', (int) $result['time'])) . '）</p>';
-    echo '<p class="description">WP-Cron 需網站請求觸發，非精準計時器；需要準時下架時，請由主機每分鐘執行 WordPress 排程，並確認頁面／CDN 快取清除正常。</p>';
-    if (defined('DISABLE_WP_CRON') && DISABLE_WP_CRON) echo '<p style="color:#b32d2e">此站已停用內建 WP-Cron，請確認主機排程已設定；否則背景下架可能延遲。</p>';
-	echo '</div>';
-	echo '</div>';
+    $text = (string) get_post_meta($post->ID, '_wutm_expired_button_text', true);
+    if ($text === '') $text = '此商品已無法購買';
+    echo '<div class="misc-pub-section"><span class="dashicons dashicons-clock" style="color:#8c8f94"></span> 購買截止：<b>' . ($timestamp ? esc_html(wp_date(__('M j, Y @ H:i'), $timestamp)) : '未設定') . '</b> <a href="#wutm-cutoff-editor" onclick="document.getElementById(\'wutm-cutoff-editor\').hidden=!document.getElementById(\'wutm-cutoff-editor\').hidden;return false">編輯</a>';
+    echo '<div id="wutm-cutoff-editor" hidden style="padding-top:8px"><label class="screen-reader-text" for="_expiration_datetime">購買截止時間</label><input type="datetime-local" id="_expiration_datetime" name="_expiration_datetime" value="' . esc_attr($saved_time) . '" style="width:100%">';
+    echo '<p class="description">依網站時區 ' . esc_html(wp_timezone_string()) . '；清空可取消。更新商品後生效。</p><label for="_wutm_expired_button_text">截止後按鈕文字</label><input type="text" id="_wutm_expired_button_text" name="_wutm_expired_button_text" value="' . esc_attr($text) . '" style="width:100%"></div>';
+    echo '<p class="description">到期維持已發佈，只停止購買。</p></div>';
+
 }
 
 // ------------------------------------------------------------------
@@ -72,12 +62,12 @@ function wutm_product_add_unpublish_column_to_product_list( $columns ) {
 
 		// 插入在「日期」欄位之前,若找不到日期欄位則最後補上
 		if ( 'date' === $key ) {
-			$new_columns['wu_unpublish_schedule'] = '排程下架';
+			$new_columns['wu_unpublish_schedule'] = '購買截止';
 		}
 	}
 
 	if ( ! isset( $new_columns['wu_unpublish_schedule'] ) ) {
-		$new_columns['wu_unpublish_schedule'] = '排程下架';
+		$new_columns['wu_unpublish_schedule'] = '購買截止';
 	}
 
 	return $new_columns;
@@ -114,7 +104,7 @@ function wutm_product_render_unpublish_column_content( $column, $post_id ) {
 	if ( 'publish' !== $status ) {
 		echo '<span class="dashicons dashicons-yes-alt" style="color:#46b450;"></span> 已下架';
 	} elseif ( $is_past ) {
-		echo '<span class="dashicons dashicons-warning" style="color:#dc3232;"></span> ' . esc_html( $formatted_display ) . '（逾時待執行）';
+		echo '<span class="dashicons dashicons-warning" style="color:#dc3232;"></span> ' . esc_html( $formatted_display ) . '（已截止購買）';
 	} else {
 		echo '<span class="dashicons dashicons-clock" style="color:#82878c;"></span> ' . esc_html( $formatted_display );
 	}
