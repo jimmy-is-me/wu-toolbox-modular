@@ -79,7 +79,7 @@ const render = mode => execFileSync(php, [...phpArgs, 'tests/admin-design.php', 
     const nativeCSS={'media-encoder':'modules/media-encoder/admin.css','email-tracking':'modules/email-tracking/admin.css'}[file];
     if(nativeCSS) await page.addStyleTag({content:fs.readFileSync(path.join(root,nativeCSS),'utf8')});
     const before=await page.locator('input,select,textarea').evaluateAll(nodes=>nodes.map(n=>[n.name,n.value,n.form&&n.form.action]));
-    await page.addStyleTag({content:fs.readFileSync(path.join(root,'assets/css/admin.css'),'utf8')+fontCSS});
+    await page.addStyleTag({content:fs.readFileSync(path.join(root,'assets/css/admin.css'),'utf8')+fs.readFileSync(path.join(root,'assets/css/admin-components.css'),'utf8')+fontCSS});
     await page.evaluate(()=>{document.body.classList.add('wutm-admin-screen');if(!document.querySelector('#wpbody-content')){const main=document.createElement('main');main.id='wpbody-content';while(document.body.firstChild)main.appendChild(document.body.firstChild);document.body.appendChild(main);}const content=document.querySelector('#wpbody-content');if(!content.querySelector(':scope > .wrap')){const wrap=document.createElement('div');wrap.className='wrap';const h=document.createElement('h1');h.textContent='郵件追蹤';wrap.appendChild(h);while(content.firstChild)wrap.appendChild(content.firstChild);content.appendChild(wrap);}});
     await page.addScriptTag({content:fs.readFileSync(path.join(root,'assets/js/admin-design.js'),'utf8')});
     await page.evaluate(()=>document.fonts.ready);

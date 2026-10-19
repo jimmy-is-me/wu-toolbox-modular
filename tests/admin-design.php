@@ -4,7 +4,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 define('ABSPATH', __DIR__ . '/');
 define('WUTM_PATH', dirname(__DIR__) . '/');
 define('WUTM_URL', '/');
-define('WUTM_VERSION', '3.6.9');
+define('WUTM_VERSION', '3.7.0');
 $hooks = $wp_filter = $styles = $scripts = [];
 $screen = (object) ['id' => 'renamed-toolbox_page_wu-custom-cursor'];
 $admin = true;
@@ -48,7 +48,7 @@ attach_page($screen->id, 'wutm_custom_cursor_settings_page');
 if (($argv[1] ?? 'policy') === 'policy') {
     check(wutm_admin_design_screen(), 'Own callback works under renamed parent menu');
     foreach ($hooks['admin_enqueue_scripts'] as $fn) $fn();
-    check(count($styles) === 1 && count($scripts) === 1, 'One shared stylesheet/script on an owned page');
+    check(count($styles) === 2 && count($scripts) === 1, 'Shared base/component styles and one script on an owned page');
     $styles = $scripts = [];
     foreach (['dashboard','product','woocommerce_page_wc-settings','foreign_page_wu-other','toplevel_page_site-ai-foreign'] as $id) {
         $screen->id = $id; $_GET['page'] = 'wu-looks-owned'; attach_page($id, 'foreign_page');
@@ -66,4 +66,4 @@ if (($argv[1] ?? 'policy') === 'policy') {
 }
 echo '<!doctype html><html lang="zh-Hant"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;background:#f0f0f1;font:14px system-ui}#wpadminbar{position:fixed;top:0;left:0;right:0;height:32px;background:#1d2327;color:#fff;z-index:20;padding:0 14px;box-sizing:border-box}#adminmenu{position:fixed;top:32px;left:0;bottom:0;width:160px;background:#1d2327;color:#fff;padding-top:20px}#adminmenu p{padding:10px}#wpbody-content{margin:32px 0 0 180px}.notice{padding:10px;background:white;border-left:4px solid orange}.screen-reader-text{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}.form-table th{text-align:left}button,input{font:inherit}.button{cursor:pointer}.nav-tab{padding:8px}a{color:#2271b1}@media(max-width:782px){#adminmenu{display:none}#wpbody-content{margin-left:10px}#wpadminbar{height:46px}#wpbody-content{margin-top:46px}}</style><link rel="stylesheet" href="/assets/css/admin.css"><body class="wutm-admin-screen"><div id="wpadminbar">WordPress　 /　WUMETAX</div><aside id="adminmenu"><p>控制台</p><p>文章</p><p>媒體</p><p>頁面</p><p>WooCommerce</p><p>WU Toolbox</p></aside><main id="wpbody-content">';
 if ($argv[1] === 'dashboard') wutm_render_admin_page(); else wutm_custom_cursor_settings_page();
-echo '</main><script>var ajaxurl="/wp-admin/admin-ajax.php";</script><script src="/assets/js/admin-design.js"></script></body></html>';
+echo '</main><link rel="stylesheet" href="/assets/css/admin-components.css"><script>var ajaxurl="/wp-admin/admin-ajax.php";</script><script src="/assets/js/admin-design.js"></script></body></html>';

@@ -9,7 +9,7 @@ const render=(...args)=>execFileSync(php,['tests/style-youtube.php',...args],{en
    const page=await browser.newPage({viewport:{width,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.setContent(render('style',theme));
    if(wp)await page.addStyleTag({content:fs.readFileSync(path.join(wp,'wp-admin/css/common.css'),'utf8')+fs.readFileSync(path.join(wp,'wp-admin/css/forms.css'),'utf8')});
-   await page.addStyleTag({content:fs.readFileSync('assets/css/admin.css','utf8')});await page.addScriptTag({path:'assets/js/admin-design.js'});
+   await page.addStyleTag({content:fs.readFileSync('assets/css/admin.css','utf8')+fs.readFileSync('assets/css/admin-components.css','utf8')});await page.addScriptTag({path:'assets/js/admin-design.js'});
    assert.equal(await page.locator('input[type=radio]').count(),5,'Five theme choices');
    assert.equal(await page.locator('input[type=checkbox]').count(),8,'All original toggles');
    assert.equal(await page.locator('[name="np_admin_opts[theme]"]:checked').inputValue(),theme);

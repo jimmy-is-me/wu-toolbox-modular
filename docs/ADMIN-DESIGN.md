@@ -1,41 +1,58 @@
-# Tech Precision 後台外觀（3.6.7）
+# WU Toolbox 共用設定介面規範
 
-本版本統一 WU Toolbox 自有設定頁的呈現方式，不搬移或重建模組表單，不變更設定鍵、資料、AJAX、Nonce、權限、相依條件及模組載入方式。
+## 原則
 
-## 共用結構
+所有自有設定頁使用相同的淺色頁首、紫色主要操作、白色面板、細框線、分頁、表單字級及間距。模組總覽保留品牌 Hero；不同功能的圖表、資料表、統計數據與操作順序不強制變成相同版型。
 
-- `core/admin-design.php`：檢查目前 WordPress screen 對應的已註冊 callback，其來源必須在本外掛的 `core/` 或 `modules/` 才載入樣式和呈現腳本；不使用網址前綴猜測所有權
-- `assets/css/admin.css`：集中色彩、字型、間距、圓角、卡片、表單、按鈕、通知、表格及 RWD，全部限定在 `wutm-admin-screen` 內，保留舊模板使用的變數別名
-- `assets/js/admin-design.js`：為既有頂層容器、標題及明確列舉的面板加入 `wutm-ui-*` 類別；不改 ID/name、DOM 位置、form action、事件處理器或提交資料
-- `core/admin-page.php`：沿用真實模組清單與原本操作，增加與開關同步的啟用數及比例視覺
+只修改呈現類別與樣式，不搬移／複製／重新建立節點，不改 ID、name、action、method、Nonce、權限、required、disabled、value 或原事件。原生 WordPress／WooCommerce／第三方管理頁及前台不載入這套設定頁元件。
 
-新增自有設定頁時使用 WordPress 正常註冊 callback 並以 `.wrap` 作為頁面根節點；標題使用 `h1` 或 `.wutm-header`。面板優先採用 `.wutm-panel`，避免再加全域 `.wrap`、`.card` 或 `#wpcontent` 規則。複雜模組保留原本布局，新增面板名稱時在呈現適配器的明確清單加入對應 class。
+## 新模組必用的入口
 
-## 外觀範圍
+在正常註冊的自有設定頁 callback 中使用：
 
-總覽、標準 Settings API 表單、自有獨立管理頁、內容總覽、AI 工具、郵件分析及媒體工作台等頁面由共用呈現層處理。媒體與內容等特殊頁保留原有資訊結構及資料載入規則；會員管理保留原有內部導覽和子頁結構。聯絡按鈕採兩個頂層容器的適配方式，不重新包裹原表單。
-
-WordPress 管理列及左側選單維持原生樣式；導向 WooCommerce／第三方外掛的原生設定頁、原生文章商品編輯器及分類編輯器不載入共用樣式。Google 地圖、商品徽章等原生編輯畫面保留模組原有的專屬樣式。前台不載入這次新增資源。
-
-## 動態與可及性
-
-頁首一條訊號線與單一狀態點採低幅度動畫，卡片僅於 hover／狀態改變時更新邊框。沒有每張卡片的持續動畫、輪詢、額外 API 或 MutationObserver。支援 `prefers-reduced-motion`；保留鍵盤 Tab、焦點框及原生核取狀態，模組開關增加可讀名稱。
-
-## 驗證
-
-```bash
-php tests/admin-design.php
-node --check assets/js/admin-design.js
-# Browser suite requires Playwright and an installed Chromium.
-WUTM_TEST_CHROME=/path/to/chromium node tests/admin-design-ui.js
+```php
+if (!current_user_can('manage_options')) return;
+wutm_admin_page_open('模組名稱', '簡短功能說明');
+?>
+<section class="wutm-ui-panel"><div class="wutm-ui-panel-body">
+    <form method="post" action="options.php">
+        <?php settings_fields('your_existing_settings_group'); ?>
+        <!-- 保留真實設定欄位，輸入框可加 wutm-ui-field -->
+        <button type="submit" class="button button-primary">儲存設定</button>
+    </form>
+</div></section>
+<?php
+wutm_admin_page_close();
 ```
 
-可選環境變數：`WUTM_TEST_PHP`、JSON 陣列 `WUTM_TEST_PHP_ARGS`、`WUTM_VISUAL_OUTPUT`。字型視覺 QA 可透過 `WUTM_TEST_FONT_DIR` 指向本地 Fontsource Noto Sans TC 檔案；外掛本身不下載字型。
+- 根節點：由 helper 產生的 `.wrap.wutm-ui-root`。
+- 頁首：`.wutm-ui-header`；使用一個 H1。不要自行再建立第二個 Hero。
+- 面板：`.wutm-ui-panel`；模組自己的 CSS 只處理內部業務布局。
+- 分頁：`.wutm-ui-tabs` 搭配原生連結或正確的 tab roles／ARIA，保留切換事件。
+- 按鈕：`.button`／`.button-primary`，或明確的 `.wutm-ui-button`／`.wutm-ui-primary`。
+- 輸入：`.wutm-ui-field`，不強制欄位寬度、textarea 高度或改動原生核取方塊／滑桿。
+- CSS 使用共用 `--wutm-ink`、`--wutm-muted`、`--wutm-line`、`--wutm-paper`、`--wutm-blue` 等變數，不再複製頁首／按鈕配色。
+- 動態插入內容後明確呼叫 `window.WUTMAdminUI.adapt(element)`，或發送 `wutm-admin-ui-updated` 事件；不使用持續輪詢／全頁 MutationObserver。
 
-瀏覽器檢查涵蓋 1440、1024、768、390 px：全部真實模組卡片、成功切換與統計、搜尋／篩選、設定欄位與 form owner 不變、色碼文字更新、減少動態、外部畫面隔離，以及內容總覽、媒體編碼器、郵件紀錄的不同結構。
+## 舊模組相容
 
-本次未連線登入正式 WordPress，沒有實際改寫正式站設定；實站外掛組合、第三方管理佈景主題及網站個別 CSS 仍需站上驗收。各模組業務邏輯維持原檔不變，沿用原有回歸測試及 GitHub Actions 檢查。
+`assets/js/admin-design.js` 適配既有根節點、標題、自訂頁首、面板、分頁、按鈕與文字欄位。`assets/css/admin-components.css` 是最後的共用元件層，讓一般 H1 頁首與媒體工作台等自訂頁首使用同一組呈現規則，不再各自使用深色／淺色兩套標準。
 
-## 發布
+圖表、編輯器、彈窗及媒體選取視窗不自動標記為一般設定元件。前台效果的後台預覽可用 `data-wutm-ui="preserve"` 阻止自動標記；預覽內不要使用設定頁專用元件 class。特殊布局只能擴充模組內部內容，不覆寫共用頁首或控制項。
 
-外掛 header、`WUTM_VERSION`、更新器 changelog 都為 3.6.7。推送 `v3.6.7` tag 後，現有 `release.yml` 驗證 PHP、共用外觀範圍、版本及 changelog，再建立含單一 `wu-toolbox-modular/` 根目錄的安裝 ZIP，並上傳 GitHub Release。ZIP 排除 `.git`、工作流程、測試及測試產物。
+`core/admin-design.php` 仍依實際註冊 callback 的來源檔判定頁面所有權，而非網址前綴。樣式與腳本使用檔案時間戳快取版本；沒有新增網路分析、業務查詢或前台資源。
+
+## 防止未來再次分歧
+
+`tests/admin-ui-contract.js` 盤點有管理頁註冊的模組，並對不在既有相容基線內的新模組要求共用 helper／root。不要把新模組加入 legacy 基線來繞過規範；這項檢查是基本結構防線，仍需人工審查實際畫面。
+
+```text
+php tests/admin-design.php
+node tests/admin-ui-contract.js
+node tests/admin-components-ui.js
+node tests/admin-design-ui.js
+```
+
+瀏覽器檢查需 Playwright、Chromium 與 PHP，可設定 WUTM_TEST_CHROME、WUTM_TEST_PHP、WUTM_TEST_PHP_ARGS。測試涵蓋 320／390／768／1440 px 的一般、媒體及未來元件樣板，直接比較頁首 computed styles，確認表單狀態、form owner、原事件、預覽隔離及動態適配；另保留既有模組操作回歸測試。
+
+不把樣板測試視為所有正式網站外掛組合均已驗收。發布前仍需跑完整 CI；正式站安裝後應檢查其外掛組合及個別客製 CSS。本規範與共用元件納入 v3.7.0；本次不包含客戶角色／選單開放功能。

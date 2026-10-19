@@ -25,9 +25,10 @@ const shell=execFileSync(process.env.WUTM_TEST_PHP||'php',[...args,'tests/media-
   });
   for(const width of [1440,768,390,320]){
    await page.setViewportSize({width,height:1000});await page.setContent(shell);
-   await page.evaluate(()=>document.body.className='wu-toolbox_page_wu-media-encoder');
+   await page.evaluate(()=>document.body.className='wu-toolbox_page_wu-media-encoder wutm-admin-screen');
    await page.addStyleTag({content:'body{margin:0;background:#f0f0f1;font:14px Arial}#wpbody-content{padding-left:20px}button,input{font:inherit}'});
    await page.addStyleTag({path:'assets/css/admin.css'});await page.addStyleTag({path:'modules/media-encoder/admin.css'});
+   await page.addStyleTag({path:'assets/css/admin-components.css'});await page.addScriptTag({path:'assets/js/admin-design.js'});
    await page.addScriptTag({content:script});const start=calls.length;await page.waitForTimeout(150);
    assert.equal(calls.length,start,'Opening page never scans library');
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Cold RWD '+width);

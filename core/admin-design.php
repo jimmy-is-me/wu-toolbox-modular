@@ -2,6 +2,14 @@
 /** Tech Precision presentation adapter. Never changes module options or callbacks. */
 defined('ABSPATH') || exit;
 
+/** New modules use this presentation contract; form ownership stays with callers. */
+function wutm_admin_page_open(string $title, string $description = ''): void {
+    echo '<div class="wrap wutm-ui-root"><header class="wutm-ui-header"><h1>' . esc_html($title) . '</h1>';
+    if ($description !== '') echo '<p>' . esc_html($description) . '</p>';
+    echo '</header>';
+}
+function wutm_admin_page_close(): void { echo '</div>'; }
+
 /** Resolve ownership from the registered page callback, not a URL prefix. */
 function wutm_admin_design_screen(): bool {
     if (!is_admin()) return false;
@@ -43,5 +51,6 @@ add_action('admin_enqueue_scripts', function (): void {
     if (!wutm_admin_design_screen()) return;
     // Late enqueue keeps shared tokens after module styles, without loading modules.
     wp_enqueue_style('wutm-admin', WUTM_URL . 'assets/css/admin.css', [], WUTM_VERSION);
-    wp_enqueue_script('wutm-admin-design', WUTM_URL . 'assets/js/admin-design.js', [], WUTM_VERSION, true);
+    wp_enqueue_style('wutm-admin-components', WUTM_URL . 'assets/css/admin-components.css', ['wutm-admin'], (string) filemtime(__DIR__ . '/../assets/css/admin-components.css'));
+    wp_enqueue_script('wutm-admin-design', WUTM_URL . 'assets/js/admin-design.js', [], (string) filemtime(__DIR__ . '/../assets/js/admin-design.js'), true);
 }, 100);

@@ -1,0 +1,35 @@
+/* Canonical setting-page chrome. Layout, charts, previews and form logic remain module-owned. */
+body.wutm-admin-screen #wpbody-content > :is(#wutm-media,.wutm-ui-root){max-width:1440px!important;padding:24px!important;border-radius:16px!important;background:var(--wutm-paper)!important;box-sizing:border-box}
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root):not(.wutm-ui-dashboard) :is(.wutm-ui-header,.wutm-ui-title),
+body.wutm-admin-screen #wpbody-content > .wutm-ui-root.wutm-ui-header{
+ background:linear-gradient(110deg,#fff,#f4f2ff)!important;color:var(--wutm-ink)!important;
+ border:1px solid var(--wutm-line)!important;border-radius:14px!important;padding:24px!important;margin:0 0 24px!important;box-shadow:none!important;
+}
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root):not(.wutm-ui-dashboard) :is(.wutm-ui-header,.wutm-ui-title)::before,
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root):not(.wutm-ui-dashboard) .wutm-ui-header::after,
+body.wutm-admin-screen #wpbody-content > .wutm-ui-root.wutm-ui-header::after{display:none!important}
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root):not(.wutm-ui-dashboard) .wutm-ui-header :is(h1,h2){font-size:28px!important;line-height:1.45!important;margin:0!important;color:var(--wutm-ink)!important;letter-spacing:0!important}
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root):not(.wutm-ui-dashboard) .wutm-ui-header :is(p,.wme-eyebrow){color:var(--wutm-muted)!important}
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root) .wutm-ui-panel{border:1px solid var(--wutm-line)!important;border-radius:14px!important;background:var(--wutm-panel,#fff)!important;box-shadow:none!important;color:var(--wutm-ink)}
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root) .wutm-ui-panel-body{padding:20px;box-sizing:border-box;min-width:0}
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root) .wutm-ui-button{border:1px solid var(--wutm-line)!important;border-radius:8px!important;background:#fff!important;color:var(--wutm-blue-dark)!important;min-height:40px;padding:8px 14px!important;line-height:1.5!important;font-size:13px!important;font-weight:600;box-shadow:none!important;white-space:normal;text-decoration:none}
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root) .wutm-ui-button.wutm-ui-primary{background:var(--wutm-blue)!important;border-color:var(--wutm-blue)!important;color:#fff!important}
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root) .wutm-ui-button.wutm-ui-danger{background:#fff1f2!important;border-color:#fecdd3!important;color:#9f1239!important}
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root) .wutm-ui-button:disabled{opacity:.55;cursor:not-allowed}
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root) .wutm-ui-field{box-sizing:border-box;max-width:100%;min-height:40px;padding:8px 10px;border:1px solid #94a3b8;border-radius:8px!important;background-color:#fff;color:var(--wutm-ink);font-size:13px;line-height:1.5;box-shadow:none}
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root) .wutm-ui-field:focus{outline:2px solid var(--wutm-blue);outline-offset:2px}
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root) .wutm-ui-field[aria-invalid=true]{border-color:#dc2626}
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root) .wutm-ui-field:disabled{background-color:#f1f5f9;color:#64748b}
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root) .wutm-ui-tabs{display:flex;flex-wrap:wrap;gap:6px;padding:8px!important;margin:0 0 24px!important;border:1px solid var(--wutm-line)!important;border-radius:10px!important;background:#eef2f8!important;box-shadow:none!important}
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root) .wutm-ui-tabs :is(.nav-tab,[role=tab]){float:none;display:inline-flex;align-items:center;justify-content:center;margin:0!important;padding:9px 14px!important;min-height:40px;border:0!important;border-radius:7px!important;background:transparent!important;color:var(--wutm-muted)!important;font-size:13px!important;line-height:1.5;box-sizing:border-box;text-decoration:none}
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root) .wutm-ui-tabs :is(.nav-tab-active,[aria-selected=true]){background:#fff!important;color:var(--wutm-blue-dark)!important;box-shadow:0 1px 4px #0f172a0d!important}
+/* The media workspace uses the same outer shell; retain its brand/status and tab nodes. */
+body.wutm-admin-screen #wpbody-content #wutm-media .wme-main{padding:0!important}
+body.wutm-admin-screen #wpbody-content #wutm-media .wme-top{padding:0 0 16px!important;margin-bottom:16px;background:transparent;border-bottom:1px solid var(--wutm-line)}
+body.wutm-admin-screen #wpbody-content > .wutm-ui-root.wutm-ui-header .ysch-hero-title{color:var(--wutm-ink)!important;font-size:28px!important}
+body.wutm-admin-screen #wpbody-content > .wutm-ui-root.wutm-ui-header .ysch-hero-subtitle{color:var(--wutm-muted)!important}
+@media(max-width:782px){
+ body.wutm-admin-screen #wpbody-content > :is(#wutm-media,.wutm-ui-root){padding:16px!important}
+ body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root):not(.wutm-ui-dashboard) :is(.wutm-ui-header,.wutm-ui-title){padding:20px!important}
+ body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root):not(.wutm-ui-dashboard) .wutm-ui-header :is(h1,h2){font-size:24px!important}
+}

@@ -1,22 +1,48 @@
 /* Presentation only: preserve element identity, form boundaries and event listeners. */
 (function () {
     'use strict';
+    const excluded = '[data-wutm-ui="preserve"],.media-modal,[role="dialog"],.wp-editor-wrap,.block-editor';
+    function adapt(content) {
+        if (!document.body.classList.contains('wutm-admin-screen') || !content) return;
+        const roots = content.matches?.('.wutm-ui-root,.wrap') ? [content] : Array.from(content.children).filter(el => el.matches('.wrap,.wutm-module-wrap,.wutm-loyalty-layout,.ysch-hero,.ysch-admin-wrap'));
+        roots.forEach(root => {
+            if (root.matches(excluded)) return;
+            root.classList.add('wutm-ui-root');
+            root.classList.toggle('wutm-ui-dashboard', !!root.querySelector('.wutm-card[data-module],.wutm-module-group'));
+            const header = root.matches('.ysch-hero') ? root : (root.querySelector('.wutm-ui-header,.wutm-header,.wutm-module-header,.wme-heading,.wco-header,.ysch-hero,.wutm-clo-hero') || Array.from(root.children).find(node => node.tagName === 'HEADER' && node.querySelector('h1')));
+            if (header && !header.closest(excluded)) header.classList.add('wutm-ui-header');
+            const title = root.querySelector(':scope > h1') || (!header && root.querySelector('h1'));
+            if (title && !title.closest(excluded)) title.classList.add('wutm-ui-title');
+            root.querySelectorAll('[class], [role="tablist"],button,a,input,select,textarea').forEach(node => {
+                if (node.closest(excluded)) return;
+                const names = Array.from(node.classList);
+                if (node.matches('textarea,select,input:not([type]),input[type=text],input[type=search],input[type=email],input[type=url],input[type=password],input[type=number],input[type=date],input[type=datetime-local]')) node.classList.add('wutm-ui-field');
+                if (names.some(name => /(?:^|[-_])(panel|card)$/.test(name)) && node !== root && node !== header && !node.matches('.wutm-card')) node.classList.add('wutm-ui-panel');
+                if (node.matches('.nav-tab-wrapper,[role="tablist"],.wme-tabs')) node.classList.add('wutm-ui-tabs');
+                if (node.matches('.button,.wme-button,.jmi-btn') || names.some(name => /-(btn|button)(-|$)/.test(name))) {
+                    node.classList.add('wutm-ui-button');
+                    node.classList.toggle('wutm-ui-primary', node.matches('.button-primary,.wme-primary,.jmi-btn-primary') || names.some(name => /-primary$/.test(name)));
+                    node.classList.toggle('wutm-ui-danger', names.some(name => /-(danger|delete)$/.test(name)));
+                }
+            });
+        });
+    }
+    window.WUTMAdminUI = { adapt: adapt };
     function init() {
         if (!document.body.classList.contains('wutm-admin-screen')) return;
         const content = document.getElementById('wpbody-content');
         if (!content) return;
+        adapt(content);
+        document.addEventListener('wutm-admin-ui-updated', () => adapt(content));
         const panels = '.card,.wu-mail-panel,.wutm-panel,.wu-info-panel,.wu-stat-box,.wu-moving-form,.wu-moving-preview,.wu-status-table,.atm-card,.wu-seo-card,.monitor-card,.wme-panel,.wutm-policy-panel,.wutm-policy-card,.sac-tools-card,.sac-prompt-card,.wuqsa-card,.wuqs-card,.wutm-hp-panel,.wutm-media-overview-card,.wutm-nmd-panel,.ysch-card,.wutm-coupon-card,.wutm-bacs-panel,.wutm-bacs-card,.wutm-so-panel,.wutm-smart-301-card,.wutm-sp-admin-panel,.wutm-sp-admin-card,.wutm-co-panel,.wutm-sne-panel,.wutm-clo-card,.wutm-smb-panel,.wco-panel,.wutm-pcm-panel,.wutm-sc-panel,.wutm-cache-panel,.wutm-vt-card,.wutm-vt-dashboard-card,.wutm-ordering-panel,.wutm-popup-design,.wutm-license-panel,.wutm-license-block,.wutm-csv-tools,.jmi-panel,.jmi-card,.jmi-pulse-panel';
         // Only top-level module roots: nested legacy screens retain their own layout.
         Array.from(content.children).filter(el => el.matches('.wrap,.wutm-module-wrap,.wutm-loyalty-layout,.ysch-hero,.ysch-admin-wrap')).forEach(root => {
+            if (root.matches(excluded)) return;
             root.classList.add('wutm-ui-root');
-            const header = root.matches('.ysch-hero') ? root : root.querySelector('.wutm-header,.wutm-module-header,.wme-heading,.wco-header,.ysch-hero,.wutm-clo-hero');
-            if (header) header.classList.add('wutm-ui-header');
-            const title = root.querySelector(':scope > h1') || (!header && root.querySelector('h1'));
-            if (title) title.classList.add('wutm-ui-title');
-            root.querySelectorAll(panels).forEach(panel => panel.classList.add('wutm-ui-panel'));
+            root.querySelectorAll(panels).forEach(panel => { if (!panel.closest(excluded)) panel.classList.add('wutm-ui-panel'); });
             // Scrolling is confined to data tables; never constrain color pickers/editors.
             root.querySelectorAll('table.widefat,table.wp-list-table,table.wu-status-table').forEach(table => {
-                if (table.closest('[role="dialog"],.media-modal')) return;
+                if (table.closest(excluded)) return;
                 const parent = table.parentElement;
                 if (parent && parent.children.length === 1 && parent !== root && parent.tagName !== 'FORM') parent.classList.add('wutm-ui-table-scroll');
             });
