@@ -34,6 +34,8 @@ const render = mode => execFileSync(php, [...phpArgs, 'tests/admin-design.php', 
    const geometry=await page.evaluate(()=>{const box=s=>document.querySelector(s).getBoundingClientRect();return {search:box('#wutm-module-search-input').height,tabs:box('.wutm-module-tabs').height,rows:[...document.querySelectorAll('.wutm-module-tab')].map(e=>Math.round(e.getBoundingClientRect().top))};});
    assert.equal(geometry.search,geometry.tabs,'Search and tabs equal height '+width);
    assert.equal(new Set(geometry.rows).size,1,'All tabs remain on one row '+width);
+   const contained=await page.locator('.wutm-module-tabs').evaluate(e=>{const p=e.getBoundingClientRect();return [...e.querySelectorAll('[role=tab]')].every(t=>{const b=t.getBoundingClientRect();return b.top>=p.top+2 && b.bottom<=p.bottom-2 && b.left>=p.left && b.right<=p.right;});});
+   assert.ok(contained,'Actual tab buttons must fit inside the frame, not just share a row '+width);
    assert.equal(await page.locator('.wutm-signal-bars').count(),1,'Reference signal detail present');
    const sharing=page.locator('.wutm-share-toggle:not(:disabled)').first(),oldShare=await sharing.isChecked();
    await page.route('**/wp-admin/admin-ajax.php',async route=>{const params=new URLSearchParams(route.request().postData());await route.fulfill({contentType:'application/json',body:JSON.stringify({success:true,data:{enabled:params.get('enabled')==='1'}})});});

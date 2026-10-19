@@ -22,6 +22,7 @@ jobs:
         run: |
           php tests/admin-design.php
           php tests/module-access.php
+          php tests/product-unpublish.php
           node --check assets/js/admin-design.js
       - name: Validate tag and plugin version
         shell: bash
