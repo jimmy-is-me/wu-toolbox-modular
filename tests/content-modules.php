@@ -123,6 +123,7 @@ if (!$admin) {
 }
 require dirname(__DIR__).'/modules/google-maps/module.php';
 require dirname(__DIR__).'/core/module-registry.php';
+require dirname(__DIR__).'/core/module-access.php';
 require dirname(__DIR__).'/core/admin-page.php';
 $meta[7]=['_wm_address'=>'台北市信義區','_wm_height'=>500,'_wm_mobile_height'=>320,'_wm_show_info'=>'1','_wm_info_title'=>'展示中心','_wm_info_label'=>'LOCATION','_wm_info_address'=>"台北市\n歡迎預約",'_wm_button_text'=>'Google Maps 導航','_wm_style'=>'dark','_wm_loading'=>'lazy'];
 $mode=$argv[1]??'policy';
