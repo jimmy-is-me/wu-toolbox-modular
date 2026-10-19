@@ -144,6 +144,7 @@ jobs:
           export WUTM_TEST_CHROME="$(node -p "require('playwright').chromium.executablePath()")"
           node tests/admin-design-ui.js
           node tests/admin-components-ui.js
+          node tests/media-encoder-scan-ui.js
       - name: Check media viewport layouts and nested taxonomy sorting
         run: |
           curl -fsSL https://wordpress.org/wordpress-6.8.3.tar.gz | tar -xz -C "$RUNNER_TEMP"

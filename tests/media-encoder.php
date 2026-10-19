@@ -82,6 +82,10 @@ try{wutm_media_admin_ajax();throw new RuntimeException('nonce accepted');}catch(
 $wpdb->ids=[];try{wutm_media_admin_ajax();}catch(MediaResponse $e){check($e->success&&$e->data['rows']===[]&&!$e->data['more'],'Empty library returns complete payload');}
 $query=end($wpdb->queries);check(strpos($query,'LIMIT 21')!==false&&strpos($query,'COUNT')===false&&strpos($query,'OFFSET')===false,'Bounded no-count keyset query');
 check(empty($hooks['wp_ajax_nopriv_wutm_media_admin']),'No public media management endpoint');
+$_POST=['operation'=>'list','scope'=>'all','cursor'=>50];try{wutm_media_admin_ajax();}catch(MediaResponse $e){}
+$allQuery=end($wpdb->queries);check(strpos($allQuery,'post_mime_type IN')===false&&strpos($allQuery,'ID < 50')!==false&&strpos($allQuery,'LIMIT 21')!==false&&strpos($allQuery,'COUNT')===false,'Explicit all-file scope stays bounded, private and keyset-paginated');
+$files[999]=__FILE__;$mimes[999]='application/pdf';$beforeNonImage=count($wpdb->queries);
+check(is_wp_error(wutm_media_convert_attachment(999))&&count($wpdb->queries)===$beforeNonImage,'Non-images are rejected before locking, decoding or writing');unset($files[999],$mimes[999]);
 $beforeOptions=$options;
 $_POST=['quality'=>200,'formats'=>['png',['invalid']],'disabled_sizes'=>['scaled','medium','unknown',['invalid']],'max_width'=>12000,'max_height'=>0,'webp_enabled'=>1,'replace_original'=>1,'resize_enabled'=>1];
 try{$hooks['admin_post_wutm_save_media_encoder'][0]();}catch(RuntimeException $e){check($e->getMessage()==='saved','Settings save routes through admin-post');}

@@ -17,10 +17,11 @@ async function jquery(page,sortable=false) {
    if(!modal && builder)continue;
    const page=await browser.newPage({viewport:{width,height:950}}),errors=[];
    page.on('pageerror',e=>errors.push(e.message));
-   const grid='<ul class="attachments"><li class="attachment" style="width:100px;height:100px;background:#dbeafe">商品圖片</li></ul>';
+   const grid='<ul class="attachments">'+Array.from({length:24},(_,i)=>'<li class="attachment" data-id="'+(i+1)+'"><div class="attachment-preview"><div class="thumbnail"><img alt="" src="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22150%22 height=%22150%22%3E%3Crect width=%22150%22 height=%22150%22 fill=%22%2399bbee%22/%3E%3C/svg%3E"></div><div class="filename">商品圖片 '+i+'</div></div></li>').join('')+'</ul>';
    await page.setContent('<body class="wp-core-ui '+(modal?'post-php':'upload-php')+'"><div class="'+(modal?'media-modal':'')+'"><div class="media-frame '+(modal&&!builder?'':'mode-grid')+'"><div class="media-frame-content"><div class="attachments-browser hide-sidebar '+(wrapped?'has-load-more':'')+'"><div class="media-toolbar '+(modal?'':'wp-filter')+'"><button>篩選媒體</button></div>'+(wrapped?'<div class="attachments-wrapper">'+grid+'</div>':grid)+'</div></div></div></div>');
    await page.addStyleTag({content:readWP('wp-admin/css/common.css')+readWP('wp-includes/css/media-views.css')+readWP('wp-admin/css/media.css')});
    await page.addStyleTag({content:'body{margin:0}.media-modal{inset:10px}.media-frame{height:800px}.media-frame-content{left:0;top:0;bottom:0}.media-toolbar{height:72px;box-sizing:border-box}'});
+   await page.evaluate(()=>document.querySelector('.media-frame-content').setAttribute('data-columns','12'));
    await page.addStyleTag({content:mediaCSS});await jquery(page);
    await page.evaluate(()=>{window.ajaxurl='/admin-ajax.php';jQuery.ajax=()=>jQuery.Deferred().resolve({success:true,data:{folders:[{id:1,parent:0,name:'測試資料夾',count:1}],all_count:1,uncategorized_count:0}}).promise();});
    await page.addScriptTag({content:script});
@@ -37,6 +38,7 @@ async function jquery(page,sortable=false) {
    assert.ok(boxes.grid.width>60,'Grid has usable width');assert.deepEqual(errors,[]);
    const panelHit=await page.locator('.wumf-title').evaluate(e=>{const r=e.getBoundingClientRect();const hit=document.elementFromPoint(r.x+r.width/2,r.y+r.height/2);return !!hit&&!!hit.closest('.wumf-panel');});
    assert.ok(panelHit,'Folder title must actually be clickable/visible above thumbnails, not just have a correct rectangle');
+   if(modal){const tile=await page.locator('.attachments > .attachment .attachment-preview').first().boundingBox();assert.ok(tile.width>=85,'Real thumbnails must remain legible after reserving folder space, not just the outer grid');}
    if(modal && width===1440){
     await page.evaluate(()=>document.querySelector('.attachments-browser').classList.remove('hide-sidebar'));
     const right=await page.evaluate(()=>{const b=document.querySelector('.attachments-browser').getBoundingClientRect();const g=document.querySelector('.attachments-wrapper,.attachments').getBoundingClientRect();return b.right-g.right;});

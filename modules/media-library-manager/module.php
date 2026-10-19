@@ -908,6 +908,15 @@ function wumf_admin_css() {
             position:relative!important;left:0!important;right:0!important;inset-inline-start:0!important;top:0!important;
             margin:0!important;width:100%!important;box-sizing:border-box;
         }
+        /* Native data-columns can reflect the width before the folder pane was
+           inserted. Keep main-dialog thumbnails sized from their actual viewport;
+           do not touch upload.php or the bottom selected-media strip. */
+        .media-modal .attachments-browser.wumf-has-folders .attachments.wumf-modal-grid{
+            display:grid!important;grid-template-columns:repeat(var(--wumf-columns,1),minmax(0,1fr));align-content:start;
+        }
+        .media-modal .attachments-browser.wumf-has-folders .attachments.wumf-modal-grid > .attachment{
+            width:auto!important;max-width:none!important;min-width:0;float:none!important;
+        }
         .media-modal .media-frame .attachments-browser.wumf-has-folders.wumf-compact > .attachments,
         .media-modal .media-frame .attachments-browser.wumf-has-folders.wumf-compact > .attachments-wrapper{
             left:0!important;inset-inline-start:0!important;margin:0!important;
@@ -1273,11 +1282,26 @@ function wumf_admin_js() {
             } else {
                 $browser[0].style.removeProperty('--wumf-mobile-panel-height');
             }
+            if($browser.closest('.media-modal').length){
+                const $grid=$browser.find('.attachments').filter(function(){return $(this).closest('.attachments-browser')[0]===$browser[0];}).first();
+                if($grid.length){
+                    $grid.addClass('wumf-modal-grid');
+                    const available=$grid.width();
+                    if(available>0){
+                        const view=$browser.data('wumfView');
+                        const ideal=view && view.attachments && view.attachments.options ? view.attachments.options.idealColumnWidth : ($(window).width()<640?135:150);
+                        const columns=Math.max(1,Math.min(12,Math.round(available/(ideal||150))));
+                        $grid[0].style.setProperty('--wumf-columns',String(columns));
+                        if(view && view.attachments) view.attachments.columns=columns;
+                        $grid.closest('.media-frame-content').attr('data-columns',String(columns));
+                    }
+                }
+            }
         }
 
         function watchBrowserLayout($browser){
             if($browser.data('wumfLayoutObserver')) return;
-            const targets=$browser.children('.uploader-inline, .media-toolbar').get();
+            const targets=$browser.children('.uploader-inline, .media-toolbar, .attachments, .attachments-wrapper').get();
             if(!targets.length) return;
             const update=function(){
                 if(!document.documentElement.contains($browser[0])){
