@@ -99,7 +99,8 @@ final class WUTM_Admin_Menu_Editor {
                 $slug = (string) ($entry[2] ?? '');
                 $id = self::item_id((string) $parent, $slug);
                 $fields = (array) ($items[$id] ?? []);
-                if ($slug !== self::SLUG && !empty($fields['hidden'])) {
+                if ($slug !== self::SLUG && !empty($fields['hidden'])
+                    && !(function_exists('wutm_is_shared_menu_target') && wutm_is_shared_menu_target($slug))) {
                     unset($entries[$index]);
                     continue;
                 }

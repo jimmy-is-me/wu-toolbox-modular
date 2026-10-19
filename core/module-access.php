@@ -35,6 +35,18 @@ function wutm_shared_module_available(string $key, array $module): bool {
     if (($module['requires'] ?? '') === 'translatepress' && !class_exists('TRP_Translate_Press')) return false;
     return true;
 }
+/** Explicit sharing takes precedence over an older menu-editor hide rule. */
+function wutm_is_shared_menu_target(string $slug): bool {
+    foreach (wutm_modules() as $key => $module) {
+        if (!wutm_module_can_share($key, $module) || !wutm_module_is_shared($key) || !wutm_shared_module_available($key, $module)) continue;
+        $target = (string) ($module['settings_url'] ?? $module['settings_page'] ?? 'wu-' . $key);
+        if ($target === $slug) return true;
+        $args = [];
+        parse_str((string) parse_url($target, PHP_URL_QUERY), $args);
+        if (!empty($args['page']) && $args['page'] === $slug) return true;
+    }
+    return false;
+}
 function wutm_render_module_share(string $key, array $module, bool $enabled): void {
     if (!wutm_toolbox_is_owner() || !wutm_module_can_share($key, $module)) return;
     echo '<label class="wutm-share-control"><input type="checkbox" class="wutm-share-toggle" data-share-module="' . esc_attr($key) . '" ' . (wutm_module_is_shared($key) ? 'checked ' : '') . (!$enabled ? 'disabled ' : '') . '> <span>開放給其他管理員使用-出現在主選單</span></label>';

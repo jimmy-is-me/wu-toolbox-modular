@@ -53,6 +53,7 @@ share('custom-cursor', 1, 'nonce');
 $bad_nonce = false;
 share('custom-cursor', 1, 'success:1');
 check(wutm_module_is_shared('custom-cursor'), 'Preference persisted');
+check(wutm_is_shared_menu_target('wu-custom-cursor') && !wutm_is_shared_menu_target('unrelated'), 'Only explicitly shared route survives old menu-editor hiding');
 ob_start(); wutm_render_module_share('custom-cursor', wutm_get_module('custom-cursor'), true); $html = ob_get_clean();
 check(strpos($html, '開放給其他管理員使用-出現在主選單') !== false && strpos($html, 'checked') !== false, 'Card control matches saved state');
 $menu = [['Existing', 'manage_options', 'existing.php']];
