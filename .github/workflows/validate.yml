@@ -25,6 +25,7 @@ jobs:
       - name: Check shared admin design ownership and settings contract
         run: |
           php tests/admin-design.php
+          php tests/module-access.php
           php tests/admin-enhancements.php
           php tests/style-youtube.php
           node --check assets/js/admin-design.js
@@ -61,6 +62,7 @@ jobs:
           php "$RUNNER_TEMP/wutm-wp-cli.phar" config create --path="$RUNNER_TEMP/wutm-media-wp" --dbname=wci_fixture --dbprefix=wme_wp_ --dbhost=127.0.0.1 --dbuser=root --dbpass=fixture-only --skip-check
           php "$RUNNER_TEMP/wutm-wp-cli.phar" core install --path="$RUNNER_TEMP/wutm-media-wp" --url=https://media.example.test --title="Media fixture" --admin_user=fixture --admin_password=fixture-only --admin_email=fixture@example.test --skip-email
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/media-encoder-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/module-access-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
       - name: Check maps and content overview preservation, permissions and scope
         run: |
           php tests/content-modules.php

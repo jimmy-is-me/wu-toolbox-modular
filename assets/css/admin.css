@@ -3,8 +3,8 @@
  */
 .wutm-admin-screen {
   --wutm-ink:#0f172a; --wutm-muted:#475569; --wutm-line:#dce4ee;
-  --wutm-paper:#f8fafc; --wutm-panel:#fff; --wutm-blue:#4f46e5;
-  --wutm-blue-dark:#4338ca; --wutm-mint:#047857; --wutm-radius:14px;
+  --wutm-paper:#f7f9fd; --wutm-panel:#fff; --wutm-blue:#3e63eb;
+  --wutm-blue-dark:#2f56cb; --wutm-mint:#047857; --wutm-radius:14px;
   /* Compatibility tokens consumed by existing module templates. */
   --wutm-wp-text:var(--wutm-ink); --wutm-wp-muted:var(--wutm-muted);
   --wutm-wp-border:var(--wutm-line); --wutm-wp-border-dark:#94a3b8;

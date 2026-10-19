@@ -22,7 +22,7 @@ const render = mode => execFileSync(php, [...phpArgs, 'tests/admin-design.php', 
  const origin='http://127.0.0.1:'+server.address().port;
  const browser=await chromium.launch({headless:true,executablePath:process.env.WUTM_TEST_CHROME,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
  try {
-  for(const width of [1440,1024,768,390]) {
+  for(const width of [1440,1024,768,390,320]) {
    const page=await browser.newPage({viewport:{width,height:1000}}),errors=[];
    page.on('pageerror',e=>errors.push(e.message));
    await page.route('**/wp-admin/admin-ajax.php',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({success:true})}));
@@ -31,6 +31,18 @@ const render = mode => execFileSync(php, [...phpArgs, 'tests/admin-design.php', 
    assert.ok(await page.locator('.wutm-card').count()>100,'All registry modules present');
    assert.equal(await page.locator('.wutm-ui-header').count(),1);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Dashboard overflow '+width);
+   const geometry=await page.evaluate(()=>{const box=s=>document.querySelector(s).getBoundingClientRect();return {search:box('#wutm-module-search-input').height,tabs:box('.wutm-module-tabs').height,rows:[...document.querySelectorAll('.wutm-module-tab')].map(e=>Math.round(e.getBoundingClientRect().top))};});
+   assert.equal(geometry.search,geometry.tabs,'Search and tabs equal height '+width);
+   assert.equal(new Set(geometry.rows).size,1,'All tabs remain on one row '+width);
+   assert.equal(await page.locator('.wutm-signal-bars').count(),1,'Reference signal detail present');
+   const sharing=page.locator('.wutm-share-toggle:not(:disabled)').first(),oldShare=await sharing.isChecked();
+   await page.route('**/wp-admin/admin-ajax.php',async route=>{const params=new URLSearchParams(route.request().postData());await route.fulfill({contentType:'application/json',body:JSON.stringify({success:true,data:{enabled:params.get('enabled')==='1'}})});});
+   await sharing.setChecked(!oldShare);await page.waitForFunction(()=>!!document.querySelector('.wutm-share-control[title]'));
+   assert.equal(await sharing.isChecked(),!oldShare,'Separate sharing saved');
+   await page.route('**/wp-admin/admin-ajax.php',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({success:false,data:{message:'fixture rejected'}})}));
+   await sharing.setChecked(oldShare);await page.waitForFunction(()=>document.querySelector('.wutm-notice-slot').textContent.includes('fixture rejected'));
+   assert.equal(await sharing.isChecked(),!oldShare,'Failed sharing save restores previous state');
+   await page.route('**/wp-admin/admin-ajax.php',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({success:true})}));
    const checkbox=page.locator('.wutm-switch input:not(:disabled)').first();
    const was=await checkbox.isChecked(), count=Number(await page.locator('.wutm-enabled-count').textContent());
    await checkbox.setChecked(!was);
@@ -108,6 +120,6 @@ const render = mode => execFileSync(php, [...phpArgs, 'tests/admin-design.php', 
    return [getComputedStyle(h).backgroundColor,getComputedStyle(table).borderTopWidth];
   });
   assert.deepEqual(result,['rgba(0, 0, 0, 0)','0px']);
-  console.log('Admin design browser checks passed: 4 widths, 100+ real module cards, toggles/counts, search, filters, native form fields, color display, reduced motion and foreign-screen CSS isolation.');
+  console.log('Admin design browser checks passed: 5 dashboard widths, equal-height single-row tabs, separate sharing save/rollback, 100+ cards, toggles/counts, search, filters, original forms, reduced motion and foreign-screen isolation.');
  } finally {await browser.close();server.close();}
 })().catch(e=>{console.error(e);process.exitCode=1});

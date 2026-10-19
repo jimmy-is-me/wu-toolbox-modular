@@ -2,12 +2,16 @@
 body.wutm-admin-screen #wpbody-content > :is(#wutm-media,.wutm-ui-root){max-width:1440px!important;padding:24px!important;border-radius:16px!important;background:var(--wutm-paper)!important;box-sizing:border-box}
 body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root):not(.wutm-ui-dashboard) :is(.wutm-ui-header,.wutm-ui-title),
 body.wutm-admin-screen #wpbody-content > .wutm-ui-root.wutm-ui-header{
- background:linear-gradient(110deg,#fff,#f4f2ff)!important;color:var(--wutm-ink)!important;
+ background:linear-gradient(115deg,#fff,#f3f8ff)!important;color:var(--wutm-ink)!important;
  border:1px solid var(--wutm-line)!important;border-radius:14px!important;padding:24px!important;margin:0 0 24px!important;box-shadow:none!important;
 }
 body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root):not(.wutm-ui-dashboard) :is(.wutm-ui-header,.wutm-ui-title)::before,
 body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root):not(.wutm-ui-dashboard) .wutm-ui-header::after,
 body.wutm-admin-screen #wpbody-content > .wutm-ui-root.wutm-ui-header::after{display:none!important}
+body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root):not(.wutm-ui-dashboard) :is(.wutm-ui-header,.wutm-ui-title)::before{
+ content:"";display:block!important;position:absolute;inset:-70px 0 auto auto;width:180px;height:180px;pointer-events:none;border-radius:0;
+ background:linear-gradient(#3176db1a 1px,transparent 1px),linear-gradient(90deg,#3176db1a 1px,transparent 1px);background-size:20px 20px;transform:rotate(18deg);opacity:.6;z-index:-1;
+}
 body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root):not(.wutm-ui-dashboard) .wutm-ui-header :is(h1,h2){font-size:28px!important;line-height:1.45!important;margin:0!important;color:var(--wutm-ink)!important;letter-spacing:0!important}
 body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root):not(.wutm-ui-dashboard) .wutm-ui-header :is(p,.wme-eyebrow){color:var(--wutm-muted)!important}
 body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root) .wutm-ui-panel{border:1px solid var(--wutm-line)!important;border-radius:14px!important;background:var(--wutm-panel,#fff)!important;box-shadow:none!important;color:var(--wutm-ink)}
@@ -33,3 +37,58 @@ body.wutm-admin-screen #wpbody-content > .wutm-ui-root.wutm-ui-header .ysch-hero
  body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root):not(.wutm-ui-dashboard) :is(.wutm-ui-header,.wutm-ui-title){padding:20px!important}
  body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root):not(.wutm-ui-dashboard) .wutm-ui-header :is(h1,h2){font-size:24px!important}
 }
+/* Tech Precision: port the final (blue/cyan) skin in the supplied HTML, not its
+ * earlier purple demo rules. Keep WordPress chrome and module form logic intact. */
+body.wutm-admin-screen #wpbody-content > :is(#wutm-media,.wutm-ui-root){
+ background:radial-gradient(ellipse 70% 38% at 50% 0%,#e6efff 0,transparent 73%),linear-gradient(0deg,#7c95bf09 1px,transparent 1px),linear-gradient(90deg,#7c95bf09 1px,transparent 1px),#f7f9fd!important;
+ background-size:auto,32px 32px,32px 32px,auto!important;
+}
+body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-header{
+ background:linear-gradient(112deg,#0c1a32,#122744 52%,#182d4f)!important;
+ border-color:#223f68!important;border-radius:14px!important;min-height:262px;position:relative;isolation:isolate;
+}
+body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-header::before{
+ content:"";display:block;position:absolute;inset:0;z-index:-1;pointer-events:none;border-radius:inherit;
+ background:linear-gradient(90deg,#7ab2ff0e 1px,transparent 1px),linear-gradient(0deg,#7ab2ff0e 1px,transparent 1px);background-size:27px 27px;
+}
+body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-header::after{display:none!important}
+body.wutm-admin-screen #wpbody-content .wutm-hero-metrics{border-color:#6e96c333;background:linear-gradient(135deg,#10294970,#081a2e6b);padding:20px;min-width:260px}
+body.wutm-admin-screen #wpbody-content .wutm-metric-track{height:6px;border-radius:2px;background:#3a567177}
+body.wutm-admin-screen #wpbody-content .wutm-metric-track>span{background:linear-gradient(90deg,#2c8fff,#65e6d6);border-radius:2px}
+body.wutm-admin-screen #wpbody-content .wutm-card{border-radius:10px!important;box-shadow:none!important}
+body.wutm-admin-screen #wpbody-content .wutm-card::before{left:0;right:0;background:linear-gradient(90deg,#397cff,#62ddd2)!important}
+body.wutm-admin-screen #wpbody-content .wutm-switch input:checked+span{background:linear-gradient(90deg,#3e63eb,#0a9fb1)!important}
+body.wutm-admin-screen #wpbody-content .wutm-card-actions{margin-top:auto;padding-top:11px;border-top:1px solid #edf1f7;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-direction:row-reverse}
+body.wutm-admin-screen #wpbody-content .wutm-card-actions .wutm-settings{margin:0;padding:4px 0;border:0;flex:none}
+body.wutm-admin-screen #wpbody-content .wutm-share-control{display:flex;align-items:center;gap:7px;font-size:11px;line-height:1.6;color:#475569;min-width:0;cursor:pointer}
+body.wutm-admin-screen #wpbody-content .wutm-share-toggle{appearance:none;flex:none;width:28px;height:17px;border:0;border-radius:20px;background:#94a3b8;position:relative;box-shadow:none;margin:0;cursor:pointer}
+body.wutm-admin-screen #wpbody-content .wutm-share-toggle::before{content:"";position:absolute;left:3px;top:3px;width:11px;height:11px;border-radius:50%;background:#fff;margin:0}
+body.wutm-admin-screen #wpbody-content .wutm-share-toggle:checked{background:#3e63eb}
+body.wutm-admin-screen #wpbody-content .wutm-share-toggle:checked::before{transform:translateX(11px)}
+body.wutm-admin-screen #wpbody-content .wutm-share-toggle:disabled{opacity:.45;cursor:not-allowed}
+body.wutm-admin-screen #wpbody-content .wutm-share-toggle:focus-visible{outline:2px solid #3e63eb;outline-offset:3px}
+body.wutm-admin-screen #wpbody-content .wutm-visibility-settings{margin-top:20px}
+/* Dashboard tabs are a single three-column control, not generic wrapping tabs. */
+body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-search{padding:13px 15px;gap:10px;align-items:center}
+body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-search input[type=search],
+body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-search>.button{height:44px!important;min-height:44px!important;box-sizing:border-box;margin:0!important}
+body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-tabs.wutm-ui-tabs{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;padding:3px!important;height:44px;box-sizing:border-box;margin:0 0 0 auto!important;border-radius:7px!important;flex:0 1 440px}
+body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-tabs [role=tab]{padding:0 9px!important;min-height:0;height:36px;gap:5px;white-space:nowrap;font-size:12px!important;border-radius:5px!important}
+body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-tab-indicator{display:none}
+body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-search input[type=search]{max-width:none}
+.wutm-admin-screen .wutm-signal-bars{display:flex;align-items:end;gap:5px;height:23px;margin-top:16px;max-width:215px}
+.wutm-admin-screen .wutm-signal-bars i{width:4px;height:30%;background:#53c8ed;border-radius:1px;animation:wutm-tech-wave 1.5s ease-in-out infinite alternate;opacity:.7}
+.wutm-admin-screen .wutm-signal-bars i:nth-child(3n){animation-delay:-.7s;background:#6af3cf}
+.wutm-admin-screen .wutm-signal-bars i:nth-child(4n){animation-delay:-.3s}
+.wutm-admin-screen .wutm-signal-bars i:nth-child(5n){animation-delay:-1s}
+.wutm-admin-screen .wutm-signal-bars span{font:700 9px ui-monospace,Consolas,monospace;letter-spacing:.12em;white-space:nowrap;align-self:center;margin-left:9px;color:#9db0cd}
+@keyframes wutm-tech-wave{to{height:95%;opacity:1}}
+@media(max-width:1100px){body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-tabs.wutm-ui-tabs{flex-basis:100%;margin-left:0!important}}
+@media(max-width:782px){
+ body.wutm-admin-screen #wpbody-content .wutm-hero-metrics{min-width:0;width:100%;box-sizing:border-box}
+ body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-tabs [role=tab]{font-size:11px!important;padding:0 3px!important;gap:3px}
+ body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-search{padding:12px;gap:8px}
+ body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-search input[type=search]{flex-basis:120px}
+ body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-tab-count{font-size:9px;min-width:15px;padding:1px 3px}
+}
+@media(prefers-reduced-motion:reduce){.wutm-admin-screen .wutm-signal-bars i{animation:none!important}}

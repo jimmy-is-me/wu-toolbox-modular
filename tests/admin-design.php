@@ -4,7 +4,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 define('ABSPATH', __DIR__ . '/');
 define('WUTM_PATH', dirname(__DIR__) . '/');
 define('WUTM_URL', '/');
-define('WUTM_VERSION', '3.7.0');
+define('WUTM_VERSION', '3.7.1');
 $hooks = $wp_filter = $styles = $scripts = [];
 $screen = (object) ['id' => 'renamed-toolbox_page_wu-custom-cursor'];
 $admin = true;
@@ -39,6 +39,7 @@ class WUTM_License_Manager {
     function render_panel() { echo '<section class="wutm-license-panel"><h2>授權與更新</h2><p>授權狀態與更新資訊</p></section>'; }
 }
 require WUTM_PATH . 'core/module-registry.php';
+require WUTM_PATH . 'core/module-access.php';
 require WUTM_PATH . 'core/admin-page.php';
 require WUTM_PATH . 'modules/custom-cursor/module.php';
 require WUTM_PATH . 'core/admin-design.php';

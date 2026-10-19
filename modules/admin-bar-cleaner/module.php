@@ -23,7 +23,6 @@ class WU_Admin_Bar_Cleaner {
         'wu_hide_site_address',
         'wu_hide_writing_settings',
         'wu_hide_privacy_settings',
-        'wu_hide_wumetax_toolkit',
         'wu_enable_copy_protection',
     ];
 
@@ -96,7 +95,6 @@ class WU_Admin_Bar_Cleaner {
             [ 'wu_hide_site_address',               '隱藏 Site Address (URL)',           'hide_site_address_callback',               'wu_backend_section'    ],
             [ 'wu_hide_writing_settings',           '隱藏 Writing Settings',             'hide_writing_settings_callback',           'wu_backend_section'    ],
             [ 'wu_hide_privacy_settings',           '隱藏 Privacy 設定',                'hide_privacy_settings_callback',           'wu_backend_section'    ],
-            [ 'wu_hide_wumetax_toolkit',            '向其他管理員隱藏 WumetaxToolkit',  'hide_wumetax_toolkit_callback',            'wu_backend_section'    ],
             [ 'wu_custom_frontend_footer_text',     '自訂前台頁尾文本',                 'custom_frontend_footer_text_callback',     'wu_frontend_section'   ],
             [ 'wu_enable_copy_protection',          '內容複製保護',                     'copy_protection_callback',                 'wu_frontend_section'   ],
             [ 'wu_disabled_user_roles',             '停用使用者角色',                   'user_roles_management_callback',           'wu_user_roles_section' ],
@@ -172,16 +170,6 @@ class WU_Admin_Bar_Cleaner {
         $value = get_option( 'wu_custom_admin_footer_text', '' );
         echo '<input type="text" id="wu_custom_admin_footer_text" name="wu_custom_admin_footer_text" value="' . esc_attr( $value ) . '" class="regular-text">';
         echo '<p class="description">輸入自訂的管理頁尾文本。留空則不顯示。移除頁尾文本開啟時，此設定無效。</p>';
-    }
-
-    public function hide_wumetax_toolkit_callback(): void {
-        $current_user = wp_get_current_user();
-        $saved_id     = (int) get_option( 'wu_hide_wumetax_toolkit_admin_id', 0 );
-        $this->checkbox_field( 'wu_hide_wumetax_toolkit', '向其他管理員隱藏 WumetaxToolkit 外掛選單' );
-        echo '<p class="description"><strong>當前管理員：</strong>ID: ' . (int) $current_user->ID . ' | Email: ' . esc_html( $current_user->user_email ) . '</p>';
-        if ( $saved_id && $saved_id !== (int) $current_user->ID ) {
-            echo '<p class="description" style="color:#d63638;">此設定由管理員 ID: ' . $saved_id . ' 建立，其他管理員目前無法看到此選單。</p>';
-        }
     }
 
     public function custom_frontend_footer_text_callback(): void {
@@ -297,16 +285,7 @@ class WU_Admin_Bar_Cleaner {
         update_option( 'wu_disabled_user_role_definitions', $role_definitions, false );
         update_option( 'wu_disabled_user_roles', $clean_roles );
 
-        // ✅ 修正：hide_wumetax_toolkit admin_id 只在儲存時處理，不在 admin_menu render 時寫入
-        if ( isset( $_POST['wu_hide_wumetax_toolkit'] ) ) {
-            $current_id = get_current_user_id();
-            $saved_id   = (int) get_option( 'wu_hide_wumetax_toolkit_admin_id', 0 );
-            if ( ! $saved_id ) {
-                update_option( 'wu_hide_wumetax_toolkit_admin_id', $current_id );
-            }
-        } else {
-            delete_option( 'wu_hide_wumetax_toolkit_admin_id' );
-        }
+        // Toolbox visibility is managed independently in License & Updates.
     }
 
     // ===== 管理頁面 UI =====
@@ -347,7 +326,6 @@ class WU_Admin_Bar_Cleaner {
                         [ '儀表板小工具',             $opts['wu_disable_all_dashboard_widgets'],    '已全部停用',          '已啟用'               ],
                         [ '後台 Tools 選單',          $opts['wu_hide_tools_menu'],                  '已隱藏',              '顯示中'               ],
                         [ '內容複製保護',             $opts['wu_enable_copy_protection'],           '已啟用',              '已停用'               ],
-                        [ 'WumetaxToolkit 選單隱藏',  $opts['wu_hide_wumetax_toolkit'],             '已啟用（限定管理員）', '停用（所有管理員可見）' ],
                     ];
                     foreach ( $status_rows as [ $label, $active, $on_text, $off_text ] ):
                         $cls  = $active ? 'wu-status-on' : 'wu-status-off';
@@ -469,12 +447,6 @@ class WU_Admin_Bar_Cleaner {
         if ( $needs_hide_settings ) {
             add_action( 'admin_head', [ $this, 'hide_admin_settings' ] );
         }
-
-        // ✅ 修正：hide_wumetax_toolkit_menu 不在裡面呼叫 update_option，只做 remove_menu_page
-        if ( get_option( 'wu_hide_wumetax_toolkit', false ) ) {
-            add_action( 'admin_menu', [ $this, 'hide_wumetax_toolkit_menu' ], 999 );
-        }
-
     }
 
     // ===== 功能實作 =====
@@ -684,16 +656,6 @@ class WU_Admin_Bar_Cleaner {
             echo '<div style="text-align:center;padding:20px;margin-top:30px;border-top:1px solid #eee;">'
                . esc_html( $text )
                . '</div>';
-        }
-    }
-
-    // ✅ 修正：只做 remove_menu_page，不再呼叫 update_option（儲存邏輯移至 save_settings_from_post）
-    public function hide_wumetax_toolkit_menu(): void {
-        $saved_id   = (int) get_option( 'wu_hide_wumetax_toolkit_admin_id', 0 );
-        $current_id = get_current_user_id();
-
-        if ( $saved_id && $current_id !== $saved_id ) {
-            remove_menu_page( 'wu-toolbox-modular' );
         }
     }
 

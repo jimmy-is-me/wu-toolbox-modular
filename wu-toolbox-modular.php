@@ -3,7 +3,7 @@
  * Plugin Name: WU Toolbox Modular
  * Plugin URI: https://wumetax.com/
  * Description: WU Toolbox 的按需載入模組化版本。每項功能獨立，只有啟用後才會載入。
- * Version: 3.7.0
+ * Version: 3.7.1
  * Author: Wumetax
  * Author URI: https://wumetax.com/
  * License: GPL-2.0-or-later
@@ -14,7 +14,7 @@
 defined('ABSPATH') || exit;
 
 define('WUTM_FILE', __FILE__);
-define('WUTM_VERSION', '3.7.0');
+define('WUTM_VERSION', '3.7.1');
 define('WUTM_PATH', plugin_dir_path(__FILE__));
 define('WUTM_URL', plugin_dir_url(__FILE__));
 
@@ -24,7 +24,7 @@ defined('WUMETAX_URL') || define('WUMETAX_URL', WUTM_URL);
 
 
 add_filter('plugin_action_links_' . plugin_basename(WUTM_FILE), function (array $links): array {
-    if (current_user_can('manage_options')) {
+    if (wutm_toolbox_can_manage()) {
         array_unshift(
             $links,
             '<a href="' . esc_url(admin_url('admin.php?page=wu-toolbox-modular')) . '">' .
@@ -78,6 +78,7 @@ add_filter('plugin_row_meta', function (array $links, string $file): array {
 }, 10, 2);
 
 require_once WUTM_PATH . 'core/module-registry.php';
+require_once WUTM_PATH . 'core/module-access.php';
 require_once WUTM_PATH . 'core/license-manager.php';
 require_once WUTM_PATH . 'core/module-loader.php';
 require_once WUTM_PATH . 'core/legacy-esun-orders.php';
@@ -96,7 +97,7 @@ register_deactivation_hook(__FILE__, function () {
 });
 
 add_action('admin_init', function () {
-    if (!get_option('wutm_activation_redirect') || wp_doing_ajax() || is_network_admin()) return;
+    if (!get_option('wutm_activation_redirect') || wp_doing_ajax() || is_network_admin() || !wutm_toolbox_can_manage()) return;
     delete_option('wutm_activation_redirect');
     if (!isset($_GET['activate-multi'])) {
         wp_safe_redirect(admin_url('admin.php?page=wu-toolbox-modular'));
@@ -118,7 +119,7 @@ add_action('admin_menu', function () {
 
 add_action('wp_ajax_wutm_toggle_module', function () {
     check_ajax_referer('wutm_toggle_module', 'nonce');
-    if (!current_user_can('manage_options')) wp_send_json_error(['message' => 'forbidden'], 403);
+    if (!wutm_toolbox_can_manage()) wp_send_json_error(['message' => 'forbidden'], 403);
 
     $key = sanitize_key(wp_unslash($_POST['module'] ?? ''));
     $module = wutm_get_module($key);

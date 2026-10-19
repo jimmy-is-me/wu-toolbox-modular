@@ -1,0 +1,8 @@
+# v3.7.1 — Module menu sharing and Tech Precision fidelity
+
+- Module cards now have an owner-only “開放給其他管理員使用-出現在主選單” switch beside Settings. Saves use a separate nonce-protected action. Disabled modules cannot be newly shared; disabling a shared module hides its link without losing the preference.
+- Other administrators get native menu links to the original module pages. Original page callbacks, load hooks, capabilities, settings forms and assets remain unchanged. No duplicate module execution or background queries were added.
+- Toolbox visibility moved from Admin Interface Management to License & Updates and defaults to hidden for other administrators, independently of enabled modules. Existing visibility owners and the menu editor's primary accounts retain management access, with oldest-administrator recovery if owners disappear. Existing legacy options are not deleted by cleaner saves.
+- Third-party installers, connector navigation cards and the primary-account-only menu editor are not independently shareable. No roles or capabilities are granted; hiding menus is not a security boundary against WordPress administrators.
+- Match the final supplied HTML skin: navy/cyan grid hero, SIGNAL / UI equalizer with reduced-motion support, light blue settings headers, low-shadow cards, and matching search/tab heights. Three dashboard tabs remain on a single row on phones.
+- Tests cover owner/non-owner/default/recovery behavior, nonce/capability failures, disabled modules, revocation, existing menu preservation, responsive layouts, save failure restoration, and unchanged module form behavior. Release remains subject to full CI verification.
