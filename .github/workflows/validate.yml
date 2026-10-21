@@ -29,6 +29,8 @@ jobs:
           php tests/product-unpublish.php
           php tests/admin-enhancements.php
           php tests/style-youtube.php
+          php tests/media-safe-cleaner.php
+          php tests/media-safe-cleaner.php frontend
           node --check assets/js/admin-design.js
           node tests/admin-ui-contract.js
       - name: Check member loyalty promotion calculations
@@ -63,6 +65,7 @@ jobs:
           php "$RUNNER_TEMP/wutm-wp-cli.phar" config create --path="$RUNNER_TEMP/wutm-media-wp" --dbname=wci_fixture --dbprefix=wme_wp_ --dbhost=127.0.0.1 --dbuser=root --dbpass=fixture-only --skip-check
           php "$RUNNER_TEMP/wutm-wp-cli.phar" core install --path="$RUNNER_TEMP/wutm-media-wp" --url=https://media.example.test --title="Media fixture" --admin_user=fixture --admin_password=fixture-only --admin_email=fixture@example.test --skip-email
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/media-encoder-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/media-safe-cleaner-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/module-access-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/product-unpublish-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
       - name: Check maps and content overview preservation, permissions and scope
@@ -145,6 +148,7 @@ jobs:
           node tests/admin-design-ui.js
           node tests/admin-components-ui.js
           node tests/media-encoder-scan-ui.js
+          node tests/media-safe-cleaner-ui.js
       - name: Check media viewport layouts and nested taxonomy sorting
         run: |
           curl -fsSL https://wordpress.org/wordpress-6.8.3.tar.gz | tar -xz -C "$RUNNER_TEMP"
