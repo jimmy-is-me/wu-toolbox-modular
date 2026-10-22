@@ -63,7 +63,9 @@ const render = mode => execFileSync(php, [...phpArgs, 'tests/admin-design.php', 
    await sharing.setChecked(!oldShare);await page.waitForFunction(()=>!!document.querySelector('.wutm-share-control[title]'));
    assert.equal(await sharing.isChecked(),!oldShare,'Separate sharing saved');
    await page.route('**/wp-admin/admin-ajax.php',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({success:false,data:{message:'fixture rejected'}})}));
-   await sharing.setChecked(oldShare);await page.waitForFunction(()=>document.querySelector('.wutm-notice-slot').textContent.includes('fixture rejected'));
+   // A rejected save can roll back before setChecked verifies its postcondition.
+   // Use the actual click, then assert the rejection and restored state below.
+   await sharing.click();await page.waitForFunction(()=>document.querySelector('.wutm-notice-slot').textContent.includes('fixture rejected'));
    assert.equal(await sharing.isChecked(),!oldShare,'Failed sharing save restores previous state');
    await page.route('**/wp-admin/admin-ajax.php',route=>route.fulfill({contentType:'application/json',body:JSON.stringify({success:true})}));
    const checkbox=page.locator('.wutm-switch input:not(:disabled)').first();
