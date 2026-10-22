@@ -73,7 +73,7 @@ class WU_NP_NewebPay_Gateway_Api extends WU_NP_NewebPay {
         WU_NP_NewebPay_Gateway::log('Checkout form generated');
 
 		$order->update_meta_data( '_newebpay_MerchantOrderNo', $args['MerchantOrderNo'] );
-        $attempts=(array)$order->get_meta('_wu_np_newebpay_attempts');
+        $attempts=$order->get_meta('_wu_np_newebpay_attempts'); $attempts=is_array($attempts)?$attempts:[];
         $attempts[$args['MerchantOrderNo']]=['merchant'=>(string)$MerchantID,'amount'=>$args['Amt']];
         $order->update_meta_data('_wu_np_newebpay_attempts',array_slice($attempts,-10,null,true));
 		$order->save_meta_data();

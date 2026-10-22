@@ -2,6 +2,8 @@
 /** Native WooCommerce fixture; transport is mocked, restricted to disposable CI. */
 if(!defined('WP_CLI')||!WP_CLI||getenv('WUTM_MEDIA_INTEGRATION')!=='1'||DB_NAME!=='wci_fixture'||$GLOBALS['wpdb']->prefix!=='wme_wp_')throw new RuntimeException('Disposable CI only');
 error_reporting(E_ALL & ~E_DEPRECATED);
+add_filter('pre_wp_mail',static function(){return true;});
+add_filter('pre_http_request',static function(){throw new RuntimeException('Unexpected HTTP transport in native commerce fixture');},1);
 define('WUTM_PATH',dirname(__DIR__).'/');define('WUTM_FILE',WUTM_PATH.'wu-toolbox-modular.php');define('WUTM_URL','https://fixture.test/plugin/');define('WUTM_VERSION','integration');
 function np_assert($ok,$label){if(!$ok)throw new RuntimeException($label);}
 function np_private($class,$method,...$args){$r=new ReflectionMethod($class,$method);if(PHP_VERSION_ID<80100)$r->setAccessible(true);return $r->invoke(null,...$args);}

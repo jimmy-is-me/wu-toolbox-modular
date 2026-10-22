@@ -32,7 +32,7 @@ class WU_NP_NewebPay_Gateway_Response extends WU_NP_NewebPay_Gateway_Api {
         $id=self::get_order_id($data,(string)WU_NP_WT::get_option('newebpay_gateway_order_prefix',''));
         $order=$id?wc_get_order($id):false;
         if(!$order||$order->get_currency()!=='TWD'||(int)$result->Amt!==(int)ceil($order->get_total())) return false;
-        $attempts=(array)$order->get_meta('_wu_np_newebpay_attempts'); $attempt=$attempts[$result->MerchantOrderNo]??null;
+        $attempts=$order->get_meta('_wu_np_newebpay_attempts'); $attempt=is_array($attempts)?($attempts[$result->MerchantOrderNo]??null):null;
         if(!hash_equals((string)$order->get_meta('_newebpay_MerchantOrderNo'),$result->MerchantOrderNo)&&(!is_array($attempt)||($attempt['merchant']??'')!==(string)$merchant||($attempt['amount']??-1)!==(int)$result->Amt)) return false;
         $method=$order->get_payment_method();
         if(strpos($method,'wu_np_newebpay_')!==0) {
@@ -53,7 +53,7 @@ class WU_NP_NewebPay_Gateway_Response extends WU_NP_NewebPay_Gateway_Api {
         if(!$lock) { http_response_code(409); if(self::$do_die) exit('0|BUSY'); return; }
         try {
             $order=wc_get_order($id); $digest=hash('sha256',$ipn_info['TradeInfo']);
-            $seen=(array)$order->get_meta('_wu_np_callback_seen');
+            $seen=$order->get_meta('_wu_np_callback_seen'); $seen=is_array($seen)?$seen:[];
             if(!in_array($digest,$seen,true)&&!($order->is_paid()&&$data->Status!=='SUCCESS')) {
                 self::process_verified_callback($ipn_info);
                 $order=wc_get_order($id); $seen[]=$digest; $order->update_meta_data('_wu_np_callback_seen',array_slice($seen,-20)); $order->save_meta_data();
