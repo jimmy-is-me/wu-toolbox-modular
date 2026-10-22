@@ -3,7 +3,7 @@
  * Plugin Name: WU Toolbox Modular
  * Plugin URI: https://wumetax.com/
  * Description: WU Toolbox 的按需載入模組化版本。每項功能獨立，只有啟用後才會載入。
- * Version: 3.7.5
+ * Version: 3.7.6
  * Author: Wumetax
  * Author URI: https://wumetax.com/
  * License: GPL-2.0-or-later
@@ -14,7 +14,7 @@
 defined('ABSPATH') || exit;
 
 define('WUTM_FILE', __FILE__);
-define('WUTM_VERSION', '3.7.5');
+define('WUTM_VERSION', '3.7.6');
 define('WUTM_PATH', plugin_dir_path(__FILE__));
 define('WUTM_URL', plugin_dir_url(__FILE__));
 
@@ -130,6 +130,12 @@ add_action('wp_ajax_wutm_toggle_module', function () {
     }
 
     $enable = !empty($_POST['enabled']);
+    if ($enable && !empty($module['min_php']) && version_compare(PHP_VERSION, $module['min_php'], '<')) wp_send_json_error(['message'=>'此模組需要 PHP ' . $module['min_php'] . ' 以上。'], 400);
+    if ($enable && !empty($module['exclusive_group'])) {
+        foreach (wutm_modules() as $other_key => $other_module) {
+            if ($other_key !== $key && ($other_module['exclusive_group'] ?? '') === $module['exclusive_group'] && wutm_is_enabled($other_key)) wp_send_json_error(['message'=>'請先關閉另一種電子發票模組，避免重複開票。'],400);
+        }
+    }
     $requires_module = (string) ($module['requires_module'] ?? '');
     if ($enable && $requires_module !== '' && !wutm_is_enabled($requires_module)) {
         $required = wutm_get_module($requires_module);

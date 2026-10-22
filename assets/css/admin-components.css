@@ -93,3 +93,10 @@ body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-search in
  body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-tab-count{font-size:9px;min-width:15px;padding:1px 3px}
 }
 @media(prefers-reduced-motion:reduce){.wutm-admin-screen .wutm-signal-bars i{animation:none!important}}
+/* Dashboard category shortcuts use the same visible groups as the cards. */
+.wutm-category-nav{display:flex;flex-wrap:nowrap;overflow-x:auto;max-width:100%;min-width:0;gap:8px;margin-top:16px;padding:14px 2px 5px;border-top:1px solid #d8e2ef;scrollbar-width:thin}
+.wutm-category-nav a{display:inline-flex;flex:0 0 auto;white-space:nowrap;align-items:center;min-height:36px;padding:4px 12px;border:1px solid #d8e2ef;border-radius:8px;background:#fff;color:#23466b;text-decoration:none;font-size:13px;line-height:1.5}
+.wutm-category-nav a:hover,.wutm-category-nav a:focus-visible{border-color:#377cde;color:#1753bd;outline-offset:3px}
+.wutm-category-nav a[hidden]{display:none!important}
+.wutm-module-group{scroll-margin-top:50px}
+@media(max-width:600px){.wutm-category-nav{gap:6px}.wutm-category-nav a{min-height:40px;padding:5px 10px}}

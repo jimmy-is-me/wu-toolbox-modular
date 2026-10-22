@@ -1,0 +1,15 @@
+{
+  "upstream": "3735fa63d1add98521b18f9311bad4a7b2dc1632",
+  "packages": [
+    {
+      "name": "oberonlai/wp-metabox",
+      "version": "v1.0.7",
+      "license": "MIT",
+      "source": {
+        "type": "git",
+        "url": "https://github.com/oberonlai/wp-metabox.git",
+        "reference": "be20f2ab2daa7612c2277b81e83d4a39507a7bd7"
+      }
+    }
+  ]
+}

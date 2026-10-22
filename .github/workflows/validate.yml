@@ -31,6 +31,12 @@ jobs:
           php tests/style-youtube.php
           php tests/media-safe-cleaner.php
           php tests/media-safe-cleaner.php frontend
+          for provider in ezpay ecpay; do
+            for mode in enabled disabled conflict no-woocommerce official; do
+              php tests/invoice-modules.php "$mode" "$provider"
+            done
+          done
+          php tests/invoice-modules.php both-active both
           node --check assets/js/admin-design.js
           node tests/admin-ui-contract.js
       - name: Check member loyalty promotion calculations

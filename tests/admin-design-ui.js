@@ -24,6 +24,7 @@ const render = mode => execFileSync(php, [...phpArgs, 'tests/admin-design.php', 
  try {
   const sharedPage=await browser.newPage();await sharedPage.goto(origin+'/shared');
   assert.equal(await sharedPage.locator('.wutm-card').count(),1,'Shared dashboard only contains opened cards');
+  assert.equal(await sharedPage.locator('.wutm-category-nav a').count(),1,'Shared category navigation only reveals shared groups');
   assert.equal(await sharedPage.locator('.wutm-switch,.wutm-share-control,.wutm-license-panel').count(),0,'No module activation, owner sharing controls or license panel in shared dashboard');
   assert.ok(await sharedPage.locator('.wutm-settings').count(),'Shared card opens original settings');await sharedPage.close();
   for(const width of [1440,1024,768,390,320]) {
@@ -35,6 +36,13 @@ const render = mode => execFileSync(php, [...phpArgs, 'tests/admin-design.php', 
    assert.ok(await page.locator('.wutm-card').count()>100,'All registry modules present');
    assert.equal(await page.locator('.wutm-ui-header').count(),1);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Dashboard overflow '+width);
+   const categoryLinks=page.locator('.wutm-category-nav a');
+   assert.equal(await categoryLinks.count(),await page.locator('.wutm-module-group').count(),'Every rendered category has exactly one shortcut');
+   const labels=await categoryLinks.allTextContents(),paymentIndex=labels.indexOf('電商支付工具');
+   assert.equal(labels[paymentIndex+1],'電商電子發票','Invoices immediately below payment category');
+   const invoiceLink=categoryLinks.filter({hasText:'電商電子發票'});await invoiceLink.click();
+   assert.equal(await page.evaluate(()=>document.activeElement.querySelector('h2')?.textContent),'電商電子發票','Category navigation scrolls and moves keyboard focus');
+   await page.evaluate(()=>scrollTo(0,0));
    const geometry=await page.evaluate(()=>{const box=s=>document.querySelector(s).getBoundingClientRect();return {search:box('#wutm-module-search-input').height,tabs:box('.wutm-module-tabs').height,rows:[...document.querySelectorAll('.wutm-module-tab')].map(e=>Math.round(e.getBoundingClientRect().top))};});
    assert.equal(geometry.search,geometry.tabs,'Search and tabs equal height '+width);
    assert.equal(new Set(geometry.rows).size,1,'All tabs remain on one row '+width);
@@ -56,6 +64,7 @@ const render = mode => execFileSync(php, [...phpArgs, 'tests/admin-design.php', 
    assert.equal(Number(await page.locator('.wutm-enabled-count').textContent()),count+(was?-1:1));
    await page.locator('[data-filter="enabled"]').click();
    assert.equal(await page.locator('.wutm-card:not(.on):visible').count(),0);
+   assert.ok(await page.evaluate(()=>[...document.querySelectorAll('.wutm-category-nav a')].every(a=>a.hidden===document.querySelector(a.hash).hidden)),'Category links follow filtered visibility');
    await page.locator('[data-filter="disabled"]').click();
    assert.equal(await page.locator('.wutm-card.on:visible').count(),0);
    await page.locator('[data-filter="all"]').click();

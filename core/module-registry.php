@@ -90,6 +90,8 @@ function wutm_modules(): array {
         'checkout-login-optimizer' => ['name' => '結帳登入優化', 'description' => '美化並展開結帳登入介面，調整會員密碼欄位並提供帳號設定指引。', 'group' => '電商工具', 'icon' => '🔐', 'requires' => 'woocommerce', 'settings_page' => 'wu-checkout-login-optimizer'],
         'payuni-payment' => ['name' => 'PAYUNi 付款工具', 'description' => '整合 PAYUNi 統一金流付款、退款與訂單通知。', 'group' => '電商支付工具', 'icon' => '💳', 'requires' => 'woocommerce', 'settings_page' => 'wc-settings&tab=payuni&section=payment'],
         'linepay-payment' => ['name' => 'LINE Pay 付款工具', 'description' => '整合台灣 LINE Pay 付款、退款及區塊結帳。', 'group' => '電商支付工具', 'icon' => '🟢', 'requires' => 'woocommerce', 'settings_page' => 'wc-settings&tab=linepay-tw'],
+        'ezpay-invoice' => ['name'=>'EZPAY 電子發票','description'=>'EZPAY 發票設定、載具／捐贈、訂單手動／自動開立與作廢及會員查詢。需 PHP 8.0 以上；同店請只啟用一種發票服務。','group'=>'電商電子發票','icon'=>'🧾','requires'=>'woocommerce','min_php'=>'8.0','exclusive_group'=>'invoice','settings_page'=>'wu-ezpay-invoice'],
+        'ecpay-invoice' => ['name'=>'綠界電子發票','description'=>'綠界發票設定、載具／捐贈、訂單手動／自動開立與作廢及會員查詢。需 PHP 8.0 以上；同店請只啟用一種發票服務。','group'=>'電商電子發票','icon'=>'🧾','requires'=>'woocommerce','min_php'=>'8.0','exclusive_group'=>'invoice','settings_page'=>'wu-ecpay-invoice'],
         'discord-notifications' => ['name' => 'Discord 通知工具', 'description' => '將 WooCommerce 訂單與狀態變更即時通知到 Discord。', 'group' => '電商工具', 'icon' => '🔔', 'requires' => 'woocommerce', 'settings_page' => 'wu-discord-notifications'],
         'order-status-manager' => ['name' => '訂單狀態管理', 'description' => '新增、檢視、改名或停用訂單狀態，同步後台、帳號訂單與通知標題。', 'group' => '電商工具', 'icon' => '🏷️', 'requires' => 'woocommerce', 'settings_page' => 'wu-order-status-manager'],
         'order-bulk-actions-manager' => ['name' => '訂單批次操作管理', 'description' => '集中管理傳統與 HPOS 訂單列表的批次操作，可逐項顯示、隱藏或快速全部切換。', 'group' => '電商工具', 'icon' => '🎛️', 'requires' => 'woocommerce', 'settings_page' => 'wu-order-bulk-actions-manager'],
@@ -132,10 +134,11 @@ function wutm_grouped_modules(): array {
     }
 
     $payments = $groups['電商支付工具'] ?? null;
+    $invoices = $groups['電商電子發票'] ?? null;
     $commerce_optimization = $groups['電商優化工具'] ?? null;
     $professional = $groups['專業工具'] ?? null;
     $special = $groups['特殊工具'] ?? null;
-    unset($groups['電商支付工具'], $groups['電商優化工具'], $groups['專業工具'], $groups['特殊工具']);
+    unset($groups['電商支付工具'], $groups['電商電子發票'], $groups['電商優化工具'], $groups['專業工具'], $groups['特殊工具']);
 
     if ($commerce_optimization !== null && isset($commerce_optimization['wc-optimization-tools'])) {
         $wc_optimization = $commerce_optimization['wc-optimization-tools'];
@@ -148,6 +151,7 @@ function wutm_grouped_modules(): array {
         if ($group === '電商工具' && $payments !== null) {
             $ordered['電商支付工具'] = $payments;
             $payments = null;
+            if ($invoices !== null) { $ordered['電商電子發票'] = $invoices; $invoices = null; }
             if ($commerce_optimization !== null) {
                 $ordered['電商優化工具'] = $commerce_optimization;
                 $commerce_optimization = null;
@@ -155,6 +159,7 @@ function wutm_grouped_modules(): array {
         }
     }
     if ($payments !== null) $ordered['電商支付工具'] = $payments;
+    if ($invoices !== null) $ordered['電商電子發票'] = $invoices;
     if ($commerce_optimization !== null) $ordered['電商優化工具'] = $commerce_optimization;
     if ($professional !== null) $ordered['專業工具'] = $professional;
     if ($special !== null) $ordered['特殊工具'] = $special;

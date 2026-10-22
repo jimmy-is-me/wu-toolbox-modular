@@ -65,12 +65,17 @@ function wutm_render_admin_page(): void {
             <?php endforeach; ?>
           </div>
         </form>
+        <nav class="wutm-category-nav" aria-label="模組分類快速導覽">
+          <?php foreach ($groups as $group => $items): if (!$items) continue; ?>
+            <a href="#wutm-group-<?php echo esc_attr(substr(sha1($group), 0, 12)); ?>"><?php echo esc_html($group); ?></a>
+          <?php endforeach; ?>
+        </nav>
         <div class="wutm-search-results" hidden><strong class="wutm-search-status" aria-live="polite"></strong><div class="wutm-search-result-list"></div></div>
       </div>
       <div class="wutm-notice-slot" aria-live="polite"></div>
       <div id="wutm-module-panels" role="tabpanel" aria-labelledby="wutm-tab-all">
       <p class="wutm-filter-empty" hidden>目前沒有符合此狀態的模組。</p>
-      <?php foreach ($groups as $group => $items): ?><section class="wutm-module-group"><h2><?php echo esc_html($group); ?></h2><div class="wutm-grid">
+      <?php foreach ($groups as $group => $items): if (!$items) continue; ?><section id="wutm-group-<?php echo esc_attr(substr(sha1($group), 0, 12)); ?>" class="wutm-module-group" tabindex="-1"><h2><?php echo esc_html($group); ?></h2><div class="wutm-grid">
         <?php foreach ($items as $key => $module):
             $is_navigation = !empty($module['navigation']);
             $parent_enabled = $is_navigation && wutm_is_enabled((string) ($module['parent_module'] ?? ''));
@@ -82,7 +87,7 @@ function wutm_render_admin_page(): void {
             $module_dependency_available = $requires_module === '' || wutm_is_enabled($requires_module);
             $requires_plugin = (string) ($module['external_plugin'] ?? '');
             $plugin_dependency_available = $requires_plugin === '' || wutm_third_party_plugin_active($requires_plugin);
-            $available = $is_navigation ? $parent_enabled : ($module_dependency_available && $plugin_dependency_available && (!$requires || ($requires === 'woocommerce' && class_exists('WooCommerce')) || ($requires === 'translatepress' && class_exists('TRP_Translate_Press'))));
+            $available = $is_navigation ? $parent_enabled : ($module_dependency_available && $plugin_dependency_available && (empty($module['min_php']) || version_compare(PHP_VERSION, $module['min_php'], '>=')) && (!$requires || ($requires === 'woocommerce' && class_exists('WooCommerce')) || ($requires === 'translatepress' && class_exists('TRP_Translate_Press'))));
             $settings_url = wutm_module_settings_url($module, $key);
         ?>
         <article id="wutm-module-<?php echo esc_attr($key); ?>" class="wutm-card <?php echo $on ? 'on' : ''; ?>" tabindex="-1" data-module-name="<?php echo esc_attr($module['name']); ?>" data-search="<?php echo esc_attr($module['name'] . ' ' . $module['description']); ?>" data-settings-url="<?php echo esc_url($settings_url); ?>" data-navigation="<?php echo $is_navigation ? '1' : '0'; ?>"><div class="wutm-icon"><?php echo esc_html($module['icon']); ?></div><div class="wutm-card-body"><h3><?php echo esc_html($module['name']); ?><?php if (!empty($module['development'])) : ?> <span class="wutm-development-badge">開發中</span><?php endif; ?><?php if (!empty($module['tag'])) : ?> <span class="wutm-card-badge"><?php echo esc_html($module['tag']); ?></span><?php endif; ?><?php if (!empty($module['badge'])) : ?> <span class="wutm-card-badge"><?php echo esc_html($module['badge']); ?></span><?php endif; ?><?php if ($is_navigation) : ?> <span class="wutm-card-badge">連接器功能</span><?php endif; ?><?php if ($third_party_active) : ?> <span class="wutm-card-badge">已開啟</span><?php endif; ?></h3><p><?php echo esc_html($module['description']); ?></p><?php if (!$available): ?><small><?php echo $requires_plugin !== '' ? '請先安裝並啟用 WU AI Card 外掛' : ($is_navigation ? '請先啟用 AI 連接器' : ($requires_module !== '' ? '請先啟用「' . esc_html($modules[$requires_module]['name'] ?? $requires_module) . '」' : '需要 ' . esc_html($requires === 'translatepress' ? 'TranslatePress Multilingual' : 'WooCommerce'))); ?></small><?php elseif (!$licensed && !$on): ?><small>完成授權後可啟用</small><?php endif; ?><div class="wutm-card-actions"><?php wutm_render_module_share($key, $module, $on && $available); ?><?php if (($module_enabled || (!empty($module['settings_when_active']) && $third_party_active)) && $available): ?><a class="wutm-settings" href="<?php echo esc_url($settings_url); ?>"><?php echo $is_navigation ? '開啟' : '設定'; ?></a><?php endif; ?></div></div><?php if (!$shared_view): ?><label class="wutm-switch"><input type="checkbox" data-module="<?php echo esc_attr($key); ?>" <?php checked($on); disabled(!$available || $third_party_active || (!$licensed && !$on)); ?>><span></span></label><?php endif; ?></article>
@@ -109,6 +114,7 @@ function wutm_render_admin_page(): void {
                     if(!card.hidden)visible++;
                 });
                 group.hidden=visible===0;totalVisible+=visible;
+                const link=document.querySelector('.wutm-category-nav a[href="#'+group.id+'"]');if(link)link.hidden=group.hidden;
             });
             const cards=Array.from(document.querySelectorAll('.wutm-card')).filter(function(card){return card.dataset.navigation!=='1';});
             const enabledCount=document.querySelector('.wutm-header p strong');
@@ -142,6 +148,12 @@ function wutm_render_admin_page(): void {
             });
         });
         document.addEventListener('wutm-module-state-changed',applyFilter);applyFilter();
+        const categoryNav=document.querySelector('.wutm-category-nav');
+        if(categoryNav)categoryNav.addEventListener('click',function(event){
+            const link=event.target.closest('a');if(!link)return;
+            const group=document.getElementById(link.hash.slice(1));if(!group||group.hidden)return;
+            event.preventDefault();group.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});group.focus({preventScroll:true});
+        });
         if(form&&input&&results&&status&&list){
             form.addEventListener('submit',function(e){
                 e.preventDefault();clearMatches();list.replaceChildren();
