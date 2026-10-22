@@ -1,5 +1,7 @@
 # Modules
 
+訂單報表匯出（`order-report-export`）位於「電商工具」分類；完整保留提供的 V3 匯出／預覽與個人設定功能，見 [v3.8.4](RELEASE-3.8.4.md)。
+
 PAYUNi 物流工具（`payuni-shipping`）位於「電商第三方金物流」分類的 PAYUNi 付款工具後方；設定入口為 Toolbox → PAYUNi 物流工具。提供 ZIP 的完整功能與整合說明見 [v3.8.3](RELEASE-3.8.3.md)。
 
 Every module is self-contained at `modules/<slug>/module.php`. The bootstrap only loads files whose switch is enabled.

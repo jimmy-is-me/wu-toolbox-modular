@@ -41,6 +41,7 @@ jobs:
           php tests/newebpay.php conflict
           php tests/newebpay-startup.php
           php tests/invoice-labels.php
+          for mode in enabled frontend no-woocommerce conflict late-conflict; do php tests/order-report-export.php "$mode"; done
           for mode in no-woocommerce standalone network foreign; do php tests/payuni-shipping.php "$mode"; done
           for mode in enabled disabled conflict no-woocommerce official; do php tests/invoice-modules.php "$mode" ezpay; done
           node --check assets/js/admin-design.js
@@ -94,6 +95,12 @@ jobs:
           php "$RUNNER_TEMP/wutm-wp-cli.phar" plugin install woocommerce --version=9.0.2 --activate --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" option update woocommerce_custom_orders_table_enabled no --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/newebpay-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/order-report-export-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-report-export.log"
+          grep -Fq 'Native order report passed:' "$RUNNER_TEMP/wutm-report-export.log"
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" option update woocommerce_custom_orders_table_enabled yes --path="$RUNNER_TEMP/wutm-media-wp"
+          WUTM_REPORT_EXPECT_HPOS=1 php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/order-report-export-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-report-export-hpos.log"
+          grep -Fq 'Native order report passed:' "$RUNNER_TEMP/wutm-report-export-hpos.log"
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" option update woocommerce_custom_orders_table_enabled no --path="$RUNNER_TEMP/wutm-media-wp"
             php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/payuni-shipping-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-payuni-shipping.log"
             grep -Fq 'Native PAYUNi shipping passed:' "$RUNNER_TEMP/wutm-payuni-shipping.log"
           mkdir -p "$RUNNER_TEMP/wutm-media-wp/wp-content/mu-plugins"
@@ -188,6 +195,7 @@ jobs:
           export WUTM_TEST_CHROME="$(node -p "require('playwright').chromium.executablePath()")"
           node tests/admin-design-ui.js
           node tests/admin-components-ui.js
+          node tests/order-report-export-ui.js
           node tests/media-encoder-scan-ui.js
           node tests/media-safe-cleaner-ui.js
       - name: Check media viewport layouts and nested taxonomy sorting

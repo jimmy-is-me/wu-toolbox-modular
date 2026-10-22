@@ -1,0 +1,8 @@
+/* Presentation only: all fields and inline source interactions remain intact. */
+.wutm-ui-root .wctre-v3{max-width:none;min-width:0}
+.wutm-ui-root .wctre-card{border-color:var(--wutm-line,#d7e2f4);border-radius:16px;background:var(--wutm-paper,#fff);box-shadow:none;min-width:0;box-sizing:border-box}
+.wutm-ui-root .wctre-add{border-color:var(--wutm-line,#d7e2f4);border-radius:10px;background:#f5f8ff}
+.wutm-ui-root .wctre-hint{line-height:1.75}
+.wutm-ui-root .wctre-table-wrap,.wutm-ui-root .wctre-preview-scroll{max-width:100%;overscroll-behavior:contain}
+.wutm-ui-root .wctre-dates label{min-width:0}
+@media(max-width:600px){.wutm-ui-root .wctre-layout{grid-template-columns:minmax(0,1fr)}.wutm-ui-root .wctre-card{padding:16px}.wutm-ui-root .wctre-dates{grid-template-columns:minmax(0,1fr)}.wutm-ui-root .wctre-manual>:is(input,select){width:100%;min-width:0}.wutm-ui-root .wctre-statuses{grid-template-columns:minmax(0,1fr)}}
