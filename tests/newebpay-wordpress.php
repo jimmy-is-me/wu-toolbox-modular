@@ -60,6 +60,15 @@ try {
     $mock->fail=true;try{$handler->generate_invoice($id);throw new LogicException('Mock failure escaped');}catch(RuntimeException $error){np_assert($error->getMessage()==='Mock transport failure','Expected mock failure');}
     $lock=wutm_commerce_lock('ezpay_invoice',$id);np_assert((bool)$lock,'Invoice lock releases after transport exception');wutm_commerce_unlock($lock);
     $fields=wutm_newebpay_fields('invoice');np_assert(in_array('wc_woomp_ezpay_invoice_hashkey',array_column($fields,'id'),true),'Full invoice settings retained');
-    foreach(['services','gateway','shipping','invoice'] as $section)np_assert(is_array(wutm_newebpay_fields($section)),'Settings section renders native schema');
+    foreach(['services','gateway','shipping','invoice'] as $section){$schema=wutm_newebpay_fields($section);ob_start();WC_Admin_Settings::output_fields($schema);$rendered=ob_get_clean();np_assert(strpos($rendered,'form-table')!==false,'Native settings fields render: '.$section);}
+    $save=$GLOBALS['wp_filter']['admin_post_wutm_save_newebpay_tools']->callbacks[10];$save=reset($save)['function'];
+    add_filter('wp_die_handler',static function(){return static function(){throw new RuntimeException('fixture-denied');};},999);
+    $user=get_current_user_id();wp_set_current_user(0);
+    try{$save();throw new LogicException('Unauthorized save accepted');}catch(RuntimeException $error){np_assert($error->getMessage()==='fixture-denied','Settings capability boundary');}
+    wp_set_current_user($user);$_POST=['section'=>'services','_wpnonce'=>'invalid'];$_REQUEST=$_POST;
+    try{$save();throw new LogicException('Invalid nonce accepted');}catch(RuntimeException $error){np_assert($error->getMessage()==='fixture-denied','Settings nonce boundary');}
+    $_POST=['section'=>'unknown','_wpnonce'=>wp_create_nonce('wutm_save_newebpay_tools')];$_REQUEST=$_POST;
+    try{$save();throw new LogicException('Unknown section accepted');}catch(RuntimeException $error){np_assert($error->getMessage()==='fixture-denied','Settings section boundary');}
+    $_POST=$_REQUEST=[];
     echo "Native WordPress/WooCommerce passed: source methods, sandbox form, callback binding/replay, atomic locks, original invoice payload/meta and duplicate issue guard; no external transports.\n";
 } finally { $order->delete(true);$product->delete(true); }
