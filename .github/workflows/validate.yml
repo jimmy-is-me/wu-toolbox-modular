@@ -40,6 +40,7 @@ jobs:
           php tests/newebpay.php no-woocommerce
           php tests/newebpay.php conflict
           php tests/newebpay-startup.php
+          php tests/invoice-labels.php
           for mode in enabled disabled conflict no-woocommerce official; do php tests/invoice-modules.php "$mode" ezpay; done
           node --check assets/js/admin-design.js
           node tests/admin-ui-contract.js

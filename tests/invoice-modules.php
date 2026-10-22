@@ -10,6 +10,14 @@ foreach(json_decode(file_get_contents(__DIR__.'/invoice-source-files.json'),true
     }
     $preserved = str_replace(["\r\n", 'WUTMInvoiceDeps\\\\', 'WUTMInvoiceDeps\\', 'WUTMInvoiceSDK_'],["\n", '', '', ''],file_get_contents(dirname(__DIR__).'/modules/'.$file));
     $preserved = str_replace(['use \\InvoicePorter','use \\ODS'],['use InvoicePorter','use ODS'],$preserved);
+    // Explicit v3.8.2 UI-only adaptations. Preserve all remaining source/API logic.
+    foreach (['You can issue the e-invoice manually even if you choose Automatic mode', 'When order status changes to the status, the e-invoice will be issued automatically.', 'When order status changes to the status, the e-invoice will be invalid automatically.'] as $label) {
+        $preserved = str_replace("__( '$label', 'wu' )", "__( '$label' )", $preserved);
+    }
+    $preserved = str_replace("'選擇自動作廢後，仍可於訂單中手動作廢發票。'", "__( 'You can issue the e-invoice manually even if you choose Automatic mode' )", $preserved);
+    $preserved = str_replace(["'手機條碼' => __( 'Mobile Code'", "'自然人憑證'    => __( 'Citizen Digital Certificate'", '輸入捐贈機構'], ["__( 'Mobile Code', 'paynow-einvoice' ) => __( 'Mobile Code'", "__( 'Citizen Digital Certificate', 'paynow-einvoice' )    => __( 'Citizen Digital Certificate'", '輸入捐增機構'], $preserved);
+    $preserved = str_replace("\t\t\$individual_invoice = \\wutm_invoice_carrier(\$individual_invoice);\n", '', $preserved);
+    $preserved = str_replace("\\wutm_invoice_carrier(\$ezpay_invoice_data['_ezpay_invoice_individual'] ?? '')", "\$ezpay_invoice_data['_ezpay_invoice_individual'] ?? ''", $preserved);
     $preserved = str_replace("'id' => 'wc_woomp_enabled_ezpay_invoice',\n            'type' => 'checkbox',\n            'default' => 'no'", "'id' => 'wc_woomp_enabled_ezpay_invoice',\n            'type' => 'checkbox',\n            'default' => 'yes'", $preserved);
     foreach(['generate_invoice','invalid_invoice'] as $operation) $preserved=preg_replace('/public function '.$operation.'\( \$order_id \) \{.*?private function perform_'.$operation.'\( \$order_id \) \{/s','public function '.$operation.'( $order_id ) {',$preserved);
     // Four truncated upstream SDK guards now match their actual private classes.

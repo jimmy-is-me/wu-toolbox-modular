@@ -56,7 +56,7 @@ class EzPayInvoiceHandler {
 
 		// 取得顧客發票資訊.
 		$invoice_type       = $ezpay_invoice_data['_ezpay_invoice_type'] ?? '';
-		$invoice_individual = $ezpay_invoice_data['_ezpay_invoice_individual'] ?? '';
+		$invoice_individual = \wutm_invoice_carrier($ezpay_invoice_data['_ezpay_invoice_individual'] ?? '');
 
 		switch ( $invoice_individual ) {
 			case '手機條碼':

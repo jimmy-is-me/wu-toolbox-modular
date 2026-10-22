@@ -1,6 +1,7 @@
 <?php
 /** Adapter only: preserve source settings IDs, API payloads and order metadata. */
 defined('ABSPATH') || exit;
+require_once __DIR__.'/invoice-labels.php';
 
 /** Only wrap the source's manual AJAX operations, never global WP handlers. */
 function wutm_invoice_ajax_callback(callable $callback): callable {

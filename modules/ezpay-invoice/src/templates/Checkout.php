@@ -142,6 +142,7 @@ class Checkout {
 			$$key = $_POST[ $field ] ?? ''; // phpcs:ignore
 		}
 
+		$individual_invoice = \wutm_invoice_carrier($individual_invoice);
 		// 如果選了自然人憑證，就要參加資料驗證。比對前 2 碼大寫英文，後 14 碼數字
 		if ( $individual_invoice === '自然人憑證' && preg_match( '/^[A-Z]{2}\d{14}$/', $carrier_number ) == false ) {
 			\wc_add_notice( __( '<strong>電子發票 自然人憑證</strong> 請輸入前 2 位大寫英文與 14 位數字自然人憑證號碼' ), 'error' );

@@ -79,7 +79,7 @@ class Field {
 		$ezpay_invoice_data = (array) $order_or_subscription->get_meta( '_ezpay_invoice_data' );
 
 		$_invoice_type         = $ezpay_invoice_data['_ezpay_invoice_type'] ?? '';
-		$_invoice_individual   = $ezpay_invoice_data['_ezpay_invoice_individual'] ?? '';
+		$_invoice_individual   = \wutm_invoice_carrier($ezpay_invoice_data['_ezpay_invoice_individual'] ?? '');
 		$_invoice_carrier      = $ezpay_invoice_data['_ezpay_invoice_carrier'] ?? '';
 		$_invoice_company_name = $ezpay_invoice_data['_ezpay_invoice_company_name'] ?? '';
 		$_invoice_tax_id       = $ezpay_invoice_data['_ezpay_invoice_tax_id'] ?? '';

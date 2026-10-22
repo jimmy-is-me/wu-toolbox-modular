@@ -45,6 +45,12 @@ try {
     np_assert(!np_private('WU_NP_NewebPay_Gateway_Response','ipn_request_is_valid',$make(['TradeNo'=>'OTHER-TRADE'])),'Do not replace paid transaction');
     $order->update_meta_data('_ezpay_invoice_data',['_ezpay_invoice_type'=>'company','_ezpay_invoice_company_name'=>'WU fixture','_ezpay_invoice_tax_id'=>'12345678']);$order->save();
     $handler=new WUEZPAYINVOICE\APIs\EzPayInvoiceHandler();
+    $issueData=new ReflectionMethod($handler,'get_issue_data');if(PHP_VERSION_ID<80100)$issueData->setAccessible(true);
+    foreach(['Mobile Code'=>0,'手機條碼'=>0,'Citizen Digital Certificate'=>1,'自然人憑證'=>1,'雲端電子發票載具'=>2] as $carrier=>$wireType){
+        $order->update_meta_data('_ezpay_invoice_data',['_ezpay_invoice_type'=>'individual','_ezpay_invoice_individual'=>$carrier,'_ezpay_invoice_carrier'=>'/ABC1234']);$order->save();
+        $payload=$issueData->invoke($handler,$id);np_assert($payload['CarrierType']===$wireType,'Legacy/Chinese carrier preserves API code');
+    }
+    $order->update_meta_data('_ezpay_invoice_data',['_ezpay_invoice_type'=>'company','_ezpay_invoice_company_name'=>'WU fixture','_ezpay_invoice_tax_id'=>'12345678']);$order->save();
     $mock=new class {
         public $calls=0,$voids=0,$fail=false;
         public function create($payload){++$this->calls;if($this->fail)throw new RuntimeException('Mock transport failure');np_assert($payload['Category']==='B2B'&&$payload['BuyerUBN']==='12345678','Original invoice request fields');}
@@ -60,6 +66,10 @@ try {
     $mock->fail=true;try{$handler->generate_invoice($id);throw new LogicException('Mock failure escaped');}catch(RuntimeException $error){np_assert($error->getMessage()==='Mock transport failure','Expected mock failure');}
     $lock=wutm_commerce_lock('ezpay_invoice',$id);np_assert((bool)$lock,'Invoice lock releases after transport exception');wutm_commerce_unlock($lock);
     $fields=wutm_newebpay_fields('invoice');np_assert(in_array('wc_woomp_ezpay_invoice_hashkey',array_column($fields,'id'),true),'Full invoice settings retained');
+    $invoiceSchema=array_column($fields,null,'id');
+    np_assert($invoiceSchema['wc_woomp_ezpay_invoice_issue_mode']['name']==='開立模式'&&$invoiceSchema['wc_woomp_ezpay_invoice_carrier_type']['name']==='載具類型','Native Woo settings labels Chinese');
+    update_option('wc_woomp_ezpay_invoice_carrier_type',['雲端電子發票載具','Mobile Code','Citizen Digital Certificate']);
+    np_assert(get_option('wc_woomp_ezpay_invoice_carrier_type')===['雲端電子發票載具','手機條碼','自然人憑證'],'Real WordPress option read normalizes legacy carrier names');
     foreach(['services','gateway','shipping','invoice'] as $section){$schema=wutm_newebpay_fields($section);ob_start();WC_Admin_Settings::output_fields($schema);$rendered=ob_get_clean();np_assert(strpos($rendered,'form-table')!==false,'Native settings fields render: '.$section);}
     $save=$GLOBALS['wp_filter']['admin_post_wutm_save_newebpay_tools']->callbacks[10];$save=reset($save)['function'];
     add_filter('wp_die_handler',static function(){return static function(){throw new RuntimeException('fixture-denied');};},999);

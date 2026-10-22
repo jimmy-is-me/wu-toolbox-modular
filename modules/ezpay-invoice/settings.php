@@ -42,7 +42,7 @@ class Settings extends \WC_Settings_Page {
 						[
 							'name'     => __( 'Issue Mode', 'paynow-einvoice' ),
 							'type'     => 'select',
-							'desc'     => __( 'You can issue the e-invoice manually even if you choose Automatic mode' ),
+							'desc'     => __( 'You can issue the e-invoice manually even if you choose Automatic mode', 'wu' ),
 							'class'    => 'wc-enhanced-select',
 							'desc_tip' => true,
 							'id'       => 'wc_woomp_ezpay_invoice_issue_mode',
@@ -56,7 +56,7 @@ class Settings extends \WC_Settings_Page {
 							'name'     => __( 'Allowed Order Status for issue', 'wu' ),
 							'type'     => 'select',
 							'class'    => 'wc-enhanced-select',
-							'desc'     => __( 'When order status changes to the status, the e-invoice will be issued automatically.' ),
+							'desc'     => __( 'When order status changes to the status, the e-invoice will be issued automatically.', 'wu' ),
 							'id'       => 'wc_woomp_ezpay_invoice_issue_at',
 							'desc_tip' => true,
 							'options'  => wc_get_order_statuses(),
@@ -64,7 +64,7 @@ class Settings extends \WC_Settings_Page {
 						[
 							'name'     => __( 'Invalid mode', 'wu' ),
 							'type'     => 'select',
-							'desc'     => __( 'You can issue the e-invoice manually even if you choose Automatic mode' ),
+							'desc'     => '選擇自動作廢後，仍可於訂單中手動作廢發票。',
 							'class'    => 'wc-enhanced-select',
 							'desc_tip' => true,
 							'id'       => 'wc_woomp_ezpay_invoice_invalid_mode',
@@ -78,7 +78,7 @@ class Settings extends \WC_Settings_Page {
 							'name'     => __( 'Allowed Order Status for invalid', 'wu' ),
 							'type'     => 'select',
 							'class'    => 'wc-enhanced-select',
-							'desc'     => __( 'When order status changes to the status, the e-invoice will be invalid automatically.' ),
+							'desc'     => __( 'When order status changes to the status, the e-invoice will be invalid automatically.', 'wu' ),
 							'id'       => 'wc_woomp_ezpay_invoice_invalid_at',
 							'desc_tip' => true,
 							'options'  => [
@@ -94,15 +94,15 @@ class Settings extends \WC_Settings_Page {
 							'type'    => 'multiselect',
 							'options' => [
 								__( '雲端電子發票載具', 'wu' )  => __( '雲端電子發票載具', 'wu' ),
-								__( 'Mobile Code', 'paynow-einvoice' ) => __( 'Mobile Code', 'paynow-einvoice' ),
-								__( 'Citizen Digital Certificate', 'paynow-einvoice' )    => __( 'Citizen Digital Certificate', 'paynow-einvoice' ),
+								'手機條碼' => __( 'Mobile Code', 'paynow-einvoice' ),
+								'自然人憑證'    => __( 'Citizen Digital Certificate', 'paynow-einvoice' ),
 							],
 						],
 
 						[
 							'name'        => __( 'Donated Organization', 'paynow-einvoice' ),
 							'type'        => 'textarea',
-							'desc'        => '輸入捐增機構(每行一筆)，格式為：愛心碼|社福團體名稱，預設為伊甸社會福利基金會',
+							'desc'        => '輸入捐贈機構(每行一筆)，格式為：愛心碼|社福團體名稱，預設為伊甸社會福利基金會',
 							'desc_tip'    => true,
 							'id'          => 'wc_woomp_ezpay_invoice_donate_org',
 							'placeholder' => '25885|伊甸社會福利基金會',
