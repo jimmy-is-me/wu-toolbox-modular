@@ -52,6 +52,8 @@ const render = mode => execFileSync(php, [...phpArgs, 'tests/admin-design.php', 
    assert.equal(labels[paymentIndex+1],'電商優化工具','Unified category stays before commerce optimization');
    assert.ok(!labels.includes('電商電子發票')&&!labels.includes('電商支付工具'),'Retired categories absent');
    assert.equal(await page.locator('[data-module="ezpay-invoice"],[data-module="ecpay-invoice"]').count(),0,'Standalone invoice cards absent');
+   const commerceCards=await page.locator('.wutm-card').evaluateAll(cards=>cards.map(card=>card.id));
+   assert.equal(commerceCards.indexOf('wutm-module-newebpay-tools'),commerceCards.indexOf('wutm-module-ecpay-tools')+1,'Combined tool immediately follows ECPay');
    const commerceLink=categoryLinks.filter({hasText:'電商第三方金物流'});await commerceLink.click();
    assert.equal(await page.evaluate(()=>document.activeElement.querySelector('h2')?.textContent),'電商第三方金物流','Category navigation scrolls and moves keyboard focus');
    await page.evaluate(()=>scrollTo(0,0));

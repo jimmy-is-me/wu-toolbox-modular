@@ -1,0 +1,7 @@
+# Attribution and local modifications
+
+NewebPay gateway, convenience-store shipping, templates and HPOS helpers are derived from zenbuapps/woomp, revision `3735fa63d1add98521b18f9311bad4a7b2dc1632`, including the RY WooCommerce Tools components. Original GPL-2.0-or-later license is retained at vendor/LICENSE.txt. Original source: https://github.com/zenbuapps/woomp . These attribution statements are not product endorsements or runtime branding.
+
+WU modifications: import only NewebPay components; isolate classes, constants, gateway/shipping identifiers, hooks, scripts and option namespaces with WU prefixes; replace unrelated global bootstrap with scoped adapters; harden signed callbacks against order/merchant/amount mismatches and duplicates; preserve source features while adding common Toolbox settings. Provider API wire fields and endpoints remain NewebPay's, not EZPAY payment services. EZPAY invoice runtime and its dependency licenses reside separately in ../ezpay-invoice, restored from the collision-isolated v3.7.8 implementation.
+
+New payment and shipping services default off and sandbox defaults on. Existing EZPAY option/meta keys remain solely for backward compatibility, not public branding. No conversion of another integration's merchant secrets or order metadata is attempted. Classic checkout and legacy order storage are the supported configuration for this combined module until end-to-end HPOS/Blocks invoice certification is available.

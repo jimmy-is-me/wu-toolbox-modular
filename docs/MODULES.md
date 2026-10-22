@@ -11,12 +11,12 @@ Every module is self-contained at `modules/<slug>/module.php`. The bootstrap onl
 | Performance | woocommerce-optimizer | WooCommerce |
 | Media | media-encoder, enhanced-downloader, plugin-downloader | — |
 | Code | head-footer-code | — |
-| 電商第三方金物流 | payuni-payment, linepay-payment, ecpay-tools | WooCommerce |
+| 電商第三方金物流 | payuni-payment, linepay-payment, ecpay-tools, newebpay-tools | WooCommerce; newebpay-tools needs PHP 8.0+ |
 | Monitoring | email-tracking, system-monitor | — |
 
 ## Loading guarantees
 
-From v3.7.9, standalone `ezpay-invoice` and `ecpay-invoice` are retired; their cards, routes and runtime packages are removed. Use the existing `ecpay-tools` / `wu-ecpay-tools` integration for ECPay payment, logistics and invoice settings. Stored standalone provider options/order metadata are retained but are not migrated to, or interpreted as, official ECPay records. No provider or invoice service is automatically enabled.
+From v3.8.0, `newebpay-tools` / `wu-newebpay-tools` combines NewebPay payment, convenience-store pickup and the restored private EZPAY invoice component, immediately after `ecpay-tools`. The two standalone invoice cards remain absent; standalone ECPay runtime remains removed. EZPAY settings/order keys are retained, including an old EZPAY card's saved activation state when no explicit new-card switch exists. New NewebPay merchant services default off; no external merchant keys or records are converted. ECPay payment/logistics/invoice continue through the unchanged `ecpay-tools` / `wu-ecpay-tools` integration. Enable only one invoice service for the same store. See [NewebPay and EZPAY](NEWEBPAY-EZPAY.md).
 
 1. WordPress loads only the tiny bootstrap and `core/` files.
 2. At `plugins_loaded`, the loader checks the module switch before it reads the module file.

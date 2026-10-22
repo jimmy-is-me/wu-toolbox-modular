@@ -1,0 +1,166 @@
+{
+    "LICENSE.txt": {
+        "source": "LICENSE.txt",
+        "sha256": "ae5ae9a50dba3581b5cde1d582e16dd3283673907970151ce50c2b4d51e024ea"
+    },
+    "class-wu-hpos-helper.php": {
+        "source": "../class-woomp-hpos-helper.php",
+        "sha256": "d9d745723fd705d0fb4ad05d99e63fb8b79e78da6e48b95081d74cf1c8412412"
+    },
+    "icon/newebpay_logo.png": {
+        "source": "icon/newebpay_logo.png",
+        "sha256": "b0c0c23a8ff9f380326020e6814c54b1312c22fe60c6a81e73f5dd5520da2fd2"
+    },
+    "languages/wu-newebpay-tools-zh_TW.mo": {
+        "source": "languages/ry-woocommerce-tools-zh_TW.mo",
+        "sha256": "cabac6f77af02f4158aacdfc38471ddedd718c1416c883cbe558139fd1593c0b"
+    },
+    "style/admin/wu_np_shipping.css": {
+        "source": "style/admin/ry_shipping.css",
+        "sha256": "82cfc407dc4e2c77cc07b3e7659acb098e85774ac2f5c66ad9ebb64a6185f9a2"
+    },
+    "style/js/admin/wu_np_shipping.js": {
+        "source": "style/js/admin/ry_shipping.js",
+        "sha256": "6168a8fecf342fbd3adbf5e428a4c2e1e530aca61f834634e2965c6d12fbf922"
+    },
+    "style/js/wu_np_shipping.js": {
+        "source": "style/js/ry_shipping.js",
+        "sha256": "76a9c7fe6b8f65bdbffd427e15975008fce8cad2f1e9b423455a4a45ed618cc1"
+    },
+    "templates/order/order-newebpay-payment-info-atm.php": {
+        "source": "templates/order/order-newebpay-payment-info-atm.php",
+        "sha256": "394c6cdcf846ff93317168b12e591328ec594abdfa0488485e3519a2decf2703"
+    },
+    "templates/order/order-newebpay-payment-info-barcode.php": {
+        "source": "templates/order/order-newebpay-payment-info-barcode.php",
+        "sha256": "aee2db7170792f5fc89f58784fe23c54fce540ffb9aa8b4a2305b44c6689c113"
+    },
+    "templates/order/order-newebpay-payment-info-cvs.php": {
+        "source": "templates/order/order-newebpay-payment-info-cvs.php",
+        "sha256": "58a6d22b8266dda9a06d25f61182ba0d1056c5e9419a1a20c55a31e158ccf12f"
+    },
+    "woocommerce/abstracts/abstract-newebpay.php": {
+        "source": "woocommerce/abstracts/abstract-newebpay.php",
+        "sha256": "fa2e04bc047d1e04b58cd6648549ed0a06e10d6aa631b6db47b80eda745177dd"
+    },
+    "woocommerce/admin/meta-boxes/newebpay-shipping-meta-box.php": {
+        "source": "woocommerce/admin/meta-boxes/newebpay-shipping-meta-box.php",
+        "sha256": "e31f1b679cd3faebde2dcfde1ac75959345bf29ca4c2da01ea9b06d57e9aa51a"
+    },
+    "woocommerce/gateways/newebpay/includes/newebpay-gateway-api.php": {
+        "source": "woocommerce/gateways/newebpay/includes/newebpay-gateway-api.php",
+        "sha256": "48b20b3c9025603d6c44cf89cef691e8ade324914d400df62e6d2c8633c0b4bf"
+    },
+    "woocommerce/gateways/newebpay/includes/newebpay-gateway-base.php": {
+        "source": "woocommerce/gateways/newebpay/includes/newebpay-gateway-base.php",
+        "sha256": "023f96059b36f12834a9822b27647da8358c3fdc172975c4df1e1c6ab0a2fc7a"
+    },
+    "woocommerce/gateways/newebpay/includes/newebpay-gateway-response.php": {
+        "source": "woocommerce/gateways/newebpay/includes/newebpay-gateway-response.php",
+        "sha256": "a619c114f5c886d568b33365e4570e06afbefaa9c21035ca54ea7948da0c7bcc"
+    },
+    "woocommerce/gateways/newebpay/includes/settings-newebpay-gateway-atm.php": {
+        "source": "woocommerce/gateways/newebpay/includes/settings-newebpay-gateway-atm.php",
+        "sha256": "d1578be69373f4ce94de20f95ffa63f116a0df95d8df1e8445bcc1d0724435f5"
+    },
+    "woocommerce/gateways/newebpay/includes/settings-newebpay-gateway-barcode.php": {
+        "source": "woocommerce/gateways/newebpay/includes/settings-newebpay-gateway-barcode.php",
+        "sha256": "b41cb56d7c25f6265001ec40e4f8e6db1db6754aa913bfeac2e4e8aa9d30d2b1"
+    },
+    "woocommerce/gateways/newebpay/includes/settings-newebpay-gateway-credit-installment.php": {
+        "source": "woocommerce/gateways/newebpay/includes/settings-newebpay-gateway-credit-installment.php",
+        "sha256": "3be2e6323c24c41e83f378c0f4b2512a96cae2450b2217b018f0560fcde9a29e"
+    },
+    "woocommerce/gateways/newebpay/includes/settings-newebpay-gateway-credit.php": {
+        "source": "woocommerce/gateways/newebpay/includes/settings-newebpay-gateway-credit.php",
+        "sha256": "8fe2639bea5e83f21b8ec0061a0bbc93490ac3bfbf33c08f9d5d8e4cd1db9420"
+    },
+    "woocommerce/gateways/newebpay/includes/settings-newebpay-gateway-cvs.php": {
+        "source": "woocommerce/gateways/newebpay/includes/settings-newebpay-gateway-cvs.php",
+        "sha256": "5edd69a4d0bab51fe80c0bd4cdb6e5700cf00822db9eae8bc9059e5f2cb9f8bf"
+    },
+    "woocommerce/gateways/newebpay/includes/settings-newebpay-gateway-webatm.php": {
+        "source": "woocommerce/gateways/newebpay/includes/settings-newebpay-gateway-webatm.php",
+        "sha256": "860f9a0854696c8889fa8ba349a0a95028d43502e56633a55e6e27d8595e2f94"
+    },
+    "woocommerce/gateways/newebpay/includes/settings-newebpay-gateway.php": {
+        "source": "woocommerce/gateways/newebpay/includes/settings-newebpay-gateway.php",
+        "sha256": "3343e01083b9f15ca34939e4fef09a5281ba745401bda2ffef0567792c6c6d81"
+    },
+    "woocommerce/gateways/newebpay/newebpay-gateway-atm.php": {
+        "source": "woocommerce/gateways/newebpay/newebpay-gateway-atm.php",
+        "sha256": "f39879621ed2832d7060b7beaff5b0d94820af835b7265494bebcd3182441133"
+    },
+    "woocommerce/gateways/newebpay/newebpay-gateway-barcode.php": {
+        "source": "woocommerce/gateways/newebpay/newebpay-gateway-barcode.php",
+        "sha256": "2dc1cff422c2beaeea86b3afd3996534b558fb84e8ffca8d3be77666f2b3c912"
+    },
+    "woocommerce/gateways/newebpay/newebpay-gateway-credit-installment-12.php": {
+        "source": "woocommerce/gateways/newebpay/newebpay-gateway-credit-installment-12.php",
+        "sha256": "710917e0ade1c61a56cf001cf59c714c353e35c6e8653e2eda3ce35adf89cc9b"
+    },
+    "woocommerce/gateways/newebpay/newebpay-gateway-credit-installment-18.php": {
+        "source": "woocommerce/gateways/newebpay/newebpay-gateway-credit-installment-18.php",
+        "sha256": "985b2decb577c45d9ede5056c5459c256a6bb0bf868201333ac2175a899e0d89"
+    },
+    "woocommerce/gateways/newebpay/newebpay-gateway-credit-installment-24.php": {
+        "source": "woocommerce/gateways/newebpay/newebpay-gateway-credit-installment-24.php",
+        "sha256": "83d236a544ea77bf1c668561b173db1a836bdfe576153563ce9389d3c78d702c"
+    },
+    "woocommerce/gateways/newebpay/newebpay-gateway-credit-installment-3.php": {
+        "source": "woocommerce/gateways/newebpay/newebpay-gateway-credit-installment-3.php",
+        "sha256": "a1e756f93d79a325a7b293ad0b7577e3b7b3cae793a75c4076a54dcaab9fa3b7"
+    },
+    "woocommerce/gateways/newebpay/newebpay-gateway-credit-installment-30.php": {
+        "source": "woocommerce/gateways/newebpay/newebpay-gateway-credit-installment-30.php",
+        "sha256": "14fc8e3aef53b7377bb311dec5d8c0aade1a37d2f00efd6acabbbe676cb1fe71"
+    },
+    "woocommerce/gateways/newebpay/newebpay-gateway-credit-installment-6.php": {
+        "source": "woocommerce/gateways/newebpay/newebpay-gateway-credit-installment-6.php",
+        "sha256": "29bffa7a8d5ce8650365ba12f27492546b9bd0deaed8bc886222352e22b15d5b"
+    },
+    "woocommerce/gateways/newebpay/newebpay-gateway-credit-installment.php": {
+        "source": "woocommerce/gateways/newebpay/newebpay-gateway-credit-installment.php",
+        "sha256": "ed379f5ca41b1b73813c2e9cc05e98d7e85988e8374bdab7fe76db74fca04bed"
+    },
+    "woocommerce/gateways/newebpay/newebpay-gateway-credit.php": {
+        "source": "woocommerce/gateways/newebpay/newebpay-gateway-credit.php",
+        "sha256": "8b4ee1a78b2d0baa69ca54b29866d138b91ece8205e53ffbe6bb4c3c9513646f"
+    },
+    "woocommerce/gateways/newebpay/newebpay-gateway-cvs.php": {
+        "source": "woocommerce/gateways/newebpay/newebpay-gateway-cvs.php",
+        "sha256": "0c642ef8be635648311edc6699c62f9df7a71a14fc37ce2bd5b9e9e803d37177"
+    },
+    "woocommerce/gateways/newebpay/newebpay-gateway-webatm.php": {
+        "source": "woocommerce/gateways/newebpay/newebpay-gateway-webatm.php",
+        "sha256": "d271ed060b42cfacf830aaec9bc0e616e0266cc61b1d0173a8dddc58fe0005fa"
+    },
+    "woocommerce/gateways/newebpay/newebpay-gateway.php": {
+        "source": "woocommerce/gateways/newebpay/newebpay-gateway.php",
+        "sha256": "d4515f1e1a807f0f116553519b180376c13c46eeb8076124683f18b505415300"
+    },
+    "woocommerce/shipping/newebpay/includes/newebpay-shipping-admin.php": {
+        "source": "woocommerce/shipping/newebpay/includes/newebpay-shipping-admin.php",
+        "sha256": "d8688e8a2571e5d8dc3a9cbffc1039064327e743b3182ea5378371489c71fc00"
+    },
+    "woocommerce/shipping/newebpay/includes/settings-newebpay-shipping-cvs.php": {
+        "source": "woocommerce/shipping/newebpay/includes/settings-newebpay-shipping-cvs.php",
+        "sha256": "ba39f84bd223d4b56e2130b2ef6c2fcd99d47e9c5d3010e1c46447c206ec9d61"
+    },
+    "woocommerce/shipping/newebpay/includes/settings-newebpay-shipping.php": {
+        "source": "woocommerce/shipping/newebpay/includes/settings-newebpay-shipping.php",
+        "sha256": "44b8ebb3b3676f075edd7d6ea08d562535b25646bc1f31aee72bc94a207bc778"
+    },
+    "woocommerce/shipping/newebpay/newebpay-shipping-cvs.php": {
+        "source": "woocommerce/shipping/newebpay/newebpay-shipping-cvs.php",
+        "sha256": "96af516b8706000cbd8d0f584e527c4a7d6938d3bd81b7c12bf9ac1fc79569da"
+    },
+    "woocommerce/shipping/newebpay/newebpay-shipping.php": {
+        "source": "woocommerce/shipping/newebpay/newebpay-shipping.php",
+        "sha256": "5fedacf472752fa9f2823e9ff2fa4b43fadc2045293ed200d0f8125406a65ec1"
+    },
+    "woocommerce/shipping/wu-np-base.php": {
+        "source": "woocommerce/shipping/ry-base.php",
+        "sha256": "c26d429561d9045f43403ba03fcc3e3a0e8bdffa1c3e7b4e1ea38a5fcb791f58"
+    }
+}

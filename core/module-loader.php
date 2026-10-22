@@ -9,6 +9,7 @@ $wutm_early_module_keys = [
     'discord-notifications',
     'member-loyalty',
     'ecpay-tools',
+    'newebpay-tools',
     'shopcom-integration',
 ];
 foreach ($wutm_early_module_keys as $wutm_early_module_key) {

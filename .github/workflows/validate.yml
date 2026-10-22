@@ -36,10 +36,21 @@ jobs:
           php tests/media-safe-cleaner.php frontend
           php tests/commerce-consolidation.php
           php tests/commerce-consolidation.php disabled
+          php tests/newebpay.php
+          php tests/newebpay.php no-woocommerce
+          php tests/newebpay.php conflict
+          for mode in enabled disabled conflict no-woocommerce official; do php tests/invoice-modules.php "$mode" ezpay; done
           node --check assets/js/admin-design.js
           node tests/admin-ui-contract.js
       - name: Check member loyalty promotion calculations
         run: php tests/member-loyalty-promotion-policy.php
+      - name: Check restored EZPAY isolation against foreign Guzzle 7 and PSR 2
+        run: |
+          mkdir -p "$RUNNER_TEMP/wutm-foreign-guzzle"
+          cp tests/fixtures/invoice-foreign-composer.json "$RUNNER_TEMP/wutm-foreign-guzzle/composer.json"
+          cp tests/fixtures/invoice-foreign-composer.lock "$RUNNER_TEMP/wutm-foreign-guzzle/composer.lock"
+          composer install --working-dir="$RUNNER_TEMP/wutm-foreign-guzzle" --no-dev --prefer-dist --no-interaction --no-scripts --no-plugins --no-progress
+          WUTM_FOREIGN_AUTOLOAD="$RUNNER_TEMP/wutm-foreign-guzzle/vendor/autoload.php" node tests/invoice-collision.js
       - name: Check media settings, real encoding and failure preservation
         env:
           WUTM_REQUIRE_GD: '1'
@@ -73,6 +84,13 @@ jobs:
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/media-safe-cleaner-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/module-access-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/product-unpublish-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
+      - name: Check native WooCommerce payment, invoice and atomic callback preservation
+        env:
+          WUTM_MEDIA_INTEGRATION: '1'
+        run: |
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" plugin install woocommerce --version=9.0.2 --activate --path="$RUNNER_TEMP/wutm-media-wp"
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" option update woocommerce_custom_orders_table_enabled no --path="$RUNNER_TEMP/wutm-media-wp"
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/newebpay-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
       - name: Check maps and content overview preservation, permissions and scope
         run: |
           php tests/content-modules.php
@@ -162,3 +180,5 @@ jobs:
           export WUTM_TEST_CHROME="$(node -p "require('playwright').chromium.executablePath()")"
           node tests/admin-enhancements-ui.js
           node tests/style-youtube-ui.js
+          node tests/invoice-admin-ui.js
+          node tests/newebpay-ui.js

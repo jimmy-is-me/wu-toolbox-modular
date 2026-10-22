@@ -1,0 +1,6 @@
+{
+  "name": "wutm-tests/foreign-guzzle",
+  "description": "Test-only foreign Guzzle 7 runtime, never shipped or called over HTTP.",
+  "require": {"guzzlehttp/guzzle": "^7.9", "guzzlehttp/psr7": "^2.7", "guzzlehttp/promises": "^2.0"},
+  "config": {"allow-plugins": false}
+}

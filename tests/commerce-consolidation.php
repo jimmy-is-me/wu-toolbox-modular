@@ -8,6 +8,7 @@ define('WOOECPAY_VERSION', 'fixture');
 $enabled = ($argv[1] ?? 'enabled') !== 'disabled';
 $options = [
     'wutm_module_ecpay_tools' => $enabled ? 1 : 0,
+    'wutm_module_newebpay_tools' => 0,
     'wutm_module_ezpay_invoice' => 1, 'wutm_module_ecpay_invoice' => 1,
     'wumetax_module_ezpay_invoice' => 1, 'wumetax_module_ecpay_invoice' => 1,
     'wc_woomp_enabled_ezpay_invoice' => 'yes', 'wc_woomp_enabled_ecpay_invoice' => 'yes',
@@ -29,11 +30,11 @@ require WUTM_PATH . 'core/module-registry.php';
 $modules = wutm_modules(); $groups = wutm_grouped_modules(); $names = array_keys($groups);
 foreach (['ezpay-invoice','ecpay-invoice'] as $retired) {
     check(!isset($modules[$retired]), 'Retired card must not be registered');
-    check(!is_dir(WUTM_PATH . 'modules/' . $retired), 'Retired vendor runtime must not ship');
+    if($retired==='ecpay-invoice') check(!is_dir(WUTM_PATH . 'modules/' . $retired), 'Retired standalone ECPay runtime must not ship');
 }
-check(!is_file(WUTM_PATH . 'core/invoice-modules.php'), 'Retired adapter must not ship');
+check(is_file(WUTM_PATH . 'modules/newebpay-tools/module.php'), 'Combined tool exists');
 check(!isset($groups['電商支付工具']) && !isset($groups['電商電子發票']), 'Old categories must be absent');
-check(array_keys($groups['電商第三方金物流']) === ['payuni-payment','linepay-payment','ecpay-tools'], 'Three retained integrations share one category');
+check(array_keys($groups['電商第三方金物流']) === ['payuni-payment','linepay-payment','ecpay-tools','newebpay-tools'], 'Combined tool follows ECPay in unified category');
 $index = array_search('電商第三方金物流', $names, true);
 check($names[$index-1] === '電商工具' && $names[$index+1] === '電商優化工具', 'Category ordering retained');
 foreach (json_decode(file_get_contents(__DIR__ . '/ecpay-tools-source-files.json'), true) as $file => $digest) {

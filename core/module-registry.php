@@ -114,6 +114,7 @@ function wutm_modules(): array {
         'member-loyalty' => ['name' => '會員點數與階級', 'description' => '整合消費點數、結帳折抵、會員分級、專屬權益與 CRM；階級點數倍率會自動套用至點數回饋。', 'group' => '電商工具', 'icon' => '🏆', 'requires' => 'woocommerce', 'settings_page' => 'wu-member-loyalty', 'legacy_sources' => ['member-points', 'member-tiers']],
         'product-scheduled-unpublish' => ['name' => '商品排程下架', 'description' => '設定商品購買截止時間，到期保留已發佈與商品頁，只停止購買；可自訂截止後按鈕文字。', 'group' => '電商工具', 'icon' => '🕒', 'requires' => 'woocommerce', 'settings_url' => 'edit.php?post_type=product'],
         'ecpay-tools' => ['name' => '綠界金流/物流/電子發票工具', 'description' => '整合綠界付款、超商與宅配物流及電子發票。需設定商店資料並完成測試。', 'group' => '電商第三方金物流', 'icon' => '💳', 'requires' => 'woocommerce'],
+        'newebpay-tools' => ['name'=>'WU 藍新金流／物流／EZPAY 電子發票工具','description'=>'整合藍新信用卡、分期、ATM、超商付款／取貨與 EZPAY 電子發票；各服務分別啟用。適用傳統結帳及訂單儲存，請先完成商家測試。','group'=>'電商第三方金物流','icon'=>'💳','requires'=>'woocommerce','min_php'=>'8.0','settings_page'=>'wu-newebpay-tools','legacy_sources'=>['newebpay-tools','ezpay-invoice']],
         'shopcom-integration' => ['name' => '美安串接', 'description' => '整合 SHOP.COM RID／Click_ID 追蹤、訂單成立與取消回傳、佣金計算、商品 XML Feed 與 HPOS 訂單狀態。', 'group' => '專業工具', 'icon' => '🔗', 'requires' => 'woocommerce', 'settings_url' => 'admin.php?page=wc-settings&tab=shopcom'],
     ];
 }
