@@ -64,6 +64,10 @@ try{
     $timezone=date_default_timezone_get();ps_native((bool)preg_match('/^\d{4}-\d{2}-\d{2}$/',wutm_ps_date('+1 day'))&&date_default_timezone_get()===$timezone,'Label dates do not change global timezone');
     $save=$GLOBALS['wp_filter']['admin_post_wutm_save_payuni_shipping']->callbacks[10];$save=reset($save)['function'];
     add_filter('wp_die_handler',static function(){return static function(){throw new RuntimeException('fixture-denied');};},999);
+    // wp_send_json uses a bare die outside AJAX; exercise its actual AJAX path so
+    // an early exit cannot make this eval-file look like a successful full test.
+    if(!defined('DOING_AJAX'))define('DOING_AJAX',true);
+    add_filter('wp_die_ajax_handler',static function(){return static function(){throw new RuntimeException('fixture-denied');};},999);
     // Exercise source query and label download with real WP HTTP response helpers.
     $order=wc_get_order($id);$order->update_meta_data(Meta::ShipTradeNo,'SHIP-FIXTURE');$order->save();
     $_POST=['post_id'=>$id,'security'=>wp_create_nonce('payuni-shipping-order')];$_REQUEST=$_POST;$transport='bad-query';$previousStatus=$order->get_meta(Meta::ShipStatus);
@@ -71,6 +75,8 @@ try{
     ps_native($json['success']===false&&wc_get_order($id)->get_meta(Meta::ShipStatus)===$previousStatus,'Mismatched query cannot overwrite shipment');
     $transport='query';ob_start();try{Request::payuni_ajax_query_delivery_status();}catch(RuntimeException $error){ps_native($error->getMessage()==='fixture-denied','Valid query JSON terminates');}$json=json_decode(ob_get_clean(),true);ps_native($json['success']===true,'Original status query succeeds');
     $shipping->set_method_id('payuni_shipping_tcat_normal');$shipping->save();$order=wc_get_order($id);$order->update_meta_data(Meta::ShipType,'2');$order->update_meta_data(Meta::FileNo,'PDF-FIXTURE');$order->save();
+    $_POST=$sign(array_replace($notification,['ShipType'=>'2','LgsType'=>'HOME','ApiType'=>'ShipStatus','OBTNumber'=>'TCAT-FIXTURE','ShipStatusTime'=>'2026-10-22 14:00:00']));
+    wutm_ps_notify('2',['WuDigital\\Payuni\\Shipping\\Api\\ShippingResponse','payuni_tcat_receive_update']);ps_native(wc_get_order($id)->get_meta(Meta::ShipNo)==='TCAT-FIXTURE','Original TCat callback updates label number and returns without exiting fixture');
     $_GET=['orderids'=>(string)$id,'service'=>'2','security'=>wp_create_nonce('payuni-shipping-order')];$_REQUEST=$_GET;$transport='pdf';ob_start();try{Request::payuni_download_label();}catch(RuntimeException $error){ps_native($error->getMessage()==='fixture-denied','PDF terminates through WP handler');}$pdf=ob_get_clean();ps_native(strpos($pdf,'%PDF-1.4')===0,'Original PDF download works with native response headers');
     $user=get_current_user_id();wp_set_current_user(0);try{$save();throw new LogicException('Unauthorized save accepted');}catch(RuntimeException $error){ps_native($error->getMessage()==='fixture-denied','Settings capability enforced');}wp_set_current_user($user);
     $_POST=['_wpnonce'=>'invalid'];$_REQUEST=$_POST;try{$save();throw new LogicException('Bad nonce accepted');}catch(RuntimeException $error){ps_native($error->getMessage()==='fixture-denied','Settings nonce enforced');}

@@ -94,7 +94,8 @@ jobs:
           php "$RUNNER_TEMP/wutm-wp-cli.phar" plugin install woocommerce --version=9.0.2 --activate --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" option update woocommerce_custom_orders_table_enabled no --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/newebpay-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
-            php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/payuni-shipping-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
+            php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/payuni-shipping-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-payuni-shipping.log"
+            grep -Fq 'Native PAYUNi shipping passed:' "$RUNNER_TEMP/wutm-payuni-shipping.log"
           mkdir -p "$RUNNER_TEMP/wutm-media-wp/wp-content/mu-plugins"
           ln -s "$GITHUB_WORKSPACE/tests/fixtures/newebpay-startup-capture.php" "$RUNNER_TEMP/wutm-media-wp/wp-content/mu-plugins/wutm-startup-capture.php"
           ln -s "$GITHUB_WORKSPACE" "$RUNNER_TEMP/wutm-media-wp/wp-content/plugins/wu-toolbox-modular"
