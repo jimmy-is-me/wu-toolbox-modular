@@ -11,9 +11,12 @@ Every module is self-contained at `modules/<slug>/module.php`. The bootstrap onl
 | Performance | woocommerce-optimizer | WooCommerce |
 | Media | media-encoder, enhanced-downloader, plugin-downloader | — |
 | Code | head-footer-code | — |
+| 電商第三方金物流 | payuni-payment, linepay-payment, ecpay-tools | WooCommerce |
 | Monitoring | email-tracking, system-monitor | — |
 
 ## Loading guarantees
+
+From v3.7.9, standalone `ezpay-invoice` and `ecpay-invoice` are retired; their cards, routes and runtime packages are removed. Use the existing `ecpay-tools` / `wu-ecpay-tools` integration for ECPay payment, logistics and invoice settings. Stored standalone provider options/order metadata are retained but are not migrated to, or interpreted as, official ECPay records. No provider or invoice service is automatically enabled.
 
 1. WordPress loads only the tiny bootstrap and `core/` files.
 2. At `plugins_loaded`, the loader checks the module switch before it reads the module file.

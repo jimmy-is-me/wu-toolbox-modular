@@ -47,10 +47,13 @@ const render = mode => execFileSync(php, [...phpArgs, 'tests/admin-design.php', 
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Dashboard overflow '+width);
    const categoryLinks=page.locator('.wutm-category-nav a');
    assert.equal(await categoryLinks.count(),await page.locator('.wutm-module-group').count(),'Every rendered category has exactly one shortcut');
-   const labels=await categoryLinks.allTextContents(),paymentIndex=labels.indexOf('電商支付工具');
-   assert.equal(labels[paymentIndex+1],'電商電子發票','Invoices immediately below payment category');
-   const invoiceLink=categoryLinks.filter({hasText:'電商電子發票'});await invoiceLink.click();
-   assert.equal(await page.evaluate(()=>document.activeElement.querySelector('h2')?.textContent),'電商電子發票','Category navigation scrolls and moves keyboard focus');
+   const labels=await categoryLinks.allTextContents(),paymentIndex=labels.indexOf('電商第三方金物流');
+   assert.ok(paymentIndex>=0,'Unified commerce category exists');
+   assert.equal(labels[paymentIndex+1],'電商優化工具','Unified category stays before commerce optimization');
+   assert.ok(!labels.includes('電商電子發票')&&!labels.includes('電商支付工具'),'Retired categories absent');
+   assert.equal(await page.locator('[data-module="ezpay-invoice"],[data-module="ecpay-invoice"]').count(),0,'Standalone invoice cards absent');
+   const commerceLink=categoryLinks.filter({hasText:'電商第三方金物流'});await commerceLink.click();
+   assert.equal(await page.evaluate(()=>document.activeElement.querySelector('h2')?.textContent),'電商第三方金物流','Category navigation scrolls and moves keyboard focus');
    await page.evaluate(()=>scrollTo(0,0));
    const geometry=await page.evaluate(()=>{const box=s=>document.querySelector(s).getBoundingClientRect();return {search:box('#wutm-module-search-input').height,tabs:box('.wutm-module-tabs').height,rows:[...document.querySelectorAll('.wutm-module-tab')].map(e=>Math.round(e.getBoundingClientRect().top))};});
    assert.equal(geometry.search,geometry.tabs,'Search and tabs equal height '+width);
