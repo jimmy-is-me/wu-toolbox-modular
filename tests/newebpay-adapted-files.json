@@ -2,5 +2,6 @@
     "woocommerce/gateways/newebpay/includes/newebpay-gateway-response.php": "231b099c12977a165e47f26aec19ada6b01a87bcf4d12f14dc6f62e6c3802027",
     "woocommerce/abstracts/abstract-newebpay.php": "ce16d1088cff271898bbd62bd923e0bb5c6856d1f159cda06019b42ac496b081",
     "woocommerce/gateways/newebpay/includes/newebpay-gateway-api.php": "1f3fe58d23e49bdf19f0351100fbacd408ce969b4624be0c07ca8e7ef02cb909",
-    "style/js/wu_np_shipping.js": "02663d529f5553a0800d729d9ba50dab944727888084016ec755d6c56964783c"
+    "style/js/wu_np_shipping.js": "02663d529f5553a0800d729d9ba50dab944727888084016ec755d6c56964783c",
+    "woocommerce/shipping/wu-np-base.php": "ab60793a217a2b65ee63f7d3d9e406aea908f5845919aa3dff033376fdee7c17"
 }

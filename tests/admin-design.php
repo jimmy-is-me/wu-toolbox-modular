@@ -4,7 +4,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 define('ABSPATH', __DIR__ . '/');
 define('WUTM_PATH', dirname(__DIR__) . '/');
 define('WUTM_URL', '/');
-define('WUTM_VERSION', '3.8.0');
+define('WUTM_VERSION', '3.8.1');
 $hooks = $wp_filter = $styles = $scripts = [];
 $screen = (object) ['id' => 'renamed-toolbox_page_wu-custom-cursor'];
 $admin = true;

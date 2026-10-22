@@ -1,0 +1,8 @@
+# v3.8.1 — Startup hotfix
+
+- Confirmed the fatal from the supplied log: the NewebPay/EZPAY component declared WUTM_FILE incompatible with custom_order_tables after another component declared that same plugin compatible. WooCommerce throws on contradictory declarations for a single plugin. Remove the new component's whole-plugin false declarations, without changing other modules' declarations or replacing them with an unverified true declaration.
+- This is startup safety, not completed HPOS or Blocks support for the combined component. Keep the classic-checkout/order-storage limits explicit in settings and docs. Do not change any live storage/checkout option, merchant account, order, invoice or module switch to fix this boot error.
+- Register wu-np-shipping inside wp_enqueue_scripts instead of plugins_loaded. Keep its original handle, dependencies, version and later checkout-only enqueue path. Existing admin asset behavior is unchanged.
+- Add a strict declaration conflict reproducer and run the actual PAYUNi / LINE Pay / combined-module declaration callbacks together. Add a native cold-start fixture that activates the complete plugin with all three modules before WooCommerce initializes, captures startup notices via a CI-only MU fixture and verifies real frontend registration. Existing financial mock, isolation, permissions and UI checks remain enabled.
+- WPDesk Tracker notices in the supplied log originate in another namespace and are not suppressed or patched here. They are separate from the contradictory-declaration fatal.
+- No production installation or actual merchant transactions are performed by these tests.

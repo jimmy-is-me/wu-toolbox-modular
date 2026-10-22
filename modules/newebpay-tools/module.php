@@ -9,10 +9,6 @@ require_once __DIR__.'/settings.php';
 add_action('plugins_loaded','wutm_newebpay_boot',25);
 wutm_invoice_register('ezpay');
 add_action('init',static function() { load_plugin_textdomain('wu-newebpay-tools',false,dirname(plugin_basename(__FILE__)).'/vendor/languages'); });
-add_action('before_woocommerce_init',static function() {
-    if(class_exists('Automattic\\WooCommerce\\Utilities\\FeaturesUtil')) {
-        // Source invoice/checkout UI is classic; do not falsely advertise Blocks/HPOS.
-        \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('cart_checkout_blocks',WUTM_FILE,false);
-        \Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility('custom_order_tables',WUTM_FILE,false);
-    }
-});
+// A component must not contradict other components' declarations for WUTM_FILE.
+// Do not declare true to hide limitations either: keep this component's classic
+// checkout/order-storage limits explicit in its settings and documentation.

@@ -17,10 +17,13 @@ final class WU_NP_Shipping {
 			add_filter( 'woocommerce_shipping_address_map_url_parts', [ __CLASS__, 'fix_cvs_map_address' ] );
 			add_filter( 'woocommerce_admin_order_actions', [ __CLASS__, 'add_admin_order_actions' ], 10, 2 );
 		} else {
-			// 版本號跟隨 WU 版本，更新後瀏覽器才會重新下載（WU_NP_WT_VERSION 固定為 1.0.0）
-			wp_register_script( 'wu-np-shipping', WU_NP_WT_PLUGIN_URL . 'style/js/wu_np_shipping.js', [ 'jquery' ], WUTM_VERSION, true );
+            add_action( 'wp_enqueue_scripts', [ __CLASS__, 'register_frontend_script' ] );
 		}
 	}
+
+    public static function register_frontend_script() {
+        wp_register_script( 'wu-np-shipping', WU_NP_WT_PLUGIN_URL . 'style/js/wu_np_shipping.js', [ 'jquery' ], WUTM_VERSION, true );
+    }
 
 	public static function add_order_statuses( $order_statuses ) {
 		$order_statuses['wc-wu-np-at-cvs']  = _x( 'Wait pickup (cvs)', 'Order status', 'wu-newebpay-tools' );
