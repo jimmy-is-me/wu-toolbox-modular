@@ -1,0 +1,9 @@
+/**
+ * All of the CSS for your public-facing functionality should be
+ * included in this file.
+ */
+ #payuni_shiptype_field {
+    display: none !important;
+}
+body:not(.wutm-payuni-cvs) .woocommerce-shipping-fields__field-wrapper p.payuni-shipping-field:not(#shipping_phone_field) { display:none; }
+body.wutm-payuni-cvs .woocommerce-shipping-fields__field-wrapper p:not(.payuni-shipping-field):not(#shipping_first_name_field):not(#shipping_last_name_field):not(#shipping_phone_field) { display:none; }

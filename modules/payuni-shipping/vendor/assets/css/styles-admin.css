@@ -1,0 +1,43 @@
+/**
+ * All of the CSS for your admin-specific functionality should be
+ * included in this file.
+ */
+ #order_data .order_data_column .form-field._shipping_payuni_storename_field {
+	float: right;
+	clear: right;
+}
+#order_data .order_data_column .form-field._shipping_payuni_storeaddress_field,
+#order_data .order_data_column .form-field._shipping_phone_field {
+	width: 100%;
+	clear: both;
+}
+
+
+#payuni-shipping-info .inside {
+	padding: 0px;
+	margin: 0px;
+}
+
+
+#payuni-shipping-info .inside table {
+	width: 100%;
+}
+
+
+#payuni-shipping-info th, #payuni-shipping-info td {
+	text-align: left;
+	padding: 3px;
+}
+
+#payuni-shipping-info tr:nth-child(odd):not(#payuni-action) {
+	background-color: #ccc;
+}
+
+#payuni-shipping-info #payuni-action th, #payuni-shipping-info #payuni-action td {
+	border-top: solid 1px #ccc;
+	padding: 8px 3px;
+}
+
+#payuni-shipping-info #payuni-action button {
+	margin: 3px 2px;
+}

@@ -54,6 +54,7 @@ const render = mode => execFileSync(php, [...phpArgs, 'tests/admin-design.php', 
    assert.equal(await page.locator('[data-module="ezpay-invoice"],[data-module="ecpay-invoice"]').count(),0,'Standalone invoice cards absent');
    const commerceCards=await page.locator('.wutm-card').evaluateAll(cards=>cards.map(card=>card.id));
    assert.equal(commerceCards.indexOf('wutm-module-newebpay-tools'),commerceCards.indexOf('wutm-module-ecpay-tools')+1,'Combined tool immediately follows ECPay');
+    assert.equal(commerceCards.indexOf('wutm-module-payuni-shipping'),commerceCards.indexOf('wutm-module-payuni-payment')+1,'PAYUNi shipping card immediately follows payment on every viewport');
    const commerceLink=categoryLinks.filter({hasText:'電商第三方金物流'});await commerceLink.click();
    assert.equal(await page.evaluate(()=>document.activeElement.querySelector('h2')?.textContent),'電商第三方金物流','Category navigation scrolls and moves keyboard focus');
    await page.evaluate(()=>scrollTo(0,0));

@@ -1,0 +1,554 @@
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: PAYUNi Shipping for WooCommerce\n"
+"POT-Creation-Date: 2023-12-08 02:31+0800\n"
+"PO-Revision-Date: 2023-12-08 01:16+0800\n"
+"Last-Translator: \n"
+"Language-Team: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=INTEGER; plural=EXPRESSION;\n"
+"X-Generator: Poedit 3.4.1\n"
+"X-Poedit-Basepath: ..\n"
+"X-Poedit-Flags-xgettext: --add-comments=translators:\n"
+"X-Poedit-WPHeader: wu-payuni-shipping.php\n"
+"X-Poedit-SourceCharset: UTF-8\n"
+"X-Poedit-KeywordsList: __;_e;_n:1,2;_x:1,2c;_ex:1,2c;_nx:4c,1,2;esc_attr__;"
+"esc_attr_e;esc_attr_x:1,2c;esc_html__;esc_html_e;esc_html_x:1,2c;_n_noop:1,2;"
+"_nx_noop:3c,1,2;__ngettext_noop:1,2\n"
+"X-Poedit-SearchPath-0: .\n"
+"X-Poedit-SearchPathExcluded-0: *.min.js\n"
+
+#: src/Admin/OrderEdit.php:79 src/PayuniShipping.php:455
+msgid "Store ID"
+msgstr ""
+
+#: src/Admin/OrderEdit.php:83 src/PayuniShipping.php:445
+msgid "Store Name"
+msgstr ""
+
+#: src/Admin/OrderEdit.php:87 src/PayuniShipping.php:465
+msgid "Store Address"
+msgstr ""
+
+#: src/Admin/OrderEdit.php:92 src/Admin/OrderEdit.php:98
+#: src/PayuniShipping.php:430
+msgid "Shipping Phone"
+msgstr ""
+
+#: src/Admin/OrderEdit.php:119
+msgid "Create PAYUNi Shipping Order"
+msgstr ""
+
+#: src/Admin/OrderEdit.php:131
+msgid "Change CVS store"
+msgstr ""
+
+#: src/Admin/OrderEdit.php:132
+msgid ""
+"The PAYUNi shipping order will be revoked and recreated after changed the "
+"cvs store."
+msgstr ""
+
+#: src/Admin/OrderListTable.php:34 src/Admin/OrderMetaBox.php:88
+#: src/PayuniShipping.php:819
+msgid "ShipNo"
+msgstr ""
+
+#: src/Admin/OrderListTable.php:51
+#: src/Settings/SevenEleven/C2CFreezeFields.php:45
+#: src/Settings/SevenEleven/C2CFrozenFields.php:45
+#: src/Settings/SevenEleven/C2CNormalFields.php:45
+#: src/Settings/SevenEleven/Fields.php:45
+#: src/Settings/TCat/HDFrozenFields.php:42
+#: src/Settings/TCat/HDNormalFields.php:42
+#: src/Settings/TCat/HDRefrigeratedFields.php:42
+msgid "N/A"
+msgstr ""
+
+#: src/Admin/OrderMetaBox.php:48
+msgid "PAYUNi Shipping Info"
+msgstr ""
+
+#: src/Admin/OrderMetaBox.php:70 src/PayuniShipping.php:803
+msgid "ShipTradeNo"
+msgstr ""
+
+#: src/Admin/OrderMetaBox.php:91
+msgid "PartnerID"
+msgstr ""
+
+#: src/Admin/OrderMetaBox.php:92
+msgid "Odon"
+msgstr ""
+
+#: src/Admin/OrderMetaBox.php:93
+msgid "ValidationNo"
+msgstr ""
+
+#: src/Admin/OrderMetaBox.php:95 src/PayuniShipping.php:439
+#: src/PayuniShipping.php:806
+msgid "Ship Type"
+msgstr ""
+
+#: src/Admin/OrderMetaBox.php:96
+msgid "Logistic Type"
+msgstr ""
+
+#: src/Admin/OrderMetaBox.php:97
+msgid "Goods Type"
+msgstr ""
+
+#: src/Admin/OrderMetaBox.php:98
+msgid "Status"
+msgstr ""
+
+#: src/Admin/OrderMetaBox.php:99
+msgid "Status Desc"
+msgstr ""
+
+#: src/Admin/OrderMetaBox.php:100
+msgid "Status Time"
+msgstr ""
+
+#: src/Api/ShippingRequest.php:78 src/Api/ShippingRequest.php:134
+#: src/Api/ShippingRequest.php:519
+msgid "Create shipping order failed."
+msgstr ""
+
+#: src/Api/ShippingRequest.php:113
+msgid "Create shipping order successed. ShipTradeNo: "
+msgstr ""
+
+#: src/Api/ShippingRequest.php:143 src/Api/ShippingRequest.php:162
+msgid ""
+"PAYUNi shipping order cancel failed. Please cancel manually and recreate the "
+"shipping order again."
+msgstr ""
+
+#: src/Api/ShippingRequest.php:176
+msgid "Invalid security token sent."
+msgstr ""
+
+#: src/Api/ShippingRequest.php:183 src/Api/ShippingRequest.php:234
+#: src/Api/ShippingRequest.php:404
+msgid "Missing Ajax Parameter."
+msgstr ""
+
+#: src/Api/ShippingRequest.php:208
+msgid "Query shipping order status."
+msgstr ""
+
+#: src/Api/ShippingRequest.php:247
+msgid "Unsupported shipping service."
+msgstr ""
+
+#: src/Api/ShippingRequest.php:258
+msgid "No such Orders"
+msgstr ""
+
+#: src/Api/ShippingRequest.php:411
+msgid "Unsupported Ship Type"
+msgstr ""
+
+#: src/Api/ShippingRequest.php:422
+msgid "Cant find Order."
+msgstr ""
+
+#: src/Api/ShippingRequest.php:563
+msgid "Query shipping order failed."
+msgstr ""
+
+#: src/Api/ShippingResponse.php:77
+#, php-format
+msgid ""
+"CVS store has changed to %1$s. The PAYUNi shipping order will be revoked and "
+"recreated."
+msgstr ""
+
+#: src/PayuniShipping.php:352
+msgid "Please select a CVS store."
+msgstr ""
+
+#: src/PayuniShipping.php:359
+msgid "Shipping Phone format is invalid"
+msgstr ""
+
+#: src/PayuniShipping.php:669
+msgid "Shipping status update failed."
+msgstr ""
+
+#: src/PayuniShipping.php:670
+msgid "Shipping order cancel failed."
+msgstr ""
+
+#: src/PayuniShipping.php:791
+msgid "PAYUNi Shipping Detail"
+msgstr ""
+
+#: src/PayuniShipping.php:812
+msgid "Detail Status Desc"
+msgstr ""
+
+#: src/PayuniShipping.php:816
+msgid "Ship Status Time"
+msgstr ""
+
+#: src/Providers/SevenC2CFreeze.php:34
+msgid "PAYUNi Shipping 7-11 C2C Freeze "
+msgstr ""
+
+#: src/Providers/SevenC2CFreeze.php:35
+#: src/Settings/SevenEleven/C2CFreezeFields.php:23
+#: src/Settings/SevenEleven/C2CFrozenFields.php:23
+msgid "PAYUNi Shipping 7-11 C2C Freeze"
+msgstr ""
+
+#: src/Providers/SevenEleven/C2CFrozen.php:34
+#: src/Providers/SevenEleven/C2CFrozen.php:35
+msgid "PAYUNi Shipping 7-11 C2C Frozen"
+msgstr ""
+
+#: src/Providers/SevenEleven/C2CNormal.php:34
+#: src/Providers/SevenEleven/C2CNormal.php:35
+#: src/Settings/SevenEleven/C2CNormalFields.php:23
+msgid "PAYUNi Shipping 7-11 C2C Normal"
+msgstr ""
+
+#: src/Providers/TCat/HDFrozen.php:34 src/Providers/TCat/HDFrozen.php:35
+msgid "PAYUNi Shipping TCat Frozen "
+msgstr ""
+
+#: src/Providers/TCat/HDNormal.php:35 src/Providers/TCat/HDNormal.php:36
+msgid "PAYUNi Shipping TCat Normal "
+msgstr ""
+
+#: src/Providers/TCat/HDRefrigerated.php:35
+#: src/Providers/TCat/HDRefrigerated.php:36
+msgid "PAYUNi Shipping Tcat Refrigerated "
+msgstr ""
+
+#: src/Settings/SettingsTab.php:24
+msgid "PAYUNi"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:27 src/Settings/SettingsTab.php:49
+msgid "Shipping Settings"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:82
+msgid "General Shipping Settings"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:87
+msgid "Debug Log"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:89
+msgid "Enable logging"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:91
+#, php-format
+msgid "Log PAYUNi Shipping message, inside <code>%s</code>"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:99
+msgid "Store Settings"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:101
+msgid "Enter your store information"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:105
+msgid "Sender Name"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:107
+msgid ""
+"Please enter the sender name. It may be used when the order is returned."
+msgstr ""
+
+#: src/Settings/SettingsTab.php:112
+msgid "Sender Phone"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:121
+msgid "Shipping Order Status Settings"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:123
+msgid "Manage your shipping order status"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:127
+msgid "When ShipNo are generated (ShipStatus=21), change order status to"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:133
+msgid ""
+"When products are located at logistic center (ShipStatus=22), change order "
+"status to"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:139
+msgid "When products are delivering (ShipStatus=31), change order status to"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:145
+msgid ""
+"When products are at located receiver CVS store (ShipStatus=32), change "
+"order status to"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:151
+msgid ""
+"When customer pickuped or received products (ShipStatus=11), change order "
+"status to"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:161
+msgid "TCat Shipping Settings"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:166
+msgid "Delivery Time"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:169
+msgid "Before 13:00"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:170
+msgid "14:00~18:00"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:171
+msgid "Not Set"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:177
+msgid "Estimate shipping date"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:180
+msgid ""
+"When will the estimate shipping date. Default is 1, which means the estimate "
+"shipping date is the the next day of the shipping order created."
+msgstr ""
+
+#: src/Settings/SettingsTab.php:189
+msgid "API Settings"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:191
+msgid "Enter your PAYUNi shipping user account and API Code"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:195
+msgid "Test Mode"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:197
+msgid "Enable Test Mode"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:199
+msgid "When enabled, you need to use the test-only User Account and API Code."
+msgstr ""
+
+#: src/Settings/SettingsTab.php:203
+msgid "MerchantID"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:205
+msgid "This is the MerchantID when you apply PAYUNi API"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:210
+msgid "HashKey"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:212
+msgid "This is the HashKey when you apply PAYUNi API"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:217
+msgid "HashIV"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:219
+msgid "This is the HashIV when you apply PAYUNi API"
+msgstr ""
+
+#: src/Settings/SettingsTab.php:241
+msgid "No action"
+msgstr ""
+
+#: src/Settings/SevenEleven/C2CFreezeFields.php:20
+#: src/Settings/SevenEleven/C2CFrozenFields.php:20
+#: src/Settings/SevenEleven/C2CNormalFields.php:20
+#: src/Settings/SevenEleven/Fields.php:20
+#: src/Settings/TCat/HDFrozenFields.php:17
+#: src/Settings/TCat/HDNormalFields.php:17
+#: src/Settings/TCat/HDRefrigeratedFields.php:17
+msgid "Title"
+msgstr ""
+
+#: src/Settings/SevenEleven/C2CFreezeFields.php:22
+#: src/Settings/SevenEleven/C2CFrozenFields.php:22
+#: src/Settings/SevenEleven/C2CNormalFields.php:22
+#: src/Settings/SevenEleven/Fields.php:22
+#: src/Settings/TCat/HDFrozenFields.php:19
+#: src/Settings/TCat/HDNormalFields.php:19
+#: src/Settings/TCat/HDRefrigeratedFields.php:19
+msgid "This controls the title which the user sees during checkout."
+msgstr ""
+
+#: src/Settings/SevenEleven/C2CFreezeFields.php:27
+#: src/Settings/SevenEleven/C2CFrozenFields.php:27
+#: src/Settings/SevenEleven/C2CNormalFields.php:27
+#: src/Settings/SevenEleven/Fields.php:27
+#: src/Settings/TCat/HDFrozenFields.php:24
+#: src/Settings/TCat/HDNormalFields.php:24
+#: src/Settings/TCat/HDRefrigeratedFields.php:24
+msgid "Description"
+msgstr ""
+
+#: src/Settings/SevenEleven/C2CFreezeFields.php:29
+#: src/Settings/SevenEleven/C2CFrozenFields.php:29
+#: src/Settings/SevenEleven/C2CNormalFields.php:29
+#: src/Settings/SevenEleven/Fields.php:29
+#: src/Settings/TCat/HDFrozenFields.php:26
+#: src/Settings/TCat/HDNormalFields.php:26
+#: src/Settings/TCat/HDRefrigeratedFields.php:26
+msgid "This controls the description which the user sees during checkout."
+msgstr ""
+
+#: src/Settings/SevenEleven/C2CFreezeFields.php:33
+#: src/Settings/SevenEleven/C2CFrozenFields.php:33
+#: src/Settings/SevenEleven/C2CNormalFields.php:33
+#: src/Settings/SevenEleven/Fields.php:33
+#: src/Settings/TCat/HDFrozenFields.php:30
+#: src/Settings/TCat/HDNormalFields.php:30
+#: src/Settings/TCat/HDRefrigeratedFields.php:30
+msgid "Shipping Cost"
+msgstr ""
+
+#: src/Settings/SevenEleven/C2CFreezeFields.php:40
+#: src/Settings/SevenEleven/C2CFrozenFields.php:40
+#: src/Settings/SevenEleven/C2CNormalFields.php:40
+#: src/Settings/SevenEleven/Fields.php:40
+#: src/Settings/TCat/HDFrozenFields.php:37
+#: src/Settings/TCat/HDNormalFields.php:37
+#: src/Settings/TCat/HDRefrigeratedFields.php:37
+msgid "Free shipping requires"
+msgstr ""
+
+#: src/Settings/SevenEleven/C2CFreezeFields.php:46
+#: src/Settings/SevenEleven/C2CFrozenFields.php:46
+#: src/Settings/SevenEleven/C2CNormalFields.php:46
+#: src/Settings/SevenEleven/Fields.php:46
+#: src/Settings/TCat/HDFrozenFields.php:43
+#: src/Settings/TCat/HDNormalFields.php:43
+#: src/Settings/TCat/HDRefrigeratedFields.php:43
+msgid "A valid free shipping coupon"
+msgstr ""
+
+#: src/Settings/SevenEleven/C2CFreezeFields.php:47
+#: src/Settings/SevenEleven/C2CFrozenFields.php:47
+#: src/Settings/SevenEleven/C2CNormalFields.php:47
+#: src/Settings/SevenEleven/Fields.php:47
+#: src/Settings/TCat/HDFrozenFields.php:44
+#: src/Settings/TCat/HDNormalFields.php:44
+#: src/Settings/TCat/HDRefrigeratedFields.php:44
+msgid "A minimum order amount"
+msgstr ""
+
+#: src/Settings/SevenEleven/C2CFreezeFields.php:48
+#: src/Settings/SevenEleven/C2CFrozenFields.php:48
+#: src/Settings/SevenEleven/C2CNormalFields.php:48
+#: src/Settings/SevenEleven/Fields.php:48
+#: src/Settings/TCat/HDFrozenFields.php:45
+#: src/Settings/TCat/HDNormalFields.php:45
+#: src/Settings/TCat/HDRefrigeratedFields.php:45
+msgid "A minimum order amount OR a coupon"
+msgstr ""
+
+#: src/Settings/SevenEleven/C2CFreezeFields.php:49
+#: src/Settings/SevenEleven/C2CFrozenFields.php:49
+#: src/Settings/SevenEleven/C2CNormalFields.php:49
+#: src/Settings/SevenEleven/Fields.php:49
+#: src/Settings/TCat/HDFrozenFields.php:46
+#: src/Settings/TCat/HDNormalFields.php:46
+#: src/Settings/TCat/HDRefrigeratedFields.php:46
+msgid "A minimum order amount AND a coupon"
+msgstr ""
+
+#: src/Settings/SevenEleven/C2CFreezeFields.php:53
+#: src/Settings/SevenEleven/C2CFrozenFields.php:53
+#: src/Settings/SevenEleven/C2CNormalFields.php:53
+#: src/Settings/SevenEleven/Fields.php:53
+#: src/Settings/TCat/HDFrozenFields.php:50
+#: src/Settings/TCat/HDNormalFields.php:50
+#: src/Settings/TCat/HDRefrigeratedFields.php:50
+msgid "Minimum order amount for free shipping"
+msgstr ""
+
+#: src/Settings/SevenEleven/C2CFreezeFields.php:57
+#: src/Settings/SevenEleven/C2CFrozenFields.php:57
+#: src/Settings/SevenEleven/C2CNormalFields.php:57
+#: src/Settings/SevenEleven/Fields.php:57
+#: src/Settings/TCat/HDFrozenFields.php:54
+#: src/Settings/TCat/HDNormalFields.php:54
+#: src/Settings/TCat/HDRefrigeratedFields.php:54
+msgid "Users will need to spend this amount to get free shipping."
+msgstr ""
+
+#: src/Settings/SevenEleven/Fields.php:23
+msgid "PAYUNi Shipping 7-11 C2C"
+msgstr ""
+
+#: src/Settings/TCat/HDFrozenFields.php:20
+msgid "PAYUNi Shipping TCat - Frozen"
+msgstr ""
+
+#: src/Settings/TCat/HDFrozenFields.php:58
+#: src/Settings/TCat/HDNormalFields.php:58
+#: src/Settings/TCat/HDRefrigeratedFields.php:58
+msgid "Package Spec"
+msgstr ""
+
+#: src/Settings/TCat/HDNormalFields.php:20
+msgid "PAYUNi Shipping TCat - Normal"
+msgstr ""
+
+#: src/Settings/TCat/HDRefrigeratedFields.php:20
+msgid "PAYUNi Shipping TCat"
+msgstr ""
+
+#: wu-payuni-shipping.php:69
+msgid ""
+"PAYUNi Shipping needs WooCommerce, please intall and activate WooCommerce "
+"first!"
+msgstr ""
+
+#. Plugin Name of the plugin/theme
+#. Description of the plugin/theme
+msgid "PAYUNi Shipping for WooCommerce"
+msgstr ""
+
+#. Plugin URI of the plugin/theme
+msgid "https://wudigital.com/product/wu-payuni-shipping"
+msgstr ""
+
+#. Author of the plugin/theme
+msgid "WuDigital"
+msgstr ""
+
+#. Author URI of the plugin/theme
+msgid "https://wudigital.com"
+msgstr ""

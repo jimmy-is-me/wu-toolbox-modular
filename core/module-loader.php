@@ -5,6 +5,7 @@ defined('ABSPATH') || exit;
 // WooCommerce finishes its own plugins_loaded bootstrap.
 $wutm_early_module_keys = [
     'payuni-payment',
+    'payuni-shipping',
     'linepay-payment',
     'discord-notifications',
     'member-loyalty',

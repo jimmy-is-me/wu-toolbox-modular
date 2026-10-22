@@ -1,0 +1,182 @@
+{
+    "assets/css/styles-admin.css": {
+        "source_sha256": "d96fee6334e1336bdb865922fa97089cea11eebc31417fb952d6ee193d8aa0da",
+        "bundled_sha256": "d96fee6334e1336bdb865922fa97089cea11eebc31417fb952d6ee193d8aa0da",
+        "adaptation": "unchanged"
+    },
+    "assets/css/styles-public.css": {
+        "source_sha256": "44d169dff61be03f2c94e93475ef7a1cde80067b22645e2d09df439a28d312cd",
+        "bundled_sha256": "6f4744589844959f3f78943ae4fd8fb538bc31095c6645f697e22f0bb846234f",
+        "adaptation": "Scoped own checkout state, preserve other provider visibility."
+    },
+    "assets/js/save-fields.js": {
+        "source_sha256": "d62b765613459efd3adddad4d3cd3e264016ad86104ccbb470713670e80c7cb8",
+        "bundled_sha256": "d62b765613459efd3adddad4d3cd3e264016ad86104ccbb470713670e80c7cb8",
+        "adaptation": "unchanged"
+    },
+    "assets/js/scripts-admin.js": {
+        "source_sha256": "995d968034e37725da34019eb360fec0faaf2331863a522d4013bac82b3909c9",
+        "bundled_sha256": "cd8fb9bb72bfcb342a169e5212d327d795ae3a0b7aff624e2bc0baff2b5ce6dd",
+        "adaptation": "Scope own admin action selectors and omit raw console payloads."
+    },
+    "assets/js/scripts-public.js": {
+        "source_sha256": "e8ff211bf5cf83d11d18e54f55a4b5326a774f41dff84fca50db25badc6661fd",
+        "bundled_sha256": "e8ff211bf5cf83d11d18e54f55a4b5326a774f41dff84fca50db25badc6661fd",
+        "adaptation": "unchanged"
+    },
+    "languages/wu-payuni-shipping-zh_TW.mo": {
+        "source_sha256": "be83c9651ad8904acda0ce03d1257f94bcfb4d832f994606897e2c563371356c",
+        "bundled_sha256": "be83c9651ad8904acda0ce03d1257f94bcfb4d832f994606897e2c563371356c",
+        "adaptation": "unchanged"
+    },
+    "languages/wu-payuni-shipping-zh_TW.po": {
+        "source_sha256": "95e0b4bfc5fccdaa70e12fbf3d91cef7894974b4c6f2762ac781ab4a8ebbb2b6",
+        "bundled_sha256": "95e0b4bfc5fccdaa70e12fbf3d91cef7894974b4c6f2762ac781ab4a8ebbb2b6",
+        "adaptation": "unchanged"
+    },
+    "languages/wu-payuni-shipping.pot": {
+        "source_sha256": "c66e836dfb08b3ef1b2903357b9b3c25fed6320ecf45cbf247c681f74b92843c",
+        "bundled_sha256": "c66e836dfb08b3ef1b2903357b9b3c25fed6320ecf45cbf247c681f74b92843c",
+        "adaptation": "unchanged"
+    },
+    "src/Admin/OrderEdit.php": {
+        "source_sha256": "cc4c60dd85c2282808379c01f1e09868c8b696ae0df9e3f4ac4726bc774fdd19",
+        "bundled_sha256": "cc4c60dd85c2282808379c01f1e09868c8b696ae0df9e3f4ac4726bc774fdd19",
+        "adaptation": "unchanged"
+    },
+    "src/Admin/OrderListTable.php": {
+        "source_sha256": "7eda7b127893a74967d0cb01bd0d065eaf521111c5141763abc2cba3e786e975",
+        "bundled_sha256": "7eda7b127893a74967d0cb01bd0d065eaf521111c5141763abc2cba3e786e975",
+        "adaptation": "unchanged"
+    },
+    "src/Admin/OrderMetaBox.php": {
+        "source_sha256": "36480a1e32ab290579c48f8f6858a18ef7aae05a4822474efc277edf44870f3a",
+        "bundled_sha256": "6afb7bb57280d572caafd0bfbb58df503d3c2df9a76e40323aee9975da2fad79",
+        "adaptation": "Scope label button and prevent accidental order form submission."
+    },
+    "src/Api/ShippingRequest.php": {
+        "source_sha256": "dd223813d9b8be729ab17c0d1882e4fc4c0b6ea6b76454d58161b49452f35d66",
+        "bundled_sha256": "fd122f795d16ea193a70d08b52aa6ab12fa971c2ee25ecedd12b64fc75fab97f",
+        "adaptation": "Atomic creation wrapper; preserve API payload builders, reject failed/mismatched queries before meta changes, fix WP_Error/PDF headers and Taipei dates without changing global timezone."
+    },
+    "src/Api/ShippingResponse.php": {
+        "source_sha256": "3580f0f3c39ac1f569f8db23837fb6e7fef983378e941184cac56efe6371b837",
+        "bundled_sha256": "fd9a6224638e838021113aa9bc7d28973560d3a4d3b203b17187560338991469",
+        "adaptation": "Return from TCat handler to release wrapper lock; signature/order/replay guards are in adapter."
+    },
+    "src/PayuniShipping.php": {
+        "source_sha256": "80284264cb391a23866dbb331ed19acb10ab47c3ded5d5103608cd24cb8ef931",
+        "bundled_sha256": "ec5594596d8b3da499cabba5db38da2cd08d606d9407f5a54345a43b3b9cd604",
+        "adaptation": "Preserve checkout/order/crypto APIs; scoped UI/assets, foreign-provider guards, frozen map goods type, instance package spec, missing-session/ctype guards, sanitized debug log."
+    },
+    "src/Providers/SevenEleven/C2CFrozen.php": {
+        "source_sha256": "24aa7649a199bd93dcfc2d7954840fa6357f2debeb4ad244d5884c385d4bb391",
+        "bundled_sha256": "24aa7649a199bd93dcfc2d7954840fa6357f2debeb4ad244d5884c385d4bb391",
+        "adaptation": "unchanged"
+    },
+    "src/Providers/SevenEleven/C2CNormal.php": {
+        "source_sha256": "cefa06efa5a865dbcdb407c0506f829c322bbc296bd27015fbc4579dfad58d70",
+        "bundled_sha256": "cefa06efa5a865dbcdb407c0506f829c322bbc296bd27015fbc4579dfad58d70",
+        "adaptation": "unchanged"
+    },
+    "src/Providers/ShippingBase.php": {
+        "source_sha256": "eb405691f9bd5510d3b5935d8f17db07922c2a537c828a589108e6f173e984f4",
+        "bundled_sha256": "eb405691f9bd5510d3b5935d8f17db07922c2a537c828a589108e6f173e984f4",
+        "adaptation": "unchanged"
+    },
+    "src/Providers/TCat/HDFrozen.php": {
+        "source_sha256": "6fdfd86345838b81eec471bae920597cf2cfa48357d9cfd7ae378c039f04a00c",
+        "bundled_sha256": "6fdfd86345838b81eec471bae920597cf2cfa48357d9cfd7ae378c039f04a00c",
+        "adaptation": "unchanged"
+    },
+    "src/Providers/TCat/HDNormal.php": {
+        "source_sha256": "674c48611fba1405c2e583dcce906d7826472628485a96061fc370f4707723a1",
+        "bundled_sha256": "674c48611fba1405c2e583dcce906d7826472628485a96061fc370f4707723a1",
+        "adaptation": "unchanged"
+    },
+    "src/Providers/TCat/HDRefrigerated.php": {
+        "source_sha256": "d3219e965b39ae214bb431c53e18695bca430063e0592764fd9057d548009b7f",
+        "bundled_sha256": "d3219e965b39ae214bb431c53e18695bca430063e0592764fd9057d548009b7f",
+        "adaptation": "unchanged"
+    },
+    "src/Settings/SettingsTab.php": {
+        "source_sha256": "44c7c029a35434aee03858af03af8d5a52c567598e969ce0a51b0dd25a42e25d",
+        "bundled_sha256": "44c7c029a35434aee03858af03af8d5a52c567598e969ce0a51b0dd25a42e25d",
+        "adaptation": "unchanged"
+    },
+    "src/Settings/SevenEleven/C2CFrozenFields.php": {
+        "source_sha256": "d1f1468784d6f955eefdddb132d215229951e99aaa7d1dd05f62ae6f2e76354c",
+        "bundled_sha256": "d1f1468784d6f955eefdddb132d215229951e99aaa7d1dd05f62ae6f2e76354c",
+        "adaptation": "unchanged"
+    },
+    "src/Settings/SevenEleven/C2CNormalFields.php": {
+        "source_sha256": "4b8c7a6cc3fccb622b86c548d6979034976a936776f3c099ae5e092e8d511810",
+        "bundled_sha256": "4b8c7a6cc3fccb622b86c548d6979034976a936776f3c099ae5e092e8d511810",
+        "adaptation": "unchanged"
+    },
+    "src/Settings/TCat/HDFrozenFields.php": {
+        "source_sha256": "9648c21652368edefe7ec92e3f415e28e595313eba8991f3b60c856a98e94a43",
+        "bundled_sha256": "9648c21652368edefe7ec92e3f415e28e595313eba8991f3b60c856a98e94a43",
+        "adaptation": "unchanged"
+    },
+    "src/Settings/TCat/HDNormalFields.php": {
+        "source_sha256": "2f20336792d044db647c615e5abf0560ec9a03f5f09e663eeaf4841c3ccc3d7d",
+        "bundled_sha256": "2f20336792d044db647c615e5abf0560ec9a03f5f09e663eeaf4841c3ccc3d7d",
+        "adaptation": "unchanged"
+    },
+    "src/Settings/TCat/HDRefrigeratedFields.php": {
+        "source_sha256": "bc3c9015d48e77889eabf1bfc8ffecebd81372edc73904a3c8ba539b7fc75e5f",
+        "bundled_sha256": "bc3c9015d48e77889eabf1bfc8ffecebd81372edc73904a3c8ba539b7fc75e5f",
+        "adaptation": "unchanged"
+    },
+    "src/Utils/GoodsType.php": {
+        "source_sha256": "8ccf71e771de790f9a9e0fdd59c104ad0326ee1496ec55587f2b56a1f3902b70",
+        "bundled_sha256": "8ccf71e771de790f9a9e0fdd59c104ad0326ee1496ec55587f2b56a1f3902b70",
+        "adaptation": "unchanged"
+    },
+    "src/Utils/LgsType.php": {
+        "source_sha256": "ca12ec0f3612510ef56ebbdb896f800b19b5f67c2a5f335599ad84115d11e372",
+        "bundled_sha256": "ca12ec0f3612510ef56ebbdb896f800b19b5f67c2a5f335599ad84115d11e372",
+        "adaptation": "unchanged"
+    },
+    "src/Utils/OrderMeta.php": {
+        "source_sha256": "4e3686785a537c2f427d03dd0d1b27576e1f8e4171dc24b9987554fcd380ebe8",
+        "bundled_sha256": "4e3686785a537c2f427d03dd0d1b27576e1f8e4171dc24b9987554fcd380ebe8",
+        "adaptation": "unchanged"
+    },
+    "src/Utils/ShipType.php": {
+        "source_sha256": "5c57a7c7b7e6b00dc1088a7801811f8ce3cfa5fb8a19b3926391b2ab78c88871",
+        "bundled_sha256": "5c57a7c7b7e6b00dc1088a7801811f8ce3cfa5fb8a19b3926391b2ab78c88871",
+        "adaptation": "unchanged"
+    },
+    "src/Utils/ShippingStatus.php": {
+        "source_sha256": "c5e8b7cfe0a7b16d4e0619e30ebe06cd2122633adba33bba7b1af31cff7d126b",
+        "bundled_sha256": "c5e8b7cfe0a7b16d4e0619e30ebe06cd2122633adba33bba7b1af31cff7d126b",
+        "adaptation": "unchanged"
+    },
+    "src/Utils/SingletonTrait.php": {
+        "source_sha256": "6d92b85f09ea1802fc795dc5573cfa077639fb0425f78598541aa4db4ecacb9e",
+        "bundled_sha256": "6d92b85f09ea1802fc795dc5573cfa077639fb0425f78598541aa4db4ecacb9e",
+        "adaptation": "unchanged"
+    },
+    "src/Utils/TCatHDTrait.php": {
+        "source_sha256": "5afd7a3a29049260abcbb2ffbf69a0666196a8d9ccf1c09c59336613bd6f8c54",
+        "bundled_sha256": "5afd7a3a29049260abcbb2ffbf69a0666196a8d9ccf1c09c59336613bd6f8c54",
+        "adaptation": "unchanged"
+    },
+    "templates/cart/choose-cvs.php": {
+        "source_sha256": "636e39234377170aac61f06bb48777332283bb33cb7f62b892ba4914b46cf8c4",
+        "bundled_sha256": "1ac82db1e906c88c5b64472648bb22ecbc4726364db434a62f7c3059fe48030a",
+        "adaptation": "Unique WU map button ID; prevent clashes with other shipping providers."
+    },
+    "vendor/autoload.php": {
+        "source_sha256": "9ccece685074b19a5836558bc992ea52e02a53780c50685dedd1a2d6aaea136c",
+        "bundled_sha256": "9ccece685074b19a5836558bc992ea52e02a53780c50685dedd1a2d6aaea136c",
+        "adaptation": "unchanged"
+    },
+    "wu-payuni-shipping.php": {
+        "source_sha256": "4fe9f22a82501504c1cdb0b40979b2e1bff7479ef31f38dd8cbfb8c6d1150d7e",
+        "bundled_sha256": "4fe9f22a82501504c1cdb0b40979b2e1bff7479ef31f38dd8cbfb8c6d1150d7e",
+        "adaptation": "unchanged"
+    }
+}

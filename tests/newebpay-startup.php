@@ -28,7 +28,7 @@ $features::declare_compatibility('custom_order_tables',WUTM_FILE,true);
 try{$features::declare_compatibility('custom_order_tables',WUTM_FILE,false);throw new \LogicException('Expected reported conflict');}catch(\RuntimeException $error){}
 $features::$state=[];
 // Use the actual boot and compatibility callbacks from the other modules.
-foreach(['payuni-payment','linepay-payment','newebpay-tools'] as $module)require WUTM_PATH.'modules/'.$module.'/module.php';
+foreach(['payuni-payment','payuni-shipping','linepay-payment','newebpay-tools'] as $module)require WUTM_PATH.'modules/'.$module.'/module.php';
 run_fixture_hook('before_woocommerce_init');
 check($features::$state[WUTM_FILE.':custom_order_tables']===true,'Other modules retain their declared compatibility');
 check($features::$state[WUTM_FILE.':cart_checkout_blocks']===true,'New component must not contradict LINE Pay');

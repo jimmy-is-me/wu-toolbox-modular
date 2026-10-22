@@ -34,7 +34,7 @@ foreach (['ezpay-invoice','ecpay-invoice'] as $retired) {
 }
 check(is_file(WUTM_PATH . 'modules/newebpay-tools/module.php'), 'Combined tool exists');
 check(!isset($groups['電商支付工具']) && !isset($groups['電商電子發票']), 'Old categories must be absent');
-check(array_keys($groups['電商第三方金物流']) === ['payuni-payment','linepay-payment','ecpay-tools','newebpay-tools'], 'Combined tool follows ECPay in unified category');
+check(array_keys($groups['電商第三方金物流']) === ['payuni-payment','payuni-shipping','linepay-payment','ecpay-tools','newebpay-tools'], 'PAYUNi shipping follows payment; combined tool follows ECPay');
 $index = array_search('電商第三方金物流', $names, true);
 check($names[$index-1] === '電商工具' && $names[$index+1] === '電商優化工具', 'Category ordering retained');
 foreach (json_decode(file_get_contents(__DIR__ . '/ecpay-tools-source-files.json'), true) as $file => $digest) {

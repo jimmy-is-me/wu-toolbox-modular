@@ -41,6 +41,7 @@ jobs:
           php tests/newebpay.php conflict
           php tests/newebpay-startup.php
           php tests/invoice-labels.php
+          for mode in no-woocommerce standalone network foreign; do php tests/payuni-shipping.php "$mode"; done
           for mode in enabled disabled conflict no-woocommerce official; do php tests/invoice-modules.php "$mode" ezpay; done
           node --check assets/js/admin-design.js
           node tests/admin-ui-contract.js
@@ -93,11 +94,13 @@ jobs:
           php "$RUNNER_TEMP/wutm-wp-cli.phar" plugin install woocommerce --version=9.0.2 --activate --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" option update woocommerce_custom_orders_table_enabled no --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/newebpay-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
+            php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/payuni-shipping-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
           mkdir -p "$RUNNER_TEMP/wutm-media-wp/wp-content/mu-plugins"
           ln -s "$GITHUB_WORKSPACE/tests/fixtures/newebpay-startup-capture.php" "$RUNNER_TEMP/wutm-media-wp/wp-content/mu-plugins/wutm-startup-capture.php"
           ln -s "$GITHUB_WORKSPACE" "$RUNNER_TEMP/wutm-media-wp/wp-content/plugins/wu-toolbox-modular"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" option update wutm_module_newebpay_tools 1 --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" option update wutm_module_payuni_payment 1 --path="$RUNNER_TEMP/wutm-media-wp"
+            php "$RUNNER_TEMP/wutm-wp-cli.phar" option update wutm_module_payuni_shipping 1 --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" option update wutm_module_linepay_payment 1 --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" plugin activate wu-toolbox-modular --path="$RUNNER_TEMP/wutm-media-wp"
           if WUTM_STARTUP_REPRODUCE=1 php "$RUNNER_TEMP/wutm-wp-cli.phar" eval 'echo "unexpected startup success";' --path="$RUNNER_TEMP/wutm-media-wp" > "$RUNNER_TEMP/wutm-startup-repro.log" 2>&1; then
@@ -196,3 +199,4 @@ jobs:
           node tests/style-youtube-ui.js
           node tests/invoice-admin-ui.js
           node tests/newebpay-ui.js
+          node tests/payuni-shipping-ui.js
