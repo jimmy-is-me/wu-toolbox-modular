@@ -13,9 +13,9 @@ class Ajax {
 
 	public static function init() {
 		$class = new self();
-		add_action( 'wp_ajax_gen_invoice', [ $class, 'generate_invoice' ] );
-		add_action( 'wp_ajax_invalid_invoice', [ $class, 'invalid_invoice' ] );
-		add_action( 'wp_ajax_update_invoice', [ $class, 'update_invoice' ] );
+		add_action( 'wp_ajax_gen_invoice', \wutm_invoice_ajax_callback([ $class, 'generate_invoice' ]) );
+		add_action( 'wp_ajax_invalid_invoice', \wutm_invoice_ajax_callback([ $class, 'invalid_invoice' ]) );
+		add_action( 'wp_ajax_update_invoice', \wutm_invoice_ajax_callback([ $class, 'update_invoice' ]) );
 	}
 
 	public function __construct() {

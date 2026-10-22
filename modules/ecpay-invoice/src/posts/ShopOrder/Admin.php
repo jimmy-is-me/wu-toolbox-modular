@@ -35,7 +35,7 @@ class Admin {
 	}
 
 	public function enqueue_script() {
-		wp_register_script( 'wu_ecpay_invoice', ECPAYINVOICE_PLUGIN_URL . 'assets/js/admin.js', [ 'jquery' ], '3.4.29', true );
+		wp_register_script( 'wu_ecpay_invoice', ECPAYINVOICE_PLUGIN_URL . 'assets/js/admin.js', [ 'jquery', 'jquery-blockui' ], WUTM_VERSION, true );
 		wp_localize_script(
 			'wu_ecpay_invoice',
 			'wu_ecpay_invoice_params',

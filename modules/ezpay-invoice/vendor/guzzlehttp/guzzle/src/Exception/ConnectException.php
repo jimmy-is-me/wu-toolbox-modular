@@ -1,7 +1,7 @@
 <?php
-namespace GuzzleHttp\Exception;
+namespace WUTMInvoiceDeps\GuzzleHttp\Exception;
 
-use Psr\Http\Message\RequestInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\RequestInterface;
 
 /**
  * Exception thrown when a connection cannot be established.

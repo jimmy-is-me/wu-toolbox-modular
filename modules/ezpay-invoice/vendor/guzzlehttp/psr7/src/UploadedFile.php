@@ -1,10 +1,10 @@
 <?php
 
-namespace GuzzleHttp\Psr7;
+namespace WUTMInvoiceDeps\GuzzleHttp\Psr7;
 
 use InvalidArgumentException;
-use Psr\Http\Message\StreamInterface;
-use Psr\Http\Message\UploadedFileInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\StreamInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\UploadedFileInterface;
 use RuntimeException;
 
 class UploadedFile implements UploadedFileInterface

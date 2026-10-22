@@ -34,7 +34,7 @@ class Admin {
 	}
 
 	public function enqueue_script() {
-		wp_register_script( 'wu_ezpay_invoice', EZPAYINVOICE_PLUGIN_URL . 'assets/js/admin.js', [ 'jquery' ], '3.4.29', true );
+		wp_register_script( 'wu_ezpay_invoice', EZPAYINVOICE_PLUGIN_URL . 'assets/js/admin.js', [ 'jquery', 'jquery-blockui' ], WUTM_VERSION, true );
 		wp_localize_script(
 			'wu_ezpay_invoice',
 			'wu_ezpay_invoice_params',

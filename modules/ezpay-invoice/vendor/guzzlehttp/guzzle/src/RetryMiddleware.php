@@ -1,11 +1,11 @@
 <?php
-namespace GuzzleHttp;
+namespace WUTMInvoiceDeps\GuzzleHttp;
 
-use GuzzleHttp\Promise\PromiseInterface;
-use GuzzleHttp\Promise\RejectedPromise;
-use GuzzleHttp\Psr7;
-use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\ResponseInterface;
+use \WUTMInvoiceDeps\GuzzleHttp\Promise\PromiseInterface;
+use \WUTMInvoiceDeps\GuzzleHttp\Promise\RejectedPromise;
+use \WUTMInvoiceDeps\GuzzleHttp\Psr7;
+use \WUTMInvoiceDeps\Psr\Http\Message\RequestInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\ResponseInterface;
 
 /**
  * Middleware that retries requests based on the boolean result of
@@ -110,7 +110,7 @@ class RetryMiddleware
                 null,
                 $reason
             )) {
-                return \GuzzleHttp\Promise\rejection_for($reason);
+                return \WUTMInvoiceDeps\GuzzleHttp\Promise\rejection_for($reason);
             }
             return $this->doRetry($req, $options);
         };

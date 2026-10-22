@@ -1,5 +1,5 @@
 <?php
-namespace GuzzleHttp\Exception;
+namespace WUTMInvoiceDeps\GuzzleHttp\Exception;
 
 use Throwable;
 

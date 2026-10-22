@@ -1,10 +1,10 @@
 <?php
-namespace GuzzleHttp;
+namespace WUTMInvoiceDeps\GuzzleHttp;
 
-use GuzzleHttp\Promise\EachPromise;
-use GuzzleHttp\Promise\PromiseInterface;
-use GuzzleHttp\Promise\PromisorInterface;
-use Psr\Http\Message\RequestInterface;
+use \WUTMInvoiceDeps\GuzzleHttp\Promise\EachPromise;
+use \WUTMInvoiceDeps\GuzzleHttp\Promise\PromiseInterface;
+use \WUTMInvoiceDeps\GuzzleHttp\Promise\PromisorInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\RequestInterface;
 
 /**
  * Sends an iterator of requests concurrently using a capped pool size.
@@ -51,7 +51,7 @@ class Pool implements PromisorInterface
             $opts = [];
         }
 
-        $iterable = \GuzzleHttp\Promise\iter_for($requests);
+        $iterable = \WUTMInvoiceDeps\GuzzleHttp\Promise\iter_for($requests);
         $requests = function () use ($iterable, $client, $opts) {
             foreach ($iterable as $key => $rfn) {
                 if ($rfn instanceof RequestInterface) {

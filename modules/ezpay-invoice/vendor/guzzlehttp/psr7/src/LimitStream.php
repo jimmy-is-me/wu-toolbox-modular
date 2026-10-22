@@ -1,8 +1,8 @@
 <?php
 
-namespace GuzzleHttp\Psr7;
+namespace WUTMInvoiceDeps\GuzzleHttp\Psr7;
 
-use Psr\Http\Message\StreamInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\StreamInterface;
 
 /**
  * Decorator used to return only a subset of a stream.

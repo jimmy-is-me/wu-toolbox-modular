@@ -1,10 +1,10 @@
 <?php
-namespace GuzzleHttp;
+namespace WUTMInvoiceDeps\GuzzleHttp;
 
-use GuzzleHttp\Handler\CurlHandler;
-use GuzzleHttp\Handler\CurlMultiHandler;
-use GuzzleHttp\Handler\Proxy;
-use GuzzleHttp\Handler\StreamHandler;
+use \WUTMInvoiceDeps\GuzzleHttp\Handler\CurlHandler;
+use \WUTMInvoiceDeps\GuzzleHttp\Handler\CurlMultiHandler;
+use \WUTMInvoiceDeps\GuzzleHttp\Handler\Proxy;
+use \WUTMInvoiceDeps\GuzzleHttp\Handler\StreamHandler;
 
 /**
  * Expands a URI template

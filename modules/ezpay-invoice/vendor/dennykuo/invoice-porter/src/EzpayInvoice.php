@@ -1,9 +1,9 @@
 <?php
 
-namespace InvoicePorter;
+namespace WUTMInvoiceDeps\InvoicePorter;
 
-use InvoicePorter\AbstractInvoice;
-use InvoicePorter\EzpayApi;
+use \WUTMInvoiceDeps\InvoicePorter\AbstractInvoice;
+use \WUTMInvoiceDeps\InvoicePorter\EzpayApi;
 
 class EzpayInvoice extends AbstractInvoice
 {

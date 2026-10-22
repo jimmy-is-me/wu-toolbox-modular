@@ -87,7 +87,7 @@ class EcpayInvoiceHandler {
 		try {
 
 			// 1.載入SDK程式
-			$ecpay_invoice = new \EcpayInvoice();
+			$ecpay_invoice = new \WUTMInvoiceSDK_EcpayInvoice();
 
 			// 2.寫入基本介接參數
 			$ecpay_invoice->Invoice_Method = 'INVOICE';

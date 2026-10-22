@@ -1,10 +1,10 @@
 <?php
-namespace GuzzleHttp\Exception;
+namespace WUTMInvoiceDeps\GuzzleHttp\Exception;
 
-use GuzzleHttp\Promise\PromiseInterface;
-use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\UriInterface;
+use \WUTMInvoiceDeps\GuzzleHttp\Promise\PromiseInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\RequestInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\ResponseInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\UriInterface;
 
 /**
  * HTTP Request exception
@@ -124,7 +124,7 @@ class RequestException extends TransferException
      */
     public static function getResponseBodySummary(ResponseInterface $response)
     {
-        return \GuzzleHttp\Psr7\get_message_body_summary($response);
+        return \WUTMInvoiceDeps\GuzzleHttp\Psr7\get_message_body_summary($response);
     }
 
     /**

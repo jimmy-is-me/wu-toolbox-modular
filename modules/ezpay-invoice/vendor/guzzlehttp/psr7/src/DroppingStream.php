@@ -1,8 +1,8 @@
 <?php
 
-namespace GuzzleHttp\Psr7;
+namespace WUTMInvoiceDeps\GuzzleHttp\Psr7;
 
-use Psr\Http\Message\StreamInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\StreamInterface;
 
 /**
  * Stream decorator that begins dropping data once the size of the underlying

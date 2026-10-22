@@ -1,5 +1,5 @@
 <?php
-namespace GuzzleHttp;
+namespace WUTMInvoiceDeps\GuzzleHttp;
 
 /**
  * This class contains a list of built-in Guzzle request options.

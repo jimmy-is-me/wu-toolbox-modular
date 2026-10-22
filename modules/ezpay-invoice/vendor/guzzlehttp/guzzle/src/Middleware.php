@@ -1,12 +1,12 @@
 <?php
-namespace GuzzleHttp;
+namespace WUTMInvoiceDeps\GuzzleHttp;
 
-use GuzzleHttp\Cookie\CookieJarInterface;
-use GuzzleHttp\Exception\RequestException;
-use GuzzleHttp\Promise\RejectedPromise;
-use GuzzleHttp\Psr7;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Log\LoggerInterface;
+use \WUTMInvoiceDeps\GuzzleHttp\Cookie\CookieJarInterface;
+use \WUTMInvoiceDeps\GuzzleHttp\Exception\RequestException;
+use \WUTMInvoiceDeps\GuzzleHttp\Promise\RejectedPromise;
+use \WUTMInvoiceDeps\GuzzleHttp\Psr7;
+use \WUTMInvoiceDeps\Psr\Http\Message\ResponseInterface;
+use \WUTMInvoiceDeps\Psr\Log\LoggerInterface;
 
 /**
  * Functions used to create and wrap handlers with handler middleware.
@@ -28,7 +28,7 @@ final class Middleware
                 if (empty($options['cookies'])) {
                     return $handler($request, $options);
                 } elseif (!($options['cookies'] instanceof CookieJarInterface)) {
-                    throw new \InvalidArgumentException('cookies must be an instance of GuzzleHttp\Cookie\CookieJarInterface');
+                    throw new \InvalidArgumentException('cookies must be an instance of WUTMInvoiceDeps\GuzzleHttp\Cookie\CookieJarInterface');
                 }
                 $cookieJar = $options['cookies'];
                 $request = $cookieJar->withCookieHeader($request);
@@ -102,7 +102,7 @@ final class Middleware
                             'error'    => $reason,
                             'options'  => $options
                         ];
-                        return \GuzzleHttp\Promise\rejection_for($reason);
+                        return \WUTMInvoiceDeps\GuzzleHttp\Promise\rejection_for($reason);
                     }
                 );
             };
@@ -198,7 +198,7 @@ final class Middleware
                             : null;
                         $message = $formatter->format($request, $response, $reason);
                         $logger->notice($message);
-                        return \GuzzleHttp\Promise\rejection_for($reason);
+                        return \WUTMInvoiceDeps\GuzzleHttp\Promise\rejection_for($reason);
                     }
                 );
             };

@@ -1,16 +1,16 @@
 <?php
-namespace GuzzleHttp\Handler;
+namespace WUTMInvoiceDeps\GuzzleHttp\Handler;
 
-use GuzzleHttp\Exception\ConnectException;
-use GuzzleHttp\Exception\RequestException;
-use GuzzleHttp\Promise\FulfilledPromise;
-use GuzzleHttp\Promise\PromiseInterface;
-use GuzzleHttp\Psr7;
-use GuzzleHttp\TransferStats;
-use GuzzleHttp\Utils;
-use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\StreamInterface;
+use \WUTMInvoiceDeps\GuzzleHttp\Exception\ConnectException;
+use \WUTMInvoiceDeps\GuzzleHttp\Exception\RequestException;
+use \WUTMInvoiceDeps\GuzzleHttp\Promise\FulfilledPromise;
+use \WUTMInvoiceDeps\GuzzleHttp\Promise\PromiseInterface;
+use \WUTMInvoiceDeps\GuzzleHttp\Psr7;
+use \WUTMInvoiceDeps\GuzzleHttp\TransferStats;
+use \WUTMInvoiceDeps\GuzzleHttp\Utils;
+use \WUTMInvoiceDeps\Psr\Http\Message\RequestInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\ResponseInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\StreamInterface;
 
 /**
  * HTTP handler that uses PHP's HTTP stream wrapper.
@@ -68,7 +68,7 @@ class StreamHandler
             $e = RequestException::wrapException($request, $e);
             $this->invokeStats($options, $request, $startTime, null, $e);
 
-            return \GuzzleHttp\Promise\rejection_for($e);
+            return \WUTMInvoiceDeps\GuzzleHttp\Promise\rejection_for($e);
         }
     }
 
@@ -103,7 +103,7 @@ class StreamHandler
         $ver = explode('/', $parts[0])[1];
         $status = $parts[1];
         $reason = isset($parts[2]) ? $parts[2] : null;
-        $headers = \GuzzleHttp\headers_from_lines($hdrs);
+        $headers = \WUTMInvoiceDeps\GuzzleHttp\headers_from_lines($hdrs);
         list($stream, $headers) = $this->checkDecode($options, $headers, $stream);
         $stream = Psr7\stream_for($stream);
         $sink = $stream;
@@ -120,7 +120,7 @@ class StreamHandler
             } catch (\Exception $e) {
                 $msg = 'An error was encountered during the on_headers event';
                 $ex = new RequestException($msg, $request, $response, $e);
-                return \GuzzleHttp\Promise\rejection_for($ex);
+                return \WUTMInvoiceDeps\GuzzleHttp\Promise\rejection_for($ex);
             }
         }
 
@@ -158,7 +158,7 @@ class StreamHandler
     {
         // Automatically decode responses when instructed.
         if (!empty($options['decode_content'])) {
-            $normalizedKeys = \GuzzleHttp\normalize_header_keys($headers);
+            $normalizedKeys = \WUTMInvoiceDeps\GuzzleHttp\normalize_header_keys($headers);
             if (isset($normalizedKeys['content-encoding'])) {
                 $encoding = $headers[$normalizedKeys['content-encoding']];
                 if ($encoding[0] === 'gzip' || $encoding[0] === 'deflate') {
@@ -413,7 +413,7 @@ class StreamHandler
             $scheme = $request->getUri()->getScheme();
             if (isset($value[$scheme])) {
                 if (!isset($value['no'])
-                    || !\GuzzleHttp\is_host_in_noproxy(
+                    || !\WUTMInvoiceDeps\GuzzleHttp\is_host_in_noproxy(
                         $request->getUri()->getHost(),
                         $value['no']
                     )
@@ -437,7 +437,7 @@ class StreamHandler
             // PHP 5.6 or greater will find the system cert by default. When
             // < 5.6, use the Guzzle bundled cacert.
             if (PHP_VERSION_ID < 50600) {
-                $options['ssl']['cafile'] = \GuzzleHttp\default_ca_bundle();
+                $options['ssl']['cafile'] = \WUTMInvoiceDeps\GuzzleHttp\default_ca_bundle();
             }
         } elseif (is_string($value)) {
             $options['ssl']['cafile'] = $value;
@@ -504,7 +504,7 @@ class StreamHandler
         static $args = ['severity', 'message', 'message_code',
             'bytes_transferred', 'bytes_max'];
 
-        $value = \GuzzleHttp\debug_resource($value);
+        $value = \WUTMInvoiceDeps\GuzzleHttp\debug_resource($value);
         $ident = $request->getMethod() . ' ' . $request->getUri()->withFragment('');
         $this->addNotification(
             $params,

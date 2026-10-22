@@ -1,9 +1,9 @@
 <?php
-namespace GuzzleHttp;
+namespace WUTMInvoiceDeps\GuzzleHttp;
 
-use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\UriInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\RequestInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\ResponseInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\UriInterface;
 
 /**
  * Represents data at the point after it was transferred either successfully

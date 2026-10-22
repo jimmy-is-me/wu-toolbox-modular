@@ -1,13 +1,13 @@
 <?php
-namespace GuzzleHttp;
+namespace WUTMInvoiceDeps\GuzzleHttp;
 
-use GuzzleHttp\Exception\BadResponseException;
-use GuzzleHttp\Exception\TooManyRedirectsException;
-use GuzzleHttp\Promise\PromiseInterface;
-use GuzzleHttp\Psr7;
-use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\UriInterface;
+use \WUTMInvoiceDeps\GuzzleHttp\Exception\BadResponseException;
+use \WUTMInvoiceDeps\GuzzleHttp\Exception\TooManyRedirectsException;
+use \WUTMInvoiceDeps\GuzzleHttp\Promise\PromiseInterface;
+use \WUTMInvoiceDeps\GuzzleHttp\Psr7;
+use \WUTMInvoiceDeps\Psr\Http\Message\RequestInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\ResponseInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\UriInterface;
 
 /**
  * Request redirect middleware.

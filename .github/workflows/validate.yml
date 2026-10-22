@@ -44,6 +44,15 @@ jobs:
           node tests/admin-ui-contract.js
       - name: Check member loyalty promotion calculations
         run: php tests/member-loyalty-promotion-policy.php
+      - name: Check invoice isolation against real foreign Guzzle and PSR dependencies
+        run: |
+          mkdir -p "$RUNNER_TEMP/wutm-foreign-guzzle"
+          cp tests/fixtures/invoice-foreign-composer.json "$RUNNER_TEMP/wutm-foreign-guzzle/composer.json"
+          cp tests/fixtures/invoice-foreign-composer.lock "$RUNNER_TEMP/wutm-foreign-guzzle/composer.lock"
+          composer install --working-dir="$RUNNER_TEMP/wutm-foreign-guzzle" --no-dev --prefer-dist --no-interaction --no-scripts --no-plugins --no-progress
+          WUTM_FOREIGN_AUTOLOAD="$RUNNER_TEMP/wutm-foreign-guzzle/vendor/autoload.php" node tests/invoice-collision.js
+          php tests/scope-invoice-dependencies.php
+          git diff --exit-code -- modules/ezpay-invoice modules/ecpay-invoice
       - name: Check media settings, real encoding and failure preservation
         env:
           WUTM_REQUIRE_GD: '1'
@@ -166,3 +175,4 @@ jobs:
           export WUTM_TEST_CHROME="$(node -p "require('playwright').chromium.executablePath()")"
           node tests/admin-enhancements-ui.js
           node tests/style-youtube-ui.js
+          node tests/invoice-admin-ui.js

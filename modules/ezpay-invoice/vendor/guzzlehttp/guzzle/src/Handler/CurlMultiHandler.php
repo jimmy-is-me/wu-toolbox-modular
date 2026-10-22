@@ -1,10 +1,10 @@
 <?php
-namespace GuzzleHttp\Handler;
+namespace WUTMInvoiceDeps\GuzzleHttp\Handler;
 
-use GuzzleHttp\Promise as P;
-use GuzzleHttp\Promise\Promise;
-use GuzzleHttp\Utils;
-use Psr\Http\Message\RequestInterface;
+use \WUTMInvoiceDeps\GuzzleHttp\Promise as P;
+use \WUTMInvoiceDeps\GuzzleHttp\Promise\Promise;
+use \WUTMInvoiceDeps\GuzzleHttp\Utils;
+use \WUTMInvoiceDeps\Psr\Http\Message\RequestInterface;
 
 /**
  * Returns an asynchronous response using curl_multi_* functions.

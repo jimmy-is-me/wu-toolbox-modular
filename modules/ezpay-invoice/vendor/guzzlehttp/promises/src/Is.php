@@ -1,6 +1,6 @@
 <?php
 
-namespace GuzzleHttp\Promise;
+namespace WUTMInvoiceDeps\GuzzleHttp\Promise;
 
 final class Is
 {

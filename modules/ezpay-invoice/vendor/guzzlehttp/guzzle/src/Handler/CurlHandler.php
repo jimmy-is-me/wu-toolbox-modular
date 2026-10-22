@@ -1,8 +1,8 @@
 <?php
-namespace GuzzleHttp\Handler;
+namespace WUTMInvoiceDeps\GuzzleHttp\Handler;
 
-use GuzzleHttp\Psr7;
-use Psr\Http\Message\RequestInterface;
+use \WUTMInvoiceDeps\GuzzleHttp\Psr7;
+use \WUTMInvoiceDeps\Psr\Http\Message\RequestInterface;
 
 /**
  * HTTP handler that uses cURL easy handles as a transport layer.

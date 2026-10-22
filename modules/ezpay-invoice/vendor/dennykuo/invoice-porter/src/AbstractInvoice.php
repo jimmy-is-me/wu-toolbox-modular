@@ -1,6 +1,6 @@
 <?php
 
-namespace InvoicePorter;
+namespace WUTMInvoiceDeps\InvoicePorter;
 
 abstract class AbstractInvoice
 {
@@ -136,10 +136,7 @@ abstract class AbstractInvoice
      */
     protected function exceptionHandler()
     {
-        set_exception_handler(function($exception) {
-            http_response_code(500);
-            echo "Error: {$exception->getMessage()},"
-               . "File: {$exception->getFile()} Line: {$exception->getLine()}";
-        });
+        // WordPress owns the request-wide exception handler. This library must
+        // not replace it or print raw exception messages/paths for other plugins.
     }
 }

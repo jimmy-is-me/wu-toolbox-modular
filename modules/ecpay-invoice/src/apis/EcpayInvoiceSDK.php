@@ -10,8 +10,8 @@ defined( 'ABSPATH' ) || exit;
 */
 
 // 執行發票作業項目。
-if ( ! class_exists( 'EcpayInvoiceMethod' ) ) {
-	abstract class EcpayInvoiceMethod {
+if ( ! class_exists( 'WUTMInvoiceSDK_EcpayInvoiceMethod' ) ) {
+	abstract class WUTMInvoiceSDK_EcpayInvoiceMethod {
 
 		// 一般開立發票。
 		const INVOICE = 'INVOICE';
@@ -57,8 +57,8 @@ if ( ! class_exists( 'EcpayInvoiceMethod' ) ) {
 	}
 }
 // 電子發票載具類別
-if ( ! class_exists( 'EcpayCarruerType' ) ) {
-	abstract class EcpayCarruerType {
+if ( ! class_exists( 'WUTMInvoiceSDK_EcpayCarruerType' ) ) {
+	abstract class WUTMInvoiceSDK_EcpayCarruerType {
 
 		// 無載具
 		const None = '';
@@ -74,8 +74,8 @@ if ( ! class_exists( 'EcpayCarruerType' ) ) {
 	}
 }
 // 電子發票列印註記
-if ( ! class_exists( 'EcpayPrintMark' ) ) {
-	abstract class EcpayPrintMark {
+if ( ! class_exists( 'WUTMInvoiceSDK_EcpayPrintMark' ) ) {
+	abstract class WUTMInvoiceSDK_EcpayPrintMark {
 
 		// 不列印
 		const No = '0';
@@ -85,8 +85,8 @@ if ( ! class_exists( 'EcpayPrintMark' ) ) {
 	}
 }
 // 電子發票捐贈註記
-if ( ! class_exists( 'EcpayDonation' ) ) {
-	abstract class EcpayDonation {
+if ( ! class_exists( 'WUTMInvoiceSDK_EcpayDonation' ) ) {
+	abstract class WUTMInvoiceSDK_EcpayDonation {
 
 		// 捐贈
 		const Yes = '1';
@@ -96,8 +96,8 @@ if ( ! class_exists( 'EcpayDonation' ) ) {
 	}
 }
 // 通關方式
-if ( ! class_exists( 'EcpayClearanceMark' ) ) {
-	abstract class EcpayClearanceMark {
+if ( ! class_exists( 'WUTMInvoiceSDK_EcpayClearanceMark' ) ) {
+	abstract class WUTMInvoiceSDK_EcpayClearanceMark {
 
 		// 經海關出口
 		const Yes = '1';
@@ -107,8 +107,8 @@ if ( ! class_exists( 'EcpayClearanceMark' ) ) {
 	}
 }
 // 課稅類別
-if ( ! class_exists( 'EcpayTaxType' ) ) {
-	abstract class EcpayTaxType {
+if ( ! class_exists( 'WUTMInvoiceSDK_EcpayTaxType' ) ) {
+	abstract class WUTMInvoiceSDK_EcpayTaxType {
 
 		// 應稅
 		const Dutiable = '1';
@@ -124,16 +124,16 @@ if ( ! class_exists( 'EcpayTaxType' ) ) {
 	}
 }
 // 字軌類別
-if ( ! class_exists( 'EcpayInvType' ) ) {
-	abstract class EcpayInvType {
+if ( ! class_exists( 'WUTMInvoiceSDK_EcpayInvType' ) ) {
+	abstract class WUTMInvoiceSDK_EcpayInvType {
 
 		// 一般稅額
 		const General = '07';
 	}
 }
 // 商品單價是否含稅
-if ( ! class_exists( 'EcpayVatType' ) ) {
-	abstract class EcpayVatType {
+if ( ! class_exists( 'WUTMInvoiceSDK_EcpayVatType' ) ) {
+	abstract class WUTMInvoiceSDK_EcpayVatType {
 
 		// 商品單價含稅價
 		const Yes = '1';
@@ -143,8 +143,8 @@ if ( ! class_exists( 'EcpayVatType' ) ) {
 	}
 }
 // 延遲註記
-if ( ! class_exists( 'EcpayDelayFlagType' ) ) {
-	abstract class EcpayDelayFlagType {
+if ( ! class_exists( 'WUTMInvoiceSDK_EcpayDelayFlagType' ) ) {
+	abstract class WUTMInvoiceSDK_EcpayDelayFlagType {
 
 		// 延遲註記
 		const Delay = '1';
@@ -154,16 +154,16 @@ if ( ! class_exists( 'EcpayDelayFlagType' ) ) {
 	}
 }
 // 交易類別
-if ( ! class_exists( 'EcpayPayTypeCategory' ) ) {
-	abstract class EcpayPayTypeCategory {
+if ( ! class_exists( 'WUTMInvoiceSDK_EcpayPayTypeCategory' ) ) {
+	abstract class WUTMInvoiceSDK_EcpayPayTypeCategory {
 
 		// ECPAY
 		const Ecpay = '2';
 	}
 }
 // 通知類別
-if ( ! class_exists( 'EcpayAllowanceNotifyType' ) ) {
-	abstract class EcpayAllowanceNotifyType {
+if ( ! class_exists( 'WUTMInvoiceSDK_EcpayAllowanceNotifyType' ) ) {
+	abstract class WUTMInvoiceSDK_EcpayAllowanceNotifyType {
 
 		// 簡訊通知
 		const Sms = 'S';
@@ -179,8 +179,8 @@ if ( ! class_exists( 'EcpayAllowanceNotifyType' ) ) {
 	}
 }
 // 發送方式
-if ( ! class_exists( 'EcpayNotifyType' ) ) {
-	abstract class EcpayNotifyType {
+if ( ! class_exists( 'WUTMInvoiceSDK_EcpayNotifyType' ) ) {
+	abstract class WUTMInvoiceSDK_EcpayNotifyType {
 
 		// 簡訊通知
 		const Sms = 'S';
@@ -193,8 +193,8 @@ if ( ! class_exists( 'EcpayNotifyType' ) ) {
 	}
 }
 // 發送內容類型
-if ( ! class_exists( 'EcpayInvoiceTagType' ) ) {
-	abstract class EcpayInvoiceTagType {
+if ( ! class_exists( 'WUTMInvoiceSDK_EcpayInvoiceTagType' ) ) {
+	abstract class WUTMInvoiceSDK_EcpayInvoiceTagType {
 
 		// 發票開立
 		const Invoice = 'I';
@@ -213,8 +213,8 @@ if ( ! class_exists( 'EcpayInvoiceTagType' ) ) {
 	}
 }
 // 發送對象
-if ( ! class_exists( 'EcpayNotifiedType' ) ) {
-	abstract class EcpayNotifiedType {
+if ( ! class_exists( 'WUTMInvoiceSDK_EcpayNotifiedType' ) ) {
+	abstract class WUTMInvoiceSDK_EcpayNotifiedType {
 
 		// 通知客戶
 		const Customer = 'C';
@@ -227,8 +227,8 @@ if ( ! class_exists( 'EcpayNotifiedType' ) ) {
 	}
 }
 
-if ( ! class_exists( 'ECPay_EncryptType' ) ) {
-	abstract class ECPay_EncryptType {
+if ( ! class_exists( 'WUTMInvoiceSDK_ECPay_EncryptType' ) ) {
+	abstract class WUTMInvoiceSDK_ECPay_EncryptType {
 
 		// MD5(預設)
 		const ENC_MD5 = 0;
@@ -237,8 +237,8 @@ if ( ! class_exists( 'ECPay_EncryptType' ) ) {
 		const ENC_SHA256 = 1;
 	}
 }
-if ( ! class_exists( 'EcpayInvoice' ) ) {
-	class EcpayInvoice {
+if ( ! class_exists( 'WUTMInvoiceSDK_EcpayInvoice' ) ) {
+	class WUTMInvoiceSDK_EcpayInvoice {
 
 		/**
 		 * 版本
@@ -263,17 +263,17 @@ if ( ! class_exists( 'EcpayInvoice' ) ) {
 				'CustomerPhone'      => '',
 				'CustomerEmail'      => '',
 				'ClearanceMark'      => '',
-				'Print'              => EcpayPrintMark::No,
-				'Donation'           => EcpayDonation::No,
+				'Print'              => WUTMInvoiceSDK_EcpayPrintMark::No,
+				'Donation'           => WUTMInvoiceSDK_EcpayDonation::No,
 				'LoveCode'           => '',
-				'CarruerType'        => EcpayCarruerType::None,
+				'CarruerType'        => WUTMInvoiceSDK_EcpayCarruerType::None,
 				'CarruerNum'         => '',
 				'TaxType'            => '',
 				'SalesAmount'        => '',
 				'InvoiceRemark'      => '',
 				'Items'              => [],
 				'InvType'            => '',
-				'vat'                => EcpayVatType::Yes,
+				'vat'                => WUTMInvoiceSDK_EcpayVatType::Yes,
 				'DelayFlag'          => '',
 				'DelayDay'           => 0,
 				'Tsr'                => '',
@@ -301,7 +301,7 @@ if ( ! class_exists( 'EcpayInvoice' ) ) {
 
 		public function Check_Out() {
 			$arParameters = array_merge( [ 'MerchantID' => $this->MerchantID ], [ 'TimeStamp' => $this->TimeStamp ], $this->Send );
-			return ECPay_Invoice_Send::CheckOut( $arParameters, $this->HashKey, $this->HashIV, $this->Invoice_Method, $this->Invoice_Url );
+			return WUTMInvoiceSDK_ECPay_Invoice_Send::CheckOut( $arParameters, $this->HashKey, $this->HashIV, $this->Invoice_Method, $this->Invoice_Url );
 		}
 
 		/**
@@ -313,7 +313,7 @@ if ( ! class_exists( 'EcpayInvoice' ) ) {
 		 */
 		public function allowanceByCollegiateResponse( $merchantInfo, $parameters ) {
 			$merchantInfo['method'] = ALLOWANCE_BY_COLLEGIATE;
-			return ecpayResponse::response( $merchantInfo, $parameters );
+			return WUTMInvoiceSDK_ecpayResponse::response( $merchantInfo, $parameters );
 		}
 	}
 }
@@ -321,8 +321,8 @@ if ( ! class_exists( 'EcpayInvoice' ) ) {
 /**
  *  送出資訊
  */
-if ( ! class_exists( 'ECPay_Invoice_Send' ) ) {
-	class ECPay_Invoice_Send {
+if ( ! class_exists( 'WUTMInvoiceSDK_ECPay_Invoice_Send' ) ) {
+	class WUTMInvoiceSDK_ECPay_Invoice_Send {
 
 		// 發票物件
 		public static $InvoiceObj;
@@ -336,7 +336,7 @@ if ( ! class_exists( 'ECPay_Invoice_Send' ) ) {
 			// 發送資訊處理
 			$arParameters = self::process_send( $arParameters, $HashKey, $HashIV, $Invoice_Method, $ServiceURL );
 
-			$szResult = ECPay_IO::ServerPost( $arParameters, $ServiceURL );
+			$szResult = WUTMInvoiceSDK_ECPay_IO::ServerPost( $arParameters, $ServiceURL );
 
 			// 如果是綠界回錯誤，會直接回錯誤訊息 string
 			if ( is_string( $szResult ) ) {
@@ -353,7 +353,7 @@ if ( ! class_exists( 'ECPay_Invoice_Send' ) ) {
 		protected static function process_send( $arParameters = [], $HashKey = '', $HashIV = '', $Invoice_Method = '', $ServiceURL = '' ) {
 
 			// 宣告物件
-			$InvoiceMethod    = 'ECPay_' . $Invoice_Method;
+			$InvoiceMethod    = 'WUTMInvoiceSDK_ECPay_' . $Invoice_Method;
 			self::$InvoiceObj = new $InvoiceMethod();
 
 			// 1寫入參數
@@ -383,7 +383,7 @@ if ( ! class_exists( 'ECPay_Invoice_Send' ) ) {
 		public static function process_return( $sParameters = '', $HashKey = '', $HashIV = '', $Invoice_Method = '' ) {
 
 			// 宣告物件
-			$InvoiceMethod           = 'ECPay_' . $Invoice_Method;
+			$InvoiceMethod           = 'WUTMInvoiceSDK_ECPay_' . $Invoice_Method;
 			self::$InvoiceObj_Return = new $InvoiceMethod();
 
 			// 7字串轉陣列
@@ -456,7 +456,7 @@ if ( ! class_exists( 'ECPay_Invoice_Send' ) ) {
 
 				if ( isset( $urlencode_field[ $key ] ) ) {
 					$arParameters[ $key ] = urlencode( $value );
-					$arParameters[ $key ] = ECPay_Invoice_CheckMacValue::Replace_Symbol( $arParameters[ $key ] );
+					$arParameters[ $key ] = WUTMInvoiceSDK_ECPay_Invoice_CheckMacValue::Replace_Symbol( $arParameters[ $key ] );
 				}
 			}
 
@@ -477,7 +477,7 @@ if ( ! class_exists( 'ECPay_Invoice_Send' ) ) {
 				}
 			}
 
-			$sCheck_MacValue = ECPay_Invoice_CheckMacValue::generate( $arParameters, $HashKey, $HashIV, ECPay_EncryptType::ENC_MD5 );
+			$sCheck_MacValue = WUTMInvoiceSDK_ECPay_Invoice_CheckMacValue::generate( $arParameters, $HashKey, $HashIV, WUTMInvoiceSDK_ECPay_EncryptType::ENC_MD5 );
 
 			return $sCheck_MacValue;
 		}
@@ -506,7 +506,7 @@ if ( ! class_exists( 'ECPay_Invoice_Send' ) ) {
 		protected static function urldecode_process( $arParameters = [], $urlencode_field = [] ) {
 			foreach ( $arParameters as $key => $value ) {
 				if ( isset( $urlencode_field[ $key ] ) ) {
-					$arParameters[ $key ] = ECPay_Invoice_CheckMacValue::Replace_Symbol_Decode( $arParameters[ $key ] );
+					$arParameters[ $key ] = WUTMInvoiceSDK_ECPay_Invoice_CheckMacValue::Replace_Symbol_Decode( $arParameters[ $key ] );
 					$arParameters[ $key ] = urldecode( $value );
 				}
 			}
@@ -516,8 +516,8 @@ if ( ! class_exists( 'ECPay_Invoice_Send' ) ) {
 	}
 }
 // 背景回傳資訊
-if ( ! class_exists( 'ecpayResponse' ) ) {
-	class ecpayResponse {
+if ( ! class_exists( 'WUTMInvoiceSDK_ecpayResponse' ) ) {
+	class WUTMInvoiceSDK_ecpayResponse {
 
 		// 發票物件
 		public static $objReturn;
@@ -530,13 +530,13 @@ if ( ! class_exists( 'ecpayResponse' ) ) {
 		 * @return array
 		 */
 		public static function response( $merchantInfo = [], $parameters = [] ) {
-			$invoiceMethod   = 'ECPay_' . $merchantInfo['method'];
+			$invoiceMethod   = 'WUTMInvoiceSDK_ECPay_' . $merchantInfo['method'];
 			self::$objReturn = new $invoiceMethod();
 
 			// 壓碼檢查
 			$parametersTmp = $parameters;
 			unset( $parametersTmp['CheckMacValue'] );
-			$checkMacValue = ECPay_Invoice_CheckMacValue::generate( $parametersTmp, $merchantInfo['hashKey'], $merchantInfo['hashIv'] );
+			$checkMacValue = WUTMInvoiceSDK_ECPay_Invoice_CheckMacValue::generate( $parametersTmp, $merchantInfo['hashKey'], $merchantInfo['hashIv'] );
 
 			if ( $checkMacValue != $parameters['CheckMacValue'] ) {
 				throw new Exception( '注意：壓碼錯誤' );
@@ -549,8 +549,8 @@ if ( ! class_exists( 'ecpayResponse' ) ) {
 /**
  *  A一般開立
  */
-if ( ! class_exists( 'ECPay_INVOICE' ) ) {
-	class ECPay_INVOICE {
+if ( ! class_exists( 'WUTMInvoiceSDK_ECPay_INVOICE' ) ) {
+	class WUTMInvoiceSDK_ECPay_INVOICE {
 
 		// 所需參數
 		public $parameters = [
@@ -712,7 +712,7 @@ if ( ! class_exists( 'ECPay_INVOICE' ) ) {
 			// 7.客戶名稱 CustomerName
 			// x僅能為中英數字格式
 			// *若列印註記 = '1' (列印)時，則客戶名稱須有值
-			if ( $arParameters['Print'] == EcpayPrintMark::Yes ) {
+			if ( $arParameters['Print'] == WUTMInvoiceSDK_EcpayPrintMark::Yes ) {
 				if ( mb_strlen( $arParameters['CustomerName'], 'UTF-8' ) == 0 && $arParameters['OnLine'] ) {
 					array_push( $arErrors, '7:CustomerName is required.' );
 				}
@@ -726,7 +726,7 @@ if ( ! class_exists( 'ECPay_INVOICE' ) ) {
 			// 8.客戶地址 CustomerAddr(UrlEncode, 預設為空字串)
 
 			// *若列印註記 = '1' (列印)時，則客戶地址須有值
-			if ( $arParameters['Print'] == EcpayPrintMark::Yes ) {
+			if ( $arParameters['Print'] == WUTMInvoiceSDK_EcpayPrintMark::Yes ) {
 				if ( mb_strlen( $arParameters['CustomerAddr'], 'UTF-8' ) == 0 && $arParameters['OnLine'] ) {
 					array_push( $arErrors, '8:CustomerAddr is required.' );
 				}
@@ -777,28 +777,28 @@ if ( ! class_exists( 'ECPay_INVOICE' ) ) {
 			}
 
 			// *課稅類別為零稅率(Zero)或課稅類別為混合稅率(Mix)且商品課稅別存在零稅率時，此參數不可為空字串
-			if ( $arParameters['TaxType'] == EcpayTaxType::Zero || ( $arParameters['TaxType'] == EcpayTaxType::Mix && strpos( $arParameters['ItemTaxType'], EcpayTaxType::Zero ) !== false ) ) {
-				if ( ( $arParameters['ClearanceMark'] != EcpayClearanceMark::Yes ) && ( $arParameters['ClearanceMark'] != EcpayClearanceMark::No ) ) {
+			if ( $arParameters['TaxType'] == WUTMInvoiceSDK_EcpayTaxType::Zero || ( $arParameters['TaxType'] == WUTMInvoiceSDK_EcpayTaxType::Mix && strpos( $arParameters['ItemTaxType'], WUTMInvoiceSDK_EcpayTaxType::Zero ) !== false ) ) {
+				if ( ( $arParameters['ClearanceMark'] != WUTMInvoiceSDK_EcpayClearanceMark::Yes ) && ( $arParameters['ClearanceMark'] != WUTMInvoiceSDK_EcpayClearanceMark::No ) ) {
 					array_push( $arErrors, '11:ClearanceMark is required.' );
 				}
 			}
 
 			// 12.列印註記 Print(預設為No)
 			// *列印註記僅能為 0 或 1
-			if ( ( $arParameters['Print'] != EcpayPrintMark::Yes ) && ( $arParameters['Print'] != EcpayPrintMark::No ) ) {
+			if ( ( $arParameters['Print'] != WUTMInvoiceSDK_EcpayPrintMark::Yes ) && ( $arParameters['Print'] != WUTMInvoiceSDK_EcpayPrintMark::No ) ) {
 				array_push( $arErrors, '12:Invalid Print.' );
 			}
 
 			// *若捐贈註記 = '1' (捐贈)時，則VAL = '0' (不列印)
-			if ( $arParameters['Donation'] == EcpayDonation::Yes ) {
-				if ( $arParameters['Print'] != EcpayPrintMark::No ) {
+			if ( $arParameters['Donation'] == WUTMInvoiceSDK_EcpayDonation::Yes ) {
+				if ( $arParameters['Print'] != WUTMInvoiceSDK_EcpayPrintMark::No ) {
 					array_push( $arErrors, '12:Donation Print should be No.' );
 				}
 			}
 
 			// *若統一編號有值時，則VAL = '1' (列印)
 			if ( strlen( $arParameters['CustomerIdentifier'] ) > 0 ) {
-				if ( $arParameters['Print'] != EcpayPrintMark::Yes ) {
+				if ( $arParameters['Print'] != WUTMInvoiceSDK_EcpayPrintMark::Yes ) {
 					array_push( $arErrors, '12:CustomerIdentifier Print should be Yes.' );
 				}
 			}
@@ -806,8 +806,8 @@ if ( ! class_exists( 'ECPay_INVOICE' ) ) {
 			// 線下列印判斷
 			// 1200079當線下廠商開立發票無載具且無統一編號時，必須列印。
 			if ( $arParameters['OnLine'] === false ) {
-				if ( ( $arParameters['CarruerType'] == EcpayCarruerType::None ) && strlen( $arParameters['CustomerIdentifier'] ) == 0 ) {
-					if ( $arParameters['Print'] != EcpayPrintMark::Yes ) {
+				if ( ( $arParameters['CarruerType'] == WUTMInvoiceSDK_EcpayCarruerType::None ) && strlen( $arParameters['CustomerIdentifier'] ) == 0 ) {
+					if ( $arParameters['Print'] != WUTMInvoiceSDK_EcpayPrintMark::Yes ) {
 						array_push( $arErrors, '12:Offline Print should be Yes.' );
 					}
 				}
@@ -816,19 +816,19 @@ if ( ! class_exists( 'ECPay_INVOICE' ) ) {
 			// 13.捐贈註記 Donation
 
 			// *固定給定下述預設值若為捐贈時，則VAL = '1'，若為不捐贈時，則VAL = '0'
-			if ( ( $arParameters['Donation'] != EcpayDonation::Yes ) && ( $arParameters['Donation'] != EcpayDonation::No ) ) {
+			if ( ( $arParameters['Donation'] != WUTMInvoiceSDK_EcpayDonation::Yes ) && ( $arParameters['Donation'] != WUTMInvoiceSDK_EcpayDonation::No ) ) {
 				array_push( $arErrors, '13:Invalid Donation.' );
 			}
 
 			// *若統一編號有值時，則VAL = '2' (不捐贈)
-			if ( strlen( $arParameters['CustomerIdentifier'] ) > 0 && $arParameters['Donation'] == EcpayDonation::Yes ) {
+			if ( strlen( $arParameters['CustomerIdentifier'] ) > 0 && $arParameters['Donation'] == WUTMInvoiceSDK_EcpayDonation::Yes ) {
 				array_push( $arErrors, '13:CustomerIdentifier Donation should be No.' );
 			}
 
 			// 14.愛心碼 LoveCode(預設為空字串)
 
 			// *若捐贈註記 = '1' (捐贈)時，則須有值
-			if ( $arParameters['Donation'] == EcpayDonation::Yes ) {
+			if ( $arParameters['Donation'] == WUTMInvoiceSDK_EcpayDonation::Yes ) {
 				if ( ! preg_match( '/^([xX]{1}[0-9]{2,6}|[0-9]{3,7})$/', $arParameters['LoveCode'] ) ) {
 					array_push( $arErrors, '14:Invalid LoveCode.' );
 				}
@@ -839,12 +839,12 @@ if ( ! class_exists( 'ECPay_INVOICE' ) ) {
 			// 15.載具類別 CarruerType(預設為None)
 
 			// *固定給定下述預設值None、Member、Cellphone
-			if ( ( $arParameters['CarruerType'] != EcpayCarruerType::None ) && ( $arParameters['CarruerType'] != EcpayCarruerType::Member ) && ( $arParameters['CarruerType'] != EcpayCarruerType::Citizen ) && ( $arParameters['CarruerType'] != EcpayCarruerType::Cellphone ) ) {
+			if ( ( $arParameters['CarruerType'] != WUTMInvoiceSDK_EcpayCarruerType::None ) && ( $arParameters['CarruerType'] != WUTMInvoiceSDK_EcpayCarruerType::Member ) && ( $arParameters['CarruerType'] != WUTMInvoiceSDK_EcpayCarruerType::Citizen ) && ( $arParameters['CarruerType'] != WUTMInvoiceSDK_EcpayCarruerType::Cellphone ) ) {
 				array_push( $arErrors, '15:Invalid CarruerType.' );
 			} else {
 				// *統一編號不為空字串時，則載具類別不可為會載具或自然人憑證載具
 				if ( strlen( $arParameters['CustomerIdentifier'] ) > 0 ) {
-					if ( $arParameters['CarruerType'] == EcpayCarruerType::Member || $arParameters['CarruerType'] == EcpayCarruerType::Citizen ) {
+					if ( $arParameters['CarruerType'] == WUTMInvoiceSDK_EcpayCarruerType::Member || $arParameters['CarruerType'] == WUTMInvoiceSDK_EcpayCarruerType::Citizen ) {
 						array_push( $arErrors, '15:Invalid CarruerType.' );
 					}
 				}
@@ -854,8 +854,8 @@ if ( ! class_exists( 'ECPay_INVOICE' ) ) {
 			switch ( $arParameters['CarruerType'] ) {
 
 				// *載具類別為無載具(None)或會員載具(Member)時，請設定空字串
-				case EcpayCarruerType::None:
-				case EcpayCarruerType::Member:
+				case WUTMInvoiceSDK_EcpayCarruerType::None:
+				case WUTMInvoiceSDK_EcpayCarruerType::Member:
 					if ( strlen( $arParameters['CarruerNum'] ) > 0 ) {
 						array_push( $arErrors, '16:Please remove CarruerNum.' );
 					}
@@ -863,14 +863,14 @@ if ( ! class_exists( 'ECPay_INVOICE' ) ) {
 
 				// *載具類別為買受人自然人憑證(Citizen)時，請設定自然人憑證號碼，前2碼為大小寫英文，後14碼為數字
 				// NOTE:API程式會自動將小寫轉成大寫
-				case EcpayCarruerType::Citizen:
+				case WUTMInvoiceSDK_EcpayCarruerType::Citizen:
 					if ( ! preg_match( '/^[a-zA-Z]{2}\d{14}$/', $arParameters['CarruerNum'] ) ) {
 						array_push( $arErrors, '16:Invalid CarruerNum.' );
 					}
 					break;
 
 				// *載具類別為買受人手機條碼(Cellphone)時，請設定手機條碼，第1碼為「/」，後7碼為大寫英文、數字、「+」、「-」或「.」
-				case EcpayCarruerType::Cellphone:
+				case WUTMInvoiceSDK_EcpayCarruerType::Cellphone:
 					if ( ! preg_match( '/^\/{1}[0-9A-Z+-.]{7}$/', $arParameters['CarruerNum'] ) ) {
 						array_push( $arErrors, '16:Invalid CarruerNum.' );
 					}
@@ -888,7 +888,7 @@ if ( ! class_exists( 'ECPay_INVOICE' ) ) {
 			}
 
 			// *僅能為 1應稅 2零稅率 3免稅 9.應稅與免稅混合
-			if ( ( $arParameters['TaxType'] != EcpayTaxType::Dutiable ) && ( $arParameters['TaxType'] != EcpayTaxType::Zero ) && ( $arParameters['TaxType'] != EcpayTaxType::Free ) && ( $arParameters['TaxType'] != EcpayTaxType::Mix ) ) {
+			if ( ( $arParameters['TaxType'] != WUTMInvoiceSDK_EcpayTaxType::Dutiable ) && ( $arParameters['TaxType'] != WUTMInvoiceSDK_EcpayTaxType::Zero ) && ( $arParameters['TaxType'] != WUTMInvoiceSDK_EcpayTaxType::Free ) && ( $arParameters['TaxType'] != WUTMInvoiceSDK_EcpayTaxType::Mix ) ) {
 				array_push( $arErrors, '17:Invalid TaxType.' );
 			}
 
@@ -1008,7 +1008,7 @@ if ( ! class_exists( 'ECPay_INVOICE' ) ) {
 
 					// *檢查商品課稅別
 					// 課稅類別為混合稅率時
-					if ( $arParameters['TaxType'] == EcpayTaxType::Mix ) {
+					if ( $arParameters['TaxType'] == WUTMInvoiceSDK_EcpayTaxType::Mix ) {
 
 						$ItemTaxType = explode( '|', $arParameters['ItemTaxType'] );
 						// 商品課稅別不可為空
@@ -1035,7 +1035,7 @@ if ( ! class_exists( 'ECPay_INVOICE' ) ) {
 			// 27.字軌類別
 
 			// *InvType(不可為空) 僅能為 07 狀態
-			if ( ( $arParameters['InvType'] != EcpayInvType::General ) ) {
+			if ( ( $arParameters['InvType'] != WUTMInvoiceSDK_EcpayInvType::General ) ) {
 				array_push( $arErrors, '27:Invalid InvType.' );
 			}
 
@@ -1043,7 +1043,7 @@ if ( ! class_exists( 'ECPay_INVOICE' ) ) {
 
 			// *固定給定下述預設值 若為含稅價，則VAL = '1'
 			if ( ! empty( $arParameters['vat'] ) ) {
-				if ( ( $arParameters['vat'] != EcpayVatType::Yes ) && ( $arParameters['vat'] != EcpayVatType::No ) ) {
+				if ( ( $arParameters['vat'] != WUTMInvoiceSDK_EcpayVatType::Yes ) && ( $arParameters['vat'] != WUTMInvoiceSDK_EcpayVatType::No ) ) {
 					array_push( $arErrors, '29:Invalid VatType.' );
 				}
 			}
@@ -1077,8 +1077,8 @@ if ( ! class_exists( 'ECPay_INVOICE' ) ) {
 /**
  *  B延遲開立
  */
-if ( ! class_exists( 'ECPay_INVOICE_DELAY' ) ) {
-	class ECPay_INVOICE_DELAY {
+if ( ! class_exists( 'WUTMInvoiceSDK_ECPay_INVOICE_DELAY' ) ) {
+	class WUTMInvoiceSDK_ECPay_INVOICE_DELAY {
 
 		// 所需參數
 		public $parameters = [
@@ -1238,7 +1238,7 @@ if ( ! class_exists( 'ECPay_INVOICE_DELAY' ) ) {
 			// 7.客戶名稱 CustomerName
 			// x僅能為中英數字格式
 			// *若列印註記 = '1' (列印)時，則客戶名稱須有值
-			if ( $arParameters['Print'] == EcpayPrintMark::Yes ) {
+			if ( $arParameters['Print'] == WUTMInvoiceSDK_EcpayPrintMark::Yes ) {
 				if ( mb_strlen( $arParameters['CustomerName'], 'UTF-8' ) == 0 ) {
 					array_push( $arErrors, '7:CustomerName is required.' );
 				}
@@ -1252,7 +1252,7 @@ if ( ! class_exists( 'ECPay_INVOICE_DELAY' ) ) {
 			// 8.客戶地址 CustomerAddr(UrlEncode, 預設為空字串)
 
 			// *若列印註記 = '1' (列印)時，則客戶地址須有值
-			if ( $arParameters['Print'] == EcpayPrintMark::Yes ) {
+			if ( $arParameters['Print'] == WUTMInvoiceSDK_EcpayPrintMark::Yes ) {
 				if ( mb_strlen( $arParameters['CustomerAddr'], 'UTF-8' ) == 0 ) {
 					array_push( $arErrors, '8:CustomerAddr is required.' );
 				}
@@ -1303,8 +1303,8 @@ if ( ! class_exists( 'ECPay_INVOICE_DELAY' ) ) {
 			}
 
 			// *課稅類別為零稅率(Zero)或課稅類別為混合稅率(Mix)且商品課稅別存在零稅率時，此參數不可為空字串
-			if ( $arParameters['TaxType'] == EcpayTaxType::Zero || ( $arParameters['TaxType'] == EcpayTaxType::Mix && strpos( $arParameters['ItemTaxType'], EcpayTaxType::Zero ) !== false ) ) {
-				if ( ( $arParameters['ClearanceMark'] != EcpayClearanceMark::Yes ) && ( $arParameters['ClearanceMark'] != EcpayClearanceMark::No ) ) {
+			if ( $arParameters['TaxType'] == WUTMInvoiceSDK_EcpayTaxType::Zero || ( $arParameters['TaxType'] == WUTMInvoiceSDK_EcpayTaxType::Mix && strpos( $arParameters['ItemTaxType'], WUTMInvoiceSDK_EcpayTaxType::Zero ) !== false ) ) {
+				if ( ( $arParameters['ClearanceMark'] != WUTMInvoiceSDK_EcpayClearanceMark::Yes ) && ( $arParameters['ClearanceMark'] != WUTMInvoiceSDK_EcpayClearanceMark::No ) ) {
 					array_push( $arErrors, '11:ClearanceMark is required.' );
 				}
 			}
@@ -1312,21 +1312,21 @@ if ( ! class_exists( 'ECPay_INVOICE_DELAY' ) ) {
 			// 12.列印註記 Print(預設為No)
 
 			// *列印註記僅能為 0 或 1
-			if ( ( $arParameters['Print'] != EcpayPrintMark::Yes ) && ( $arParameters['Print'] != EcpayPrintMark::No ) ) {
+			if ( ( $arParameters['Print'] != WUTMInvoiceSDK_EcpayPrintMark::Yes ) && ( $arParameters['Print'] != WUTMInvoiceSDK_EcpayPrintMark::No ) ) {
 				array_push( $arErrors, '12:Invalid Print.' );
 			}
 
 			// *若捐贈註記 = '1' (捐贈)時，則VAL = '0' (不列印)
-			if ( $arParameters['Donation'] == EcpayDonation::Yes ) {
+			if ( $arParameters['Donation'] == WUTMInvoiceSDK_EcpayDonation::Yes ) {
 
-				if ( $arParameters['Print'] != EcpayPrintMark::No ) {
+				if ( $arParameters['Print'] != WUTMInvoiceSDK_EcpayPrintMark::No ) {
 					array_push( $arErrors, '12:Donation Print should be No.' );
 				}
 			}
 
 			// *若統一編號有值時，則VAL = '1' (列印)
 			if ( strlen( $arParameters['CustomerIdentifier'] ) > 0 ) {
-				if ( $arParameters['Print'] != EcpayPrintMark::Yes ) {
+				if ( $arParameters['Print'] != WUTMInvoiceSDK_EcpayPrintMark::Yes ) {
 					array_push( $arErrors, '12:CustomerIdentifier Print should be Yes.' );
 				}
 			}
@@ -1334,18 +1334,18 @@ if ( ! class_exists( 'ECPay_INVOICE_DELAY' ) ) {
 			// 13.捐贈註記 Donation
 
 			// *固定給定下述預設值若為捐贈時，則VAL = '1'，若為不捐贈時，則VAL = '0'
-			if ( ( $arParameters['Donation'] != EcpayDonation::Yes ) && ( $arParameters['Donation'] != EcpayDonation::No ) ) {
+			if ( ( $arParameters['Donation'] != WUTMInvoiceSDK_EcpayDonation::Yes ) && ( $arParameters['Donation'] != WUTMInvoiceSDK_EcpayDonation::No ) ) {
 				array_push( $arErrors, '13:Invalid Donation.' );
 			}
 
 			// *若統一編號有值時，則VAL = '0' (不捐贈)
-			if ( strlen( $arParameters['CustomerIdentifier'] ) > 0 && $arParameters['Donation'] == EcpayDonation::Yes ) {
+			if ( strlen( $arParameters['CustomerIdentifier'] ) > 0 && $arParameters['Donation'] == WUTMInvoiceSDK_EcpayDonation::Yes ) {
 				array_push( $arErrors, '13:CustomerIdentifier Donation should be No.' );
 			}
 
 			// 14.愛心碼 LoveCode(預設為空字串)
 			// *若捐贈註記 = '1' (捐贈)時，則須有值
-			if ( $arParameters['Donation'] == EcpayDonation::Yes ) {
+			if ( $arParameters['Donation'] == WUTMInvoiceSDK_EcpayDonation::Yes ) {
 				if ( ! preg_match( '/^([xX]{1}[0-9]{2,6}|[0-9]{3,7})$/', $arParameters['LoveCode'] ) ) {
 					array_push( $arErrors, '14:Invalid LoveCode.' );
 				}
@@ -1356,7 +1356,7 @@ if ( ! class_exists( 'ECPay_INVOICE_DELAY' ) ) {
 			// 15.載具類別 CarruerType(預設為None)
 
 			// *固定給定下述預設值None、Member、Cellphone
-			if ( ( $arParameters['CarruerType'] != EcpayCarruerType::None ) && ( $arParameters['CarruerType'] != EcpayCarruerType::Member ) && ( $arParameters['CarruerType'] != EcpayCarruerType::Citizen ) && ( $arParameters['CarruerType'] != EcpayCarruerType::Cellphone ) ) {
+			if ( ( $arParameters['CarruerType'] != WUTMInvoiceSDK_EcpayCarruerType::None ) && ( $arParameters['CarruerType'] != WUTMInvoiceSDK_EcpayCarruerType::Member ) && ( $arParameters['CarruerType'] != WUTMInvoiceSDK_EcpayCarruerType::Citizen ) && ( $arParameters['CarruerType'] != WUTMInvoiceSDK_EcpayCarruerType::Cellphone ) ) {
 				array_push( $arErrors, '15:Invalid CarruerType.' );
 
 			} else {
@@ -1364,7 +1364,7 @@ if ( ! class_exists( 'ECPay_INVOICE_DELAY' ) ) {
 				// *統一編號不為空字串時，則載具類別不可為會載具或自然人憑證載具
 				if ( strlen( $arParameters['CustomerIdentifier'] ) > 0 ) {
 
-					if ( $arParameters['CarruerType'] == EcpayCarruerType::Member || $arParameters['CarruerType'] == EcpayCarruerType::Citizen ) {
+					if ( $arParameters['CarruerType'] == WUTMInvoiceSDK_EcpayCarruerType::Member || $arParameters['CarruerType'] == WUTMInvoiceSDK_EcpayCarruerType::Citizen ) {
 						array_push( $arErrors, '15:Invalid CarruerType.' );
 					}
 				}
@@ -1373,8 +1373,8 @@ if ( ! class_exists( 'ECPay_INVOICE_DELAY' ) ) {
 			// 16.載具編號 CarruerNum(預設為空字串)
 			switch ( $arParameters['CarruerType'] ) {
 				// *載具類別為無載具(None)或會員載具(Member)時，請設定空字串
-				case EcpayCarruerType::None:
-				case EcpayCarruerType::Member:
+				case WUTMInvoiceSDK_EcpayCarruerType::None:
+				case WUTMInvoiceSDK_EcpayCarruerType::Member:
 					if ( strlen( $arParameters['CarruerNum'] ) > 0 ) {
 						array_push( $arErrors, '16:Please remove CarruerNum.' );
 					}
@@ -1382,14 +1382,14 @@ if ( ! class_exists( 'ECPay_INVOICE_DELAY' ) ) {
 
 				// *載具類別為買受人自然人憑證(Citizen)時，請設定自然人憑證號碼，前2碼為大小寫英文，後14碼為數字
 				// NOTE:API程式會自動將小寫轉成大寫
-				case EcpayCarruerType::Citizen:
+				case WUTMInvoiceSDK_EcpayCarruerType::Citizen:
 					if ( ! preg_match( '/^[a-zA-Z]{2}\d{14}$/', $arParameters['CarruerNum'] ) ) {
 						array_push( $arErrors, '16:Invalid CarruerNum.' );
 					}
 					break;
 
 				// *載具類別為買受人手機條碼(Cellphone)時，請設定手機條碼，第1碼為「/」，後7碼為大寫英文、數字、「+」、「-」或「.」
-				case EcpayCarruerType::Cellphone:
+				case WUTMInvoiceSDK_EcpayCarruerType::Cellphone:
 					if ( ! preg_match( '/^\/{1}[0-9A-Z+-.]{7}$/', $arParameters['CarruerNum'] ) ) {
 						array_push( $arErrors, '16:Invalid CarruerNum.' );
 					}
@@ -1406,7 +1406,7 @@ if ( ! class_exists( 'ECPay_INVOICE_DELAY' ) ) {
 			}
 
 			// *僅能為 1應稅 2零稅率 3免稅 9.應稅與免稅混合
-			if ( ( $arParameters['TaxType'] != EcpayTaxType::Dutiable ) && ( $arParameters['TaxType'] != EcpayTaxType::Zero ) && ( $arParameters['TaxType'] != EcpayTaxType::Free ) && ( $arParameters['TaxType'] != EcpayTaxType::Mix ) ) {
+			if ( ( $arParameters['TaxType'] != WUTMInvoiceSDK_EcpayTaxType::Dutiable ) && ( $arParameters['TaxType'] != WUTMInvoiceSDK_EcpayTaxType::Zero ) && ( $arParameters['TaxType'] != WUTMInvoiceSDK_EcpayTaxType::Free ) && ( $arParameters['TaxType'] != WUTMInvoiceSDK_EcpayTaxType::Mix ) ) {
 				array_push( $arErrors, '17:Invalid TaxType.' );
 			}
 
@@ -1507,7 +1507,7 @@ if ( ! class_exists( 'ECPay_INVOICE_DELAY' ) ) {
 
 					// *檢查商品課稅別
 					// 課稅類別為混合稅率時
-					if ( $arParameters['TaxType'] == EcpayTaxType::Mix ) {
+					if ( $arParameters['TaxType'] == WUTMInvoiceSDK_EcpayTaxType::Mix ) {
 
 						$ItemTaxType = explode( '|', $arParameters['ItemTaxType'] );
 
@@ -1535,12 +1535,12 @@ if ( ! class_exists( 'ECPay_INVOICE_DELAY' ) ) {
 
 			// 27.字軌類別
 			// *InvType(不可為空) 僅能為 07 狀態
-			if ( ( $arParameters['InvType'] != EcpayInvType::General ) ) {
+			if ( ( $arParameters['InvType'] != WUTMInvoiceSDK_EcpayInvType::General ) ) {
 				array_push( $arErrors, '27:Invalid InvType.' );
 			}
 
 			// 30.延遲註記 DelayFlag
-			if ( ( $arParameters['DelayFlag'] != EcpayDelayFlagType::Delay ) && ( $arParameters['DelayFlag'] != EcpayDelayFlagType::Trigger ) ) {
+			if ( ( $arParameters['DelayFlag'] != WUTMInvoiceSDK_EcpayDelayFlagType::Delay ) && ( $arParameters['DelayFlag'] != WUTMInvoiceSDK_EcpayDelayFlagType::Trigger ) ) {
 				array_push( $arErrors, '30:Invalid DelayFlagType.' );
 			}
 
@@ -1551,14 +1551,14 @@ if ( ! class_exists( 'ECPay_INVOICE_DELAY' ) ) {
 			$arParameters['DelayDay'] = (int) $arParameters['DelayDay'];
 
 			// *若為延遲開立時，延遲天數須介於1至15天內
-			if ( $arParameters['DelayFlag'] == EcpayDelayFlagType::Delay ) {
+			if ( $arParameters['DelayFlag'] == WUTMInvoiceSDK_EcpayDelayFlagType::Delay ) {
 				if ( $arParameters['DelayDay'] < 1 || $arParameters['DelayDay'] > 15 ) {
 					array_push( $arErrors, '31:DelayDay should be 1 ~ 15.' );
 				}
 			}
 
 			// *若為觸發開立時，延遲天數須介於0至15天內
-			if ( $arParameters['DelayFlag'] == EcpayDelayFlagType::Trigger ) {
+			if ( $arParameters['DelayFlag'] == WUTMInvoiceSDK_EcpayDelayFlagType::Trigger ) {
 				if ( $arParameters['DelayDay'] < 0 || $arParameters['DelayDay'] > 15 ) {
 					array_push( $arErrors, '31:DelayDay should be 0 ~ 15.' );
 				}
@@ -1578,7 +1578,7 @@ if ( ! class_exists( 'ECPay_INVOICE_DELAY' ) ) {
 			// 34.交易類別 PayType
 
 			// *2016-10-4 修改為僅允許 2
-			if ( $arParameters['PayType'] != EcpayPayTypeCategory::Ecpay ) {
+			if ( $arParameters['PayType'] != WUTMInvoiceSDK_EcpayPayTypeCategory::Ecpay ) {
 				array_push( $arErrors, '34:Invalid PayType.' );
 
 			} else {
@@ -1613,8 +1613,8 @@ if ( ! class_exists( 'ECPay_INVOICE_DELAY' ) ) {
 /**
  *  C1開立折讓
  */
-if ( ! class_exists( 'ECPay_ALLOWANCE' ) ) {
-	class ECPay_ALLOWANCE {
+if ( ! class_exists( 'WUTMInvoiceSDK_ECPay_ALLOWANCE' ) ) {
+	class WUTMInvoiceSDK_ECPay_ALLOWANCE {
 
 		// 所需參數
 		public $parameters = [
@@ -1828,7 +1828,7 @@ if ( ! class_exists( 'ECPay_ALLOWANCE' ) ) {
 			// 38.通知類別 AllowanceNotify
 
 			// *固定給定下述預設值
-			if ( ( $arParameters['AllowanceNotify'] != EcpayAllowanceNotifyType::Sms ) && ( $arParameters['AllowanceNotify'] != EcpayAllowanceNotifyType::Email ) && ( $arParameters['AllowanceNotify'] != EcpayAllowanceNotifyType::All ) && ( $arParameters['AllowanceNotify'] != EcpayAllowanceNotifyType::None ) ) {
+			if ( ( $arParameters['AllowanceNotify'] != WUTMInvoiceSDK_EcpayAllowanceNotifyType::Sms ) && ( $arParameters['AllowanceNotify'] != WUTMInvoiceSDK_EcpayAllowanceNotifyType::Email ) && ( $arParameters['AllowanceNotify'] != WUTMInvoiceSDK_EcpayAllowanceNotifyType::All ) && ( $arParameters['AllowanceNotify'] != WUTMInvoiceSDK_EcpayAllowanceNotifyType::None ) ) {
 				array_push( $arErrors, '38:Invalid AllowanceNotifyType.' );
 			}
 
@@ -1842,7 +1842,7 @@ if ( ! class_exists( 'ECPay_ALLOWANCE' ) ) {
 			}
 
 			// *下述情況通知電子信箱不可為空值(通知類別為E-電子郵件)
-			if ( $arParameters['AllowanceNotify'] == EcpayAllowanceNotifyType::Email && strlen( $arParameters['NotifyMail'] ) == 0 ) {
+			if ( $arParameters['AllowanceNotify'] == WUTMInvoiceSDK_EcpayAllowanceNotifyType::Email && strlen( $arParameters['NotifyMail'] ) == 0 ) {
 				array_push( $arErrors, '39:NotifyMail is required.' );
 			}
 
@@ -1860,23 +1860,23 @@ if ( ! class_exists( 'ECPay_ALLOWANCE' ) ) {
 			}
 
 			// *下述情況通知手機號碼不可為空值(通知類別為S-簡訊)
-			if ( $arParameters['AllowanceNotify'] == EcpayAllowanceNotifyType::Sms && strlen( $arParameters['NotifyPhone'] ) == 0 ) {
+			if ( $arParameters['AllowanceNotify'] == WUTMInvoiceSDK_EcpayAllowanceNotifyType::Sms && strlen( $arParameters['NotifyPhone'] ) == 0 ) {
 				array_push( $arErrors, '40:NotifyPhone is required.' );
 			}
 
 			// 39-40 通知電子信箱、通知手機號碼不能全為空值 (如果狀態為SMS 或 EMAIL)
-			if ( strlen( $arParameters['NotifyPhone'] ) == 0 && strlen( $arParameters['NotifyMail'] ) == 0 && ( $arParameters['AllowanceNotify'] == EcpayAllowanceNotifyType::Sms || $arParameters['AllowanceNotify'] == EcpayAllowanceNotifyType::Email ) ) {
+			if ( strlen( $arParameters['NotifyPhone'] ) == 0 && strlen( $arParameters['NotifyMail'] ) == 0 && ( $arParameters['AllowanceNotify'] == WUTMInvoiceSDK_EcpayAllowanceNotifyType::Sms || $arParameters['AllowanceNotify'] == WUTMInvoiceSDK_EcpayAllowanceNotifyType::Email ) ) {
 				array_push( $arErrors, '39-40:NotifyMail or NotifyPhone is required.' );
 
 			} else {
 
 				// *下述情況通知手機號碼與電子信箱不可為空值(通知類別為A-皆通知)
-				if ( $arParameters['AllowanceNotify'] == EcpayAllowanceNotifyType::All && ( strlen( $arParameters['NotifyMail'] ) == 0 || strlen( $arParameters['NotifyPhone'] ) == 0 ) ) {
+				if ( $arParameters['AllowanceNotify'] == WUTMInvoiceSDK_EcpayAllowanceNotifyType::All && ( strlen( $arParameters['NotifyMail'] ) == 0 || strlen( $arParameters['NotifyPhone'] ) == 0 ) ) {
 					array_push( $arErrors, '39-40:NotifyMail And NotifyPhone is required.' );
 				}
 
 				// *下述情況通知手機號碼與電子信箱為空值(通知類別為N-皆不通知)
-				if ( $arParameters['AllowanceNotify'] == EcpayAllowanceNotifyType::None && ( strlen( $arParameters['NotifyMail'] ) > 0 || strlen( $arParameters['NotifyPhone'] ) > 0 ) ) {
+				if ( $arParameters['AllowanceNotify'] == WUTMInvoiceSDK_EcpayAllowanceNotifyType::None && ( strlen( $arParameters['NotifyMail'] ) > 0 || strlen( $arParameters['NotifyPhone'] ) > 0 ) ) {
 					array_push( $arErrors, '39-40:Please remove NotifyMail And NotifyPhone.' );
 				}
 			}
@@ -1912,8 +1912,8 @@ if ( ! class_exists( 'ECPay_ALLOWANCE' ) ) {
 /**
  *  C2線上開立折讓(通知開立)
  */
-if ( ! class_exists( 'ECPay_ALLOWANCE_BY_COLLEGIATE' ) ) {
-	class ECPay_ALLOWANCE_BY_COLLEGIATE {
+if ( ! class_exists( 'WUTMInvoiceSDK_ECPay_ALLOWANCE_BY_COLLEGIATE' ) ) {
+	class WUTMInvoiceSDK_ECPay_ALLOWANCE_BY_COLLEGIATE {
 
 		// 所需參數
 		public $parameters = [
@@ -2128,7 +2128,7 @@ if ( ! class_exists( 'ECPay_ALLOWANCE_BY_COLLEGIATE' ) ) {
 			// 38.通知類別 AllowanceNotify
 
 			// *固定給定下述預設值
-			if ( ( $arParameters['AllowanceNotify'] != EcpayAllowanceNotifyType::Sms ) && ( $arParameters['AllowanceNotify'] != EcpayAllowanceNotifyType::Email ) && ( $arParameters['AllowanceNotify'] != EcpayAllowanceNotifyType::All ) && ( $arParameters['AllowanceNotify'] != EcpayAllowanceNotifyType::None ) ) {
+			if ( ( $arParameters['AllowanceNotify'] != WUTMInvoiceSDK_EcpayAllowanceNotifyType::Sms ) && ( $arParameters['AllowanceNotify'] != WUTMInvoiceSDK_EcpayAllowanceNotifyType::Email ) && ( $arParameters['AllowanceNotify'] != WUTMInvoiceSDK_EcpayAllowanceNotifyType::All ) && ( $arParameters['AllowanceNotify'] != WUTMInvoiceSDK_EcpayAllowanceNotifyType::None ) ) {
 				array_push( $arErrors, '38:Invalid AllowanceNotifyType.' );
 			}
 
@@ -2147,7 +2147,7 @@ if ( ! class_exists( 'ECPay_ALLOWANCE_BY_COLLEGIATE' ) ) {
 			}
 
 			// *下述情況通知電子信箱不可為空值(通知類別為E-電子郵件)
-			if ( $arParameters['AllowanceNotify'] == EcpayAllowanceNotifyType::Email && strlen( $arParameters['NotifyMail'] ) == 0 ) {
+			if ( $arParameters['AllowanceNotify'] == WUTMInvoiceSDK_EcpayAllowanceNotifyType::Email && strlen( $arParameters['NotifyMail'] ) == 0 ) {
 				array_push( $arErrors, '39:NotifyMail is required.' );
 			}
 
@@ -2165,23 +2165,23 @@ if ( ! class_exists( 'ECPay_ALLOWANCE_BY_COLLEGIATE' ) ) {
 			}
 
 			// *下述情況通知手機號碼不可為空值(通知類別為S-簡訊)
-			if ( $arParameters['AllowanceNotify'] == EcpayAllowanceNotifyType::Sms && strlen( $arParameters['NotifyPhone'] ) == 0 ) {
+			if ( $arParameters['AllowanceNotify'] == WUTMInvoiceSDK_EcpayAllowanceNotifyType::Sms && strlen( $arParameters['NotifyPhone'] ) == 0 ) {
 				array_push( $arErrors, '40:NotifyPhone is required.' );
 			}
 
 			// 39-40 通知電子信箱、通知手機號碼不能全為空值 (如果狀態為SMS 或 EMAIL)
-			if ( strlen( $arParameters['NotifyPhone'] ) == 0 && strlen( $arParameters['NotifyMail'] ) == 0 && ( $arParameters['AllowanceNotify'] == EcpayAllowanceNotifyType::Sms || $arParameters['AllowanceNotify'] == EcpayAllowanceNotifyType::Email ) ) {
+			if ( strlen( $arParameters['NotifyPhone'] ) == 0 && strlen( $arParameters['NotifyMail'] ) == 0 && ( $arParameters['AllowanceNotify'] == WUTMInvoiceSDK_EcpayAllowanceNotifyType::Sms || $arParameters['AllowanceNotify'] == WUTMInvoiceSDK_EcpayAllowanceNotifyType::Email ) ) {
 				array_push( $arErrors, '39-40:NotifyMail or NotifyPhone is required.' );
 
 			} else {
 
 				// *下述情況通知手機號碼與電子信箱不可為空值(通知類別為A-皆通知)
-				if ( $arParameters['AllowanceNotify'] == EcpayAllowanceNotifyType::All && ( strlen( $arParameters['NotifyMail'] ) == 0 || strlen( $arParameters['NotifyPhone'] ) == 0 ) ) {
+				if ( $arParameters['AllowanceNotify'] == WUTMInvoiceSDK_EcpayAllowanceNotifyType::All && ( strlen( $arParameters['NotifyMail'] ) == 0 || strlen( $arParameters['NotifyPhone'] ) == 0 ) ) {
 					array_push( $arErrors, '39-40:NotifyMail And NotifyPhone is required.' );
 				}
 
 				// *下述情況通知手機號碼與電子信箱為空值(通知類別為N-皆不通知)
-				if ( $arParameters['AllowanceNotify'] == EcpayAllowanceNotifyType::None && ( strlen( $arParameters['NotifyMail'] ) > 0 || strlen( $arParameters['NotifyPhone'] ) > 0 ) ) {
+				if ( $arParameters['AllowanceNotify'] == WUTMInvoiceSDK_EcpayAllowanceNotifyType::None && ( strlen( $arParameters['NotifyMail'] ) > 0 || strlen( $arParameters['NotifyPhone'] ) > 0 ) ) {
 					array_push( $arErrors, '39-40:Please remove NotifyMail And NotifyPhone.' );
 				}
 			}
@@ -2217,8 +2217,8 @@ if ( ! class_exists( 'ECPay_ALLOWANCE_BY_COLLEGIATE' ) ) {
 /**
  *  D發票作廢
  */
-if ( ! class_exists( 'ECPay_INVOICE_VOID' ) ) {
-	class ECPay_INVOICE_VOID {
+if ( ! class_exists( 'WUTMInvoiceSDK_ECPay_INVOICE_VOID' ) ) {
+	class WUTMInvoiceSDK_ECPay_INVOICE_VOID {
 
 		// 所需參數
 		public $parameters = [
@@ -2298,8 +2298,8 @@ if ( ! class_exists( 'ECPay_INVOICE_VOID' ) ) {
 /**
  *  E折讓作廢
  */
-if ( ! class_exists( 'ECPay_ALLOWANCE_VOID' ) ) {
-	class ECPay_ALLOWANCE_VOID {
+if ( ! class_exists( 'WUTMInvoiceSDK_ECPay_ALLOWANCE_VOID' ) ) {
+	class WUTMInvoiceSDK_ECPay_ALLOWANCE_VOID {
 
 		// 所需參數
 		public $parameters = [
@@ -2393,8 +2393,8 @@ if ( ! class_exists( 'ECPay_ALLOWANCE_VOID' ) ) {
 /**
  *  F查詢發票
  */
-if ( ! class_exists( 'ECPay_INVOICE_SEARCH' ) ) {
-	class ECPay_INVOICE_SEARCH {
+if ( ! class_exists( 'WUTMInvoiceSDK_ECPay_INVOICE_SEARCH' ) ) {
+	class WUTMInvoiceSDK_ECPay_INVOICE_SEARCH {
 
 		// 所需參數
 		public $parameters = [
@@ -2482,8 +2482,8 @@ if ( ! class_exists( 'ECPay_INVOICE_SEARCH' ) ) {
 /**
  *  G查詢作廢發票
  */
-if ( ! class_exists( 'ECPay_INVOICE_VOID_SE' ) ) {
-	class ECPay_INVOICE_VOID_SEARCH {
+if ( ! class_exists( 'WUTMInvoiceSDK_ECPay_INVOICE_VOID_SEARCH' ) ) {
+	class WUTMInvoiceSDK_ECPay_INVOICE_VOID_SEARCH {
 
 		// 所需參數
 		public $parameters = [
@@ -2554,8 +2554,8 @@ if ( ! class_exists( 'ECPay_INVOICE_VOID_SE' ) ) {
 /**
  *  H查詢折讓明細
  */
-if ( ! class_exists( 'ECPay_ALLOWANCE_SEARC' ) ) {
-	class ECPay_ALLOWANCE_SEARCH {
+if ( ! class_exists( 'WUTMInvoiceSDK_ECPay_ALLOWANCE_SEARCH' ) ) {
+	class WUTMInvoiceSDK_ECPay_ALLOWANCE_SEARCH {
 
 		// 所需參數
 		public $parameters = [
@@ -2642,8 +2642,8 @@ if ( ! class_exists( 'ECPay_ALLOWANCE_SEARC' ) ) {
 /**
  *  I查詢折讓作廢明細
  */
-if ( ! class_exists( 'ECPay_ALLOWANCE_VOID_' ) ) {
-	class ECPay_ALLOWANCE_VOID_SEARCH {
+if ( ! class_exists( 'WUTMInvoiceSDK_ECPay_ALLOWANCE_VOID_SEARCH' ) ) {
+	class WUTMInvoiceSDK_ECPay_ALLOWANCE_VOID_SEARCH {
 
 		// 所需參數
 		public $parameters = [
@@ -2724,8 +2724,8 @@ if ( ! class_exists( 'ECPay_ALLOWANCE_VOID_' ) ) {
 /**
  *  J發送通知
  */
-if ( ! class_exists( 'ECPay_INVOICE_NOTIFY' ) ) {
-	class ECPay_INVOICE_NOTIFY {
+if ( ! class_exists( 'WUTMInvoiceSDK_ECPay_INVOICE_NOTIFY' ) ) {
+	class WUTMInvoiceSDK_ECPay_INVOICE_NOTIFY {
 
 		// 所需參數
 		public $parameters = [
@@ -2774,7 +2774,7 @@ if ( ! class_exists( 'ECPay_INVOICE_NOTIFY' ) ) {
 			$arErrors = [];
 
 			// 37.發票號碼 InvoiceNo
-			if ( ( $arParameters['InvoiceTag'] == EcpayInvoiceTagType::Invoice ) || ( $arParameters['InvoiceTag'] == EcpayInvoiceTagType::Invoice_Void ) ) {
+			if ( ( $arParameters['InvoiceTag'] == WUTMInvoiceSDK_EcpayInvoiceTagType::Invoice ) || ( $arParameters['InvoiceTag'] == WUTMInvoiceSDK_EcpayInvoiceTagType::Invoice_Void ) ) {
 
 				// *必填項目
 				if ( strlen( $arParameters['InvoiceNo'] ) == 0 ) {
@@ -2788,7 +2788,7 @@ if ( ! class_exists( 'ECPay_INVOICE_NOTIFY' ) ) {
 			}
 
 			// 44.折讓編號 AllowanceNo
-			if ( ( $arParameters['InvoiceTag'] == EcpayInvoiceTagType::Allowance ) || ( $arParameters['InvoiceTag'] == EcpayInvoiceTagType::Allowance_Void ) ) {
+			if ( ( $arParameters['InvoiceTag'] == WUTMInvoiceSDK_EcpayInvoiceTagType::Allowance ) || ( $arParameters['InvoiceTag'] == WUTMInvoiceSDK_EcpayInvoiceTagType::Allowance_Void ) ) {
 
 				if ( strlen( $arParameters['AllowanceNo'] ) == 0 ) {
 					array_push( $arErrors, '44:AllowanceNo is required.' );
@@ -2811,7 +2811,7 @@ if ( ! class_exists( 'ECPay_INVOICE_NOTIFY' ) ) {
 			}
 
 			// *下述情況通知電子信箱不可為空值(發送方式為E-電子郵件)
-			if ( $arParameters['Notify'] == EcpayNotifyType::Email && strlen( $arParameters['NotifyMail'] ) == 0 ) {
+			if ( $arParameters['Notify'] == WUTMInvoiceSDK_EcpayNotifyType::Email && strlen( $arParameters['NotifyMail'] ) == 0 ) {
 				array_push( $arErrors, '39:NotifyMail is required.' );
 			}
 
@@ -2829,33 +2829,33 @@ if ( ! class_exists( 'ECPay_INVOICE_NOTIFY' ) ) {
 			}
 
 			// *下述情況通知手機號碼不可為空值(發送方式為S-簡訊)
-			if ( $arParameters['Notify'] == EcpayNotifyType::Sms && strlen( $arParameters['Phone'] ) == 0 ) {
+			if ( $arParameters['Notify'] == WUTMInvoiceSDK_EcpayNotifyType::Sms && strlen( $arParameters['Phone'] ) == 0 ) {
 				array_push( $arErrors, '46:Phone is required.' );
 			}
 
 			// 45-46 發送簡訊號碼、發送電子信箱不能全為空值
 			if ( strlen( $arParameters['Phone'] ) == 0 && strlen( $arParameters['NotifyMail'] ) == 0 ) {
 				array_push( $arErrors, '45-46:NotifyMail or Phone is required.' );
-			} elseif ( $arParameters['Notify'] == EcpayNotifyType::All && ( strlen( $arParameters['NotifyMail'] ) == 0 || strlen( $arParameters['Phone'] ) == 0 ) ) {
+			} elseif ( $arParameters['Notify'] == WUTMInvoiceSDK_EcpayNotifyType::All && ( strlen( $arParameters['NotifyMail'] ) == 0 || strlen( $arParameters['Phone'] ) == 0 ) ) {
 				array_push( $arErrors, '45-46:NotifyMail and Phone is required.' );
 			}
 
 			// 47. 發送方式 Notify
 
 			// *固定給定下述預設值
-			if ( ( $arParameters['Notify'] != EcpayNotifyType::Sms ) && ( $arParameters['Notify'] != EcpayNotifyType::Email ) && ( $arParameters['Notify'] != EcpayNotifyType::All ) ) {
+			if ( ( $arParameters['Notify'] != WUTMInvoiceSDK_EcpayNotifyType::Sms ) && ( $arParameters['Notify'] != WUTMInvoiceSDK_EcpayNotifyType::Email ) && ( $arParameters['Notify'] != WUTMInvoiceSDK_EcpayNotifyType::All ) ) {
 				array_push( $arErrors, '47:Notify is required.' );
 			}
 
 			// 48.發送內容類型 InvoiceTag
 			// *固定給定下述預設值
-			if ( ( $arParameters['InvoiceTag'] != EcpayInvoiceTagType::Invoice ) && ( $arParameters['InvoiceTag'] != EcpayInvoiceTagType::Invoice_Void ) && ( $arParameters['InvoiceTag'] != EcpayInvoiceTagType::Allowance ) && ( $arParameters['InvoiceTag'] != EcpayInvoiceTagType::Allowance_Void ) && ( $arParameters['InvoiceTag'] != EcpayInvoiceTagType::Invoice_Winning ) ) {
+			if ( ( $arParameters['InvoiceTag'] != WUTMInvoiceSDK_EcpayInvoiceTagType::Invoice ) && ( $arParameters['InvoiceTag'] != WUTMInvoiceSDK_EcpayInvoiceTagType::Invoice_Void ) && ( $arParameters['InvoiceTag'] != WUTMInvoiceSDK_EcpayInvoiceTagType::Allowance ) && ( $arParameters['InvoiceTag'] != WUTMInvoiceSDK_EcpayInvoiceTagType::Allowance_Void ) && ( $arParameters['InvoiceTag'] != WUTMInvoiceSDK_EcpayInvoiceTagType::Invoice_Winning ) ) {
 				array_push( $arErrors, '48:InvoiceTag is required.' );
 			}
 
 			// 49.發送對象 Notified
 			// *固定給定下述預設值
-			if ( ( $arParameters['Notified'] != EcpayNotifiedType::Customer ) && ( $arParameters['Notified'] != EcpayNotifiedType::vendor ) && ( $arParameters['Notified'] != EcpayNotifiedType::All ) ) {
+			if ( ( $arParameters['Notified'] != WUTMInvoiceSDK_EcpayNotifiedType::Customer ) && ( $arParameters['Notified'] != WUTMInvoiceSDK_EcpayNotifiedType::vendor ) && ( $arParameters['Notified'] != WUTMInvoiceSDK_EcpayNotifiedType::All ) ) {
 				array_push( $arErrors, '49:Notified is required.' );
 			}
 
@@ -2877,8 +2877,8 @@ if ( ! class_exists( 'ECPay_INVOICE_NOTIFY' ) ) {
 /**
  *  K付款完成觸發或延遲開立發票
  */
-if ( ! class_exists( 'ECPay_INVOICE_TRIGGER' ) ) {
-	class ECPay_INVOICE_TRIGGER {
+if ( ! class_exists( 'WUTMInvoiceSDK_ECPay_INVOICE_TRIGGER' ) ) {
+	class WUTMInvoiceSDK_ECPay_INVOICE_TRIGGER {
 
 		// 所需參數
 		public $parameters = [
@@ -2930,7 +2930,7 @@ if ( ! class_exists( 'ECPay_INVOICE_TRIGGER' ) ) {
 
 			// 34.交易類別 PayType
 			// *2016-10-4 修改為僅允許 2
-			if ( $arParameters['PayType'] != EcpayPayTypeCategory::Ecpay ) {
+			if ( $arParameters['PayType'] != WUTMInvoiceSDK_EcpayPayTypeCategory::Ecpay ) {
 				array_push( $arErrors, '34:Invalid PayType.' );
 			}
 
@@ -2953,8 +2953,8 @@ if ( ! class_exists( 'ECPay_INVOICE_TRIGGER' ) ) {
 /**
  *  L手機條碼驗證
  */
-if ( ! class_exists( 'ECPay_CHECK_MOBILE_BA' ) ) {
-	class ECPay_CHECK_MOBILE_BARCODE {
+if ( ! class_exists( 'WUTMInvoiceSDK_ECPay_CHECK_MOBILE_BARCODE' ) ) {
+	class WUTMInvoiceSDK_ECPay_CHECK_MOBILE_BARCODE {
 
 		// 所需參數
 		public $parameters = [
@@ -3020,8 +3020,8 @@ if ( ! class_exists( 'ECPay_CHECK_MOBILE_BA' ) ) {
 /**
  *  M愛心碼驗證
  */
-if ( ! class_exists( 'ECPay_CHECK_LOVE_CODE' ) ) {
-	class ECPay_CHECK_LOVE_CODE {
+if ( ! class_exists( 'WUTMInvoiceSDK_ECPay_CHECK_LOVE_CODE' ) ) {
+	class WUTMInvoiceSDK_ECPay_CHECK_LOVE_CODE {
 
 		// 所需參數
 		public $parameters = [
@@ -3080,12 +3080,12 @@ if ( ! class_exists( 'ECPay_CHECK_LOVE_CODE' ) ) {
 		}
 	}
 }
-if ( ! class_exists( 'ECPay_Invoice_CheckMacValue' ) ) {
+if ( ! class_exists( 'WUTMInvoiceSDK_ECPay_Invoice_CheckMacValue' ) ) {
 
 	/**
 	 *  檢查碼
 	 */
-	class ECPay_Invoice_CheckMacValue {
+	class WUTMInvoiceSDK_ECPay_Invoice_CheckMacValue {
 
 		/**
 		 * 產生檢查碼
@@ -3097,7 +3097,7 @@ if ( ! class_exists( 'ECPay_Invoice_CheckMacValue' ) ) {
 			if ( isset( $arParameters ) ) {
 
 				unset( $arParameters['CheckMacValue'] );
-				uksort( $arParameters, [ 'ECPay_Invoice_CheckMacValue', 'merchantSort' ] );
+				uksort( $arParameters, [ 'WUTMInvoiceSDK_ECPay_Invoice_CheckMacValue', 'merchantSort' ] );
 
 				// 組合字串
 				$sMacValue = 'HashKey=' . $HashKey;
@@ -3118,11 +3118,11 @@ if ( ! class_exists( 'ECPay_Invoice_CheckMacValue' ) ) {
 
 				// 編碼
 				switch ( $encType ) {
-					case ECPay_EncryptType::ENC_SHA256:
+					case WUTMInvoiceSDK_ECPay_EncryptType::ENC_SHA256:
 						$sMacValue = hash( 'sha256', $sMacValue ); // SHA256 編碼
 						break;
 
-					case ECPay_EncryptType::ENC_MD5:
+					case WUTMInvoiceSDK_ECPay_EncryptType::ENC_MD5:
 					default:
 						$sMacValue = md5( $sMacValue ); // MD5 編碼
 				}
@@ -3187,9 +3187,9 @@ if ( ! class_exists( 'ECPay_Invoice_CheckMacValue' ) ) {
 	}
 }
 
-if ( ! class_exists( 'ECPay_IO' ) ) {
+if ( ! class_exists( 'WUTMInvoiceSDK_ECPay_IO' ) ) {
 
-	class ECPay_IO {
+	class WUTMInvoiceSDK_ECPay_IO {
 
 		public static function ServerPost( $parameters, $ServiceURL ) {
 

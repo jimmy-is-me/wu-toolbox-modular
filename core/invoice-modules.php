@@ -2,6 +2,18 @@
 /** Adapter only: preserve source settings IDs, API payloads and order metadata. */
 defined('ABSPATH') || exit;
 
+/** Only wrap the source's manual AJAX operations, never global WP handlers. */
+function wutm_invoice_ajax_callback(callable $callback): callable {
+    return static function (...$args) use ($callback): void {
+        try { call_user_func_array($callback, $args); }
+        catch (Throwable $error) {
+            // No messages, arguments, keys, payloads or customer data in logs.
+            if (function_exists('error_log')) error_log('[WU invoice operation] ' . json_encode(['type'=>get_class($error),'file'=>basename($error->getFile()),'line'=>$error->getLine()]));
+            wp_send_json_error(['message'=>'發票操作未能確認完成。請先至服務商查詢是否已開立／作廢，確認後再操作，避免重複送出。'], 502);
+        }
+    };
+}
+
 function wutm_invoice_runtime_problem(string $provider): string {
     if (PHP_VERSION_ID < 80000) return '此發票模組需要 PHP 8.0 以上。';
     if (!class_exists('WooCommerce')) return '請先啟用 WooCommerce。';

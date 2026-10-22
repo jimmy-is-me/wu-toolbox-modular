@@ -5,7 +5,7 @@ namespace WUECPAYINVOICE\APIs;
 
 defined( 'ABSPATH' ) || exit;
 
-final class ECPay_Woo_EcpayInvoice extends \EcpayInvoice {
+final class ECPay_Woo_EcpayInvoice extends \WUTMInvoiceSDK_EcpayInvoice {
 
 	function Check_Out() {
 		$arParameters      = array_merge( [ 'MerchantID' => $this->MerchantID ], [ 'TimeStamp' => $this->TimeStamp ], $this->Send );
@@ -24,7 +24,7 @@ abstract class Ecpay_Woo_Invoice_Curl {
 	const TIMEOUT = 30;
 }
 
-class Ecpay_Woo_Invoice_Send extends \ECPay_Invoice_Send {
+class Ecpay_Woo_Invoice_Send extends \WUTMInvoiceSDK_ECPay_Invoice_Send {
 
 	/**
 	 * Server Post

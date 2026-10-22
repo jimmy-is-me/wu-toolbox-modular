@@ -2,7 +2,21 @@
 /** Offline bootstrap checks. No WordPress database or invoice API requests. */
 error_reporting( E_ALL & ~E_DEPRECATED );
 foreach(json_decode(file_get_contents(__DIR__.'/invoice-source-files.json'),true) as $file=>$hash){
-    if(hash('sha256',str_replace("\r\n","\n",file_get_contents(dirname(__DIR__).'/modules/'.$file)))!==$hash)throw new RuntimeException('Invoice source preservation failed: '.$file);
+    $adapted = json_decode(file_get_contents(__DIR__.'/invoice-adapted-files.json'),true);
+    if(isset($adapted[$file])){
+        if(hash('sha256',str_replace("\r\n","\n",file_get_contents(dirname(__DIR__).'/modules/'.$file)))!==$adapted[$file])throw new RuntimeException('Adapted invoice UI changed unexpectedly: '.$file);
+        continue;
+    }
+    $preserved = str_replace(["\r\n", 'WUTMInvoiceDeps\\\\', 'WUTMInvoiceDeps\\', 'WUTMInvoiceSDK_'],["\n", '', '', ''],file_get_contents(dirname(__DIR__).'/modules/'.$file));
+    $preserved = str_replace(['use \\InvoicePorter','use \\ODS'],['use InvoicePorter','use ODS'],$preserved);
+    // Four truncated upstream SDK guards now match their actual private classes.
+    $preserved = str_replace(["class_exists( 'ECPay_INVOICE_VOID_SEARCH'", "class_exists( 'ECPay_ALLOWANCE_SEARCH'", "class_exists( 'ECPay_ALLOWANCE_VOID_SEARCH'", "class_exists( 'ECPay_CHECK_MOBILE_BARCODE'"], ["class_exists( 'ECPay_INVOICE_VOID_SE'", "class_exists( 'ECPay_ALLOWANCE_SEARC'", "class_exists( 'ECPay_ALLOWANCE_VOID_'", "class_exists( 'ECPay_CHECK_MOBILE_BA'"], $preserved);
+    $preserved = str_replace(["[ 'jquery', 'jquery-blockui' ], WUTM_VERSION", "[ 'jquery' ], WUTM_VERSION"], "[ 'jquery' ], '3.4.29'", $preserved);
+    foreach(['generate_invoice','update_invoice','invalid_invoice'] as $method){
+        $original = "[ \$class, '$method' ]";
+        $preserved = str_replace('\\wutm_invoice_ajax_callback('.$original.')', $original, $preserved);
+    }
+    if(hash('sha256',$preserved)!==$hash)throw new RuntimeException('Invoice source preservation failed beyond explicit dependency isolation: '.$file);
 }
 define( 'ABSPATH', __DIR__ . '/' );
 define('WUTM_PATH', dirname(__DIR__).'/');
@@ -11,7 +25,7 @@ function current_user_can(...$args){return empty($GLOBALS['deny_capability']);}
 function absint($n){return abs((int)$n);}
 class InvoiceTestError extends RuntimeException {}
 function check_ajax_referer(...$a){if(!empty($GLOBALS['bad_nonce']))throw new InvoiceTestError('nonce');}
-function wp_send_json_error($data,$status=200){throw new InvoiceTestError('forbidden');}
+function wp_send_json_error($data,$status=200){$GLOBALS['json_failure']=[$data,$status];throw new InvoiceTestError('forbidden');}
 function wc_get_order($id){return $id===123?(object)['id'=>123]:false;}
 function add_submenu_page(...$args){$GLOBALS['submenus'][$args[4]]=$args;}
 function esc_html($v){return htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');}
@@ -115,15 +129,15 @@ if ( in_array( $mode, [ 'conflict', 'no-woocommerce', 'official', 'both-active' 
         check( ! isset( $hooks['woocommerce_after_checkout_billing_form'] ), 'Disabled modules must skip checkout.' );
     } else {
         check( isset( $hooks['woocommerce_after_checkout_billing_form'] ), 'Checkout hooks missing.' );
-        check( class_exists( 'ODS\\Metabox' ), 'Missing shared metabox dependency.' );
+        check( class_exists( 'WUTMInvoiceDeps\\ODS\\Metabox' ), 'Missing isolated metabox dependency.' );
         foreach ( $providers as $name ) {
             $namespace = $name === 'ezpay' ? 'WUEZPAYINVOICE' : 'WUECPAYINVOICE';
             check( class_exists( $namespace . '\\Templates\\Checkout' ), 'Checkout class missing.' );
         }
         if ( in_array( 'ezpay', $providers, true ) ) {
-            check( class_exists( 'InvoicePorter\\EzpayInvoice' ), 'InvoicePorter missing.' );
-            $client = new GuzzleHttp\Client();
-            $request = new GuzzleHttp\Psr7\Request( 'GET', 'https://example.test/' );
+            check( class_exists( 'WUTMInvoiceDeps\\InvoicePorter\\EzpayInvoice' ), 'Isolated InvoicePorter missing.' );
+            $client = new WUTMInvoiceDeps\GuzzleHttp\Client();
+            $request = new WUTMInvoiceDeps\GuzzleHttp\Psr7\Request( 'GET', 'https://example.test/' );
             check( $request->getMethod() === 'GET', 'HTTP dependencies did not load.' );
         }
         if ( in_array( 'ecpay', $providers, true ) ) {
@@ -133,6 +147,14 @@ if ( in_array( $mode, [ 'conflict', 'no-woocommerce', 'official', 'both-active' 
 }
 echo "PASS: $mode / $provider\n";
 if($mode==='enabled'){
+ $logFile=tempnam(sys_get_temp_dir(),'wutm-invoice-');$previousLog=ini_set('error_log',$logFile);
+ try{
+  $attempts=0;$wrapped=wutm_invoice_ajax_callback(static function()use(&$attempts){++$attempts;throw new RuntimeException('SECRET_FIXTURE_KEY buyer@example.test');});
+  try{$wrapped();throw new LogicException('Operation failure escaped boundary');}catch(InvoiceTestError $e){}
+  check($attempts===1&&$json_failure[1]===502&&strpos($json_failure[0]['message'],'避免重複送出')!==false,'Operation must fail safely without retry');
+  $log=file_get_contents($logFile);check(strpos($log,'RuntimeException')!==false&&strpos($log,'SECRET_FIXTURE')===false&&strpos($log,'buyer@example')===false,'Operation log must exclude message/PII/keys');
+  $called=false;wutm_invoice_ajax_callback(static function()use(&$called){$called=true;})();check($called,'Successful operation preserved');
+ }finally{ini_set('error_log',$previousLog);unlink($logFile);}
  foreach($providers as $name){
   $action='wp_ajax_gen_invoice'.($name==='ezpay'?'_ezpay':'');
   check(isset($hooks[$action][1]),'Permission preflight registered before source mutation');

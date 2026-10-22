@@ -1,8 +1,8 @@
 <?php
 
-namespace GuzzleHttp\Psr7;
+namespace WUTMInvoiceDeps\GuzzleHttp\Psr7;
 
-use Psr\Http\Message\StreamInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\StreamInterface;
 
 /**
  * Lazily reads or writes to a file that is opened only after an IO operation

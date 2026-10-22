@@ -3,7 +3,7 @@ defined('ABSPATH') || exit;
 
 require_once dirname(dirname(__FILE__)) . '/vendor/autoload.php';
 
-use InvoicePorter\EzpayInvoice;
+use \WUTMInvoiceDeps\InvoicePorter\EzpayInvoice;
 
 $account = (require '../config/ezpay-invoice.php')['testing'];
 $invoice = new EzpayInvoice($account, $isProduction = false);

@@ -1,7 +1,7 @@
 <?php
-namespace GuzzleHttp\Exception;
+namespace WUTMInvoiceDeps\GuzzleHttp\Exception;
 
-use Psr\Http\Message\StreamInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\StreamInterface;
 
 /**
  * Exception thrown when a seek fails on a stream.

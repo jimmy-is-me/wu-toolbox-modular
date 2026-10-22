@@ -1,7 +1,7 @@
 <?php
-namespace GuzzleHttp\Handler;
+namespace WUTMInvoiceDeps\GuzzleHttp\Handler;
 
-use Psr\Http\Message\RequestInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\RequestInterface;
 
 interface CurlFactoryInterface
 {

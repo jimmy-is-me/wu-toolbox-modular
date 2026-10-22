@@ -1,6 +1,6 @@
 <?php
 
-namespace ODS;
+namespace WUTMInvoiceDeps\ODS;
 
 class Metabox {
 

@@ -1,8 +1,8 @@
 <?php
-namespace GuzzleHttp\Handler;
+namespace WUTMInvoiceDeps\GuzzleHttp\Handler;
 
-use GuzzleHttp\RequestOptions;
-use Psr\Http\Message\RequestInterface;
+use \WUTMInvoiceDeps\GuzzleHttp\RequestOptions;
+use \WUTMInvoiceDeps\Psr\Http\Message\RequestInterface;
 
 /**
  * Provides basic proxies for handlers.

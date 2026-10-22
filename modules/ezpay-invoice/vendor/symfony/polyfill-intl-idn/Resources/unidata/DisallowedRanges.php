@@ -9,7 +9,7 @@
  * file that was distributed with this source code.
  */
 
-namespace Symfony\Polyfill\Intl\Idn\Resources\unidata;
+namespace WUTMInvoiceDeps\Symfony\Polyfill\Intl\Idn\Resources\unidata;
 
 /**
  * @internal

@@ -1,8 +1,8 @@
 <?php
-namespace GuzzleHttp\Exception;
+namespace WUTMInvoiceDeps\GuzzleHttp\Exception;
 
-use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\ResponseInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\RequestInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\ResponseInterface;
 
 /**
  * Exception when an HTTP error occurs (4xx or 5xx error)

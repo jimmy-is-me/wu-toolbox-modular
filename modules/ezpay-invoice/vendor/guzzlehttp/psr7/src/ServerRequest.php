@@ -1,12 +1,12 @@
 <?php
 
-namespace GuzzleHttp\Psr7;
+namespace WUTMInvoiceDeps\GuzzleHttp\Psr7;
 
 use InvalidArgumentException;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Message\StreamInterface;
-use Psr\Http\Message\UploadedFileInterface;
-use Psr\Http\Message\UriInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\ServerRequestInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\StreamInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\UploadedFileInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\UriInterface;
 
 /**
  * Server-side HTTP request

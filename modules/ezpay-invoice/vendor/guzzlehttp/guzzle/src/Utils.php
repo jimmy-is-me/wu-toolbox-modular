@@ -1,9 +1,9 @@
 <?php
-namespace GuzzleHttp;
+namespace WUTMInvoiceDeps\GuzzleHttp;
 
-use GuzzleHttp\Exception\InvalidArgumentException;
-use Psr\Http\Message\UriInterface;
-use Symfony\Polyfill\Intl\Idn\Idn;
+use \WUTMInvoiceDeps\GuzzleHttp\Exception\InvalidArgumentException;
+use \WUTMInvoiceDeps\Psr\Http\Message\UriInterface;
+use \WUTMInvoiceDeps\Symfony\Polyfill\Intl\Idn\Idn;
 
 final class Utils
 {

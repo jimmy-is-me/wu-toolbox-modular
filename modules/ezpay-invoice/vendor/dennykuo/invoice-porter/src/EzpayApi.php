@@ -1,9 +1,9 @@
 <?php
 
-namespace InvoicePorter;
+namespace WUTMInvoiceDeps\InvoicePorter;
 
-use InvoicePorter\Contracts\ApiRequest;
-use GuzzleHttp;
+use \WUTMInvoiceDeps\InvoicePorter\Contracts\ApiRequest;
+use \WUTMInvoiceDeps\GuzzleHttp;
 
 class EzpayApi implements ApiRequest
 {
@@ -24,7 +24,7 @@ class EzpayApi implements ApiRequest
 			? $this->instance->config['api-gate']
 			: $this->instance->config['api-gate-testing'];
 
-		$this->httpClient = new GuzzleHttp\Client([
+		$this->httpClient = new \WUTMInvoiceDeps\GuzzleHttp\Client([
 			'base_uri' => $apiGate ?? 'https://inv.ezpay.com.tw/Api/',
 		]);
 	}

@@ -1,11 +1,11 @@
 <?php
 
-namespace GuzzleHttp\Psr7;
+namespace WUTMInvoiceDeps\GuzzleHttp\Psr7;
 
-use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\ServerRequestInterface;
-use Psr\Http\Message\StreamInterface;
-use Psr\Http\Message\UriInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\RequestInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\ServerRequestInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\StreamInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\UriInterface;
 
 final class Utils
 {

@@ -1,5 +1,5 @@
 <?php
-namespace GuzzleHttp;
+namespace WUTMInvoiceDeps\GuzzleHttp;
 
 /**
  * Expands URI templates. Userland implementation of PECL uri_template.

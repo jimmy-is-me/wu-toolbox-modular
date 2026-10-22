@@ -1,6 +1,6 @@
 <?php
 
-namespace InvoicePorter\Contracts;
+namespace WUTMInvoiceDeps\InvoicePorter\Contracts;
 
 interface ApiRequest
 {

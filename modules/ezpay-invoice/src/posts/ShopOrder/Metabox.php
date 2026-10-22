@@ -2,7 +2,7 @@
 
 namespace WUEZPAYINVOICE\ShopOrder;
 
-use ODS\Metabox;
+use \WUTMInvoiceDeps\ODS\Metabox;
 
 defined( 'ABSPATH' ) || exit;
 

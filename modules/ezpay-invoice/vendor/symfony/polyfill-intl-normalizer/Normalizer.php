@@ -9,7 +9,7 @@
  * file that was distributed with this source code.
  */
 
-namespace Symfony\Polyfill\Intl\Normalizer;
+namespace WUTMInvoiceDeps\Symfony\Polyfill\Intl\Normalizer;
 
 /**
  * Normalizer is a PHP fallback implementation of the Normalizer class provided by the intl extension.
@@ -23,14 +23,15 @@ namespace Symfony\Polyfill\Intl\Normalizer;
  */
 class Normalizer
 {
-    public const FORM_D = \Normalizer::FORM_D;
-    public const FORM_KD = \Normalizer::FORM_KD;
-    public const FORM_C = \Normalizer::FORM_C;
-    public const FORM_KC = \Normalizer::FORM_KC;
-    public const NFD = \Normalizer::NFD;
-    public const NFKD = \Normalizer::NFKD;
-    public const NFC = \Normalizer::NFC;
-    public const NFKC = \Normalizer::NFKC;
+    // ICU values from the bundled Normalizer stub; no global class dependency.
+    public const FORM_D = 4;
+    public const FORM_KD = 8;
+    public const FORM_C = 16;
+    public const FORM_KC = 32;
+    public const NFD = self::FORM_D;
+    public const NFKD = self::FORM_KD;
+    public const NFC = self::FORM_C;
+    public const NFKC = self::FORM_KC;
 
     private static $C;
     private static $D;
@@ -66,7 +67,7 @@ class Normalizer
             case self::NFKC: $C = true; $K = true; break;
             case self::NFKD: $C = false; $K = true; break;
             default:
-                if (\defined('Normalizer::NONE') && \Normalizer::NONE == $form) {
+                if (2 == $form) {
                     return $s;
                 }
 

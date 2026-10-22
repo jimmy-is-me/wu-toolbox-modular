@@ -9,10 +9,10 @@
  * file that was distributed with this source code.
  */
 
-namespace Symfony\Polyfill\Intl\Idn;
+namespace WUTMInvoiceDeps\Symfony\Polyfill\Intl\Idn;
 
-use Symfony\Polyfill\Intl\Idn\Resources\unidata\DisallowedRanges;
-use Symfony\Polyfill\Intl\Idn\Resources\unidata\Regex;
+use \WUTMInvoiceDeps\Symfony\Polyfill\Intl\Idn\Resources\unidata\DisallowedRanges;
+use \WUTMInvoiceDeps\Symfony\Polyfill\Intl\Idn\Resources\unidata\Regex;
 
 /**
  * @see https://www.unicode.org/reports/tr46/
@@ -289,7 +289,7 @@ final class Idn
             switch ($data['status']) {
                 case 'disallowed':
                 case 'valid':
-                    $str .= mb_chr($codePoint, 'utf-8');
+                    $str .= self::encodeCodePoint($codePoint);
 
                     break;
 
@@ -337,8 +337,8 @@ final class Idn
         $domain = self::mapCodePoints($domain, $options, $info);
 
         // Step 2. Normalize the domain name string to Unicode Normalization Form C.
-        if (!\Normalizer::isNormalized($domain, \Normalizer::FORM_C)) {
-            $domain = \Normalizer::normalize($domain, \Normalizer::FORM_C);
+        if (!\WUTMInvoiceDeps\Symfony\Polyfill\Intl\Normalizer\Normalizer::isNormalized($domain, \WUTMInvoiceDeps\Symfony\Polyfill\Intl\Normalizer\Normalizer::FORM_C)) {
+            $domain = \WUTMInvoiceDeps\Symfony\Polyfill\Intl\Normalizer\Normalizer::normalize($domain, \WUTMInvoiceDeps\Symfony\Polyfill\Intl\Normalizer\Normalizer::FORM_C);
         }
 
         // Step 3. Break the string into labels at U+002E (.) FULL STOP.
@@ -510,7 +510,7 @@ final class Idn
         }
 
         // Step 1. The label must be in Unicode Normalization Form C.
-        if (!\Normalizer::isNormalized($label, \Normalizer::FORM_C)) {
+        if (!\WUTMInvoiceDeps\Symfony\Polyfill\Intl\Normalizer\Normalizer::isNormalized($label, \WUTMInvoiceDeps\Symfony\Polyfill\Intl\Normalizer\Normalizer::FORM_C)) {
             $info->errors |= self::ERROR_INVALID_ACE_LABEL;
         }
 
@@ -804,6 +804,15 @@ final class Idn
      *
      * @return array<int, int>
      */
+    private static function encodeCodePoint($cp)
+    {
+        if ($cp < 0 || $cp > 0x10FFFF || ($cp >= 0xD800 && $cp <= 0xDFFF)) return '';
+        if ($cp < 0x80) return chr($cp);
+        if ($cp < 0x800) return chr(0xC0 | ($cp >> 6)).chr(0x80 | ($cp & 0x3F));
+        if ($cp < 0x10000) return chr(0xE0 | ($cp >> 12)).chr(0x80 | (($cp >> 6) & 0x3F)).chr(0x80 | ($cp & 0x3F));
+        return chr(0xF0 | ($cp >> 18)).chr(0x80 | (($cp >> 12) & 0x3F)).chr(0x80 | (($cp >> 6) & 0x3F)).chr(0x80 | ($cp & 0x3F));
+    }
+
     private static function utf8Decode($input)
     {
         $bytesSeen = 0;

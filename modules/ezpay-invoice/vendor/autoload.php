@@ -3,14 +3,14 @@
 defined( 'ABSPATH' ) || exit;
 spl_autoload_register( static function ( $class ) {
     $prefixes = [
-        'Symfony\\Polyfill\\Intl\\Normalizer\\' => 'symfony/polyfill-intl-normalizer/',
-        'Symfony\\Polyfill\\Intl\\Idn\\' => 'symfony/polyfill-intl-idn/',
-        'GuzzleHttp\\Promise\\' => 'guzzlehttp/promises/src/',
-        'Psr\\Http\\Message\\' => 'psr/http-message/src/',
-        'GuzzleHttp\\Psr7\\' => 'guzzlehttp/psr7/src/',
-        'InvoicePorter\\' => 'dennykuo/invoice-porter/src/',
-        'GuzzleHttp\\' => 'guzzlehttp/guzzle/src/',
-        'ODS\\' => 'oberonlai/wp-metabox/src/',
+        'WUTMInvoiceDeps\\Symfony\\Polyfill\\Intl\\Normalizer\\' => 'symfony/polyfill-intl-normalizer/',
+        'WUTMInvoiceDeps\\Symfony\\Polyfill\\Intl\\Idn\\' => 'symfony/polyfill-intl-idn/',
+        'WUTMInvoiceDeps\\GuzzleHttp\\Promise\\' => 'guzzlehttp/promises/src/',
+        'WUTMInvoiceDeps\\Psr\\Http\\Message\\' => 'psr/http-message/src/',
+        'WUTMInvoiceDeps\\GuzzleHttp\\Psr7\\' => 'guzzlehttp/psr7/src/',
+        'WUTMInvoiceDeps\\InvoicePorter\\' => 'dennykuo/invoice-porter/src/',
+        'WUTMInvoiceDeps\\GuzzleHttp\\' => 'guzzlehttp/guzzle/src/',
+        'WUTMInvoiceDeps\\ODS\\' => 'oberonlai/wp-metabox/src/',
     ];
     foreach ( $prefixes as $prefix => $directory ) {
         if ( strpos( $class, $prefix ) !== 0 ) { continue; }

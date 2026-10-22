@@ -1,8 +1,8 @@
 <?php
-namespace GuzzleHttp\Cookie;
+namespace WUTMInvoiceDeps\GuzzleHttp\Cookie;
 
-use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\ResponseInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\RequestInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\ResponseInterface;
 
 /**
  * Cookie jar that stores cookies as an array

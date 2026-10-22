@@ -2,7 +2,7 @@
 
 namespace WUEZPAYINVOICE\APIs;
 
-use InvoicePorter\EzpayInvoice;
+use \WUTMInvoiceDeps\InvoicePorter\EzpayInvoice;
 
 defined( 'ABSPATH' ) || exit;
 

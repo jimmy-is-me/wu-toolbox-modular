@@ -1,4 +1,25 @@
 jQuery(function ($) {
+
+	let invoiceBusy = false;
+	const uncertainMessage = "發票操作未能確認完成，請先至服務商查詢是否已開立／作廢，確認後再操作，避免重複送出。";
+	function invoiceMessage(response) {
+		const data = response?.data;
+		if (typeof data === "string") return data;
+		if (typeof data?.message === "string") return data.message;
+		if (data && typeof data === "object") return Object.keys(data)[0] || uncertainMessage;
+		return uncertainMessage;
+	}
+	function sendInvoice(data) {
+		if (invoiceBusy) return;
+		invoiceBusy = true;
+		$.ajax({url: ajaxurl, method: "POST", data, dataType: "json", timeout: 45000})
+			.done(function (response) {
+				alert(invoiceMessage(response));
+				if (response?.success === true) location.reload();
+			})
+			.fail(function (xhr) { alert(xhr?.responseJSON ? invoiceMessage(xhr.responseJSON) : uncertainMessage); })
+			.always(function () { invoiceBusy = false; $.unblockUI(); });
+	}
 	function fieldDisplay(fieldControlName, fieldControlNameValue, fieldDisplay) {
 		function condition(fieldControlName) {
 			if (fieldControlName.val() === fieldControlNameValue) {
@@ -57,18 +78,7 @@ jQuery(function ($) {
 
 			const data = getInvoicePayload();
 
-			$.post(ajaxurl, data, function (response) {
-				$.unblockUI();
-				if (typeof response?.data === "string") {
-					alert(response?.data);
-				} else {
-					alert(Object.keys(response?.data)?.[0]);
-				}
-				location.reload();
-			}).fail(function () {
-				$.unblockUI();
-				alert("發票開立錯誤");
-			});
+			sendInvoice(data);
 		});
 
 		$(".btnInvalidInvoice").click(function () {
@@ -81,11 +91,7 @@ jQuery(function ($) {
 					orderId: $(this).val(),
 				};
 
-				$.post(ajaxurl, data, function (response) {
-					$.unblockUI();
-					alert(response?.data);
-					location.reload(true);
-				});
+				sendInvoice(data);
 			}
 		});
 
@@ -132,18 +138,7 @@ jQuery(function ($) {
 
 			const data = getInvoicePayload();
 
-			$.post(ajaxurl, data, function (response) {
-				$.unblockUI();
-				if (typeof response?.data === "string") {
-					alert(response?.data);
-				} else {
-					alert(Object.keys(response?.data)?.[0]);
-				}
-				location.reload();
-			}).fail(function () {
-				$.unblockUI();
-				alert("發票開立錯誤");
-			});
+			sendInvoice(data);
 		});
 
 		fieldDisplay(

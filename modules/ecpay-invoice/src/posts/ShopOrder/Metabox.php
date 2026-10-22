@@ -2,7 +2,7 @@
 
 namespace WUECPAYINVOICE\ShopOrder;
 
-use ODS\Metabox;
+use \WUTMInvoiceDeps\ODS\Metabox;
 
 defined( 'ABSPATH' ) || exit;
 
@@ -63,7 +63,7 @@ class Field {
 
 		$this->metabox = new Metabox(
 			[
-				'id'       => 'ecpay_invoice',
+				'id'       => 'WUTMInvoiceSDK_ecpay_invoice',
 				'title'    => __( '綠界電子發票', 'wu' ),
 				'screen'   => [ 'shop_order', 'shop_subscription' ],
 				'context'  => 'side',

@@ -1,13 +1,13 @@
 <?php
-namespace GuzzleHttp;
+namespace WUTMInvoiceDeps\GuzzleHttp;
 
-use GuzzleHttp\Cookie\CookieJar;
-use GuzzleHttp\Exception\GuzzleException;
-use GuzzleHttp\Promise;
-use GuzzleHttp\Psr7;
-use Psr\Http\Message\RequestInterface;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\UriInterface;
+use \WUTMInvoiceDeps\GuzzleHttp\Cookie\CookieJar;
+use \WUTMInvoiceDeps\GuzzleHttp\Exception\GuzzleException;
+use \WUTMInvoiceDeps\GuzzleHttp\Promise;
+use \WUTMInvoiceDeps\GuzzleHttp\Psr7;
+use \WUTMInvoiceDeps\Psr\Http\Message\RequestInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\ResponseInterface;
+use \WUTMInvoiceDeps\Psr\Http\Message\UriInterface;
 
 /**
  * @method ResponseInterface get(string|UriInterface $uri, array $options = [])
@@ -395,7 +395,7 @@ class Client implements ClientInterface
         }
 
         if (isset($options['json'])) {
-            $options['body'] = \GuzzleHttp\json_encode($options['json']);
+            $options['body'] = \WUTMInvoiceDeps\GuzzleHttp\json_encode($options['json']);
             unset($options['json']);
             // Ensure that we don't have the header in different case and set the new value.
             $options['_conditional'] = Psr7\_caseless_remove(['Content-Type'], $options['_conditional']);
