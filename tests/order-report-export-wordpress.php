@@ -18,7 +18,7 @@ function report_csv($bytes){
     report_assert(substr($bytes,0,3)==="\xEF\xBB\xBF",'Original UTF-8 BOM CSV download');
     $stream=fopen('php://temp','w+');fwrite($stream,substr($bytes,3));rewind($stream);$rows=[];while(($row=fgetcsv($stream,0,',','"',''))!==false)$rows[]=$row;fclose($stream);return $rows;
 }
-add_filter('pre_http_request',static function(){throw new RuntimeException('Report fixture cannot send external requests');},1);
+add_filter('pre_http_request',static function(){return new WP_Error('report_fixture_offline','Network disabled in isolated report fixture');},1);
 add_filter('pre_wp_mail',static function(){return true;});
 $admin=get_current_user_id();$other=wp_insert_user(['user_login'=>'report_fixture_manager','user_pass'=>'fixture-only','role'=>'shop_manager']);report_assert(!is_wp_error($other),'Second per-user profile');
 $orders=[];$product=new WC_Product_Simple();$product->set_name('中文商品');$product->set_sku('0012345678901234');$product->set_regular_price('100');$product->save();

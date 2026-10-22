@@ -6,7 +6,9 @@ if(!defined('WUTM_PATH'))define('WUTM_PATH',dirname(__DIR__).'/');
 if(!defined('WUTM_URL'))define('WUTM_URL','https://fixture.test/plugin/');
 if(!defined('WUTM_VERSION'))define('WUTM_VERSION','integration');
 require_once WUTM_PATH.'core/admin-design.php';
-add_filter('pre_http_request',static function(){throw new RuntimeException('Report may not send external requests');},1);
+// WooCommerce may dispatch its async queue at shutdown. Keep it offline without
+// throwing after the original JSON/CSV response has already finished.
+add_filter('pre_http_request',static function(){return new WP_Error('report_fixture_offline','Network disabled in isolated report fixture');},1);
 add_filter('pre_wp_mail',static function(){return true;});
 require_once WUTM_PATH.'modules/order-report-export/module.php';
 if(!class_exists('WUTM_Order_Report_Export_V3',false))throw new RuntimeException('Report runtime not loaded');
