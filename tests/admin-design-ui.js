@@ -22,6 +22,15 @@ const render = mode => execFileSync(php, [...phpArgs, 'tests/admin-design.php', 
  const origin='http://127.0.0.1:'+server.address().port;
  const browser=await chromium.launch({headless:true,executablePath:process.env.WUTM_TEST_CHROME,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
  try {
+  for(const fault of ['license-failure','plugin-failure','panel-failure']){
+   const recoveryHTML=execFileSync(php,[...phpArgs,'tests/admin-design.php','dashboard'],{cwd:root,encoding:'utf8',env:{...process.env,WUTM_DASHBOARD_FAULT:fault}});
+   const recoveryPage=await browser.newPage({viewport:{width:390,height:900}});await recoveryPage.setContent(recoveryHTML);
+   assert.ok(await recoveryPage.locator('.wutm-card').count()>100,'Visible cards survive '+fault);
+   await recoveryPage.locator('.wutm-dashboard-health').waitFor({state:'visible'});
+   if(fault!=='panel-failure')assert.equal(await recoveryPage.locator('.wutm-switch input:not(:disabled)').count(),0,'Degraded controls remain locked');
+   assert.ok(!(await recoveryPage.locator('body').textContent()).includes('partial-secret'));
+   await recoveryPage.close();
+  }
   const sharedPage=await browser.newPage();await sharedPage.goto(origin+'/shared');
   assert.equal(await sharedPage.locator('.wutm-card').count(),1,'Shared dashboard only contains opened cards');
   assert.equal(await sharedPage.locator('.wutm-category-nav a').count(),1,'Shared category navigation only reveals shared groups');

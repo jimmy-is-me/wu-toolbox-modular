@@ -1,5 +1,6 @@
 <?php
 defined('ABSPATH') || exit;
+require_once __DIR__ . '/dashboard-health.php';
 
 function wutm_third_party_plugin_file(string $key): string {
     $plugins = [
@@ -23,7 +24,9 @@ function wutm_third_party_plugin_active(string $key): bool {
     $plugin = wutm_third_party_plugin_file($key);
     if ($plugin === '') return false;
     if (!function_exists('is_plugin_active')) require_once ABSPATH . 'wp-admin/includes/plugin.php';
-    return is_plugin_active($plugin) || (is_multisite() && is_plugin_active_for_network($plugin));
+    return (bool) wutm_dashboard_optional('plugin-status', static function () use ($plugin): bool {
+        return is_plugin_active($plugin) || (is_multisite() && is_plugin_active_for_network($plugin));
+    }, false);
 }
 
 function wutm_module_settings_url(array $module, string $key): string {
@@ -32,7 +35,24 @@ function wutm_module_settings_url(array $module, string $key): string {
 }
 
 function wutm_render_admin_page(): void {
-    if (!wutm_toolbox_can_view()) return;
+    $level = ob_get_level(); ob_start();
+    try {
+        wutm_render_admin_page_content();
+        $html = (string) ob_get_clean();
+        wutm_dashboard_problem_notice(); echo $html;
+    } catch (Throwable $error) {
+        while (ob_get_level() > $level) ob_end_clean();
+        wutm_dashboard_record('dashboard-render', $error);
+        echo '<div class="wrap wutm-ui-root"><h1>WU Toolbox Modular</h1><p>面板載入遇到錯誤，已保留原有模組、授權及帳號設定。請重新載入；若仍有問題，請提供檢查編號協助定位。</p>';
+        wutm_dashboard_problem_notice();
+        echo '<p><a class="button" href="' . esc_url(admin_url('admin.php?page=wu-toolbox-modular')) . '">重新載入面板</a></p></div>';
+    }
+}
+function wutm_render_admin_page_content(): void {
+    if (!wutm_toolbox_can_view()) {
+        echo '<div class="wrap wutm-ui-root"><h1>WU Toolbox Modular</h1><p role="status">此帳號目前沒有面板存取權限，或沒有已開放且啟用的模組。請由指定主帳號確認「授權與更新」的顯示設定。系統未自動變更任何權限。</p></div>';
+        return;
+    }
     $shared_view = !wutm_toolbox_can_manage();
     $modules = wutm_modules();
     $groups = wutm_grouped_modules();
@@ -46,16 +66,22 @@ function wutm_render_admin_page(): void {
     if (!wutm_admin_menu_editor_can_edit()) {
         unset($modules['admin-menu-editor'], $groups['後台介面']['admin-menu-editor']);
     }
-    $licensed = function_exists('wutm_license_is_valid') && wutm_license_is_valid();
+    // Resolve optional plugin status before rendering any mutable controls.
+    foreach ($modules as $key => $module) {
+        if (($module['tag'] ?? '') === '第三方外掛') wutm_third_party_plugin_active($key);
+    }
+    $licensed = function_exists('wutm_license_is_valid') && wutm_dashboard_optional('license-status', static function (): bool { return wutm_license_is_valid(); }, false);
     $real_modules = array_filter($modules, static function (array $module): bool { return empty($module['navigation']); });
     $enabled = count(array_filter($real_modules, static function (array $module, string $key): bool {
         return wutm_is_enabled($key)
             || (($module['tag'] ?? '') === '第三方外掛' && wutm_third_party_plugin_active($key));
     }, ARRAY_FILTER_USE_BOTH));
+    $dashboard_degraded = (bool) wutm_dashboard_problems();
+    if ($dashboard_degraded) $licensed = false;
     ?>
     <div class="wrap wutm-wrap">
       <header class="wutm-header"><div><span class="wutm-header-kicker">MODULAR ADMINISTRATION</span><h1>WU Toolbox Modular</h1><p>已啟用 <strong><?php echo esc_html((string) $enabled); ?></strong> / <?php echo esc_html((string) count($real_modules)); ?> 個模組 · 未啟用的模組完全不載入</p></div><div class="wutm-hero-metrics"><span class="wutm-version"><i class="wutm-running-dot" aria-hidden="true"></i>v<?php echo esc_html(WUTM_VERSION); ?></span><span class="wutm-metric-label">模組啟用狀態</span><div class="wutm-metric-value"><strong class="wutm-enabled-count"><?php echo esc_html((string) $enabled); ?></strong><span>/ <?php echo esc_html((string) count($real_modules)); ?></span></div><div class="wutm-metric-track" aria-hidden="true"><span style="width:<?php echo esc_attr((string) (count($real_modules) ? round($enabled / count($real_modules) * 100) : 0)); ?>%"></span></div><div class="wutm-signal-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><span>SIGNAL / UI</span></div></div></header>
-      <?php if (!$licensed && !$shared_view): ?><div class="notice notice-warning inline"><p><strong>尚未完成授權驗證。</strong>既有模組會繼續運作，但啟用新模組前必須先完成授權。 <a class="button button-small" href="#wutm-license">前往授權與更新</a></p></div><?php endif; ?>
+      <?php if (!$licensed && !$shared_view): ?><div class="notice notice-warning inline"><p><strong><?php echo $dashboard_degraded ? '面板資訊讀取異常，模組開關已暫時鎖定。' : '尚未完成授權驗證。'; ?></strong>既有模組設定保持不變。 <a class="button button-small" href="#wutm-license">前往授權與更新</a></p></div><?php endif; ?>
       <div class="wutm-search-panel">
         <form class="wutm-module-search" role="search"><label class="screen-reader-text" for="wutm-module-search-input">搜尋功能</label><input id="wutm-module-search-input" type="search" placeholder="搜尋功能，例如：工具、版本、通知、結帳" autocomplete="off"><button type="submit" class="button button-primary">搜尋</button>
           <div class="wutm-module-tabs" role="tablist" aria-label="顯示模組">
@@ -90,10 +116,10 @@ function wutm_render_admin_page(): void {
             $available = $is_navigation ? $parent_enabled : ($module_dependency_available && $plugin_dependency_available && (empty($module['min_php']) || version_compare(PHP_VERSION, $module['min_php'], '>=')) && (!$requires || ($requires === 'woocommerce' && class_exists('WooCommerce')) || ($requires === 'translatepress' && class_exists('TRP_Translate_Press'))));
             $settings_url = wutm_module_settings_url($module, $key);
         ?>
-        <article id="wutm-module-<?php echo esc_attr($key); ?>" class="wutm-card <?php echo $on ? 'on' : ''; ?>" tabindex="-1" data-module-name="<?php echo esc_attr($module['name']); ?>" data-search="<?php echo esc_attr($module['name'] . ' ' . $module['description']); ?>" data-settings-url="<?php echo esc_url($settings_url); ?>" data-navigation="<?php echo $is_navigation ? '1' : '0'; ?>"><div class="wutm-icon"><?php echo esc_html($module['icon']); ?></div><div class="wutm-card-body"><h3><?php echo esc_html($module['name']); ?><?php if (!empty($module['development'])) : ?> <span class="wutm-development-badge">開發中</span><?php endif; ?><?php if (!empty($module['tag'])) : ?> <span class="wutm-card-badge"><?php echo esc_html($module['tag']); ?></span><?php endif; ?><?php if (!empty($module['badge'])) : ?> <span class="wutm-card-badge"><?php echo esc_html($module['badge']); ?></span><?php endif; ?><?php if ($is_navigation) : ?> <span class="wutm-card-badge">連接器功能</span><?php endif; ?><?php if ($third_party_active) : ?> <span class="wutm-card-badge">已開啟</span><?php endif; ?></h3><p><?php echo esc_html($module['description']); ?></p><?php if (!$available): ?><small><?php echo $requires_plugin !== '' ? '請先安裝並啟用 WU AI Card 外掛' : ($is_navigation ? '請先啟用 AI 連接器' : ($requires_module !== '' ? '請先啟用「' . esc_html($modules[$requires_module]['name'] ?? $requires_module) . '」' : '需要 ' . esc_html($requires === 'translatepress' ? 'TranslatePress Multilingual' : 'WooCommerce'))); ?></small><?php elseif (!$licensed && !$on): ?><small>完成授權後可啟用</small><?php endif; ?><div class="wutm-card-actions"><?php wutm_render_module_share($key, $module, $on && $available); ?><?php if (($module_enabled || (!empty($module['settings_when_active']) && $third_party_active)) && $available): ?><a class="wutm-settings" href="<?php echo esc_url($settings_url); ?>"><?php echo $is_navigation ? '開啟' : '設定'; ?></a><?php endif; ?></div></div><?php if (!$shared_view): ?><label class="wutm-switch"><input type="checkbox" data-module="<?php echo esc_attr($key); ?>" <?php checked($on); disabled(!$available || $third_party_active || (!$licensed && !$on)); ?>><span></span></label><?php endif; ?></article>
+        <article id="wutm-module-<?php echo esc_attr($key); ?>" class="wutm-card <?php echo $on ? 'on' : ''; ?>" tabindex="-1" data-module-name="<?php echo esc_attr($module['name']); ?>" data-search="<?php echo esc_attr($module['name'] . ' ' . $module['description']); ?>" data-settings-url="<?php echo esc_url($settings_url); ?>" data-navigation="<?php echo $is_navigation ? '1' : '0'; ?>"><div class="wutm-icon"><?php echo esc_html($module['icon']); ?></div><div class="wutm-card-body"><h3><?php echo esc_html($module['name']); ?><?php if (!empty($module['development'])) : ?> <span class="wutm-development-badge">開發中</span><?php endif; ?><?php if (!empty($module['tag'])) : ?> <span class="wutm-card-badge"><?php echo esc_html($module['tag']); ?></span><?php endif; ?><?php if (!empty($module['badge'])) : ?> <span class="wutm-card-badge"><?php echo esc_html($module['badge']); ?></span><?php endif; ?><?php if ($is_navigation) : ?> <span class="wutm-card-badge">連接器功能</span><?php endif; ?><?php if ($third_party_active) : ?> <span class="wutm-card-badge">已開啟</span><?php endif; ?></h3><p><?php echo esc_html($module['description']); ?></p><?php if (!$available): ?><small><?php echo $requires_plugin !== '' ? '請先安裝並啟用 WU AI Card 外掛' : ($is_navigation ? '請先啟用 AI 連接器' : ($requires_module !== '' ? '請先啟用「' . esc_html($modules[$requires_module]['name'] ?? $requires_module) . '」' : '需要 ' . esc_html($requires === 'translatepress' ? 'TranslatePress Multilingual' : 'WooCommerce'))); ?></small><?php elseif (!$licensed && !$on): ?><small>完成授權後可啟用</small><?php endif; ?><div class="wutm-card-actions"><?php if (!$dashboard_degraded) wutm_render_module_share($key, $module, $on && $available); ?><?php if (($module_enabled || (!empty($module['settings_when_active']) && $third_party_active)) && $available): ?><a class="wutm-settings" href="<?php echo esc_url($settings_url); ?>"><?php echo $is_navigation ? '開啟' : '設定'; ?></a><?php endif; ?></div></div><?php if (!$shared_view): ?><label class="wutm-switch"><input type="checkbox" data-module="<?php echo esc_attr($key); ?>" <?php checked($on); disabled($dashboard_degraded || !$available || $third_party_active || (!$licensed && !$on)); ?>><span></span></label><?php endif; ?></article>
             <?php endforeach; ?></div></section><?php endforeach; ?>
       </div>
-      <?php if (!$shared_view) WUTM_License_Manager::instance()->render_panel(); ?>
+      <?php if (!$shared_view) echo wutm_dashboard_fragment('license-panel', static function (): void { WUTM_License_Manager::instance()->render_panel(); }); ?>
       <footer class="wutm-footer">此模組由 <a href="https://wumetax.com/" target="_blank" rel="noopener noreferrer">Wumetax</a> 開發與維護 - <a href="https://wumetax.com/" target="_blank" rel="noopener noreferrer">Wumetax</a> 提供主機管理及網站開發</footer>
       <div class="wutm-floating-actions"><button type="button" class="wutm-float-button wutm-back-to-top">回到最上面</button></div>
     </div>

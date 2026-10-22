@@ -178,7 +178,7 @@ function wutm_admin_menu_editor_owner_ids(): array {
     if ($stored !== false) {
         $ids = [];
         foreach ((array) $stored as $value) {
-            if (!is_scalar($value) || !ctype_digit((string) $value)) continue;
+            if (!is_scalar($value) || !preg_match('/^[0-9]+$/D', (string) $value)) continue;
             $id = absint($value);
             if ($id) $ids[] = $id;
         }

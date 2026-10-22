@@ -25,6 +25,9 @@ jobs:
       - name: Check shared admin design ownership and settings contract
         run: |
           php tests/admin-design.php
+          php tests/admin-design.php recovery
+          php -d disable_functions=ctype_digit tests/admin-menu-editor-owners.php
+          php -d disable_functions=ctype_digit tests/module-access.php
           php tests/module-access.php
           php tests/product-unpublish.php
           php tests/admin-enhancements.php
