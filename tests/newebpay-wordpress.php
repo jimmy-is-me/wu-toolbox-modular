@@ -19,6 +19,42 @@ np_assert(class_exists('WUEZPAYINVOICE\\APIs\\EzPayInvoiceHandler'),'Restored in
 $product=new WC_Product_Simple();$product->set_name('WU fixture');$product->set_regular_price('100');$product->set_virtual(false);$product->save();
 $order=wc_create_order();$id=$order->get_id();
 try {
+    WC()->initialize_session();WC()->initialize_cart();
+    WC()->customer->set_shipping_country('TW');WC()->customer->set_billing_country('TW');
+    $zone=new WC_Shipping_Zone();$zone->set_zone_name('WU NewebPay fixture');$zone->add_location('TW','country');$zone->save();
+    $instance=$zone->add_shipping_method('wu_np_newebpay_shipping_cvs');
+    np_assert((bool)$instance,'Native zone can add registered NewebPay shipping');
+    update_option('woocommerce_wu_np_newebpay_shipping_cvs_'.$instance.'_settings',['title'=>'藍新超商取貨','cost'=>'60','tax_status'=>'none','requires'=>'']);
+    WC()->cart->add_to_cart($product->get_id());WC()->cart->calculate_totals();
+    $packages=WC()->cart->get_shipping_packages();$package=reset($packages);
+    $method=new WU_NP_NewebPay_Shipping_CVS($instance);
+    $rates=$method->get_rates_for_package($package);
+    np_assert(count($rates)===1&&(float)reset($rates)->get_cost()===60.0,'Native available shipping emits exact configured rate');
+    WUTM_Newebpay_Shipping_Rates::capture($package,$method);
+    update_option('woocommerce_shipping_hide_rates_when_free','yes');
+    $free=new WC_Shipping_Rate('free_shipping:1','免運',0,[],'free_shipping',1);
+    $retained=WUTM_Newebpay_Shipping_Rates::retain(['free_shipping:1'=>$free],$package);
+    np_assert(count($retained)===2,'Native rates retain pickup alongside generic free delivery');
+    // A constant package/address must not keep a cached rate after merchant configuration changes.
+    WC()->shipping()->calculate_shipping_for_package($package,0);
+    $before=WC()->session->get('shipping_for_package_0')['package_hash'];
+    update_option('WU_NP_WT_newebpay_gateway_MerchantID','');
+    WC()->shipping()->calculate_shipping_for_package($package,0);
+    $after=WC()->session->get('shipping_for_package_0');
+    np_assert($after['package_hash']!==$before&&empty($after['rates']),'Merchant change invalidates native cached package');
+    update_option('WU_NP_WT_newebpay_gateway_MerchantID','FIXTURE');
+    WC()->shipping()->calculate_shipping_for_package($package,0);
+    np_assert(count(WC()->session->get('shipping_for_package_0')['rates'])===1,'Restoring credentials restores shipping without changing cart/address');
+    $zone->add_shipping_method('free_shipping');
+    $package['wutm_fixture_case']='with-free';
+    $result=WC()->shipping()->calculate_shipping_for_package($package,1);
+    np_assert(count($result['rates'])===2,'Real core shipping pipeline keeps free delivery and pickup');
+    update_option('WU_NP_WT_newebpay_shipping_keep_with_free','no');
+    $result=WC()->shipping()->calculate_shipping_for_package($package,1);
+    np_assert(count($result['rates'])===(version_compare(WC_VERSION,'9.9','>=')?1:2),'Opt-out follows installed core hiding behavior');
+    update_option('WU_NP_WT_newebpay_shipping_keep_with_free','yes');
+    delete_option('woocommerce_shipping_hide_rates_when_free');
+    WC()->cart->empty_cart();$zone->delete();
     $order->add_product($product,1);$order->set_currency('TWD');$order->set_billing_email('fixture@example.test');$order->set_billing_first_name('WU');$order->set_billing_country('TW');$order->set_shipping_country('TW');$order->set_payment_method('wu_np_newebpay_credit');$order->calculate_totals();$order->save();
     $methods=WU_NP_NewebPay_Gateway::add_method([]);foreach($methods as $class){$instance=new $class();np_assert(strpos($instance->id,'wu_np_')===0,'WU gateway identifier');}
     $gateway=new WU_NP_NewebPay_Gateway_Credit();
@@ -81,4 +117,4 @@ try {
     try{$save();throw new LogicException('Unknown section accepted');}catch(RuntimeException $error){np_assert($error->getMessage()==='fixture-denied','Settings section boundary');}
     $_POST=$_REQUEST=[];
     echo "Native WordPress/WooCommerce passed: source methods, sandbox form, callback binding/replay, atomic locks, original invoice payload/meta and duplicate issue guard; no external transports.\n";
-} finally { $order->delete(true);$product->delete(true); }
+} finally { if(isset($zone)&&$zone->get_id())$zone->delete();$order->delete(true);$product->delete(true); }

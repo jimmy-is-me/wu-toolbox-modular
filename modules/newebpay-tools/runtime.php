@@ -1,6 +1,7 @@
 <?php
 defined('ABSPATH') || exit;
 require_once __DIR__.'/locks.php';
+require_once __DIR__.'/shipping-runtime.php';
 
 /** Only the selected provider's isolated options, never another integration's switches. */
 final class WU_NP_WT {

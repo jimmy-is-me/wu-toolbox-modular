@@ -4,7 +4,10 @@ function wutm_newebpay_sections(): array { return ['services'=>'服務開關','g
 function wutm_newebpay_fields(string $section): array {
     if ($section==='invoice') $fields=wutm_invoice_settings_page('ezpay')->get_settings();
     elseif ($section==='gateway') $fields=require __DIR__.'/vendor/woocommerce/gateways/newebpay/includes/settings-newebpay-gateway.php';
-    elseif ($section==='shipping') $fields=require __DIR__.'/vendor/woocommerce/shipping/newebpay/includes/settings-newebpay-shipping.php';
+    elseif ($section==='shipping') {
+        $fields=require __DIR__.'/vendor/woocommerce/shipping/newebpay/includes/settings-newebpay-shipping.php';
+        array_splice($fields, -1, 0, [['title'=>'免運時保留取貨方式','type'=>'checkbox','id'=>'WU_NP_WT_newebpay_shipping_keep_with_free','default'=>'yes','desc'=>'WooCommerce 設為「免運時隱藏其他運送方式」時，仍顯示已可用的藍新超商取貨。運費不會自動改為零；請於各運送區域設定藍新免運門檻。取消後遵循 WooCommerce 的隱藏設定。']]);
+    }
     else $fields=[
         ['title'=>'WU 藍新金物流服務','type'=>'title','id'=>'wu_np_services','desc'=>'新服務預設關閉。啟用金流後，仍須在 WooCommerce 付款設定開啟個別付款方式；物流須於運送區域加入「藍新超商取貨」。'],
         ['title'=>'藍新金流','type'=>'checkbox','id'=>'WU_NP_WT_enabled_newebpay_gateway','default'=>'no','desc'=>'啟用藍新付款；請先於「藍新金流」填寫商店串接資料。'],
@@ -33,9 +36,29 @@ add_action('admin_menu',static function() {
         WC_Admin_Settings::output_fields(wutm_newebpay_fields($section)); submit_button('儲存設定'); echo '</form>';
         if($section==='services'||$section==='gateway') echo '<p><a class="button" href="'.esc_url(admin_url('admin.php?page=wc-settings&tab=checkout')).'">設定個別付款方式</a></p>';
         if($section==='services'||$section==='shipping') echo '<p><a class="button" href="'.esc_url(admin_url('admin.php?page=wc-settings&tab=shipping')).'">設定運送區域與運費</a></p><p>藍新超商取貨於藍新付款流程選店；物流狀態及出貨操作以服務商後台為準。</p>';
+        if($section==='services'||$section==='shipping') wutm_newebpay_shipping_status();
         wutm_admin_page_close();
     });
 });
+function wutm_newebpay_shipping_status(): void {
+    if(!current_user_can('manage_woocommerce')||!class_exists('WC_Shipping_Zones')) return;
+    echo '<h2>藍新物流啟用檢查</h2>';
+    if(get_option('woocommerce_shipping_hide_rates_when_free','no')==='yes') echo '<p>目前 WooCommerce 已開啟「免運時隱藏其他運送方式」。可於藍新物流頁調整「免運時保留取貨方式」，不影響原本運費。</p>';
+    $zones=WC_Shipping_Zones::get_zones();$zones[]=['zone_id'=>0];$found=false;
+    echo '<ul>';
+    foreach($zones as $data) {
+        $zone=new WC_Shipping_Zone((int)$data['zone_id']);
+        foreach($zone->get_shipping_methods() as $method) {
+            if($method->id!=='wu_np_newebpay_shipping_cvs') continue;
+            $found=true;
+            echo '<li>'.esc_html($zone->get_zone_name().'：'.$method->get_title().'（'.($method->is_enabled()?'已啟用':'未啟用').'，藍新超商取貨）').' <a href="'.esc_url(admin_url('admin.php?page=wc-settings&tab=shipping&zone_id='.$zone->get_id())).'">編輯運送區域</a></li>';
+        }
+    }
+    echo '</ul>';
+    if(!$found) echo '<p>尚未在任何運送區域加入「藍新超商取貨」。僅開啟服務開關不會自動新增運送方式；其他模組的「超商取貨」不等於藍新物流。</p>';
+    if(!wutm_newebpay_configured()) echo '<p>商店串接資料不完整，請先完成藍新金流設定。</p>';
+    echo '<p>結帳僅採用第一個符合收件地址的運送區域；請確認該區域已加入並啟用藍新物流。商品運送限制仍會生效。</p>';
+}
 add_action('admin_enqueue_scripts',static function($hook) {
     if(strpos((string)$hook,'wu-newebpay-tools')===false||!current_user_can('manage_woocommerce')) return;
     wp_enqueue_style('woocommerce_admin_styles'); wp_enqueue_script('wc-enhanced-select');

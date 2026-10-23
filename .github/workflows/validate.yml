@@ -37,6 +37,7 @@ jobs:
           php tests/commerce-consolidation.php
           php tests/commerce-consolidation.php disabled
           php tests/newebpay.php
+          php tests/newebpay-shipping.php
           php tests/newebpay.php no-woocommerce
           php tests/newebpay.php conflict
           php tests/newebpay-startup.php
@@ -95,6 +96,10 @@ jobs:
           php "$RUNNER_TEMP/wutm-wp-cli.phar" plugin install woocommerce --version=9.0.2 --activate --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" option update woocommerce_custom_orders_table_enabled no --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/newebpay-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" plugin install woocommerce --version=9.9.5 --force --path="$RUNNER_TEMP/wutm-media-wp"
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/newebpay-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-newebpay-shipping.log"
+          grep -Fq 'Native WordPress/WooCommerce passed:' "$RUNNER_TEMP/wutm-newebpay-shipping.log"
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" plugin install woocommerce --version=9.0.2 --force --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/order-report-export-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-report-export.log"
           grep -Fq 'Native order report passed:' "$RUNNER_TEMP/wutm-report-export.log"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" option update woocommerce_custom_orders_table_enabled yes --path="$RUNNER_TEMP/wutm-media-wp"
