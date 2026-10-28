@@ -96,6 +96,8 @@ jobs:
           php "$RUNNER_TEMP/wutm-wp-cli.phar" plugin install woocommerce --version=9.0.2 --activate --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" option update woocommerce_custom_orders_table_enabled no --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/newebpay-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/onepage-checkout-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-onepage.log"
+          grep -Fq 'Native onepage checkout passed:' "$RUNNER_TEMP/wutm-onepage.log"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" plugin install woocommerce --version=9.9.5 --force --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/newebpay-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-newebpay-shipping.log"
           grep -Fq 'Native WordPress/WooCommerce passed:' "$RUNNER_TEMP/wutm-newebpay-shipping.log"
@@ -213,4 +215,5 @@ jobs:
           node tests/style-youtube-ui.js
           node tests/invoice-admin-ui.js
           node tests/newebpay-ui.js
+          node tests/onepage-checkout-ui.js
           node tests/payuni-shipping-ui.js

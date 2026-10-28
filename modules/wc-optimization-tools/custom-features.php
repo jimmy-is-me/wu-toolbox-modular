@@ -16,6 +16,7 @@ foreach ( array(
 	}
 }
 unset( $wutm_wc_new_option, $wutm_wc_legacy_option, $wutm_wc_legacy_value );
+require_once __DIR__ . '/onepage-checkout.php';
 
 /* =========================================================
  * 一、一頁式結帳 (One Page Checkout)
@@ -41,17 +42,27 @@ function wutm_wc_custom_redirect_cart_to_checkout() {
 
 // 掛載在結帳表單「之前」，確保順序為：購物車 -> 資訊 -> 明細...
 add_action( 'woocommerce_before_checkout_form', 'wutm_wc_custom_render_cart_on_checkout', 5 );
-function wutm_wc_custom_render_cart_on_checkout() {
+function wutm_wc_custom_render_cart_on_checkout($cart_only = false) {
+    $cart_only = true === $cart_only;
 	if ( ! wutm_wc_custom_is_onepage_checkout_enabled() ) {
 		return;
 	}
 	if ( is_admin() || ! WC()->cart || WC()->cart->is_empty() ) {
 		return;
 	}
+	if (!$cart_only) {
+        remove_action('woocommerce_before_checkout_form', 'woocommerce_checkout_coupon_form', 10);
+        if (wc_coupons_enabled()) {
+            echo '<div class="wutm-wc-onepage-coupons"><form class="checkout_coupon woocommerce-form-coupon" method="post"><p><label for="coupon_code">折扣碼</label></p><p class="form-row form-row-first"><input type="text" name="coupon_code" id="coupon_code" placeholder="輸入折扣碼" value="" autocomplete="off"></p><p class="form-row form-row-last"><button type="submit" class="button" name="apply_coupon" value="1">套用折扣碼</button></p><div class="clear"></div>';
+            wp_nonce_field('woocommerce-cart', 'woocommerce-cart-nonce');
+            echo '</form></div>';
+        }
+        echo '<p id="wutm-onepage-status" role="status" aria-live="polite"></p>';
+    }
 	?>
 	<div class="wutm-wc-custom-onepage-cart-wrap">
         <!-- Form 表單包覆，確保可以送出更新 -->
-        <form class="wutm-wc-custom-cart-form" action="<?php echo esc_url( wc_get_checkout_url() ); ?>" method="post">
+        <form class="wutm-wc-custom-cart-form" action="<?php echo esc_url( wc_get_checkout_url() ); ?>" method="post" data-update-url="<?php echo esc_url(WC_AJAX::get_endpoint('wutm_onepage_cart')); ?>" data-security="<?php echo esc_attr(wp_create_nonce('wutm_onepage_cart')); ?>">
             <?php wp_nonce_field( 'woocommerce-cart', 'woocommerce-cart-nonce' ); ?>
             <table class="shop_table wutm-wc-custom-onepage-cart-table" cellspacing="0">
                 <thead>
@@ -128,56 +139,7 @@ function wutm_wc_custom_render_cart_on_checkout() {
         </form>
 		<?php do_action( 'woocommerce_after_cart_contents' ); ?>
 	</div>
-	<script>
-	jQuery( function ( $ ) {
-        // 點擊更新時，加上遮罩
-		$( document ).on( 'click', '.wutm-wc-custom-update-cart', function () {
-			$( '.wutm-wc-custom-cart-form' ).addClass( 'processing' ).block( {
-				message: null,
-				overlayCSS: { background: '#fff', opacity: 0.6 }
-			} );
-		} );
-        // 數量變更時，自動觸發「更新購物車」以實現良好體驗
-        var cart_timer;
-		$( document ).on( 'change', '.wutm-wc-custom-onepage-cart-table input.qty', function () {
-            clearTimeout( cart_timer );
-            cart_timer = setTimeout(function() {
-                $( '.wutm-wc-custom-update-cart' ).trigger('click');
-            }, 500);
-		} );
-	} );
-	</script>
 	<?php
-}
-
-add_action( 'template_redirect', 'wutm_wc_custom_handle_onepage_cart_actions', 5 );
-function wutm_wc_custom_handle_onepage_cart_actions() {
-	if ( ! wutm_wc_custom_is_onepage_checkout_enabled() ) {
-		return;
-	}
-	if ( is_admin() || ! function_exists( 'is_checkout' ) || ! is_checkout() ) {
-		return;
-	}
-	if ( isset( $_POST['update_cart'] ) && isset( $_POST['cart'] ) && is_array( $_POST['cart'] ) ) {
-		if ( empty( $_POST['woocommerce-cart-nonce'] ) ||
-			! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['woocommerce-cart-nonce'] ) ), 'woocommerce-cart' ) ) {
-			return;
-		}
-		$cart_updated = false;
-		foreach ( wc_clean( wp_unslash( $_POST['cart'] ) ) as $cart_item_key => $values ) {
-			$cart_item = WC()->cart->get_cart_item( $cart_item_key );
-			$quantity  = isset( $values['qty'] ) ? absint( $values['qty'] ) : 0;
-			if ( ! $cart_item || $quantity === $cart_item['quantity'] ) {
-				continue;
-			}
-			WC()->cart->set_quantity( $cart_item_key, $quantity, false );
-			$cart_updated = true;
-		}
-		if ( $cart_updated ) {
-			WC()->cart->calculate_totals();
-			wc_add_notice( __( '購物車已更新。', 'woocommerce' ) );
-		}
-	}
 }
 
 add_action( 'wp_head', 'wutm_wc_custom_onepage_checkout_style' );
@@ -190,6 +152,8 @@ function wutm_wc_custom_onepage_checkout_style() {
 	}
 	?>
 	<style>
+    .wutm-wc-onepage-coupons form.checkout_coupon { display: block !important; }
+    .wutm-onepage-auto .wutm-wc-custom-onepage-cart-actions { display: none; }
 	.wutm-wc-custom-onepage-cart-wrap { margin-bottom: 40px; padding-bottom: 20px; border-bottom: 2px solid #e5e5e5; }
     .wutm-wc-custom-cart-form { display: block; width: 100%; }
 	.wutm-wc-custom-onepage-cart-table { width: 100%; border-collapse: collapse; }
