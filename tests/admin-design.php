@@ -15,7 +15,8 @@ function get_current_screen() { return $GLOBALS['screen']; }
 function wp_enqueue_style(...$args) { $GLOBALS['styles'][] = $args; }
 function wp_enqueue_script(...$args) { $GLOBALS['scripts'][] = $args; }
 function current_user_can(...$args) { return ($GLOBALS['fixture_mode'] ?? '') !== 'nonadmin'; }
-function get_option($key, $default = false) { if ($key === 'wutm_admin_menu_editor_owner_ids' && ($GLOBALS['fixture_mode'] ?? '') === 'owner-failure') throw new RuntimeException('secret must not be logged'); if ($key === 'wutm_shared_module_menus') return ($GLOBALS['fixture_mode'] ?? '') === 'no-shares' ? [] : ['custom-cursor'=>1]; if (strpos($key, 'wutm_module_') === 0) return strpos($key, 'cursor') !== false || crc32($key) % 3 !== 0; return $default; }
+function get_option($key, $default = false) { if ($key === 'wutm_toolbox_primary_admin_id') {if (($GLOBALS['fixture_mode'] ?? '') === 'owner-failure') throw new RuntimeException('secret must not be logged'); return 1;} if($key==='wutm_hide_toolbox_other_admins')return 1; if ($key === 'wutm_shared_module_menus') return ($GLOBALS['fixture_mode'] ?? '') === 'no-shares' ? [] : ['custom-cursor'=>1]; if (strpos($key, 'wutm_module_') === 0) return strpos($key, 'cursor') !== false || crc32($key) % 3 !== 0; return $default; }
+function get_userdata($id){return (object)['ID'=>$id];}
 function wp_parse_args($a, $b) { return array_merge($b, $a); }
 function esc_html($v) { return htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8'); }
 function esc_attr($v) { return esc_html($v); }

@@ -15,8 +15,17 @@ $owner = get_current_user_id();
 $other = wp_insert_user(['user_login' => 'sharing-fixture', 'user_pass' => wp_generate_password(), 'user_email' => 'sharing-fixture@example.test', 'role' => 'administrator']);
 if (is_wp_error($other)) throw new RuntimeException($other->get_error_message());
 $saved = [];
-foreach (['wutm_admin_menu_editor_owner_ids','wu_hide_wumetax_toolkit_admin_id','wutm_hide_toolbox_other_admins','wutm_shared_module_menus','wutm_admin_menu_default',wutm_module_option('custom-cursor')] as $key) $saved[$key] = get_option($key, null);
+foreach (['wutm_toolbox_primary_admin_id','wutm_admin_menu_editor_owner_ids','wu_hide_wumetax_toolkit_admin_id','wutm_hide_toolbox_other_admins','wutm_shared_module_menus','wutm_admin_menu_default',wutm_module_option('custom-cursor')] as $key) $saved[$key] = get_option($key, null);
 try {
+    delete_option('wutm_toolbox_primary_admin_id');
+    if(wutm_toolbox_hidden()||wutm_toolbox_owner_ids())throw new RuntimeException('No automatic owner');
+    wp_set_current_user($other);
+    if(wutm_toolbox_save_visibility(true)!==true||wutm_toolbox_owner_ids()!==[$other])throw new RuntimeException('Current administrator must claim manually');
+    wp_set_current_user($owner);
+    if(!is_wp_error(wutm_toolbox_save_visibility(false)))throw new RuntimeException('Another admin must not disable active owner');
+    wp_set_current_user($other);wutm_toolbox_save_visibility(false);wp_set_current_user($owner);
+    update_option('wutm_toolbox_primary_admin_id',99999999);
+    if(wutm_toolbox_save_visibility(true)!==true||wutm_toolbox_owner_ids()!==[$owner])throw new RuntimeException('Explicit recovery from invalid owner');
     update_option('wutm_admin_menu_editor_owner_ids', [$owner]);
     delete_option('wu_hide_wumetax_toolkit_admin_id');
     update_option('wutm_hide_toolbox_other_admins', 1);

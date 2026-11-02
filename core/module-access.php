@@ -3,21 +3,20 @@
 defined('ABSPATH') || exit;
 
 function wutm_toolbox_owner_ids(): array {
-    $ids = wutm_admin_menu_editor_owner_ids();
-    $legacy = (int) get_option('wu_hide_wumetax_toolkit_admin_id', 0);
-    $user = $legacy ? get_userdata($legacy) : false;
-    if ($user && user_can($user, 'manage_options')) $ids[] = $legacy;
-    // Recovery when an explicitly configured owner has been deleted/demoted.
-    if (!$ids) {
-        $admins = get_users(['role' => 'administrator', 'orderby' => 'ID', 'order' => 'ASC', 'number' => 1]);
-        if ($admins && user_can($admins[0], 'manage_options')) $ids[] = (int) $admins[0]->ID;
-    }
-    return array_values(array_unique($ids));
+    $stored = get_option('wutm_toolbox_primary_admin_id', 0);
+    if (!is_scalar($stored) || !preg_match('/^[1-9][0-9]*$/D', (string)$stored)) return [];
+    $id = (int)$stored;
+    $user = get_userdata($id);
+    return $user && user_can($user, 'manage_options') ? [$id] : [];
 }
 function wutm_toolbox_is_owner(): bool {
     return current_user_can('manage_options') && in_array(get_current_user_id(), wutm_toolbox_owner_ids(), true);
 }
-function wutm_toolbox_hidden(): bool { return (bool) get_option('wutm_hide_toolbox_other_admins', 1); }
+function wutm_toolbox_hidden(): bool {
+    // Old implicit owners/flags must never silently elect an administrator.
+    // An invalid/deleted owner reopens access; it does not appoint a replacement.
+    return (bool)get_option('wutm_hide_toolbox_other_admins', 0) && (bool)wutm_toolbox_owner_ids();
+}
 function wutm_toolbox_can_manage(): bool {
     return current_user_can('manage_options') && (!wutm_toolbox_hidden() || wutm_toolbox_is_owner());
 }
@@ -73,13 +72,54 @@ add_action('wp_ajax_wutm_share_module', function (): void {
     update_option('wutm_shared_module_menus', $shared, false);
     wp_send_json_success(['enabled' => $enabled]);
 });
-add_action('admin_post_wutm_toolbox_visibility', function (): void {
-    if (!wutm_toolbox_is_owner()) wp_die('只有主帳號可以設定 Toolbox 顯示方式。', '', ['response' => 403]);
+function wutm_toolbox_save_visibility(bool $hide) {
+    if (!current_user_can('manage_options') || (wutm_toolbox_owner_ids() && !wutm_toolbox_is_owner())) return new WP_Error('forbidden', '只有主帳號可以變更已啟用的 Toolbox 顯示設定。');
+    if ($hide && !wutm_toolbox_is_owner()) {
+        // A stale/deleted account is not an owner. First explicit save claims
+        // the current administrator, never a submitted ID or menu-editor owner.
+        $stale = get_option('wutm_toolbox_primary_admin_id', false);
+        if ($stale !== false) {
+            if (wutm_toolbox_owner_ids()) return new WP_Error('conflict', '其他管理員已儲存主帳號，請重新整理後確認。');
+            global $wpdb;
+            // Compare-and-delete only the invalid value we inspected. A new
+            // administrator's concurrent claim must never be overwritten.
+            if (1 !== $wpdb->query($wpdb->prepare("DELETE FROM {$wpdb->options} WHERE option_name = %s AND option_value = %s", 'wutm_toolbox_primary_admin_id', maybe_serialize($stale)))) return new WP_Error('conflict', '設定已變更，請重新整理後再試。');
+            foreach (['wutm_toolbox_primary_admin_id','alloptions','notoptions'] as $key) wp_cache_delete($key, 'options');
+        }
+        if (!add_option('wutm_toolbox_primary_admin_id', get_current_user_id(), '', false)) return new WP_Error('conflict', '其他管理員已儲存主帳號，請重新整理後確認。');
+    }
+    update_option('wutm_hide_toolbox_other_admins', $hide ? 1 : 0, false);
+    if (!$hide) delete_option('wutm_toolbox_primary_admin_id');
+    return true;
+}
+function wutm_toolbox_visibility_request(): void {
+    if (!current_user_can('manage_options')) wp_die('沒有管理權限。', '', ['response' => 403]);
     check_admin_referer('wutm_toolbox_visibility');
-    update_option('wutm_hide_toolbox_other_admins', empty($_POST['hide_toolbox']) ? 0 : 1, false);
-    wp_safe_redirect(admin_url('admin.php?page=wu-toolbox-modular#wutm-license'));
+    $hide = isset($_POST['hide_toolbox']) && $_POST['hide_toolbox'] === '1';
+    $result = wutm_toolbox_save_visibility($hide);
+    if (is_wp_error($result)) wp_die(esc_html($result->get_error_message()), '', ['response' => 403]);
+    wp_safe_redirect(admin_url('admin.php?page=wu-toolbox-modular&visibility_saved=1#wutm-license'));
     exit;
-});
+}
+add_action('admin_post_wutm_toolbox_visibility', 'wutm_toolbox_visibility_request');
+
+function wutm_render_toolbox_visibility(): void {
+    if (!wutm_toolbox_can_manage()) return;
+    $owner = wutm_toolbox_owner_ids();
+    ?>
+    <div class="wutm-license-block wutm-visibility-settings"><h3>Toolbox 顯示與開放</h3>
+        <?php if (isset($_GET['visibility_saved']) && $_GET['visibility_saved'] === '1'): ?><p role="status">Toolbox 顯示設定已儲存。</p><?php endif; ?>
+        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+            <input type="hidden" name="action" value="wutm_toolbox_visibility"><?php wp_nonce_field('wutm_toolbox_visibility'); ?>
+            <label><input type="checkbox" name="hide_toolbox" value="1" <?php checked(wutm_toolbox_hidden()); ?>> 向其他管理員隱藏 WumetaxToolkit</label>
+            <p class="description">預設不開啟。勾選並儲存後，以目前登入的管理員作為 Toolbox 主帳號，與「後台介面管理」及「後台選單編輯器」的主帳號設定無關。其他管理員僅能看到已開放且啟用的模組；沒有開放模組時不顯示 Toolbox。這不會變更 WordPress 角色與權限。</p>
+            <?php if ($owner): $user = get_userdata($owner[0]); ?><p>目前主帳號：<?php echo esc_html(($user->display_name ?? $user->user_login ?? '') . '（ID：' . $owner[0] . '）'); ?></p><?php endif; ?>
+            <p class="submit"><button type="submit" class="button button-primary">儲存</button> <button type="reset" class="button">取消</button></p>
+            <p class="description">「取消」還原未儲存的修改；若要停止隱藏，取消勾選後按「儲存」，即可解除主帳號指定並恢復開放。</p>
+        </form>
+    </div>
+    <?php
+}
 
 /** One Toolbox dashboard; retain original registered page hooks. */
 add_action('admin_menu', function (): void {

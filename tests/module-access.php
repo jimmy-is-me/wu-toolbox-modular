@@ -7,6 +7,10 @@ $users = [1 => (object) ['ID' => 1], 2 => (object) ['ID' => 2]];
 function add_action($name, $callback, ...$args) { $GLOBALS['hooks'][$name][] = $callback; }
 function get_option($name, $default = false) { return $GLOBALS['options'][$name] ?? $default; }
 function update_option($name, $value, ...$args) { $GLOBALS['options'][$name] = $value; }
+function add_option($name,$value,...$args) {if(array_key_exists($name,$GLOBALS['options']))return false;$GLOBALS['options'][$name]=$value;return true;}
+function delete_option($name) {unset($GLOBALS['options'][$name]);}
+class WP_Error {function __construct(public $code, public $message){} function get_error_message(){return $this->message;}}
+function is_wp_error($value){return $value instanceof WP_Error;}
 function current_user_can($cap) { return $GLOBALS['allowed']; }
 function user_can($user, $cap) { return isset($GLOBALS['users'][$user->ID]); }
 function get_current_user_id() { return $GLOBALS['current']; }
@@ -19,13 +23,25 @@ function wp_unslash($v) { return $v; }
 function esc_attr($v) { return htmlspecialchars($v, ENT_QUOTES); }
 function remove_menu_page($slug) { $GLOBALS['removed'][] = $slug; }
 function check_ajax_referer(...$args) { if (!empty($GLOBALS['bad_nonce'])) throw new RuntimeException('nonce'); }
+function check_admin_referer(...$args) {check_ajax_referer(...$args);}
+function wp_die(...$args) {throw new RuntimeException('denied');}
 function wp_send_json_error($data, $status = 400) { throw new RuntimeException('error:' . $status); }
 function wp_send_json_success($data) { throw new RuntimeException('success:' . (int) $data['enabled']); }
 function check($ok, $message) { if (!$ok) throw new RuntimeException($message); }
 require dirname(__DIR__) . '/core/module-registry.php';
 require dirname(__DIR__) . '/core/module-access.php';
-check(wutm_toolbox_hidden(), 'Default on without requiring cleaner module');
-check(wutm_toolbox_is_owner() && wutm_toolbox_can_manage(), 'Primary owner retains access');
+check(!wutm_toolbox_hidden() && !wutm_toolbox_owner_ids(), 'Default open without implicit owner');
+$before=$options;$bad_nonce=true;
+try {wutm_toolbox_visibility_request();throw new LogicException('Nonce accepted');}catch(RuntimeException $error){check($error->getMessage()==='nonce','Visibility nonce enforced');}
+check($options===$before,'Invalid nonce makes no writes');$bad_nonce=false;
+$allowed=false;check(is_wp_error(wutm_toolbox_save_visibility(true))&&$options===$before,'Nonadmin cannot elect owner');$allowed=true;
+$options['wu_hide_wumetax_toolkit_admin_id']=1;$options['wutm_admin_menu_editor_owner_ids']=[1];$options['wutm_hide_toolbox_other_admins']=1;
+$current=2;check(wutm_toolbox_can_manage()&&!wutm_toolbox_is_owner(),'Old flags and menu editor cannot elect ID 1');
+check(wutm_toolbox_save_visibility(true)===true&&wutm_toolbox_owner_ids()===[2],'Manual enabling administrator becomes sole owner');
+$current=1;check(!wutm_toolbox_can_manage()&&is_wp_error(wutm_toolbox_save_visibility(true)),'ID 1 cannot steal active ownership');
+$current=2;check(wutm_toolbox_save_visibility(false)===true&&!wutm_toolbox_owner_ids(),'Uncheck and save revokes explicit owner');
+$current=1;wutm_toolbox_save_visibility(true);
+check(wutm_toolbox_is_owner() && wutm_toolbox_can_manage(), 'Explicit owner retains access');
 $current = 2;
 check(!wutm_toolbox_is_owner() && !wutm_toolbox_can_manage(), 'Other administrator cannot open hidden dashboard');
 $options['wutm_hide_toolbox_other_admins'] = 0;
@@ -72,10 +88,12 @@ $allowed = true; $current = 1;
 share('custom-cursor', 0, 'success:0');
 check(!wutm_module_is_shared('custom-cursor'), 'Revocation persisted');
 $options['wu_hide_wumetax_toolkit_admin_id'] = 2;
-$current = 2; check(wutm_toolbox_is_owner(), 'Existing visibility owner preserved');
+$current = 2; check(!wutm_toolbox_is_owner(), 'Legacy visibility owner is not automatically authorized');
+$options['wutm_toolbox_primary_admin_id']=2;
+check(wutm_toolbox_is_owner(), 'Explicit manual owner recognized');
 unset($users[2]); check(!wutm_toolbox_is_owner(), 'Deleted/demoted owner not authorized');
 $options['wutm_admin_menu_editor_owner_ids'] = [999]; $current = 1;
-check(wutm_toolbox_is_owner(), 'Oldest administrator recovery prevents lockout');
+check(!wutm_toolbox_is_owner()&&!wutm_toolbox_hidden()&&wutm_toolbox_can_manage(), 'Missing owner reopens access without electing oldest administrator');
 $cleaner = file_get_contents(dirname(__DIR__) . '/modules/admin-bar-cleaner/module.php');
 check(strpos($cleaner, "'wu_hide_wumetax_toolkit',") === false && strpos($cleaner, "delete_option( 'wu_hide_wumetax_toolkit_admin_id'") === false, 'Cleaner saves cannot clear independent visibility or legacy owner');
 echo "Module access passed: default visibility, owners, recovery, nonce/capability, sharing/revocation, disabled modules, direct links and native menu preservation.\n";

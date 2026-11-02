@@ -202,6 +202,7 @@ jobs:
           export WUTM_TEST_CHROME="$(node -p "require('playwright').chromium.executablePath()")"
           node tests/admin-design-ui.js
           node tests/admin-components-ui.js
+          node tests/toolbox-visibility-ui.js
           node tests/order-report-export-ui.js
           node tests/media-encoder-scan-ui.js
           node tests/media-safe-cleaner-ui.js
