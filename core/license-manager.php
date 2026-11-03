@@ -15,6 +15,7 @@ final class WUTM_License_Manager {
     const TOKEN_OPTION = 'wutm_license_activation_token';
     const UUID_OPTION = 'wutm_license_site_uuid';
     const IDENTITY_OPTION = 'wutm_license_site_identity';
+    const IDENTITY_HASH_OPTION = 'wutm_license_site_identity_hash';
     const STATE_OPTION = 'wutm_license_state';
     const CRON_HOOK = 'wutm_license_background_check';
     const LEGACY_CRON_HOOK = 'wutm_license_weekly_check';
@@ -35,6 +36,7 @@ final class WUTM_License_Manager {
         add_action('admin_post_wutm_license_activate', [$this, 'handle_activate']);
         add_action('admin_post_wutm_license_validate', [$this, 'handle_validate']);
         add_action('admin_post_wutm_license_deactivate', [$this, 'handle_deactivate']);
+        add_action('admin_post_wutm_license_rebind', [$this, 'handle_rebind']);
         add_action(self::CRON_HOOK, [$this, 'refresh']);
         add_action('admin_init', [$this, 'ensure_cron']);
     }
@@ -59,12 +61,31 @@ final class WUTM_License_Manager {
         $identity = $this->current_site_identity();
         $uuid = trim((string) get_option(self::UUID_OPTION, ''));
         $stored_identity = trim((string) get_option(self::IDENTITY_OPTION, ''));
-        if (!$uuid || !wp_is_uuid($uuid) || ($stored_identity && $stored_identity !== $identity)) {
+        $hash = (string)get_option(self::IDENTITY_HASH_OPTION, '');
+        $changed = ($stored_identity && $stored_identity !== $identity) || ($hash && !hash_equals($hash, hash('sha256', $identity))) || !$this->bound_to_current_site($this->state());
+        if (!$uuid || !wp_is_uuid($uuid) || $changed) {
             $uuid = wp_generate_uuid4();
             update_option(self::UUID_OPTION, $uuid, false);
+            if ($changed) $this->invalidate_local_binding();
         }
         if ($stored_identity !== $identity) update_option(self::IDENTITY_OPTION, $identity, false);
+        if ($hash !== hash('sha256', $identity)) update_option(self::IDENTITY_HASH_OPTION, hash('sha256', $identity), false);
         return $uuid;
+    }
+
+    private function invalidate_local_binding(): void {
+        delete_option(self::TOKEN_OPTION);
+        update_option(self::STATE_OPTION, ['valid'=>false,'status'=>'site_changed','message'=>'網站網域已變更，請在正式網域重新綁定授權。'], false);
+        wp_clear_scheduled_hook(self::CRON_HOOK);
+        wp_clear_scheduled_hook(self::LEGACY_CRON_HOOK);
+    }
+
+    /** Explicit administrator recovery for legacy database-wide URL replacements. */
+    public function reset_site_identity(): void {
+        $this->invalidate_local_binding();
+        update_option(self::UUID_OPTION, wp_generate_uuid4(), false);
+        update_option(self::IDENTITY_OPTION, $this->current_site_identity(), false);
+        update_option(self::IDENTITY_HASH_OPTION, hash('sha256', $this->current_site_identity()), false);
     }
 
     public function state(): array {
@@ -96,6 +117,8 @@ final class WUTM_License_Manager {
     }
 
     private function bound_to_current_site(array $state): bool {
+        $hash = (string)get_option(self::IDENTITY_HASH_OPTION, '');
+        if ($hash && !hash_equals($hash, hash('sha256', $this->current_site_identity()))) return false;
         if (empty($state['site_identity']) && empty($state['site_url'])) return true;
         if (!empty($state['site_identity'])) return hash_equals((string) $state['site_identity'], $this->current_site_identity());
         [, $stored_identity] = $this->normalize_site((string) $state['site_url']);
@@ -195,6 +218,7 @@ final class WUTM_License_Manager {
             'site_url' => $this->current_site_url(),
             'site_identity' => $this->current_site_identity(),
             'message' => sanitize_text_field((string) ($data['message'] ?? '')),
+            'error_code' => sanitize_key((string)($data['code'] ?? '')),
             'retry_count' => $retry_count,
             'next_check_at' => $now + self::CHECK_INTERVAL,
         ], false);
@@ -302,6 +326,14 @@ final class WUTM_License_Manager {
         $this->redirect($this->deactivate() ? 'deactivated' : 'deactivated_local');
     }
 
+    public function handle_rebind(): void {
+        if (!current_user_can('manage_options')) wp_die('權限不足。');
+        check_admin_referer('wutm_license_rebind');
+        if (($_POST['confirm_domain_move'] ?? '') !== '1') wp_die('請先確認已完成網域搬移。');
+        $this->reset_site_identity();
+        $this->redirect('identity_reset');
+    }
+
     public function render_panel(): void {
         if (!current_user_can('manage_options')) return;
         $state = $this->state();
@@ -314,6 +346,7 @@ final class WUTM_License_Manager {
             'deactivated_local' => ['本機授權已清除，但授權伺服器暫時無法連線；可由 Wumetax 管理端解除網站。', 'warning'],
             'validate_failed' => ['本次即時驗證未完成；若是網路問題，系統每 8 小時重試、最多 3 次。24 小時寬限期間會暫停外掛更新。', 'warning'],
             'already_bound' => ['此網站已有綁定；如需更換授權碼，請先解除目前授權。', 'warning'],
+            'identity_reset' => ['已為目前網域建立新的網站識別，請重新輸入授權碼啟用。未解除舊網站的伺服器綁定；如名額已滿，請由原網站或授權管理端釋放舊綁定。', 'warning'],
             'error' => [(string) get_transient('wutm_license_error_' . get_current_user_id()), 'error'],
         ];
         delete_transient('wutm_license_error_' . get_current_user_id());
@@ -330,7 +363,7 @@ final class WUTM_License_Manager {
             <div class="wutm-license-grid">
             <div class="wutm-license-block">
                 <h3>授權狀態</h3>
-                <p>綁定網站：<code><?php echo esc_html(home_url('/')); ?></code></p>
+                <p>目前網站：<code><?php echo esc_html(home_url('/')); ?></code></p>
                 <?php if (!empty($state['expires_at'])): ?><p>有效期限：<?php echo esc_html($state['expires_at']); ?></p><?php endif; ?>
                 <?php $last_validated = (int) ($state['validated_at'] ?? ($state['checked_at'] ?? 0)); if ($last_validated): ?><p>最後成功驗證：<?php echo esc_html(wp_date('Y-m-d H:i:s', $last_validated)); ?></p><?php endif; ?>
                 <?php if ($next_check && $this->token()): ?><p>下次檢查：<?php echo esc_html(wp_date('Y-m-d H:i:s', $next_check)); ?></p><?php endif; ?>
@@ -355,6 +388,16 @@ final class WUTM_License_Manager {
                 </div></div>
             <?php endif; ?>
             </div>
+            <?php if (!$this->is_valid()): ?>
+            <div class="wutm-license-block"><h3>暫時網域轉正式網域／搬站</h3>
+                <p>若搬站後仍出現「網站識別由另一個網站綁定使用」，可為目前網域重新建立識別，再重新啟用授權。此操作只清除本機舊驗證，不會解除或接管舊網站的綁定，也不會增加授權名額；舊網址若仍占用名額，請先於授權管理端解除該筆綁定。</p>
+                <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+                    <input type="hidden" name="action" value="wutm_license_rebind"><?php wp_nonce_field('wutm_license_rebind'); ?>
+                    <label><input type="checkbox" name="confirm_domain_move" value="1" required> 我已完成網域搬移，要為目前網域重新建立網站識別。</label>
+                    <?php submit_button('重建目前網域識別', 'secondary'); ?>
+                </form>
+            </div>
+            <?php endif; ?>
             <?php wutm_render_toolbox_visibility(); ?>
             <details class="wutm-license-details"><summary>授權驗證如何運作</summary><ul><li>每 72 小時在背景驗證一次，不影響一般前台請求。</li><li>網路失敗後每 8 小時重試一次，最多 3 次。</li><li>離線寬限為 24 小時；寬限期間既有功能繼續運作，但不提供外掛更新。</li><li>授權失效不會關閉已運作的模組，但不能啟用新模組或更新外掛。</li><li>HTTP／HTTPS、www 與尾斜線差異視為同一網站；搬移或複製網站會建立新的網站識別。</li></ul></details>
         </section>

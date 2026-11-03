@@ -29,6 +29,7 @@ jobs:
           php -d disable_functions=ctype_digit tests/admin-menu-editor-owners.php
           php -d disable_functions=ctype_digit tests/module-access.php
           php tests/module-access.php
+          php tests/license-domain-migration.php
           php tests/product-unpublish.php
           php tests/admin-enhancements.php
           php tests/style-youtube.php
@@ -88,6 +89,8 @@ jobs:
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/media-encoder-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/media-safe-cleaner-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/module-access-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/license-domain-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-license-domain.log"
+          grep -Fq 'Native license domain migration passed:' "$RUNNER_TEMP/wutm-license-domain.log"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/product-unpublish-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
       - name: Check native WooCommerce payment, invoice and atomic callback preservation
         env:
