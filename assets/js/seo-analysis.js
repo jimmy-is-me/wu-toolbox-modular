@@ -29,11 +29,11 @@
             { ok: missingAlt === 0, text: '圖片替代文字：' + missingAlt + ' 張缺少 alt 屬性；裝飾圖可使用空 alt' },
             { ok: true, text: '外部參考連結：' + external + ' 個，請人工確認來源可信且支持內容' }
         ];
-        topic = String(topic || '').trim().toLocaleLowerCase();
-        if (topic) {
-            checks.push({ ok: String(title || '').toLocaleLowerCase().includes(topic), text: '標題自然提及主要主題' });
-            checks.push({ ok: text.slice(0, 300).toLocaleLowerCase().includes(topic), text: '開頭清楚說明主要主題' });
-        }
+        var topics = Array.from(new Set(String(topic || '').split(/[,，、;；\r\n]+/).map(function(value){return value.trim().toLocaleLowerCase();}).filter(Boolean))).slice(0,30);
+        topics.forEach(function(keyword){
+            checks.push({ok:String(title||'').toLocaleLowerCase().includes(keyword),text:'「'+keyword+'」標題是否提及',help:'只比對文字是否出現，不代表搜尋意圖、內容正確性或排名能力。'});
+            checks.push({ok:text.slice(0,300).toLocaleLowerCase().includes(keyword),text:'「'+keyword+'」開頭 300 字是否提及',help:'依文章語意自然撰寫，不必為了符合檢查堆疊或重複詞語。'});
+        });
         var explanations = [
             '用一句話說明本頁解決的問題。標題可以自然提及主題，不必重複同一詞。',
             '摘要應交代對象、可獲得的答案與特色；搜尋引擎可能改寫摘要。',
@@ -44,7 +44,7 @@
             '可使用自然同義詞；這項僅比對字面，不代表搜尋意圖符合或排名能力。',
             '開頭先讓讀者知道文章回答什麼；不必強迫精確關鍵字出現。'
         ];
-        checks.forEach(function (check, index) { check.help = explanations[index]; });
+        checks.forEach(function (check, index) { check.help = check.help || explanations[index]; });
         var sequence = Array.from(doc.querySelectorAll('h1,h2,h3,h4,h5,h6'));
         var previous = 1, skipped = 0;
         sequence.forEach(function (heading) { var level = Number(heading.tagName.slice(1)); if (level > previous + 1) skipped++; previous = level; });
@@ -62,9 +62,11 @@
             { ok: questions.length ? answered === questions.length : true, text: '問答段落：' + questions.length + ' 個問題標題，' + answered + ' 個緊接文字答案', help: '有常見疑問時再補 FAQ，讓每段可獨立理解；不強制加入 FAQ，也不自動產生不可見的結構化內容。' },
             { ok: true, text: '原創經驗、作者與資料時效（人工複查）', help: '補實際案例、方法、作者背景與資料日期；這些無法靠格式或關鍵字推斷。AI 引用與收錄不保證，無須特殊 AI 標記。' }
         ];
-        return { checks: checks, guidance: guidance, characters: Array.from(text).length };
+        checks[5].manual=true;guidance[2].manual=true;guidance[4].manual=true;
+        return { checks: checks, guidance: guidance, characters: Array.from(text).length, topics:topics };
     }
-    root.WUTMSEOAnalysis = { analyze: analyze };
+    function label(check){return check.manual?'需人工檢查：':check.ok?'已偵測／符合：':'尚未偵測／請確認：';}
+    root.WUTMSEOAnalysis = { analyze: analyze, label: label };
     if (typeof document === 'undefined') return;
     document.addEventListener('DOMContentLoaded', function () {
         var output = document.getElementById('wu-seo-content-checks');
@@ -77,13 +79,16 @@
             var desc = document.getElementById('wu-seo-description');
             var audit = document.getElementById('wu-seo-local-audit');
             var topic = document.getElementById('wu-seo-topic');
-            var result = analyze(html, title.value || audit.dataset.fallbackTitle, desc.value || audit.dataset.fallbackDesc, topic.value, output.dataset.url);
+            var source='目前正文編輯器';
+            if(audit.dataset.builder==='elementor'){html=audit.dataset.savedContent||'';source='已儲存的 Elementor 文字（修改後請儲存並重新載入）';}
+            var result = analyze(html, title.value || (document.getElementById('title')||{}).value || audit.dataset.fallbackTitle, desc.value || (document.getElementById('excerpt')||{}).value || audit.dataset.fallbackDesc, topic.value, output.dataset.url);
             output.replaceChildren();
+            var status=document.createElement('li');status.setAttribute('role','status');status.textContent='偵測來源：'+source+'；可讀文字 '+result.characters+' 字；'+result.topics.length+' 組關鍵字。'+(!result.characters?'尚未讀到內容，不代表網頁沒有內容；動態元件、模板與短碼請人工檢查。':'');output.appendChild(status);
             result.checks.concat(result.guidance || []).forEach(function (check) {
                 var item = document.createElement('li');
                 var details = document.createElement('details');
                 var summary = document.createElement('summary');
-                summary.textContent = (check.ok ? '參考：' : '建議確認：') + check.text;
+                summary.textContent = label(check) + check.text;
                 var explanation = document.createElement('p');
                 explanation.textContent = check.help || '';
                 details.append(summary, explanation); item.appendChild(details);
@@ -91,12 +96,12 @@
             });
         }
         function schedule() { clearTimeout(timer); timer = setTimeout(update, 350); }
-        ['content', 'title', 'wu-seo-title', 'wu-seo-description', 'wu-seo-topic'].forEach(function (id) {
+        ['content', 'title', 'excerpt', 'wu-seo-title', 'wu-seo-description', 'wu-seo-topic'].forEach(function (id) {
             var field = document.getElementById(id);
             if (field) field.addEventListener('input', schedule);
         });
         if (root.tinymce) {
-            function bind(editor) { if (editor.id === 'content') editor.on('change input Undo Redo', schedule); }
+            function bind(editor) { if (editor.id === 'content') editor.on('init SetContent change input Undo Redo', schedule); }
             root.tinymce.editors.forEach(bind);
             root.tinymce.on('AddEditor', function (event) { bind(event.editor); });
         }

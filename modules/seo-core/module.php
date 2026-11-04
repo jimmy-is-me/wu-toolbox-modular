@@ -15,6 +15,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 	require_once __DIR__ . '/enhancements.php';
+	require_once __DIR__ . '/editor-content.php';
 
 	final class Wumetax_SEO_Core_v120 {
 		use WUTM_SEO_Enhancements;
@@ -1036,7 +1037,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 
 		public static function register_post_meta_fields() {
 			$definitions = [
-				'_wu_seo_topic'       => [ 'type' => 'string', 'sanitize_callback' => 'sanitize_text_field', 'default' => '' ],
+				'_wu_seo_topic'       => [ 'type' => 'string', 'sanitize_callback' => 'wutm_seo_keywords', 'default' => '' ],
 				'_wu_seo_title'       => [ 'type' => 'string',  'sanitize_callback' => 'sanitize_text_field', 'default' => '' ],
 				'_wu_seo_description' => [ 'type' => 'string',  'sanitize_callback' => 'sanitize_text_field', 'default' => '' ],
 				'_wu_seo_canonical'   => [ 'type' => 'string',  'sanitize_callback' => 'esc_url_raw',          'default' => '' ],
@@ -1162,8 +1163,9 @@ function App(){
      e(ToggleControl,{label:'nofollow',checked:parseInt(meta._wu_seo_nofollow||0,10)===1,onChange:function(v){setMeta('_wu_seo_nofollow',v?1:0);}})
    ),
    e(PanelBody,{title:'內容品質與主題',initialOpen:false},
-     e(TextControl,{label:'主要主題（只供編輯參考，不輸出 meta keywords）',value:String(meta._wu_seo_topic||''),onChange:function(v){setMeta('_wu_seo_topic',v);}}),
-     e('ul',null,analysis.checks.concat(analysis.guidance||[]).map(function(check,i){return e('li',{key:i},e('details',null,e('summary',null,(check.ok?'參考：':'建議確認：')+check.text),e('p',null,check.help||'')));})),
+     e(TextControl,{label:'關鍵字／主題（多組請用逗號分隔）',help:'例如：園藝資材, 培養土。逐組比對標題與正文開頭，不輸出 meta keywords，也不是排名分數。',value:String(meta._wu_seo_topic||''),onChange:function(v){setMeta('_wu_seo_topic',v);}}),
+     e('p',{role:'status'},'偵測來源：目前區塊編輯器；可讀文字 '+(analysis.characters||0)+' 字；'+((analysis.topics||[]).length)+' 組關鍵字。動態區塊與模板請人工檢查。'),
+     e('ul',null,analysis.checks.concat(analysis.guidance||[]).map(function(check,i){return e('li',{key:i},e('details',null,e('summary',null,(window.WUTMSEOAnalysis?window.WUTMSEOAnalysis.label(check):'參考：')+check.text),e('p',null,check.help||'')));})),
      e('p',null,'請補充原創經驗、可信來源與實際作者資訊。檢查不判定真偽、E-E-A-T 或排名；不需要為了分數堆疊關鍵字。')
    ),
    e(PanelBody,{title:'社群分享',initialOpen:false},
@@ -1235,6 +1237,8 @@ JS;
 			</style>
 
 			<div class="wu-seo-local-audit" id="wu-seo-local-audit"
+                data-builder="<?php echo get_post_meta($post->ID,'_elementor_edit_mode',true)==='builder'?'elementor':'classic'; ?>"
+                data-saved-content="<?php echo esc_attr(get_post_meta($post->ID,'_elementor_edit_mode',true)==='builder'?wutm_seo_elementor_text($post->ID):''); ?>"
 				data-fallback-title="<?php echo esc_attr( $fallback_title ); ?>"
 				data-fallback-desc="<?php echo esc_attr( $fallback_desc ); ?>"
 				data-has-image="<?php echo $effective_image ? '1' : '0'; ?>">
@@ -1303,8 +1307,8 @@ JS;
 			</div>
 
 			<div class="wu-seo-meta-grid">
-				<label for="wu-seo-topic"><strong>主要主題與內容品質</strong><span>只供編輯參考，不輸出 meta keywords，也不以關鍵字密度計分。</span></label>
-				<div><input type="text" id="wu-seo-topic" name="wu_seo_topic" value="<?php echo esc_attr( $m['topic'] ); ?>"><ul id="wu-seo-content-checks" data-url="<?php echo esc_url( get_permalink( $post ) ?: home_url( '/' ) ); ?>"></ul><p>請補充原創經驗、可信來源與實際作者資訊。短頁面可不需要小標題；檢查不判定內容真偽、E-E-A-T 或排名。</p></div>
+				<label for="wu-seo-topic"><strong>關鍵字／主題與內容檢查</strong><span>可設定多組關鍵字，以逗號分隔，例如：園藝資材, 培養土。逐組比對標題與正文開頭；這不是搜尋排名分數，也不輸出 meta keywords。</span></label>
+				<div><textarea id="wu-seo-topic" name="wu_seo_topic" rows="2" placeholder="園藝資材, 培養土；也可一行一組"><?php echo esc_textarea( $m['topic'] ); ?></textarea><ul id="wu-seo-content-checks" data-url="<?php echo esc_url( get_permalink( $post ) ?: home_url( '/' ) ); ?>"></ul><p>內容檢查會分別顯示各組關鍵字的結果。Elementor 僅讀取已儲存的標題、文字及部分基本元件；修改後請儲存並重新載入。短碼、模板與動態資料可能讀不到，需人工檢查。這不判定內容真偽、E-E-A-T 或排名。</p></div>
 			</div>
 
 			<script>
@@ -1394,6 +1398,7 @@ JS;
 
 			foreach ( $text_fields as $meta_key => $field ) {
 				$value = isset( $_POST[ $field ] ) ? sanitize_text_field( wp_unslash( $_POST[ $field ] ) ) : '';
+                if($meta_key==='_wu_seo_topic')$value=wutm_seo_keywords(wp_unslash($_POST[$field]??''));
 				self::update_or_delete_meta( $post_id, $meta_key, $value );
 			}
 

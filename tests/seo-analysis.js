@@ -23,6 +23,12 @@ assert.ok(extra.guidance[3].text.includes('1 個緊接文字答案'),'Question f
 assert.equal(analyze('<p>內容</p>', '', '', '', 'https://example.test/').checks.length, 6, 'No forced keyword checks when no topic is configured');
 assert.equal(analyze('<script>主題</script><p>其他文字</p>', 'title', 'desc', '主題', 'https://example.test/').checks[7].ok, false, 'Scripts do not count as visible content');
 const php = fs.readFileSync('modules/seo-core/module.php', 'utf8');
+const multi=analyze('<h2>培養土</h2><p>園藝資材</p>','培養土 園藝資材','摘要','培養土，園藝資材\nmissing;MISSING','https://example.test/');
+assert.equal(multi.topics.length,3);assert.equal(multi.checks.length,12);
+assert.equal(multi.checks[6].ok,true);assert.equal(multi.checks[8].ok,true);assert.equal(multi.checks[10].ok,false);
+assert.ok(multi.checks.every(check=>check.help));assert.equal(context.window.WUTMSEOAnalysis.label(multi.checks[5]),'需人工檢查：');
+assert.equal(context.window.WUTMSEOAnalysis.label(multi.checks[10]),'尚未偵測／請確認：');
+assert.equal(analyze('x','x','x',Array.from({length:40},(_,i)=>'key'+i).join(','),'https://example.test/').topics.length,30);
 for (const match of php.matchAll(/<<<'JS'\r?\n([\s\S]*?)\r?\nJS;/g)) {
     new vm.Script(match[1].replace('__WU_CONFIG__', '{}'));
 }

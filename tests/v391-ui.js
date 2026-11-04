@@ -1,0 +1,24 @@
+const fs=require('node:fs'),assert=require('node:assert/strict'),{execFileSync}=require('node:child_process'),{chromium}=require('playwright');
+(async()=>{const browser=await chromium.launch({headless:true,executablePath:process.env.WUTM_TEST_CHROME});try{
+ const source=fs.readFileSync('assets/js/seo-analysis.js','utf8');
+ for(const width of [1280,768,390,320]){const page=await browser.newPage({viewport:{width,height:900}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ const layout=execFileSync(process.env.WUTM_TEST_PHP||'php',['tests/v391-preview.php'],{encoding:'utf8'});
+ await page.setContent('<meta name="viewport" content="width=device-width"><style>body{margin:0}*{box-sizing:border-box}input,select{max-width:100%}.wutm-ui-root{padding:10px}table{width:100%}</style>'+layout);
+ await page.addStyleTag({content:fs.readFileSync('assets/css/admin.css','utf8')});
+ await page.locator('.wutm-layout-rows tr').nth(2).locator('.wutm-layout-up').click();
+ assert.deepEqual(await page.locator('input[name="order[]"]').evaluateAll(ns=>ns.map(n=>n.value)),['thumb','sku','name','foreign']);
+ await page.locator('.wutm-layout-rows tr').nth(0).locator('.wutm-layout-down').click();
+ await page.locator('input[name="labels[sku]"]').fill('庫存代碼');await page.locator('input[name="hide[foreign]"]').check();
+ const entries=await page.locator('form').evaluate(f=>Array.from(new FormData(f).entries()));assert(entries.some(([k,v])=>k==='labels[sku]'&&v==='庫存代碼'));assert(entries.some(([k])=>k==='hide[foreign]'));
+ assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),'Layout must scroll table internally');
+ const postbox=execFileSync(process.env.WUTM_TEST_PHP||'php',['tests/v391-preview.php','postbox'],{encoding:'utf8'});await page.setContent(postbox);
+ await page.selectOption('select[name="state[product][woocommerce-product-data]"]','closed');await page.locator('input[name="hide[product][]"]').check();assert.equal(await page.locator('form').first().evaluate(f=>new FormData(f).get('state[product][woocommerce-product-data]')),'closed');
+ await page.setContent('<textarea id="content"><h2>培養土</h2><p>園藝資材</p></textarea><input id="title" value="培養土"><textarea id="excerpt">摘要</textarea><input id="wu-seo-title"><textarea id="wu-seo-description"></textarea><textarea id="wu-seo-topic">培養土, 園藝資材</textarea><div id="wu-seo-local-audit" data-builder="classic" data-fallback-title="" data-fallback-desc=""></div><ul id="wu-seo-content-checks" data-url="https://example.test/"></ul>');
+ await page.addScriptTag({content:source});await page.evaluate(()=>document.dispatchEvent(new Event('DOMContentLoaded')));
+ assert((await page.locator('[role=status]').textContent()).includes('2 組關鍵字'));assert((await page.locator('#wu-seo-content-checks').textContent()).includes('尚未偵測／請確認：「園藝資材」標題'));
+ await page.locator('#title').fill('培養土 園藝資材');await page.waitForTimeout(400);assert((await page.locator('#wu-seo-content-checks').textContent()).includes('已偵測／符合：「園藝資材」標題'));
+ await page.evaluate(()=>{document.getElementById('wu-seo-local-audit').dataset.builder='elementor';document.getElementById('wu-seo-local-audit').dataset.savedContent='<h2>培養土</h2><p>園藝資材</p><script>window.bad=1</script>';});await page.locator('#wu-seo-topic').fill('園藝資材');await page.waitForTimeout(400);
+ assert((await page.locator('[role=status]').textContent()).includes('已儲存的 Elementor'));assert.equal(await page.evaluate(()=>window.bad),undefined);assert((await page.locator('#wu-seo-content-checks').textContent()).includes('需人工檢查：'));
+ assert.deepEqual(errors,[]);await page.close();
+ }console.log('v3.9.1 browser passed: column reorder/labels/hiding, Postbox state form, responsive tables and live multi-keyword/Elementor source detection.');
+ }finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

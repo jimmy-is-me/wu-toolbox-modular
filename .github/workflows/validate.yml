@@ -99,6 +99,8 @@ jobs:
           WUTM_MEDIA_INTEGRATION: '1'
         run: |
           php "$RUNNER_TEMP/wutm-wp-cli.phar" plugin install woocommerce --version=9.0.2 --activate --path="$RUNNER_TEMP/wutm-media-wp"
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/v391-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-v391.log"
+          grep -Fq 'v3.9.1 native modules passed:' "$RUNNER_TEMP/wutm-v391.log"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" option update woocommerce_custom_orders_table_enabled no --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/v390-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-v390.log"
           grep -Fq 'v3.9.0 native modules passed:' "$RUNNER_TEMP/wutm-v390.log"
@@ -214,6 +216,7 @@ jobs:
           node tests/toolbox-visibility-ui.js
           node tests/v390-widget-ui.js
           node tests/v390-admin-ui.js
+          node tests/v391-ui.js
           node tests/order-report-export-ui.js
           node tests/media-encoder-scan-ui.js
           node tests/media-safe-cleaner-ui.js
