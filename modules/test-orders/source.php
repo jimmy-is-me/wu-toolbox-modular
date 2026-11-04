@@ -104,6 +104,7 @@ function wutm_to_split_qty($total, $lines) {
 add_action('admin_post_wutm_to_create', function () {
     if (!current_user_can('manage_woocommerce')) wp_die('權限不足');
     check_admin_referer('wutm_to_create', 'wutm_to_nonce');
+    foreach(['count','qty_min','qty_max','days','payment','reduce_stock','send_mail','add_shipping'] as $field)if(isset($_POST[$field])&&!is_scalar($_POST[$field]))wp_die('測試訂單資料格式不正確。');
 
     $count   = max(1, min(50, (int) ($_POST['count'] ?? 6)));
     $qmin    = max(1, min(50,(int) ($_POST['qty_min'] ?? 5)));
@@ -112,7 +113,7 @@ add_action('admin_post_wutm_to_create', function () {
     $payment = sanitize_key($_POST['payment'] ?? 'random');
     if(!in_array($payment,['random','bacs','cod'],true))$payment='random';
     $pool    = array_keys(wutm_to_status_pool());
-    $statuses = array_values(array_intersect($pool, array_map('sanitize_key', (array) ($_POST['statuses'] ?? []))));
+    $statuses = array_values(array_intersect($pool, array_map('sanitize_key', array_filter((array) ($_POST['statuses'] ?? []),'is_string'))));
     if (!$statuses) $statuses = ['on-hold', 'processing', 'completed', 'failed'];
 
     $reduce  = !empty($_POST['reduce_stock']);
@@ -144,6 +145,7 @@ add_action('admin_post_wutm_to_create', function () {
 
     $saved_hooks=wutm_to_isolate();
     try {
+    add_filter('woocommerce_webhook_should_deliver','__return_false',PHP_INT_MAX);
     // 預設關閉信件與扣庫存
     if (!$mail) add_filter('pre_wp_mail', '__return_true', 99);
     if (!$reduce) {
@@ -210,7 +212,7 @@ add_action('admin_post_wutm_to_create', function () {
         add_action('woocommerce_order_status_on-hold', 'wc_maybe_reduce_stock_levels');
     }
 
-    } finally {wutm_to_restore($saved_hooks);if(!$mail)remove_filter('pre_wp_mail','__return_true',99);if(!$reduce)remove_filter('woocommerce_can_reduce_order_stock','__return_false',99);}
+    } finally {remove_filter('woocommerce_webhook_should_deliver','__return_false',PHP_INT_MAX);wutm_to_restore($saved_hooks);if(!$mail)remove_filter('pre_wp_mail','__return_true',99);if(!$reduce)remove_filter('woocommerce_can_reduce_order_stock','__return_false',99);}
     $labels = wutm_to_status_pool();
     $parts = [];
     foreach ($summary as $k => $v) $parts[] = ($labels[$k] ?? $k) . ' ' . $v;
@@ -220,7 +222,8 @@ add_action('admin_post_wutm_to_create', function () {
 add_action('admin_post_wutm_to_delete', function () {
     if (!current_user_can('manage_woocommerce')) wp_die('權限不足');
     check_admin_referer('wutm_to_delete', 'wutm_to_nonce');
-
+    add_filter('woocommerce_webhook_should_deliver','__return_false',PHP_INT_MAX);
+    try {
     $n=0;
     do {$orders = wc_get_orders([
         'limit' => 100, 'created_via'=>'khto', 'status' => array_keys(wc_get_order_statuses()),
@@ -228,6 +231,7 @@ add_action('admin_post_wutm_to_delete', function () {
     ]);
     foreach ($orders as $o) {if($o->get_meta('_khto_test')!=='1'||$o->get_created_via()!=='khto')continue; $o->delete(true); $n++; }
     } while(count($orders)===100);
+    } finally {remove_filter('woocommerce_webhook_should_deliver','__return_false',PHP_INT_MAX);}
     wutm_to_redirect("已刪除 $n 筆測試訂單");
 });
 
