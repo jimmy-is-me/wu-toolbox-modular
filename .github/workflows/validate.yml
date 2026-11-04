@@ -30,6 +30,8 @@ jobs:
           php -d disable_functions=ctype_digit tests/module-access.php
           php tests/module-access.php
           php tests/license-domain-migration.php
+          php tests/shipping-temperature.php
+          php tests/shipping-temperature.php no-woocommerce
           php tests/product-unpublish.php
           php tests/admin-enhancements.php
           php tests/style-youtube.php
@@ -98,6 +100,8 @@ jobs:
         run: |
           php "$RUNNER_TEMP/wutm-wp-cli.phar" plugin install woocommerce --version=9.0.2 --activate --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" option update woocommerce_custom_orders_table_enabled no --path="$RUNNER_TEMP/wutm-media-wp"
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/shipping-temperature-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-temperature.log"
+          grep -Fq 'Native temperature shipping passed:' "$RUNNER_TEMP/wutm-temperature.log"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/newebpay-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/onepage-checkout-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-onepage.log"
           grep -Fq 'Native onepage checkout passed:' "$RUNNER_TEMP/wutm-onepage.log"
@@ -220,4 +224,5 @@ jobs:
           node tests/invoice-admin-ui.js
           node tests/newebpay-ui.js
           node tests/onepage-checkout-ui.js
+          node tests/shipping-temperature-ui.js
           node tests/payuni-shipping-ui.js
