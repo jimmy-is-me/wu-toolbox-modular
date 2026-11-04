@@ -213,6 +213,7 @@ jobs:
           node tests/admin-components-ui.js
           node tests/toolbox-visibility-ui.js
           node tests/v390-widget-ui.js
+          node tests/v390-admin-ui.js
           node tests/order-report-export-ui.js
           node tests/media-encoder-scan-ui.js
           node tests/media-safe-cleaner-ui.js
