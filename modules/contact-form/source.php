@@ -99,13 +99,13 @@ function wutm_cf_settings_page() { if (!current_user_can('manage_options')) retu
                 <tr><th>算術驗證</th><td><label><input type="checkbox" name="khmf_captcha" value="1" <?php checked(get_option('khmf_captcha', 1), 1); ?>> 啟用(例如 3+5=?)</label></td></tr>
             </table>
             <h2>欄位管理</h2>
-            <table class="widefat" style="max-width:1000px">
+            <div class="wutm-ui-table-scroll"><table class="widefat" style="max-width:1000px">
                 <thead><tr><th>標籤</th><th>類型</th><th>必填</th><th>下拉選項</th><th>操作</th></tr></thead>
                 <tbody id="khmf-body">
                     <?php foreach ($fields as $i => $f) echo wutm_cf_row_html($i, $f); ?>
                 </tbody>
             </table>
-            <p><button type="button" class="button" id="khmf-add">+ 新增欄位</button></p>
+            </div><p><button type="button" class="button" id="khmf-add">+ 新增欄位</button></p>
             <?php submit_button(); ?>
         </form>
     </div>

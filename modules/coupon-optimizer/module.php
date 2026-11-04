@@ -299,9 +299,13 @@ final class WUTM_Coupon_Optimizer {
             $('#coupon_amount').attr('aria-describedby','wutm-coupon-discount-help').after(explanation);
             function explainDiscount(){
                 var type=$('#discount_type').val(), amount=parseFloat($('#coupon_amount').val())||0;
+                $('label[for="coupon_amount"]').text(type==='percent'?'折抵百分比（%）':type==='fixed_product'?'每件商品折抵金額':'整張購物車折抵金額');
                 explanation.text(type==='percent'?'填寫「折掉的百分比」，不是付款成數。例如填 10 = 減少 10%，原價 100 元付 90 元，也就是 9 折；填 20 = 8 折。'+(amount>=0&&amount<=100?'目前設定：減少 '+amount+'%，原價 100 元付 '+(100-amount)+' 元。':'請填 0～100。'):type==='fixed_product'?'填寫每件符合條件商品要扣除的金額。例如填 10，每件商品折抵 10 元。':'填寫整張購物車要扣除的金額。例如填 100，整張訂單折抵 100 元，不是打 1 折。');
             }
             $('#discount_type,#coupon_amount').on('change input',explainDiscount);explainDiscount();
+            $('#discount_type option[value="percent"]').text('百分比折扣（輸入折掉的 %）');
+            $('#discount_type option[value="fixed_cart"]').text('整張購物車折抵固定金額');
+            $('#discount_type option[value="fixed_product"]').text('每件商品折抵固定金額');
             var $nativeEmail = $('#customer_email');
             if ($nativeEmail.length) $nativeEmail.closest('.form-field').hide();
 
