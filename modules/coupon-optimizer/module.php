@@ -34,6 +34,7 @@ final class WUTM_Coupon_Optimizer {
         add_action('woocommerce_removed_coupon', array($this, 'reset_shipping_rate_cache'));
         add_action('admin_footer-post.php', array($this, 'coupon_admin_enhancements'));
         add_action('admin_footer-post-new.php', array($this, 'coupon_admin_enhancements'));
+        add_action('add_meta_boxes_shop_coupon',static function(){remove_meta_box('pageparentdiv','shop_coupon','side');});
         add_action('post_submitbox_misc_actions', array($this, 'coupon_publish_note'));
         add_filter('manage_edit-shop_coupon_columns', array($this, 'coupon_columns'));
         add_action('manage_shop_coupon_posts_custom_column', array($this, 'coupon_column'), 10, 2);
@@ -293,6 +294,14 @@ final class WUTM_Coupon_Optimizer {
         ?>
         <script>
         jQuery(function($) {
+            $('#pageparentdiv').remove();
+            var explanation=$('<p class="description" id="wutm-coupon-discount-help" role="status"></p>');
+            $('#coupon_amount').attr('aria-describedby','wutm-coupon-discount-help').after(explanation);
+            function explainDiscount(){
+                var type=$('#discount_type').val(), amount=parseFloat($('#coupon_amount').val())||0;
+                explanation.text(type==='percent'?'填寫「折掉的百分比」，不是付款成數。例如填 10 = 減少 10%，原價 100 元付 90 元，也就是 9 折；填 20 = 8 折。'+(amount>=0&&amount<=100?'目前設定：減少 '+amount+'%，原價 100 元付 '+(100-amount)+' 元。':'請填 0～100。'):type==='fixed_product'?'填寫每件符合條件商品要扣除的金額。例如填 10，每件商品折抵 10 元。':'填寫整張購物車要扣除的金額。例如填 100，整張訂單折抵 100 元，不是打 1 折。');
+            }
+            $('#discount_type,#coupon_amount').on('change input',explainDiscount);explainDiscount();
             var $nativeEmail = $('#customer_email');
             if ($nativeEmail.length) $nativeEmail.closest('.form-field').hide();
 

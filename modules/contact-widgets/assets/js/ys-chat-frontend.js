@@ -311,7 +311,7 @@
         // ── 相容模式：auto = 偵測被主題破壞才強制（自動防呆） ──
         var styleMode = wrap.getAttribute( 'data-stylemode' ) || 'auto';
         if ( 'auto' === styleMode ) {
-            setupAutoHeal( wrap, toggle );
+            if (!wrap.classList.contains('ysch-direct')) setupAutoHeal( wrap, toggle );
         }
     }
 

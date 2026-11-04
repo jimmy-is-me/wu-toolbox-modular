@@ -135,7 +135,12 @@ $ysch_apps_defs = $ysch_apps_ready ? YSChatApps::all() : [];
             <p class="description"><?php echo esc_html__( '留空使用內建聊天圖示。', 'wu-contact-widgets' ); ?></p>
         </div>
 
-        <div class="ysch-field" id="ysch-icon-style-wrap">
+        <div class="ysch-field">
+            <p><label>手機主按鈕大小（px） <input type="number" id="ysch-mobile-outer" min="36" max="96" value="<?php echo esc_attr((string)($settings['mobile_outer']??56)); ?>"></label></p>
+            <p><label>手機聯絡圖示大小（px） <input type="number" id="ysch-mobile-inner" min="28" max="80" value="<?php echo esc_attr((string)($settings['mobile_inner']??46)); ?>"></label></p>
+            <p><label><input type="checkbox" id="ysch-back-to-top" <?php checked(!empty($settings['back_to_top'])); ?>> 在浮動聯絡按鈕下方顯示「回到最上方」（預設開啟）</label></p>
+            <p><label>呈現方式 <select id="ysch-layout"><option value="toggle" <?php selected($settings['layout']??'toggle','toggle'); ?>>點開主按鈕展開</option><option value="expanded" <?php selected($settings['layout']??'toggle','expanded'); ?>>直接顯示各聯絡按鈕（不需主按鈕）</option></select></label></p>
+        </div><div class="ysch-field" id="ysch-icon-style-wrap">
             <label><?php echo esc_html__( '自訂圖示顯示方式', 'wu-contact-widgets' ); ?></label>
             <select id="ysch-icon-style">
                 <option value="contain" <?php selected( 'cover' !== ( $settings['icon_style'] ?? 'contain' ) ); ?>><?php echo esc_html__( '置中縮放（保留按鈕底色，適合去背 icon）', 'wu-contact-widgets' ); ?></option>

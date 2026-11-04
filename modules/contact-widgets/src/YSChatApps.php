@@ -27,6 +27,7 @@ class YSChatApps {
      */
     public static function all(): array {
         return [
+            'facebook'=>['title'=>'Facebook','color'=>'#1877f2','icon_fg'=>'#ffffff','placeholder'=>'粉絲專頁名稱或完整 Facebook 網址','desc'=>'填入 Facebook 專頁網址或帳號，不是 Messenger 對話連結。'],
             'line' => [
                 'title'       => 'LINE',
                 'color'       => '#06c755',
@@ -136,6 +137,7 @@ class YSChatApps {
         return [
             'line'               => 'https://line.me/R/ti/p/',
             'facebook-messenger' => 'https://m.me/',
+            'facebook' => 'https://www.facebook.com/',
             'whatsapp'           => 'https://wa.me/',
             'phone'              => 'tel:',
             'email'              => 'mailto:',
@@ -257,6 +259,7 @@ class YSChatApps {
      * 後台 CSS 以更高優先級覆寫時仍可縮放。
      */
     public static function icon( string $key, int $px = 24 ): string {
+        if($key==='facebook')return '<svg xmlns="http://www.w3.org/2000/svg" width="'.max(8,$px).'" height="'.max(8,$px).'" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M14 21v-8h3l.5-4H14V7c0-1 .3-2 2-2h2V1h-3c-4 0-5 2-5 5v3H7v4h3v8z"/></svg>';
         $icons = self::icons();
         $svg   = $icons[ $key ] ?? $icons['custom'];
         $px    = max( 8, $px );

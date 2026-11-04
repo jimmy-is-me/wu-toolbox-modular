@@ -16,6 +16,10 @@
 }
 
 .ysch-pos-right { right: var(--ysch-side, 20px); }
+.ysch-back-top{display:flex;align-items:center;justify-content:center;width:40px;height:40px;border:0;border-radius:50%;background:var(--ysch-color,#4fa567);color:#fff;cursor:pointer;font-size:24px;padding:0}
+.ysch-wrap.ysch-direct .ysch-toggle{display:none!important}
+.ysch-wrap.ysch-direct .ysch-items{visibility:visible;pointer-events:auto}
+.ysch-wrap.ysch-direct .ysch-item-row{opacity:1;transform:none}
 .ysch-pos-left  { left: var(--ysch-side, 20px); align-items: flex-start; }
 
 /* ── App 清單 ─────────────────────────────── */

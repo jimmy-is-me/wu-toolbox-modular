@@ -157,6 +157,10 @@ class YSChatFrontend {
         // 外層（主按鈕）與內層（App 圖示）大小；SVG 依比例縮放。
         $size_outer = min( 96, max( 36, (int) ( $settings['size_outer'] ?? 56 ) ) );
         $size_inner = min( 80, max( 28, (int) ( $settings['size_inner'] ?? 46 ) ) );
+        if(wp_is_mobile()){
+            $size_outer=min(96,max(36,(int)($settings['mobile_outer']??$size_outer)));
+            $size_inner=min(80,max(28,(int)($settings['mobile_inner']??$size_inner)));
+        }
         $svg_outer  = max( 12, (int) round( $size_outer * 0.46 ) );
         $svg_inner  = max( 10, (int) round( $size_inner * 0.52 ) );
         $color    = (string) ( $settings['button_color'] ?? '#4fa567' );
@@ -308,6 +312,18 @@ class YSChatFrontend {
         <span class="ysch-toggle-close" style="<?php echo esc_attr( $swap_inline ); ?>opacity:0;"><?php echo YSChatApps::close_icon( $svg_outer ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?></span>
     </button>
 </div>
+<script>
+(function(){var wrap=document.getElementById('wu-contact-widgets');if(!wrap)return;
+<?php if(($settings['layout']??'toggle')==='expanded'): ?>
+wrap.classList.add('ysch-direct');
+wrap.querySelector('.ysch-toggle').style.setProperty('display','none','important');
+<?php endif; ?>
+<?php if(!empty($settings['back_to_top'])): ?>
+var topButton=document.createElement('button');topButton.type='button';topButton.className='ysch-back-top';topButton.setAttribute('aria-label','回到最上方');topButton.textContent='↑';topButton.addEventListener('click',function(){window.scrollTo({top:0,behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});});wrap.appendChild(topButton);
+<?php endif; ?>
+function resizeWidget(){var mobile=window.matchMedia('(max-width: 767px)').matches;var outer=mobile?<?php echo min(96,max(36,(int)($settings['mobile_outer']??56))); ?>:<?php echo min(96,max(36,(int)($settings['size_outer']??56))); ?>;var inner=mobile?<?php echo min(80,max(28,(int)($settings['mobile_inner']??46))); ?>:<?php echo min(80,max(28,(int)($settings['size_inner']??46))); ?>;wrap.setAttribute('data-outer',outer);wrap.setAttribute('data-inner',inner);wrap.querySelectorAll('.ysch-toggle,.ysch-icon,.ysch-back-top').forEach(function(el){var size=el.classList.contains('ysch-icon')?inner:outer;['width','height','min-width'].forEach(function(prop){el.style.setProperty(prop,size+'px','important');});el.querySelectorAll('svg').forEach(function(svg){svg.setAttribute('width',Math.round(size*.5));svg.setAttribute('height',Math.round(size*.5));});});}resizeWidget();window.addEventListener('resize',resizeWidget);
+})();
+</script>
         <?php
     }
 }

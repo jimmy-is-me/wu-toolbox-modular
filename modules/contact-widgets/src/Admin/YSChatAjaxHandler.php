@@ -57,6 +57,10 @@ class YSChatAjaxHandler {
     private function sanitize_settings( array $raw ): array {
         $defaults = YSChatMigration::default_settings();
         $out      = $defaults;
+        $out['mobile_outer']=min(96,max(36,(int)($raw['mobile_outer']??56)));
+        $out['mobile_inner']=min(80,max(28,(int)($raw['mobile_inner']??46)));
+        $out['back_to_top']=!empty($raw['back_to_top'])?1:0;
+        $out['layout']=($raw['layout']??'')==='expanded'?'expanded':'toggle';
 
         $out['enabled']      = ! empty( $raw['enabled'] ) ? 1 : 0;
         $pos                 = isset( $raw['position'] ) ? (string) $raw['position'] : 'right';
