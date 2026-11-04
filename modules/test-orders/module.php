@@ -19,6 +19,7 @@ function wutm_to_isolate(): array {
             if(!$file||strpos(wp_normalize_path($file),wp_normalize_path(WC_ABSPATH))!==0)remove_action($name,$fn,$priority);
         }
     }
+    if(isset($wp_filter['pre_wp_mail']))$saved['pre_wp_mail']=clone $wp_filter['pre_wp_mail'];
     return $saved;
 }
 function wutm_to_restore(array $saved): void {foreach($saved as $name=>$hook)$GLOBALS['wp_filter'][$name]=$hook;}

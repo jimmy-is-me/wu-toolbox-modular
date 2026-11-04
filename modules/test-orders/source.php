@@ -212,7 +212,7 @@ add_action('admin_post_wutm_to_create', function () {
         add_action('woocommerce_order_status_on-hold', 'wc_maybe_reduce_stock_levels');
     }
 
-    } finally {remove_filter('woocommerce_webhook_should_deliver','__return_false',PHP_INT_MAX);wutm_to_restore($saved_hooks);if(!$mail)remove_filter('pre_wp_mail','__return_true',99);if(!$reduce)remove_filter('woocommerce_can_reduce_order_stock','__return_false',99);}
+    } finally {remove_filter('woocommerce_webhook_should_deliver','__return_false',PHP_INT_MAX);if(!$mail)remove_filter('pre_wp_mail','__return_true',99);if(!$reduce)remove_filter('woocommerce_can_reduce_order_stock','__return_false',99);wutm_to_restore($saved_hooks);}
     $labels = wutm_to_status_pool();
     $parts = [];
     foreach ($summary as $k => $v) $parts[] = ($labels[$k] ?? $k) . ' ' . $v;
