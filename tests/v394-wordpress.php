@@ -7,7 +7,9 @@ add_filter('pre_http_request',static fn()=>new WP_Error('fixture','No external t
 update_option('wu_dashboard_enabled',1);update_option('wutm_disabled_dashboard_widgets',[]);
 add_action('wp_dashboard_setup',static function(){global $wp_meta_boxes;foreach((array)($wp_meta_boxes['dashboard']??[]) as $context=>$priorities)foreach((array)$priorities as $boxes)foreach(array_keys((array)$boxes) as $id)remove_meta_box($id,'dashboard',$context);},999999);
 do_action('wp_dashboard_setup');v394_check(is_callable($GLOBALS['wp_meta_boxes']['dashboard']['normal']['high']['wu_unified_dashboard']['callback']??null),'Wu status widget survives earlier dashboard cleanup');
+remove_meta_box('wu_unified_dashboard','dashboard','normal');do_action('admin_head-index.php');v394_check(is_callable($GLOBALS['wp_meta_boxes']['dashboard']['normal']['high']['wu_unified_dashboard']['callback']??null),'Missing status widget recovered after setup');
 update_option('wutm_disabled_dashboard_widgets',['wu_unified_dashboard']);WUTM_Dashboard_Widgets::apply();v394_check($GLOBALS['wp_meta_boxes']['dashboard']['normal']['high']['wu_unified_dashboard']===false,'Explicit widget disable remains respected');
+do_action('admin_head-index.php');v394_check($GLOBALS['wp_meta_boxes']['dashboard']['normal']['high']['wu_unified_dashboard']===false,'Recovery never overrides explicit hide');
 update_option('wu_dashboard_enabled',0);do_action('wp_dashboard_setup');v394_check($GLOBALS['wp_meta_boxes']['dashboard']['normal']['high']['wu_unified_dashboard']===false,'Internal dashboard off switch remains respected');
 v394_check(post_type_exists('wu_entry')&&!post_type_exists('khmf_entry'),'Canonical Wu contact entry type only');
 v394_check(shortcode_exists('wu_contact_form')&&!shortcode_exists('kh_mini_form_x7'),'Canonical Wu shortcode only');

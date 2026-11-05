@@ -67,10 +67,13 @@ add_action('admin_init', function() {
 
 // ===== Dashboard Widget =====
 
-add_action('wp_dashboard_setup', function() {
+function wutm_dashboard_status_register_widget() {
 	if (!get_option('wu_dashboard_enabled', 1)) {
 		return;
 	}
+	if(in_array('wu_unified_dashboard',(array)get_option('wutm_disabled_dashboard_widgets',[]),true))return;
+	global $wp_meta_boxes;
+	foreach((array)($wp_meta_boxes['dashboard']??[]) as $priorities)foreach((array)$priorities as $boxes)if(is_array($boxes['wu_unified_dashboard']??null)&&is_callable($boxes['wu_unified_dashboard']['callback']??null))return;
 	
 	wp_add_dashboard_widget(
 		'wu_unified_dashboard',
@@ -81,7 +84,10 @@ add_action('wp_dashboard_setup', function() {
 		'normal',
 		'high'
 	);
-}, PHP_INT_MAX - 1);
+}
+add_action('wp_dashboard_setup','wutm_dashboard_status_register_widget',PHP_INT_MAX - 1);
+// Recover from another dashboard customizer removing widgets after setup.
+add_action('admin_head-index.php','wutm_dashboard_status_register_widget',PHP_INT_MAX);
 
 // ===== Unified Dashboard Renderer =====
 
