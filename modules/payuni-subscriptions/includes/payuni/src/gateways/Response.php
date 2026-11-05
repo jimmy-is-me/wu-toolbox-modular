@@ -690,7 +690,7 @@ final class Response {
 			$order->update_meta_data( '_payuni_resp_bank_expire', $bank_expire );
 
 			$order->add_order_note(
-				"<strong>統一金流交易紀錄</strong><br>狀態碼：{$status}<br>交易訊息：{$message}<br>交易編號：{$trade_no}<br>轉帳銀行：{$bank}<br>轉帳帳號：${bank_no}<br>轉帳期限：{$bank_expire}",
+				"<strong>統一金流交易紀錄</strong><br>狀態碼：{$status}<br>交易訊息：{$message}<br>交易編號：{$trade_no}<br>轉帳銀行：{$bank}<br>轉帳帳號：{$bank_no}<br>轉帳期限：{$bank_expire}",
 				true
 			);
 
@@ -761,7 +761,7 @@ final class Response {
 			$order->update_meta_data( '_payuni_resp_bank_expire', $bank_expire );
 
 			$order->add_order_note(
-				"<strong>統一金流交易紀錄</strong><br>狀態碼：{$status}<br>交易訊息：{$message}<br>交易編號：{$trade_no}<br>轉帳銀行：{$bank}<br>轉帳帳號：${bank_no}<br>轉帳期限：{$bank_expire}",
+				"<strong>統一金流交易紀錄</strong><br>狀態碼：{$status}<br>交易訊息：{$message}<br>交易編號：{$trade_no}<br>轉帳銀行：{$bank}<br>轉帳帳號：{$bank_no}<br>轉帳期限：{$bank_expire}",
 				true
 			);
 
