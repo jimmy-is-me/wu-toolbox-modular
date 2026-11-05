@@ -16,11 +16,11 @@ try{
  delete_option(WUTM_Order_List_Layout::OPTION);delete_option(WUTM_Order_List_Layout::REGISTRY);
  foreach(['legacy'=>'edit-shop_order','hpos'=>'woocommerce_page_wc-orders'] as $scope=>$screen){
   set_current_screen($screen);
-  if($scope==='hpos'){$table=wc_get_container()->get(\Automattic\WooCommerce\Internal\Admin\Orders\ListTable::class);$table->setup();}
-  else $table=new WP_Posts_List_Table(['screen'=>get_current_screen()]);
   add_filter('manage_'.$screen.'_columns',static function($cols){$cols['fixture_tracking']='物流查詢編號';return $cols;},100);
+  if($scope==='hpos'){$table=new \Automattic\WooCommerce\Internal\Admin\Orders\ListTable();$table->init(wc_get_container()->get(\Automattic\WooCommerce\Internal\Admin\Orders\PageController::class));$table->setup();}
+  else $table=new WP_Posts_List_Table(['screen'=>get_current_screen()]);
   $before=get_column_headers(get_current_screen());
-  foreach(['cb','order_number','order_date','order_status','order_total','fixture_tracking'] as $id)v395_assert(isset($before[$id]),'Native '.$scope.' column '.$id);
+  foreach(['cb','order_number','order_date','order_status','order_total','fixture_tracking'] as $id)v395_assert(isset($before[$id]),'Native '.$scope.' column '.$id.' screen='.get_current_screen()->id.' table='.$table->screen->id.' found='.implode(',',array_keys($before)));
   $sortable=apply_filters('manage_'.$screen.'_sortable_columns',[]);
   v395_save($scope,['wutm_order_columns_action'=>'save','order'=>['order_total','order_number','fixture_tracking','unknown'],'labels'=>['order_total'=>'<b>訂單金額</b>'],'hide'=>['fixture_tracking'=>1]]);
   $after=apply_filters('manage_'.$screen.'_columns',$before);
