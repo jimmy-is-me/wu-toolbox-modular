@@ -15,6 +15,8 @@ $uid=get_current_user_id();
 try{
  delete_option(WUTM_Order_List_Layout::OPTION);delete_option(WUTM_Order_List_Layout::REGISTRY);
  foreach(['legacy'=>'edit-shop_order','hpos'=>'woocommerce_page_wc-orders'] as $scope=>$screen){
+  // WP_List_Table constructs its own screen from the real request's hook suffix.
+  $GLOBALS['hook_suffix']=$screen;
   set_current_screen($screen);
   add_filter('manage_'.$screen.'_columns',static function($cols){$cols['fixture_tracking']='物流查詢編號';return $cols;},100);
   if($scope==='hpos'){$table=new \Automattic\WooCommerce\Internal\Admin\Orders\ListTable();$table->init(wc_get_container()->get(\Automattic\WooCommerce\Internal\Admin\Orders\PageController::class));$table->setup();}
