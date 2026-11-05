@@ -96,6 +96,7 @@ body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-search in
 /* Dashboard category shortcuts use the same visible groups as the cards. */
 .wutm-category-nav{display:flex;flex-wrap:nowrap;overflow-x:auto;max-width:100%;min-width:0;gap:8px;margin-top:16px;padding:14px 2px 5px;border-top:1px solid #d8e2ef;scrollbar-width:thin}
 /* WooCommerce infers SelectWoo widths before the shared presentation is applied. */
+body.wutm-admin-screen #wpbody-content .wutm-ui-root select.wutm-ui-field:not(.media-modal *):not([role=dialog] *){min-width:10rem;max-width:100%;padding-right:36px}
 body.wutm-admin-screen #wpbody-content .wutm-ui-root .form-table{table-layout:fixed}
 body.wutm-admin-screen #wpbody-content .wutm-ui-root .form-table td :is(select,input.regular-text,textarea):not(.media-modal *):not([role=dialog] *){width:28rem!important;max-width:100%!important;min-width:0;padding-right:32px}
 body.wutm-admin-screen #wpbody-content .wutm-ui-root .form-table td .select2-container{width:28rem!important;max-width:100%!important;min-width:0}

@@ -138,6 +138,8 @@ jobs:
           php "$RUNNER_TEMP/wutm-wp-cli.phar" option update wutm_module_payuni_subscriptions 1 --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/v392-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-v392.log"
           grep -Fq 'v3.9.2 native modules passed:' "$RUNNER_TEMP/wutm-v392.log"
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/v393-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-v393.log"
+          grep -Fq 'v3.9.3 native dashboard passed:' "$RUNNER_TEMP/wutm-v393.log"
       - name: Check maps and content overview preservation, permissions and scope
         run: |
           php tests/content-modules.php
@@ -222,6 +224,7 @@ jobs:
           node tests/v390-admin-ui.js
           node tests/v391-ui.js
           node tests/v392-ui.js
+          node tests/v393-ui.js
           node tests/order-report-export-ui.js
           node tests/media-encoder-scan-ui.js
           node tests/media-safe-cleaner-ui.js

@@ -1,4 +1,5 @@
 .column-shipping_temperature{width:100px;text-align:center}
+body.post-type-product .wp-list-table :is(th,td).column-shipping_temperature{width:100px;text-align:center!important;vertical-align:middle}
 .wutm-stt-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600;white-space:nowrap;color:#fff;line-height:1.7}
 .wutm-stt-all{background:#2e7d32}.wutm-stt-room{background:#b34a00}.wutm-stt-cold{background:#1565c0}
 .wutm-stt-edit{clear:both;padding-top:8px;margin-top:8px;border-top:1px solid #ddd}

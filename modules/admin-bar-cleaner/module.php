@@ -12,6 +12,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 require_once __DIR__ . '/admin-style.php';
+require_once __DIR__ . '/dashboard-widgets.php';
 
 class WU_Admin_Bar_Cleaner {
 
@@ -87,7 +88,7 @@ class WU_Admin_Bar_Cleaner {
         add_settings_section( 'wu_user_roles_section', '使用者角色管理',         [ $this, 'user_roles_section_callback' ], 'wu_admin_bar_settings' );
 
         $fields = [
-            [ 'wu_disable_all_dashboard_widgets',   '儀表板小工具一鍵管理',             'dashboard_widgets_settings_callback',      'wu_dashboard_section'  ],
+            [ 'wu_disable_all_dashboard_widgets',   '儀表板小工具管理',             'dashboard_widgets_settings_callback',      'wu_dashboard_section'  ],
             [ 'wu_remove_admin_footer_text',        '移除管理頁尾文本',                 'remove_admin_footer_text_callback',        'wu_dashboard_section'  ],
             [ 'wu_custom_admin_footer_text',        '自訂管理頁尾文本',                 'custom_admin_footer_text_callback',        'wu_dashboard_section'  ],
             [ 'wu_hide_tools_menu',                 '隱藏後台 Tools 選單',              'hide_tools_menu_callback',                 'wu_backend_section'    ],
@@ -156,14 +157,7 @@ class WU_Admin_Bar_Cleaner {
     }
 
     public function dashboard_widgets_settings_callback(): void {
-        $value = get_option( 'wu_disable_all_dashboard_widgets', false );
-        echo '<div style="background:#f9f9f9;padding:18px;border-radius:8px;">';
-        echo '<p>一鍵停用所有儀表板小工具，讓後台載入更快速、界面更簡潔。</p>';
-        echo '<label style="display:flex;align-items:center;gap:10px;font-size:15px;">';
-        echo '<input type="checkbox" id="wu_disable_all_dashboard_widgets" name="wu_disable_all_dashboard_widgets" value="1" ' . checked( 1, $value, false ) . '>';
-        echo '<strong>停用所有儀表板小工具</strong></label>';
-        echo '<p style="margin-top:12px;padding:10px;background:#fff3cd;border-left:4px solid #ffc107;border-radius:4px;"><strong>保留：</strong>郵件發送追蹤管理、網站維運管理儀表板</p>';
-        echo '</div>';
+        WUTM_Dashboard_Widgets::render();
     }
 
     public function custom_admin_footer_text_callback(): void {
@@ -243,7 +237,9 @@ class WU_Admin_Bar_Cleaner {
     // ===== 統一儲存邏輯 =====
 
     private function save_settings_from_post(): void {
+        WUTM_Dashboard_Widgets::save();
         foreach ( self::CHECKBOX_OPTIONS as $key ) {
+            if($key==='wu_disable_all_dashboard_widgets'&&isset($_POST['wutm_dashboard_widget_list']))continue;
             update_option( $key, isset( $_POST[ $key ] ) ? 1 : 0 );
         }
         foreach ( self::TEXT_OPTIONS as $key ) {
@@ -323,7 +319,7 @@ class WU_Admin_Bar_Cleaner {
                     <tbody>
                     <?php
                     $status_rows = [
-                        [ '儀表板小工具',             $opts['wu_disable_all_dashboard_widgets'],    '已全部停用',          '已啟用'               ],
+                        [ '儀表板小工具',             count(WUTM_Dashboard_Widgets::selected()),    '已關閉 '.count(WUTM_Dashboard_Widgets::selected()).' 個',          '未關閉任何項目'               ],
                         [ '後台 Tools 選單',          $opts['wu_hide_tools_menu'],                  '已隱藏',              '顯示中'               ],
                         [ '內容複製保護',             $opts['wu_enable_copy_protection'],           '已啟用',              '已停用'               ],
                     ];
@@ -426,9 +422,7 @@ class WU_Admin_Bar_Cleaner {
     private function register_admin_features(): void {
         if ( ! is_admin() ) return;
 
-        if ( get_option( 'wu_disable_all_dashboard_widgets', false ) ) {
-            add_action( 'wp_dashboard_setup', [ $this, 'disable_dashboard_widgets' ], 999 );
-        }
+        add_action('wp_dashboard_setup',[WUTM_Dashboard_Widgets::class,'apply'],PHP_INT_MAX);
         if ( get_option( 'wu_remove_admin_footer_text', false ) ) {
             add_filter( 'admin_footer_text', '__return_empty_string' );
             add_filter( 'update_footer',     '__return_empty_string', 11 );
