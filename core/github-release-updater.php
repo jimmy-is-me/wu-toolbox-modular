@@ -58,7 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
-            <h4>3.9.4</h4><ul><li>狀態小工具延後註冊以避免被其他整理程式移除，保留明確關閉設定並補上顯示檢查說明。</li><li>聯絡表單統一使用 [wu_contact_form] 與 wu_entry，不再註冊舊短碼及留言類型。</li><li>名稱統一為 Wu Toolbox Modular／Wu Toolbox，主選單與所有模組卡片改用本機 SVG 圖標。</li><li>修正風格樣式清除 SVG 背景圖的問題，並補強下拉選項、SelectWoo 及圖標按鈕呈現。</li></ul>
+            <h4>3.9.5</h4><ul><li>新增訂單列表排列，分別偵測傳統及 HPOS 欄位，支援自訂標籤、排序、隱藏與重設。</li><li>新增 Software 軟體風：近白、電光藍、細框圓角與清楚的操作焦點。</li><li>修正 Newsprint 白底按鈕懸浮時底色與文字切換不同步。</li></ul><h4>3.9.4</h4><ul><li>狀態小工具延後註冊以避免被其他整理程式移除，保留明確關閉設定並補上顯示檢查說明。</li><li>聯絡表單統一使用 [wu_contact_form] 與 wu_entry，不再註冊舊短碼及留言類型。</li><li>名稱統一為 Wu Toolbox Modular／Wu Toolbox，主選單與所有模組卡片改用本機 SVG 圖標。</li><li>修正風格樣式清除 SVG 背景圖的問題，並補強下拉選項、SelectWoo 及圖標按鈕呈現。</li></ul>
             <h4>3.9.3</h4><ul><li>補齊列表與重設區的下拉欄位寬度，避免文字與箭頭重疊。</li><li>商品列表溫層標籤與表頭統一置中。</li><li>儀表板小工具改為偵測清單，可逐項勾選關閉；保留舊版全部停用設定，儲存清單後改用個別選擇。</li></ul>
             <h4>3.9.2</h4><ul><li>Postbox 收合設定變更後套用至既有帳號一次，之後保留個人展開操作。</li><li>修正共用設定頁下拉欄位與 SelectWoo 寬度，支援手機版面。</li><li>PAYUNi 付款新增 Toolbox 設定頁及手動／狀態自動退款模式，預設手動，加入退款紀錄排除與防重送。</li><li>新增 PAYUNi 定期訂閱模組，整合首刷、3D 通知、續扣、對帳與訂閱管理，隔離一般付款金鑰並保留來源授權。</li></ul>
             <h4>3.9.1</h4><ul><li>SEO 內容檢查新增明確偵測結果、內容來源、多組關鍵字與已儲存 Elementor 基本文字偵測。</li><li>新增商品列表排列：偵測原生與外掛欄位，更改標籤、調整順序、隱藏及還原。</li><li>新增 Postbox 管理器，保留原設定與偵測記錄，支援 CSS 隱藏、預設收合、強制展開及重設收合偏好。</li></ul>

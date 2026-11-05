@@ -5,12 +5,12 @@ const render=(...args)=>execFileSync(php,['tests/style-youtube.php',...args],{en
 (async()=>{
  const browser=await chromium.launch({headless:true,executablePath:process.env.WUTM_TEST_CHROME});
  try{
-  for(const theme of ['native','newsprint','botanical','flat','bauhaus'])for(const width of [1440,390]){
+  for(const theme of ['native','newsprint','botanical','flat','bauhaus','software'])for(const width of [1440,390]){
    const page=await browser.newPage({viewport:{width,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
    await page.setContent(render('style',theme));
    if(wp)await page.addStyleTag({content:fs.readFileSync(path.join(wp,'wp-admin/css/common.css'),'utf8')+fs.readFileSync(path.join(wp,'wp-admin/css/forms.css'),'utf8')});
    await page.addStyleTag({content:fs.readFileSync('assets/css/admin.css','utf8')+fs.readFileSync('assets/css/admin-components.css','utf8')});await page.addScriptTag({path:'assets/js/admin-design.js'});
-   assert.equal(await page.locator('input[type=radio]').count(),5,'Five theme choices');
+   assert.equal(await page.locator('input[type=radio]').count(),6,'Six theme choices');
    assert.equal(await page.locator('input[type=checkbox]').count(),8,'All original toggles');
    assert.equal(await page.locator('[name="np_admin_opts[theme]"]:checked').inputValue(),theme);
    assert.equal(await page.locator('form').getAttribute('action'),'options.php');
@@ -19,6 +19,11 @@ const render=(...args)=>execFileSync(php,['tests/style-youtube.php',...args],{en
    await page.evaluate(()=>{const menu=document.createElement('aside');menu.id='adminmenu';menu.innerHTML='<div class="wp-menu-image svg" style="width:36px;height:34px;background-image:url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==)"></div>';document.body.append(menu);const controls=document.createElement('div');controls.innerHTML='<select aria-label="風格測試"><option>百分比折扣</option><option>固定購物車折扣</option></select><button class="button dashicons dashicons-admin-tools" aria-label="圖標測試"></button>';document.getElementById('wpbody-content').append(controls);});
    assert.notEqual(await page.locator('#adminmenu .svg').evaluate(node=>getComputedStyle(node).backgroundImage),'none','Theme preserves SVG menu background '+theme);
    if(theme!=='native'){assert((await page.locator('select[aria-label="風格測試"]').boundingBox()).height>=35);assert((await page.locator('button[aria-label="圖標測試"]').evaluate(node=>getComputedStyle(node).fontFamily)).includes('dashicons'),'Icon-only buttons retain icon font '+theme);}
+   if(theme==='newsprint'){
+    await page.evaluate(()=>{const x=document.createElement('div');x.className='jmi-wrap';x.innerHTML='<div class="jmi-quick"><a href="#" class="button" style="background:#fff;color:#666978">本月</a></div>';document.getElementById('wpbody-content').append(x);});
+    await page.locator('.jmi-quick a').hover();const colors=await page.locator('.jmi-quick a').evaluate(n=>({bg:getComputedStyle(n).backgroundColor,ink:getComputedStyle(n).webkitTextFillColor}));assert.equal(colors.bg,'rgb(17, 17, 17)');assert.equal(colors.ink,'rgb(249, 249, 247)');
+   }
+   if(theme==='software')assert.equal(await page.locator('.wu-theme-choice').first().evaluate(n=>getComputedStyle(n).borderRadius),'12px');
    if(process.env.WUTM_VISUAL_OUTPUT){fs.mkdirSync(process.env.WUTM_VISUAL_OUTPUT,{recursive:true});await page.screenshot({path:path.join(process.env.WUTM_VISUAL_OUTPUT,'style-'+theme+'-'+width+'.png')});}
    await page.close();
   }
@@ -41,6 +46,6 @@ const render=(...args)=>execFileSync(php,['tests/style-youtube.php',...args],{en
    await page.evaluate(()=>players[1].handlers.ended());await page.waitForSelector('.cyp-video:nth-child(2) .cyp-facade');
    assert.deepEqual(errors,[],'Failed dependency loads retry without unhandled errors');await page.close();
   }
-  console.log('Style/YouTube browser checks passed: five themes, mobile fields, lazy/eager recovery, controls, exclusive playback and ended facade restore.');
+  console.log('Style/YouTube browser checks passed: six themes, mobile fields, lazy/eager recovery, controls, exclusive playback and ended facade restore.');
  }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

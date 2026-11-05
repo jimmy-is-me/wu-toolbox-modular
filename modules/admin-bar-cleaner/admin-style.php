@@ -6,7 +6,7 @@ if ( ! class_exists( 'WUTM_Admin_Style', false ) ) {
 
 final class WUTM_Admin_Style {
 
-	const VERSION = '6.2.1', OPTION = 'np_admin_opts', GROUP = 'wu_admin_style_group', SLUG = 'wu-admin-bar-cleaner';
+	const VERSION = '6.3.0', OPTION = 'np_admin_opts', GROUP = 'wu_admin_style_group', SLUG = 'wu-admin-bar-cleaner';
 	private static $o = null;
 
 	/* ---------- 啟動 ---------- */
@@ -74,6 +74,20 @@ final class WUTM_Admin_Style {
 
 		return array(
 			'native' => array( 'label' => 'WordPress 原生', 'desc' => '預設選項；不載入後台、登入頁或工具列風格美化。' ),
+			'software' => array_merge( $b, array(
+				'label'=>'Software 軟體風', 'desc'=>'近白底色、電光藍重點、細邊框與圓角面板，清楚呈現設定與資料。',
+				'google'=>'https://fonts.googleapis.com/css2?family=Host+Grotesk:wght@400;500;600;700&family=Instrument+Sans:wght@400;500;600;700&display=swap',
+				'bg'=>'#FCFCFD','ink'=>'#16191F','surface'=>'#FFFFFF','soft'=>'#F3F4F6','stripe'=>'#FCFCFD',
+				'line'=>'#DDE0E6','rowline'=>'#DDE0E6','rowhover'=>'#F3F4F6','shadow'=>'0 8px 24px rgba(22,25,31,.05)',
+				'btn_line'=>'#074CE0','btn2line'=>'#DDE0E6','btn2h'=>'#F3F4F6','btn2hink'=>'#16191F',
+				'menu'=>'#16191F','cur_bg'=>'#074CE0','cur_ink'=>'#FCFCFD','bar'=>'#16191F','bar_ink'=>'#D0D4DD',
+				'primary'=>'#074CE0','on'=>'#FCFCFD','hover'=>'#063EB8','link'=>'#074CE0','link_hover'=>'#063EB8',
+				'accent'=>'#074CE0','muted'=>'#454C58','thbg'=>'#F3F4F6','think'=>'#16191F',
+				'heading'=>'"Host Grotesk",'.$sans,'font'=>'"Instrument Sans",'.$sans,'ui'=>'"Instrument Sans",'.$sans,'mono'=>'Consolas,monospace',
+				'inb'=>'1px solid #DDE0E6','inbb'=>'1px solid #DDE0E6','focus'=>'#074CE0',
+				'ok'=>'#18754B','err'=>'#B42318','warn'=>'#8A5700','info'=>'#074CE0',
+				'ftbg'=>'#16191F','ftink'=>'#D0D4DD','ftlink'=>'#FCFCFD',
+			) ),
 
 			'newsprint' => array_merge( $b, array(
 				'label' => 'Newsprint 報紙風', 'desc' => '報紙點狀背景、超大襯線標題、黑色表頭、等寬刊頭與粗底線。',
@@ -218,7 +232,7 @@ final class WUTM_Admin_Style {
 				<div>
 					<p class="wu-kicker">WUMETAX / ADMIN APPEARANCE</p>
 					<h1>Wu 後台風格</h1>
-					<p class="wu-header-description">版本 <?php echo esc_html( self::VERSION ); ?>｜原生為預設，可切換四種完整設計風格。</p>
+					<p class="wu-header-description">版本 <?php echo esc_html( self::VERSION ); ?>｜原生為預設，可切換五種完整設計風格。</p>
 				</div>
 				<div class="wu-geometry" aria-hidden="true"><span class="wu-shape-circle"></span><span class="wu-shape-square"></span><span class="wu-shape-triangle"></span></div>
 			</header>
@@ -554,6 +568,24 @@ CSS;
 @media(max-width:600px){%B% .wu-settings-header{grid-template-columns:1fr;border-width:2px;box-shadow:4px 4px 0 #121212;padding:20px}}
 CSS;
 
+		$css['software'] = <<<'CSS'
+%B% #wpbody-content{font-size:16px;line-height:1.6}
+%B% #wpbody-content :is(.postbox,.card,.wu-theme-choice,.wu-settings-header,.wutm-ui-panel){border-radius:12px!important;box-shadow:0 8px 24px rgba(22,25,31,.05)!important}
+%B% #wpbody-content .postbox-header{border-radius:12px 12px 0 0!important}
+%B% #wpbody-content :is(.button,.page-title-action,input:not([type=checkbox]):not([type=radio]),select,textarea,.select2-selection){border-radius:8px!important}
+%B% #wpbody-content :is(.button,.page-title-action){font-size:15px;transition:background-color 160ms ease-out,transform 160ms ease-out}
+%B% #wpbody-content :is(.button,.page-title-action):not(:disabled):not(.disabled):hover{transform:translateY(-1px)}
+%B% #wpbody-content :is(.button,.page-title-action):active{transform:none}
+%B% #wpbody-content :is(a,button,input,select,textarea):focus-visible{outline:2px solid #074ce0;outline-offset:3px}
+%B% .wrap>h1{font-size:clamp(28px,3vw,40px);letter-spacing:-.025em}
+%B% .wu-settings-header{background:#fff;border:1px solid #dde0e6;padding:28px}
+%B% .wu-geometry{background:#f3f4f6;border-radius:12px}
+@media(prefers-reduced-motion:reduce){%B% #wpbody-content :is(.button,.page-title-action){transition:none;transform:none!important}}
+CSS;
+		// Module styles can override a hover background without its text colour.
+		$css['newsprint'] .= <<<'CSS'
+%B% #wpbody-content :is(a.button,button.button,input.button,a.page-title-action){transition:none!important}
+CSS;
 		return $css[ $key ] ?? '';
 	}
 
