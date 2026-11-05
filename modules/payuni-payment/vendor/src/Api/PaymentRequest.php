@@ -136,7 +136,7 @@ class PaymentRequest {
 		$payment_method           = $order->get_payment_method();
 		$allowed_install_payments = PayuniPayment::get_allowed_install_payments( $order );
 		if ( array_key_exists( $payment_method, $allowed_install_payments ) ) {
-			if ( $order->get_total() !== $amount ) {
+			if ( (float) $order->get_total() !== (float) $amount ) {
 				return new \WP_Error(
 					'process_refund_request',
 					/* translators:  %s is the order id */
