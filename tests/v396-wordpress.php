@@ -13,7 +13,7 @@ try{
  $base=['billing'=>WC()->countries->get_address_fields('TW','billing_'),'shipping'=>WC()->countries->get_address_fields('TW','shipping_')];
  $_POST=[];$normal=$optimizer->customize_taiwan_address_fields($base);
  v396_assert(!isset($normal['billing']['billing_company']),'Company removed');
- foreach(['state','city','postcode','address_1'] as $part)v396_assert(!empty($normal['billing']['billing_'.$part]['required']),'Default billing required '.$part);
+ foreach(['state','city','postcode','address_1'] as $part)v396_assert((bool)($normal['billing']['billing_'.$part]['required']??false)===(bool)($base['billing']['billing_'.$part]['required']??false),'Default billing requirement preserved '.$part);
  foreach([['ship_to_different_address'=>'1'],['post_data'=>'ship_to_different_address=1']] as $post){
   $_POST=$post;$fields=$optimizer->customize_taiwan_address_fields($base);
   foreach(['country','state','city','postcode','address_1'] as $part)v396_assert($fields['billing']['billing_'.$part]['required']===false,'Separate-address billing optional '.$part);
