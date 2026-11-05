@@ -1,0 +1,187 @@
+<?php
+/**
+ * Subscription Product Class
+ *
+ * The subscription product class is an extension of the simple product class.
+ *
+ * @class WC_Product_Subscription
+ * @package WooCommerce Subscriptions
+ * @subpackage WC_Product_Subscription
+ * @category Class
+ * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.3
+ *
+ */
+if ( ! defined( 'ABSPATH' ) ) {
+	exit; // Exit if accessed directly
+}
+
+class WC_Product_Subscription extends WC_Product_Simple {
+
+	/**
+	 * Get internal type.
+	 *
+	 * @return string
+	 */
+	public function get_type() {
+		return 'subscription';
+	}
+
+	/**
+	 * Auto-load in-accessible properties on demand.
+	 *
+	 * @param mixed $key
+	 * @return mixed
+	 */
+	public function __get( $key ) {
+
+		$value = wcs_product_deprecated_property_handler( $key, $this );
+
+		// No matching property found in wcs_product_deprecated_property_handler()
+		if ( is_null( $value ) ) {
+			$value = parent::__get( $key );
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Get subscription's price HTML.
+	 *
+	 * @return string containing the formatted price
+	 */
+	public function get_price_html( $price = '' ) {
+
+		$price = parent::get_price_html( $price );
+
+		if ( ! empty( $price ) ) {
+			$price_args = array( 'price' => $price );
+
+			// On the single product page and in catalog/shop loops the trial and sign-up fee are surfaced separately
+			// (as detail lines) or deliberately hidden, so omit them from the inline price string in those contexts.
+			// Every other context (REST API, widgets, mini-cart, page builders, ...) keeps the suffix.
+			if ( WC_Subscriptions_Product::should_omit_inline_trial_and_fee() ) {
+				$price_args['sign_up_fee']  = false;
+				$price_args['trial_length'] = false;
+			}
+
+			$price = WC_Subscriptions_Product::get_price_string( $this, $price_args );
+		}
+
+		return $price;
+	}
+
+	/**
+	 * Get the add to cart button text
+	 *
+	 * @return string
+	 */
+	public function add_to_cart_text() {
+
+		if ( $this->is_purchasable() && $this->is_in_stock() ) {
+			$text = WC_Subscriptions_Product::get_add_to_cart_text();
+		} else {
+			$text = __( 'Read more', 'woocommerce-subscriptions' );
+		}
+
+		return apply_filters( 'woocommerce_product_add_to_cart_text', $text, $this );
+	}
+
+	/**
+	 * Provides the descriptive text for add-to-cart buttons.
+	 *
+	 * @return mixed
+	 */
+	public function add_to_cart_description() {
+		if ( $this->is_purchasable() && $this->is_in_stock() ) {
+			// For accessibility reasons it is recommended that the aria-label is the same as, or else starts with, the
+			// same text that is visible on the button itself.
+			$text = sprintf(
+				// Translators: %1$s: Pre-determined add-to-cart text 2: Product title.
+				_x( '%1$s: &ldquo;%2$s&rdquo;', 'Add-to-cart button description', 'woocommerce-subscriptions' ),
+				WC_Subscriptions_Product::get_add_to_cart_text(),
+				$this->get_name()
+			);
+		} else {
+			$text = sprintf(
+				// Translators: %1$s: Product title.
+				__( 'Read more about &ldquo;%1$s&rdquo;', 'woocommerce-subscriptions' ),
+				$this->get_name()
+			);
+		}
+
+		return apply_filters( 'woocommerce_product_add_to_cart_description', $text, $this );
+	}
+
+	/**
+	 * Get the add to cart button text for the single page
+	 *
+	 * @return string The single product page add to cart text.
+	 */
+	public function single_add_to_cart_text() {
+		return apply_filters( 'woocommerce_product_single_add_to_cart_text', WC_Subscriptions_Product::get_add_to_cart_text(), $this );
+	}
+
+	/**
+	 * Checks if the store manager has requested the current product be limited to one purchase
+	 * per customer, and if so, checks whether the customer already has an active subscription to
+	 * the product.
+	 *
+	 * @access public
+	 * @return bool
+	 */
+	function is_purchasable() {
+		$purchasable = WCS_Limiter::is_purchasable( parent::is_purchasable(), $this );
+
+		return apply_filters( 'woocommerce_subscription_is_purchasable', $purchasable, $this );
+	}
+
+	/* Deprecated Functions */
+
+	/**
+	 * Return the sign-up fee for this product
+	 *
+	 * @deprecated 2.2.0 Use WC_Subscriptions_Product::get_sign_up_fee().
+	 *
+	 * @return string
+	 */
+	public function get_sign_up_fee() {
+		wcs_deprecated_function( __METHOD__, '2.2.0', 'WC_Subscriptions_Product::get_sign_up_fee( $this )' );
+		return WC_Subscriptions_Product::get_sign_up_fee( $this );
+	}
+
+	/**
+	 * Returns the sign up fee (including tax) by filtering the products price used in
+	 * @see WC_Product::get_price_including_tax( $qty )
+	 * @deprecated 2.3.0
+	 *
+	 * @return string
+	 */
+	public function get_sign_up_fee_including_tax( $qty = 1 ) {
+		wcs_deprecated_function( __METHOD__, '2.2.0', 'wcs_get_price_including_tax( $product, array( "qty" => $qty, "price" => WC_Subscriptions_Product::get_sign_up_fee( $product ) ) )' );
+		return wcs_get_price_including_tax(
+			$this,
+			array(
+				'qty'   => $qty,
+				'price' => WC_Subscriptions_Product::get_sign_up_fee( $this ),
+			)
+		);
+	}
+
+	/**
+	 * Returns the sign up fee (excluding tax) by filtering the products price used in
+	 * @see WC_Product::get_price_excluding_tax( $qty )
+	 * @deprecated 2.2.0
+	 *
+	 * @return string
+	 */
+	public function get_sign_up_fee_excluding_tax( $qty = 1 ) {
+		wcs_deprecated_function( __METHOD__, '2.2.0', 'wcs_get_price_excluding_tax( $product, array( "qty" => $qty, "price" => WC_Subscriptions_Product::get_sign_up_fee( $product ) ) )' );
+		return wcs_get_price_excluding_tax(
+			$this,
+			array(
+				'qty'   => $qty,
+				'price' => WC_Subscriptions_Product::get_sign_up_fee( $this ),
+			)
+		);
+	}
+}

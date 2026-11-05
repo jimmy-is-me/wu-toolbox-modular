@@ -1,0 +1,1606 @@
+<?php
+/**
+ * Individual Subscription Product API
+ *
+ * An API for accessing details of a subscription product.
+ *
+ * @package    WooCommerce Subscriptions
+ * @subpackage WC_Subscriptions_Product
+ * @category   Class
+ * @author     Brent Shepherd
+ * @since      1.0.0 - Migrated from WooCommerce Subscriptions v1.0
+ */
+class WC_Subscriptions_Product {
+
+	/* cache the check on whether the session has an order awaiting payment for a given product */
+	protected static $order_awaiting_payment_for_product = array();
+
+	/* Nesting depth of price-rendering blocks currently being rendered (block themes / block-based templates). */
+	protected static $price_block_render_depth = 0;
+
+	/* Whether a WooCommerce Store API request is currently being served (block hydration or a genuine REST call). */
+	protected static $is_serving_store_api_request = false;
+
+	protected static $subscription_meta_fields = array(
+		'_subscription_price',
+		'_subscription_sign_up_fee',
+		'_subscription_period',
+		'_subscription_period_interval',
+		'_subscription_length',
+		'_subscription_trial_period',
+		'_subscription_trial_length',
+		'_subscription_gifting',
+	);
+
+	/**
+	 * Set up the class, including it's hooks & filters, when the file is loaded.
+	 *
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.0
+	 **/
+	public static function init() {
+
+		// Because the standard price meta field is empty, we need to output our custom subscription description
+		add_filter( 'woocommerce_grouped_price_html', __CLASS__ . '::get_grouped_price_html', 10, 2 );
+
+		// Gravity Forms Add-ons
+		add_filter( 'woocommerce_gform_base_price', __CLASS__ . '::get_gravity_form_prices', 10, 2 );
+		add_filter( 'woocommerce_gform_total_price', __CLASS__ . '::get_gravity_form_prices', 10, 2 );
+		add_filter( 'woocommerce_gform_variation_total_price', __CLASS__ . '::get_gravity_form_prices', 10, 2 );
+
+		add_filter( 'woocommerce_product_class', __CLASS__ . '::set_subscription_variation_class', 10, 4 );
+
+		// Make sure a subscriptions price is included in subscription variations when required
+		add_filter( 'woocommerce_available_variation', __CLASS__ . '::maybe_set_variations_price_html', 10, 3 );
+
+		// Display the trial and sign-up fee as detail lines below the price on the single product page (rather than inline in the price string).
+		// Simple subscriptions render below the price; variable subscriptions render next to the add to cart button and only once a variation is selected.
+		add_action( 'woocommerce_single_product_summary', __CLASS__ . '::output_subscription_price_details', 11 );
+		add_action( 'woocommerce_single_variation', __CLASS__ . '::output_variable_subscription_price_details', 15 );
+
+		// Block themes / block-based templates render product prices via the woocommerce/product-price block, which
+		// bypasses the classic price-template hooks. Track when that block is rendering so the inline trial / sign-up
+		// fee suffix is omitted there too (@see should_omit_inline_trial_and_fee()).
+		add_filter( 'pre_render_block', __CLASS__ . '::flag_price_block_rendering', 10, 2 );
+		add_filter( 'render_block', __CLASS__ . '::unflag_price_block_rendering', 10, 2 );
+
+		// Block-theme product templates render the price by hydrating the Store API, and price_html is a display
+		// field there, so omit the inline suffix for the duration of any Store API request (hydration or a genuine
+		// REST call). Trial and sign-up fee remain available through the subscription Store API fields.
+		add_filter( 'rest_request_before_callbacks', __CLASS__ . '::flag_store_api_request', 10, 3 );
+		add_filter( 'rest_request_after_callbacks', __CLASS__ . '::unflag_store_api_request', 10, 3 );
+
+		// Block hydration calls the Store API controllers directly (bypassing the REST dispatch above), so hook its
+		// dedicated filters too.
+		add_filter( 'woocommerce_hydration_dispatch_request', __CLASS__ . '::flag_store_api_hydration', 10, 2 );
+		add_filter( 'woocommerce_hydration_request_after_callbacks', __CLASS__ . '::unflag_store_api_request', 10, 3 );
+
+		// Sync variable product min/max prices with WC 3.0
+		add_action( 'woocommerce_variable_product_sync_data', __CLASS__ . '::variable_subscription_product_sync', 10 );
+
+		// Prevent users from deleting subscription products - it causes too many problems with WooCommerce and other plugins
+		add_filter( 'user_has_cap', __CLASS__ . '::user_can_not_delete_subscription', 10, 3 );
+
+		// Make sure subscription products in the trash can be restored
+		add_filter( 'post_row_actions', __CLASS__ . '::subscription_row_actions', 10, 2 );
+
+		// Remove the "Delete Permanently" bulk action on the Edit Products screen
+		add_filter( 'bulk_actions-edit-product', __CLASS__ . '::subscription_bulk_actions', 10 );
+
+		// Do not allow subscription products to be automatically purged on the 'wp_scheduled_delete' hook
+		add_action( 'wp_scheduled_delete', __CLASS__ . '::prevent_scheduled_deletion', 9 );
+
+		// Trash variations instead of deleting them to prevent headaches from deleted products
+		add_action( 'wp_ajax_woocommerce_remove_variation', __CLASS__ . '::remove_variations', 9 );
+		add_action( 'wp_ajax_woocommerce_remove_variations', __CLASS__ . '::remove_variations', 9 );
+
+		// Handle bulk edits to subscription data in WC 2.4
+		add_action( 'woocommerce_bulk_edit_variations', __CLASS__ . '::bulk_edit_variations', 10, 4 );
+
+		// Adds a field flagging whether the variation is safe to be removed or not.
+		add_action( 'woocommerce_product_after_variable_attributes', array( __CLASS__, 'add_variation_removal_flag' ), 10, 3 );
+
+		// check product variations for sync'd or trial
+		add_action( 'wp_ajax_wcs_product_has_trial_or_is_synced', __CLASS__ . '::check_product_variations_for_syncd_or_trial' );
+
+		// maybe update the One Time Shipping product setting when users edit variations using bulk actions and the variation level save
+		add_action( 'wp_ajax_wcs_update_one_time_shipping', __CLASS__ . '::maybe_update_one_time_shipping_on_variation_edits' );
+
+		add_action( 'wp_ajax_wcs_validate_variation_deletion', array( __CLASS__, 'validate_variation_deletion' ) );
+	}
+
+	/**
+	 * Returns the raw sign up fee value (ignoring tax) by filtering the products price.
+	 *
+	 * @return string
+	 */
+	public static function get_sign_up_fee_filter( $price, $product ) {
+
+		return self::get_sign_up_fee( $product );
+	}
+
+	/**
+	 * Checks a given product to determine if it is a subscription.
+	 * When the received arg is a product object, make sure it is passed into the filter intact in order to retain any properties added on the fly.
+	 *
+	 * @param int|WC_Product $product Either a product object or product's post ID.
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.0
+	 */
+	public static function is_subscription( $product ) {
+
+		$is_subscription = $product_id = false;
+
+		$product = self::maybe_get_product_instance( $product );
+
+		if ( is_object( $product ) ) {
+
+			$product_id = $product->get_id();
+
+			if ( $product->is_type( array( 'subscription', 'subscription_variation', 'variable-subscription' ) ) ) {
+				$is_subscription = true;
+			}
+		}
+
+		return apply_filters( 'woocommerce_is_subscription', $is_subscription, $product_id, $product );
+	}
+
+	/**
+	 * Checks a given product to determine if it is a variable subscription.
+	 *
+	 * @param int|WC_Product $product Either a product object or product's post ID.
+	 * @since 7.8.0
+	 * @see WC_Subscriptions_Product::is_subscription()
+	 */
+	public static function is_variable_subscription( $product ) {
+
+		$is_variable_subscription = false;
+
+		$product = self::maybe_get_product_instance( $product );
+
+		if ( is_object( $product ) ) {
+			if ( $product->is_type( array( 'variable-subscription' ) ) ) {
+				$is_variable_subscription = true;
+			}
+		}
+
+		return $is_variable_subscription;
+	}
+
+	/**
+	 * Output subscription string as the price html for grouped products and make sure that
+	 * sign-up fees are taken into account for price.
+	 *
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.3.4
+	 */
+	public static function get_grouped_price_html( $price, $grouped_product ) {
+
+		$child_prices          = array();
+		$contains_subscription = false;
+
+		foreach ( $grouped_product->get_children() as $child_product_id ) {
+			$child_product = wc_get_product( $child_product_id );
+			if ( ! $child_product instanceof WC_Product ) {
+				continue;
+			}
+			if ( self::is_subscription( $child_product_id ) ) {
+				$contains_subscription = true;
+
+				$tax_display_mode = get_option( 'woocommerce_tax_display_shop' );
+				$child_price      = 'incl' == $tax_display_mode ? wcs_get_price_including_tax( $child_product, array( 'price' => $child_product->get_price() ) ) : wcs_get_price_excluding_tax( $child_product, array( 'price' => $child_product->get_price() ) );
+				$sign_up_fee      = 'incl' == $tax_display_mode ? wcs_get_price_including_tax( $child_product, array( 'price' => self::get_sign_up_fee( $child_product ) ) ) : wcs_get_price_excluding_tax( $child_product, array( 'price' => self::get_sign_up_fee( $child_product ) ) );
+				$has_trial        = self::get_trial_length( $child_product ) > 0;
+
+				// Make sure we have the *real* price (i.e. total initial payment)
+				if ( $has_trial && $sign_up_fee > 0 ) {
+					$child_price = $sign_up_fee;
+				} else {
+					$child_price += $sign_up_fee;
+				}
+
+				$child_prices[] = $child_price;
+			} else {
+				$child_prices[] = $child_product->get_price();
+			}
+		}
+
+		if ( ! $contains_subscription ) {
+			return $price;
+		} else {
+			$price = '';
+		}
+
+		$child_prices = array_unique( $child_prices );
+
+		if ( ! empty( $child_prices ) ) {
+			$min_price = min( $child_prices );
+		} else {
+			$min_price = '';
+		}
+
+		if ( sizeof( $child_prices ) > 1 ) {
+			$price .= wcs_get_price_html_from_text( $grouped_product );
+		}
+
+		$price .= wc_price( $min_price );
+
+		return $price;
+	}
+
+	/**
+	 * Output subscription string in Gravity Form fields.
+	 *
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.1
+	 */
+	public static function get_gravity_form_prices( $price, $product ) {
+
+		if ( self::is_subscription( $product ) ) {
+			$price = self::get_price_string(
+				$product,
+				array(
+					'price'               => $price,
+					'subscription_length' => false,
+					'sign_up_fee'         => false,
+					'trial_length'        => false,
+				)
+			);
+		}
+
+		return $price;
+	}
+
+	/**
+	 * Returns a string representing the details of the subscription.
+	 *
+	 * For example "$20 per Month for 3 Months with a $10 sign-up fee".
+	 *
+	 * @param WC_Product|int $product A WC_Product object or ID of a WC_Product.
+	 * @param array $include An associative array of flags to indicate how to calculate the price and what to include, values:
+	 *    'tax_calculation'     => false to ignore tax, 'include_tax' or 'exclude_tax' To indicate that tax should be added or excluded respectively
+	 *    'subscription_length' => true to include subscription's length (default) or false to exclude it
+	 *    'sign_up_fee'         => true to include subscription's sign up fee (default) or false to exclude it
+	 *    'price'               => string a price to short-circuit the price calculations and use in a string for the product
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.0
+	 */
+	public static function get_price_string( $product, $include = array() ) {
+		$product = self::maybe_get_product_instance( $product );
+
+		if ( ! self::is_subscription( $product ) ) {
+			return;
+		}
+
+		$include = wp_parse_args(
+			$include,
+			array(
+				'tax_calculation'     => get_option( 'woocommerce_tax_display_shop' ),
+				'subscription_price'  => true,
+				'subscription_period' => true,
+				'subscription_length' => true,
+				'sign_up_fee'         => true,
+				'trial_length'        => true,
+			)
+		);
+
+		$include = apply_filters( 'woocommerce_subscriptions_product_price_string_inclusions', $include, $product );
+
+		// Calculate price context via the functional calculator.
+		$options       = array( 'tax_display' => $include['tax_calculation'] );
+		$price_context = \Automattic\WooCommerce_Subscriptions\Internal\Pricing\Price_Calculator::calculate_product_price( $product, $options );
+
+		// Render the subscription string. The $include array is passed as render_options —
+		// the renderer reads tax_calculation, subscription_price, subscription_period,
+		// subscription_length, sign_up_fee, trial_length, and price from it.
+		$subscription_string = \Automattic\WooCommerce_Subscriptions\Internal\Pricing\Price_String_Renderer::render( $price_context, $include );
+
+		return apply_filters( 'woocommerce_subscriptions_product_price_string', $subscription_string, $product, $include );
+	}
+
+	/**
+	 * Whether the inline trial / sign-up fee suffix should be omitted from the displayed price string.
+	 *
+	 * They are suppressed only where they are either replaced by dedicated detail lines or deliberately hidden:
+	 *  - the single product page (@see output_subscription_price_details()), and
+	 *  - catalog / shop loops (archives, category/tag pages, related & up-sell products, [products] grids).
+	 *
+	 * Every other context that renders a product's price HTML — the REST API `price_html` field, product widgets,
+	 * the mini-cart, page builders and third-party code — keeps the suffix, preserving the long-standing behaviour.
+	 *
+	 * Detection is by render context (the WooCommerce price-template hooks, or the woocommerce/product-price block in
+	 * block themes) rather than page conditionals, so the decision is correct even when a catalog loop is rendered
+	 * inside another page (e.g. related products on the single product page) or via AJAX.
+	 *
+	 * @since 9.0.0
+	 * @return bool
+	 */
+	public static function should_omit_inline_trial_and_fee() {
+		return self::$price_block_render_depth > 0
+			|| self::$is_serving_store_api_request
+			|| doing_action( 'woocommerce_single_product_summary' )
+			|| doing_action( 'woocommerce_after_shop_loop_item_title' );
+	}
+
+	/**
+	 * Whether a block renders a product's price (directly or via its variation data) and so should omit the suffix.
+	 *
+	 * @since 9.0.0
+	 *
+	 * @param  array $parsed_block The block being rendered.
+	 * @return bool
+	 */
+	protected static function is_price_rendering_block( $parsed_block ) {
+		return isset( $parsed_block['blockName'] ) && in_array(
+			$parsed_block['blockName'],
+			array(
+				'woocommerce/product-price',    // The product price itself.
+				'woocommerce/add-to-cart-form', // Builds variation price_html for variable products.
+			),
+			true
+		);
+	}
+
+	/**
+	 * Flags that a WooCommerce Store API request is being served.
+	 *
+	 * Hooked on 'rest_request_before_callbacks'. The Store API's price_html is a display field — used by block themes
+	 * (via hydration) and block-based product/cart templates — so the inline trial / sign-up fee suffix is omitted
+	 * while it is served. Fires for both block hydration and genuine REST requests.
+	 *
+	 * @since 9.0.0
+	 *
+	 * @param  mixed            $response The response. Passed through unchanged.
+	 * @param  array            $handler  The matched route handler.
+	 * @param  WP_REST_Request  $request  The request.
+	 * @return mixed
+	 */
+	public static function flag_store_api_request( $response, $handler, $request ) {
+		if ( is_a( $request, 'WP_REST_Request' ) && 0 === strpos( (string) $request->get_route(), '/wc/store/' ) ) {
+			self::$is_serving_store_api_request = true;
+		}
+
+		return $response;
+	}
+
+	/**
+	 * Flags a Store API request served via block hydration (which bypasses the REST dispatch).
+	 *
+	 * Hooked on 'woocommerce_hydration_dispatch_request'.
+	 *
+	 * @since 9.0.0
+	 *
+	 * @param  mixed           $pre_dispatch Short-circuit value. Passed through unchanged.
+	 * @param  WP_REST_Request $request      The hydration request.
+	 * @return mixed
+	 */
+	public static function flag_store_api_hydration( $pre_dispatch, $request ) {
+		if ( is_a( $request, 'WP_REST_Request' ) && 0 === strpos( (string) $request->get_route(), '/wc/store/' ) ) {
+			self::$is_serving_store_api_request = true;
+		}
+
+		return $pre_dispatch;
+	}
+
+	/**
+	 * Clears the Store API request flag once the request has been served.
+	 *
+	 * Hooked on 'rest_request_after_callbacks'.
+	 *
+	 * @since 9.0.0
+	 *
+	 * @param  mixed            $response The response. Passed through unchanged.
+	 * @param  array            $handler  The matched route handler.
+	 * @param  WP_REST_Request  $request  The request.
+	 * @return mixed
+	 */
+	public static function unflag_store_api_request( $response, $handler, $request ) {
+		if ( is_a( $request, 'WP_REST_Request' ) && 0 === strpos( (string) $request->get_route(), '/wc/store/' ) ) {
+			self::$is_serving_store_api_request = false;
+		}
+
+		return $response;
+	}
+
+	/**
+	 * Flags that a price-rendering block has started rendering.
+	 *
+	 * Hooked on 'pre_render_block'. Used so the inline trial / sign-up fee suffix is omitted from prices rendered by
+	 * these blocks (block themes, the Single Product and Product Collection blocks, related products, the add to cart
+	 * form's variation data, etc.).
+	 *
+	 * Only increments when $pre_render is null. A non-null value means another plugin has short-circuited the block,
+	 * so WordPress skips the 'render_block' filter where unflag_price_block_rendering() would decrement — incrementing
+	 * in that case would leave the depth permanently raised for the rest of the request.
+	 *
+	 * @since 9.0.0
+	 *
+	 * @param  string|null $pre_render   The pre-rendered content. Passed through unchanged.
+	 * @param  array       $parsed_block The block being rendered.
+	 * @return string|null
+	 */
+	public static function flag_price_block_rendering( $pre_render, $parsed_block ) {
+		if ( null === $pre_render && self::is_price_rendering_block( $parsed_block ) ) {
+			++self::$price_block_render_depth;
+		}
+
+		return $pre_render;
+	}
+
+	/**
+	 * Clears the woocommerce/product-price block rendering flag once the block has finished rendering.
+	 *
+	 * Hooked on 'render_block'.
+	 *
+	 * @since 9.0.0
+	 *
+	 * @param  string $block_content The rendered block content. Passed through unchanged.
+	 * @param  array  $parsed_block  The block that was rendered.
+	 * @return string
+	 */
+	public static function unflag_price_block_rendering( $block_content, $parsed_block ) {
+		if ( self::is_price_rendering_block( $parsed_block ) ) {
+			self::$price_block_render_depth = max( 0, self::$price_block_render_depth - 1 );
+		}
+
+		return $block_content;
+	}
+
+	/**
+	 * Outputs the trial and sign-up fee detail lines below the price on the single product page.
+	 *
+	 * The trial and sign-up fee are intentionally excluded from the inline price string (@see get_price_html()) and
+	 * surfaced here instead, mirroring how products with subscription plans display them next to the plan selector.
+	 *
+	 * Variable subscriptions are handled separately (@see output_variable_subscription_price_details()) because their
+	 * values are variation-specific and should only appear once a variation is selected.
+	 *
+	 * @since 9.0.0
+	 */
+	public static function output_subscription_price_details() {
+		global $product;
+
+		if ( ! is_a( $product, 'WC_Product' ) || ! self::is_subscription( $product ) ) {
+			return;
+		}
+
+		// Variable subscriptions render their (variation-specific) detail lines next to the add to cart button instead.
+		if ( $product->is_type( 'variable-subscription' ) ) {
+			return;
+		}
+
+		$details_html = self::get_subscription_price_details_html( $product );
+
+		if ( '' === $details_html ) {
+			return;
+		}
+
+		// $details_html is escaped per-line in get_subscription_price_details_html().
+		// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped
+		echo '<div class="woocommerce-subscriptions-product-details" aria-live="polite" aria-atomic="true">' . $details_html . '</div>';
+	}
+
+	/**
+	 * Outputs the detail-line container for variable subscriptions, just before the add to cart button.
+	 *
+	 * The container starts empty and hidden; the variation script (@see assets/js/frontend/single-product.js) fills it
+	 * with the selected variation's trial and sign-up fee details once a variation is chosen (i.e. once the add to cart
+	 * button is enabled) and hides it again when the selection is reset.
+	 *
+	 * @since 9.0.0
+	 */
+	public static function output_variable_subscription_price_details() {
+		global $product;
+
+		if ( ! is_a( $product, 'WC_Product' ) || ! $product->is_type( 'variable-subscription' ) ) {
+			return;
+		}
+
+		echo '<div class="woocommerce-subscriptions-product-details" aria-live="polite" aria-atomic="true" style="display:none;"></div>';
+	}
+
+	/**
+	 * Returns the "Free trial:" / "Sign-up fee:" detail line HTML for a subscription product.
+	 *
+	 * @param  WC_Product|int $product          A WC_Product object or ID of a WC_Product.
+	 * @param  string         $tax_display_mode Optional. 'incl' or 'excl' to resolve the sign-up fee's tax treatment.
+	 *                                          Defaults to '', which follows the shop price display setting — correct on
+	 *                                          the product page. Cart/checkout callers pass the cart display mode so the
+	 *                                          fee matches the surrounding prices when the shop and cart settings differ.
+	 * @return string Detail line HTML, or an empty string when there is no trial or sign-up fee.
+	 * @since 9.0.0
+	 */
+	public static function get_subscription_price_details_html( $product, $tax_display_mode = '' ) {
+
+		$product = self::maybe_get_product_instance( $product );
+
+		if ( ! self::is_subscription( $product ) ) {
+			return '';
+		}
+
+		$details_html = '';
+		$trial_label  = wcs_get_subscription_trial_length_label( self::get_trial_length( $product ), self::get_trial_period( $product ) );
+
+		if ( '' !== $trial_label ) {
+			/* translators: %s: trial length string, e.g. "30 days" or "1 week" */
+			$details_html .= '<p class="woocommerce-subscriptions-product-details__trial">' . esc_html( sprintf( __( 'Free trial: %s', 'woocommerce-subscriptions' ), $trial_label ) ) . '</p>';
+		}
+
+		$sign_up_fee = self::get_sign_up_fee( $product );
+
+		if ( $sign_up_fee > 0 ) {
+			$args = array(
+				'qty'   => 1,
+				'price' => $sign_up_fee,
+			);
+			// Default to the shop price display setting (product page); cart/checkout callers pass the cart display mode.
+			$display_fee_incl_tax = '' === $tax_display_mode ? 'incl' === get_option( 'woocommerce_tax_display_shop' ) : 'incl' === $tax_display_mode;
+			$sign_up_fee_display  = $display_fee_incl_tax ? wcs_get_price_including_tax( $product, $args ) : wcs_get_price_excluding_tax( $product, $args );
+
+			// Append the store's price display suffix (e.g. "Incl VAT") so the sign-up fee matches the main price, which
+			// core suffixes via WC_Product::get_price_suffix(). Passing the fee resolves any tax placeholders against it.
+			$sign_up_fee_price_html = wc_price( $sign_up_fee_display ) . $product->get_price_suffix( $sign_up_fee );
+
+			/* translators: %s: formatted sign-up fee amount */
+			$details_html .= '<p class="woocommerce-subscriptions-product-details__signup-fee">' . wp_kses_post( sprintf( __( 'Sign-up fee: %s', 'woocommerce-subscriptions' ), $sign_up_fee_price_html ) ) . '</p>';
+		}
+
+		return $details_html;
+	}
+
+	/**
+	 * Returns the active price per period for a product if it is a subscription.
+	 *
+	 * @param mixed $product A WC_Product object or product ID
+	 * @return string The price charged per period for the subscription, or an empty string if the product is not a subscription.
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.0
+	 */
+	public static function get_price( $product ) {
+		$product = self::maybe_get_product_instance( $product );
+
+		if ( ! is_a( $product, 'WC_Product' ) ) {
+			return '';
+		}
+
+		$subscription_price = self::get_meta_data( $product, 'subscription_price', 0 );
+		$sale_price         = self::get_sale_price( $product );
+		$active_price       = ( $subscription_price ) ? $subscription_price : self::get_regular_price( $product );
+
+		// Ensure that $sale_price is non-empty because other plugins can use woocommerce_product_is_on_sale filter to
+		// forcefully set a product's is_on_sale flag (like Dynamic Pricing )
+		if ( $product->is_on_sale() && '' !== $sale_price && $subscription_price > $sale_price ) {
+			$active_price = $sale_price;
+		}
+
+		return apply_filters( 'woocommerce_subscriptions_product_price', $active_price, $product );
+	}
+
+	/**
+	 * Returns the sale price per period for a product if it is a subscription.
+	 *
+	 * @param mixed $product A WC_Product object or product ID
+	 * @return string
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v2.2.0
+	 */
+	public static function get_regular_price( $product, $context = 'view' ) {
+
+		if ( wcs_is_woocommerce_pre( '3.0' ) ) {
+			$regular_price = $product->regular_price;
+		} else {
+			$regular_price = $product->get_regular_price( $context );
+		}
+
+		return apply_filters( 'woocommerce_subscriptions_product_regular_price', $regular_price, $product );
+	}
+
+	/**
+	 * Returns the regular price per period for a product if it is a subscription.
+	 *
+	 * @param mixed $product A WC_Product object or product ID
+	 * @return string
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v2.2.0
+	 */
+	public static function get_sale_price( $product, $context = 'view' ) {
+
+		if ( wcs_is_woocommerce_pre( '3.0' ) ) {
+			$sale_price = $product->sale_price;
+		} else {
+			$sale_price = $product->get_sale_price( $context );
+		}
+
+		return apply_filters( 'woocommerce_subscriptions_product_sale_price', $sale_price, $product );
+	}
+
+	/**
+	 * Returns the subscription period for a product, if it's a subscription.
+	 *
+	 * @param mixed $product A WC_Product object or product ID
+	 * @return string A string representation of the period, either Day, Week, Month or Year, or an empty string if product is not a subscription.
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.0
+	 */
+	public static function get_period( $product ) {
+		return apply_filters( 'woocommerce_subscriptions_product_period', self::get_meta_data( $product, 'subscription_period', '' ), self::maybe_get_product_instance( $product ) );
+	}
+
+	/**
+	 * Returns the subscription interval for a product, if it's a subscription.
+	 *
+	 * @param mixed $product A WC_Product object or product ID
+	 * @return int An integer representing the subscription interval, or 1 if the product is not a subscription or there is no interval
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.0
+	 */
+	public static function get_interval( $product ) {
+		return apply_filters( 'woocommerce_subscriptions_product_period_interval', self::get_meta_data( $product, 'subscription_period_interval', 1, 'use_default_value' ), self::maybe_get_product_instance( $product ) );
+	}
+
+	/**
+	 * Returns the length of a subscription product, if it is a subscription.
+	 *
+	 * @param mixed $product A WC_Product object or product ID
+	 * @return int An integer representing the length of the subscription, or 0 if the product is not a subscription or the subscription continues for perpetuity
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.0
+	 */
+	public static function get_length( $product ) {
+		return apply_filters( 'woocommerce_subscriptions_product_length', self::get_meta_data( $product, 'subscription_length', 0, 'use_default_value' ), self::maybe_get_product_instance( $product ) );
+	}
+
+	/**
+	 * Returns the trial length of a subscription product, if it is a subscription.
+	 *
+	 * @param mixed $product A WC_Product object or product ID
+	 * @return int An integer representing the length of the subscription trial, or 0 if the product is not a subscription or there is no trial
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.0
+	 */
+	public static function get_trial_length( $product ) {
+		return apply_filters( 'woocommerce_subscriptions_product_trial_length', self::get_meta_data( $product, 'subscription_trial_length', 0, 'use_default_value' ), self::maybe_get_product_instance( $product ) );
+	}
+
+	/**
+	 * Returns the trial period of a subscription product, if it is a subscription.
+	 *
+	 * @param mixed $product A WC_Product object or product ID
+	 * @return string A string representation of the period, either Day, Week, Month or Year, or an empty string if product is not a subscription or there is no trial
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.2
+	 */
+	public static function get_trial_period( $product ) {
+		return apply_filters( 'woocommerce_subscriptions_product_trial_period', self::get_meta_data( $product, 'subscription_trial_period', '' ), self::maybe_get_product_instance( $product ) );
+	}
+
+	/**
+	 * Returns the sign-up fee for a subscription, if it is a subscription.
+	 *
+	 * @param mixed $product A WC_Product object or product ID
+	 * @return int|string The value of the sign-up fee, or 0 if the product is not a subscription or the subscription has no sign-up fee
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.0
+	 */
+	public static function get_sign_up_fee( $product ) {
+		return apply_filters( 'woocommerce_subscriptions_product_sign_up_fee', self::get_meta_data( $product, 'subscription_sign_up_fee', 0, 'use_default_value' ), self::maybe_get_product_instance( $product ) );
+	}
+
+	/**
+	 * Returns the gifting setting for a subscription, if it is a subscription.
+	 *
+	 * @param mixed $product A WC_Product object or product ID
+	 * @return string The value of the gifting setting, or '' if the product it is using the global setting.
+	 * @since 7.8.0
+	 */
+	public static function get_gifting( $product ) {
+		return apply_filters( 'woocommerce_subscriptions_product_gifting', self::get_meta_data( $product, 'subscription_gifting', '' ), self::maybe_get_product_instance( $product ) ); // phpcs:ignore WooCommerce.Commenting.CommentHooks.MissingHookComment
+	}
+
+	/**
+	 * Resolves whether gifting is enabled for a product: its own setting when it has one, otherwise the
+	 * storewide default. Variations resolve through their parent, except variable subscription variations,
+	 * which carry their own per-variation setting.
+	 *
+	 * The single home for that resolution, shared by the runtime check and every admin control that renders the
+	 * per-product checkbox. Keeping it in one place is what stops those surfaces disagreeing - a product showing
+	 * an unchecked box while the storefront treats it as giftable materializes the wrong value on the next save.
+	 *
+	 * Only 'enabled' and 'disabled' count as a per-product choice. Meta can hold anything - an empty string from
+	 * the legacy "use global setting" option, or a stray value written by other code - and an unrecognized value
+	 * is not a choice, so it resolves like an unset one. Comparisons are strict throughout: a `switch` would
+	 * compare loosely and match non-string values against these labels.
+	 *
+	 * A product without a usable value falls back to the legacy storewide default only while the 9.2.0 gifting
+	 * migration is materializing that default onto every product. That fallback is a shim with a fixed lifetime,
+	 * not a permanent layer: once the migration finishes, every product that had an effective value carries it
+	 * explicitly, so "no value" can only mean a product created after the redesign, which is not giftable until
+	 * the merchant says so.
+	 *
+	 * @since 9.2.0
+	 *
+	 * @param mixed $product A WC_Product object or product ID.
+	 * @return bool
+	 */
+	public static function is_gifting_enabled_for_product( $product ) {
+		$product = self::maybe_get_product_instance( $product );
+
+		if ( ! $product ) {
+			return false;
+		}
+
+		// A variation only carries its own gifting choice when it belongs to a variable subscription, whose
+		// admin UI manages gifting per variation (product type 'subscription_variation'). A plain variation
+		// - e.g. of a variable product sold through subscription plans - has no per-variation control, so
+		// the parent's product-level setting is authoritative. Resolving through the parent also neutralizes
+		// any stray variation meta, such as the rows a pre-release version of the 9.2.0 migration wrote.
+		//
+		// The exact-type comparison is deliberate; the obvious alternatives all misfire: is_subscription()
+		// is filterable and APFS answers true for any object carrying an active plan scheme (cart items,
+		// forced-plan variation data), is_type( 'variation' ) is aliased by
+		// WC_Product_Subscription_Variation to also answer true, and get_parent_id() alone is not a
+		// variation test because core stores post_parent for every product type. Mirrored by
+		// WCS_Plugin_Upgrade_9_2_0::is_product_giftable_eligible(); change both together.
+		if ( 'variation' === $product->get_type() ) {
+			$parent_id = $product->get_parent_id();
+			$parent    = $parent_id ? wc_get_product( $parent_id ) : false;
+
+			// This branch only re-enters for the 'variation' type, so refusing to delegate into a
+			// variation-typed parent makes the hop terminate unconditionally - even on data corrupt enough
+			// to chain variations together. Anything else delegates normally: in particular, a parent
+			// carrying its own stray post_parent (core stores post_parent for every product type) must not
+			// cost its variations the delegation.
+			if ( $parent && 'variation' !== $parent->get_type() ) {
+				return self::is_gifting_enabled_for_product( $parent );
+			}
+		}
+
+		$product_gifting = self::get_gifting( $product );
+
+		// get_gifting() resolves to '' for a product that is not a subscription type, so products using
+		// subscription plans need their meta read directly.
+		if ( '' === $product_gifting ) {
+			$product_gifting = $product->get_meta( '_subscription_gifting', true );
+		}
+
+		if ( 'enabled' === $product_gifting ) {
+			return true;
+		}
+
+		if ( 'disabled' === $product_gifting ) {
+			return false;
+		}
+
+		// No usable per-product value. Once the store has been settled - the migration finished, or there was
+		// nothing to migrate - there is no storewide default left to consult, so the product is not giftable.
+		// Until then it still inherits, which is what keeps giftability unchanged before the 9.2.0 upgrade has
+		// run and while the migration is in flight.
+		if ( WCS_Plugin_Upgrade_9_2_0::has_gifting_migration_settled() ) {
+			return false;
+		}
+
+		// The standalone Gifting extension ships its own WCSG_Admin, which may not carry this check.
+		if ( method_exists( 'WCSG_Admin', 'is_gifting_enabled_for_all_products' ) ) {
+			return WCSG_Admin::is_gifting_enabled_for_all_products();
+		}
+
+		return false;
+	}
+
+	/**
+	 * Takes a subscription product's ID and returns the date on which the first renewal payment will be processed
+	 * based on the subscription's length and calculated from either the $from_date if specified, or the current date/time.
+	 *
+	 * @param int|WC_Product $product The product instance or product/post ID of a subscription product.
+	 * @param mixed $from_date A MySQL formatted date/time string from which to calculate the expiration date, or empty (default), which will use today's date/time.
+	 * @param string $timezone The timezone for the returned date, either 'site' for the site's timezone, or 'gmt'. Default, 'site'.
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v2.0
+	 */
+	public static function get_first_renewal_payment_date( $product, $from_date = '', $timezone = 'gmt' ) {
+
+		$first_renewal_timestamp = self::get_first_renewal_payment_time( $product, $from_date, $timezone );
+
+		if ( $first_renewal_timestamp > 0 ) {
+			$first_renewal_date = gmdate( 'Y-m-d H:i:s', $first_renewal_timestamp );
+		} else {
+			$first_renewal_date = 0;
+		}
+
+		return apply_filters( 'woocommerce_subscriptions_product_first_renewal_payment_date', $first_renewal_date, $product, $from_date, $timezone );
+	}
+
+	/**
+	 * Takes a subscription product's ID and returns the date on which the first renewal payment will be processed
+	 * based on the subscription's length and calculated from either the $from_date if specified, or the current date/time.
+	 *
+	 * @param int|WC_Product $product The product instance or product/post ID of a subscription product.
+	 * @param mixed $from_date A MySQL formatted date/time string from which to calculate the expiration date, or empty (default), which will use today's date/time.
+	 * @param string $timezone The timezone for the returned date, either 'site' for the site's timezone, or 'gmt'. Default, 'site'.
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v2.0
+	 */
+	public static function get_first_renewal_payment_time( $product, $from_date = '', $timezone = 'gmt' ) {
+
+		if ( ! self::is_subscription( $product ) ) {
+			return 0;
+		}
+
+		$from_date_param = $from_date;
+
+		$billing_interval = self::get_interval( $product );
+		$billing_length   = self::get_length( $product );
+		$trial_length     = self::get_trial_length( $product );
+
+		if ( $billing_interval !== $billing_length || $trial_length > 0 ) {
+
+			if ( empty( $from_date ) ) {
+				$from_date = gmdate( 'Y-m-d H:i:s' );
+			}
+
+			// If the subscription has a free trial period, the first renewal payment date is the same as the expiration of the free trial
+			if ( $trial_length > 0 ) {
+
+				$first_renewal_timestamp = wcs_date_to_time( self::get_trial_expiration_date( $product, $from_date ) );
+
+			} else {
+
+				$site_time_offset = (int) ( get_option( 'gmt_offset' ) * HOUR_IN_SECONDS );
+
+				// As wcs_add_time() calls wcs_add_months() which checks for last day of month, pass the site time
+				$first_renewal_timestamp = wcs_add_time( $billing_interval, self::get_period( $product ), wcs_date_to_time( $from_date ) + $site_time_offset );
+
+				if ( 'site' !== $timezone ) {
+					$first_renewal_timestamp -= $site_time_offset;
+				}
+			}
+		} else {
+			$first_renewal_timestamp = 0;
+		}
+
+		return apply_filters( 'woocommerce_subscriptions_product_first_renewal_payment_time', $first_renewal_timestamp, $product, $from_date_param, $timezone );
+	}
+
+	/**
+	 * Takes a subscription product's ID and returns the date on which the subscription product will expire,
+	 * based on the subscription's length and calculated from either the $from_date if specified, or the current date/time.
+	 *
+	 * @param int|WC_Product $product The product instance or product/post ID of a subscription product.
+	 * @param mixed $from_date A MySQL formatted date/time string from which to calculate the expiration date, or empty (default), which will use today's date/time.
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.0
+	 */
+	public static function get_expiration_date( $product, $from_date = '' ) {
+
+		$subscription_length = self::get_length( $product );
+
+		if ( $subscription_length > 0 ) {
+
+			if ( empty( $from_date ) ) {
+				$from_date = gmdate( 'Y-m-d H:i:s' );
+			}
+
+			if ( self::get_trial_length( $product ) > 0 ) {
+				$from_date = self::get_trial_expiration_date( $product, $from_date );
+			}
+
+			$expiration_date = gmdate( 'Y-m-d H:i:s', wcs_add_time( $subscription_length, self::get_period( $product ), wcs_date_to_time( $from_date ) ) );
+
+		} else {
+
+			$expiration_date = 0;
+
+		}
+
+		return apply_filters( 'woocommerce_subscriptions_product_expiration_date', $expiration_date, $product, $from_date );
+	}
+
+	/**
+	 * Takes a subscription product's ID and returns the date on which the subscription trial will expire,
+	 * based on the subscription's trial length and calculated from either the $from_date if specified,
+	 * or the current date/time.
+	 *
+	 * @param int|WC_Product $product The product instance or product/post ID of a subscription product.
+	 * @param mixed $from_date A MySQL formatted date/time string from which to calculate the expiration date (in UTC timezone), or empty (default), which will use today's date/time (in UTC timezone).
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.0
+	 */
+	public static function get_trial_expiration_date( $product, $from_date = '' ) {
+
+		$trial_length = self::get_trial_length( $product );
+
+		if ( $trial_length > 0 ) {
+
+			if ( empty( $from_date ) ) {
+				$from_date = gmdate( 'Y-m-d H:i:s' );
+			}
+
+			$trial_expiration_date = gmdate( 'Y-m-d H:i:s', wcs_add_time( $trial_length, self::get_trial_period( $product ), wcs_date_to_time( $from_date ) ) );
+
+		} else {
+
+			$trial_expiration_date = 0;
+
+		}
+
+		return apply_filters( 'woocommerce_subscriptions_product_trial_expiration_date', $trial_expiration_date, $product, $from_date );
+	}
+
+	/**
+	 * Checks the classname being used for a product variation to see if it should be a subscription product
+	 * variation, and if so, returns this as the class which should be instantiated (instead of the default
+	 * WC_Product_Variation class).
+	 *
+	 * @return string $classname The name of the WC_Product_* class which should be instantiated to create an instance of this product.
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.3
+	 */
+	public static function set_subscription_variation_class( $classname, $product_type, $post_type, $product_id ) {
+
+		if ( 'product_variation' === $post_type && 'variation' === $product_type ) {
+			$post = get_post( $product_id );
+
+			if ( $post ) {
+				$terms = get_the_terms( $post->post_parent, 'product_type' );
+
+				$parent_product_type = ! empty( $terms ) && isset( current( $terms )->slug ) ? current( $terms )->slug : '';
+
+				if ( 'variable-subscription' === $parent_product_type ) {
+					$classname = 'WC_Product_Subscription_Variation';
+				}
+			}
+		}
+
+		return $classname;
+	}
+
+	/**
+	 * Ensures a price is displayed for subscription variation where WC would normally ignore it (i.e. when prices are equal).
+	 *
+	 * @return array $variation_details Set of name/value pairs representing the subscription.
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.3.6
+	 */
+	public static function maybe_set_variations_price_html( $variation_details, $variable_product, $variation ) {
+
+		if ( $variable_product->is_type( 'variable-subscription' ) && empty( $variation_details['price_html'] ) ) {
+			$variation_details['price_html'] = '<span class="price">' . $variation->get_price_html() . '</span>';
+		}
+
+		return $variation_details;
+	}
+
+	/**
+	 * Do not allow any user to delete a subscription product if it is associated with an order.
+	 *
+	 * Those with appropriate capabilities can still trash the product, but they will not be able to permanently
+	 * delete the product if it is associated with an order (i.e. been purchased).
+	 *
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.4.9
+	 */
+	public static function user_can_not_delete_subscription( $allcaps, $caps, $args ) {
+		global $wpdb;
+
+		if ( isset( $args[0] ) && in_array( $args[0], array( 'delete_post', 'delete_product' ) ) && isset( $args[2] ) && ( ! isset( $_GET['action'] ) || 'untrash' != $_GET['action'] ) && 0 === strpos( get_post_type( $args[2] ), 'product' ) ) {
+
+			$user_id = $args[2];
+			$post_id = $args[2];
+			$product = wc_get_product( $post_id );
+
+			if ( false !== $product && 'trash' == wcs_get_objects_property( $product, 'post_status' ) && $product->is_type( array( 'subscription', 'variable-subscription', 'subscription_variation' ) ) ) {
+
+				$product_id = ( $product->is_type( 'subscription_variation' ) ) ? $product->get_parent_id() : $post_id;
+
+				$subscription_count = $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM `{$wpdb->prefix}woocommerce_order_itemmeta` WHERE `meta_key` = '_product_id' AND `meta_value` = %d", $product_id ) );
+
+				if ( $subscription_count > 0 ) {
+					$allcaps[ $caps[0] ] = false;
+				}
+			}
+		}
+
+		return $allcaps;
+	}
+
+	/**
+	 * Make sure the 'untrash' (i.e. "Restore") row action is displayed.
+	 *
+	 * In @see self::user_can_not_delete_subscription() we prevent a store manager being able to delete a subscription product.
+	 * However, WooCommerce also uses the `delete_post` capability to check whether to display the 'trash' and 'untrash' row actions.
+	 * We want a store manager to be able to trash and untrash subscriptions, so this function adds them again.
+	 *
+	 * @return array $actions Array of actions that can be performed on the post.
+	 * @return array $post Array of post values for the current product (or post object if it is not a product).
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.4.9
+	 */
+	public static function subscription_row_actions( $actions, $post ) {
+		global $the_product;
+
+		if ( ! empty( $the_product ) && ! isset( $actions['untrash'] ) && $the_product->is_type( array( 'subscription', 'variable-subscription', 'subscription_variation' ) ) ) {
+
+			$post_type_object = get_post_type_object( $post->post_type );
+
+			if ( 'trash' == $post->post_status && current_user_can( $post_type_object->cap->edit_post, $post->ID ) ) {
+				$actions['untrash'] = "<a
+				title='" . esc_attr__( 'Restore this item from the Trash', 'woocommerce-subscriptions' ) . "'
+				href='" . wp_nonce_url( admin_url( sprintf( $post_type_object->_edit_link . '&amp;action=untrash', $post->ID ) ), 'untrash-post_' . $post->ID ) . "'>" . __( 'Restore', 'woocommerce-subscriptions' ) . '</a>';
+			}
+		}
+
+		return $actions;
+	}
+
+	/**
+	 * Remove the "Delete Permanently" action from the bulk actions select element on the Products admin screen.
+	 *
+	 * Because any subscription products associated with an order can not be permanently deleted (as a result of
+	 * @see self::user_can_not_delete_subscription() ), leaving the bulk action in can lead to the store manager
+	 * hitting the "You are not allowed to delete this item" brick wall and not being able to continue with the
+	 * deletion (or get any more detailed information about which item can't be deleted and why).
+	 *
+	 * @return array $actions Array of actions that can be performed on the post.
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.4.9
+	 */
+	public static function subscription_bulk_actions( $actions ) {
+
+		unset( $actions['delete'] );
+
+		return $actions;
+	}
+
+	/**
+	 * Check whether a product has one-time shipping only.
+	 *
+	 * @param mixed $product A WC_Product object or product ID
+	 * @return bool True if the product requires only one time shipping, false otherwise.
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v2.2.0
+	 */
+	public static function needs_one_time_shipping( $product ) {
+		$product   = self::maybe_get_product_instance( $product );
+		$variation = null;
+		if ( $product && $product->is_type( 'variation' ) && is_callable( array( $product, 'get_parent_id' ) ) ) {
+			$variation = $product;
+			$product   = self::maybe_get_product_instance( $product->get_parent_id() );
+		}
+		return apply_filters( 'woocommerce_subscriptions_product_needs_one_time_shipping', 'yes' === self::get_meta_data( $product, 'subscription_one_time_shipping', 'no' ), $product, $variation );
+	}
+
+	/**
+	 * Hooked to the @see 'wp_scheduled_delete' WP-Cron scheduled task to rename the '_wp_trash_meta_time' meta value
+	 * as '_wc_trash_meta_time'. This is the flag used by WordPress to determine which posts should be automatically
+	 * purged from the trash. We want to make sure Subscriptions products are not automatically purged (but still want
+	 * to keep a record of when the product was trashed).
+	 *
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.4.9
+	 */
+	public static function prevent_scheduled_deletion() {
+		global $wpdb;
+
+		$wpdb->query(
+			"UPDATE $wpdb->postmeta
+				INNER JOIN $wpdb->posts ON $wpdb->postmeta.post_id = $wpdb->posts.ID
+				SET $wpdb->postmeta.meta_key = '_wc_trash_meta_time'
+				WHERE $wpdb->postmeta.meta_key = '_wp_trash_meta_time'
+				AND $wpdb->posts.post_type IN ( 'product', 'product_variation')
+				AND $wpdb->posts.post_status = 'trash'"
+		);
+	}
+
+	/**
+	 * Trash subscription variations - don't delete them permanently.
+	 *
+	 * This is hooked to 'wp_ajax_woocommerce_remove_variation' & 'wp_ajax_woocommerce_remove_variations'
+	 * before WooCommerce's WC_AJAX::remove_variation() or WC_AJAX::remove_variations() functions are run.
+	 * The WooCommerce functions will still run after this, but if the variation is a subscription, the
+	 * request will either terminate or in the case of bulk deleting, the variation's ID will be removed
+	 * from the $_POST.
+	 *
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.4.9
+	 */
+	public static function remove_variations() {
+
+		if ( isset( $_POST['variation_id'] ) ) { // removing single variation
+
+			check_ajax_referer( 'delete-variation', 'security' );
+			$variation_ids = array( wc_clean( wp_unslash( $_POST['variation_id'] ) ) );
+
+		} else {  // removing multiple variations
+
+			check_ajax_referer( 'delete-variations', 'security' );
+			$variation_ids = (array) wc_clean( wp_unslash( $_POST['variation_ids'] ) );
+
+		}
+
+		/*
+		 * WooCommerce's handler runs after this one and gates deletion on 'edit_products'. Because this
+		 * callback trashes the variation before handing control back, it needs the same gate: the shared
+		 * 'delete-variations' nonce is not an authorization check.
+		 *
+		 * This deliberately mirrors WC_AJAX::remove_variations() rather than authorizing against the
+		 * individual variation. Because we return on failure and let WooCommerce handle the request, a
+		 * check stricter than WooCommerce's would hand the variation over for permanent deletion instead
+		 * of trashing it.
+		 *
+		 * Note also that current_user_can( 'edit_product', $variation_id ) would not add object scoping
+		 * here. 'product_variation' is registered with map_meta_cap => false, so the meta cap collapses to
+		 * the primitive 'edit_product' (via capability_type => 'product') and the variation ID is never
+		 * consulted - it reads as an object-scoped check while behaving like a role check.
+		 */
+		if ( ! current_user_can( 'edit_products' ) ) {
+			return;
+		}
+
+		foreach ( $variation_ids as $index => $variation_id ) {
+
+			$variation_post = get_post( $variation_id );
+
+			if ( $variation_post && $variation_post->post_type == 'product_variation' ) {
+
+				$variation_product = wc_get_product( $variation_id );
+
+				if ( $variation_product && $variation_product->is_type( 'subscription_variation' ) ) {
+
+					wp_trash_post( $variation_id );
+
+					// Prevent WooCommerce deleting the variation
+					if ( isset( $_POST['variation_id'] ) ) {
+						die();
+					} else {
+						unset( $_POST['variation_ids'][ $index ] );
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Save variation meta data when it is bulk edited from the Edit Product screen
+	 *
+	 * @param string $bulk_action The bulk edit action being performed
+	 * @param array $data An array of data relating to the bulk edit action. $data['value'] represents the new value for the meta.
+	 * @param int $variable_product_id The post ID of the parent variable product.
+	 * @param array $variation_ids An array of post IDs for the variable product's variations.
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.5.29
+	 */
+	public static function bulk_edit_variations( $bulk_action, $data, $variable_product_id, $variation_ids ) {
+		if ( 'delete_all_no_subscriptions' === $bulk_action && isset( $data['allowed'] ) && 'true' == $data['allowed'] ) {
+			$deleted = 0;
+
+			foreach ( $variation_ids as $variation_id ) {
+				$variation     = wc_get_product( $variation_id );
+				$subscriptions = wcs_get_subscriptions_for_product( $variation_id );
+
+				if ( empty( $subscriptions ) ) {
+					if ( is_callable( array( $variation, 'delete' ) ) ) {
+						$variation->delete( true );
+					} else {
+						wp_delete_post( $variation_id );
+					}
+
+					++$deleted;
+				}
+			}
+
+			echo intval( $deleted );
+			return;
+		}
+
+		if ( ! isset( $data['value'] ) ) {
+			return;
+		} else {
+			// Since 2.5 we have the product type information available so we don't have to wait for the product to be saved to check if it is a subscription
+			if ( empty( $_POST['security'] ) || ! wp_verify_nonce( wc_clean( wp_unslash( $_POST['security'] ) ), 'bulk-edit-variations' ) || 'variable-subscription' !== $_POST['product_type'] ) {
+				return;
+			}
+		}
+
+		$meta_key = str_replace( 'variable', '', $bulk_action );
+
+		// Update the subscription price when updating regular price on a variable subscription product
+		if ( '_regular_price' == $meta_key ) {
+			$meta_key = '_subscription_price';
+		}
+
+		if ( in_array( $meta_key, self::$subscription_meta_fields ) ) {
+			foreach ( $variation_ids as $variation_id ) {
+				update_post_meta( $variation_id, $meta_key, stripslashes( $data['value'] ) );
+			}
+		} elseif ( in_array( $meta_key, array( '_regular_price_increase', '_regular_price_decrease' ) ) ) {
+			$operator = ( '_regular_price_increase' == $meta_key ) ? '+' : '-';
+			$value    = wc_clean( $data['value'] );
+
+			foreach ( $variation_ids as $variation_id ) {
+				$variation          = wc_get_product( $variation_id );
+				$subscription_price = $variation->get_meta( '_subscription_price', true );
+
+				if ( '%' === substr( $value, -1 ) ) {
+					$percent = wc_format_decimal( substr( $value, 0, -1 ) );
+					// @phpstan-ignore binaryOp.invalid
+					$subscription_price += ( ( $subscription_price / 100 ) * $percent ) * "{$operator}1";
+				} else {
+					// @phpstan-ignore binaryOp.invalid
+					$subscription_price += $value * "{$operator}1";
+				}
+
+				update_post_meta( $variation_id, '_subscription_price', $subscription_price );
+			}
+		}
+	}
+
+	/**
+	 *
+	 * Hooked to `woocommerce_product_after_variable_attributes`.
+	 * This function adds a hidden field to the backend's HTML output of product variations indicating whether the
+	 * variation is being used in subscriptions or not.
+	 * This is used by some admin JS code to prevent removal of certain variations and also display a tooltip message to the
+	 * admin.
+	 *
+	 * @param int     $loop            Position of the variation inside the variations loop.
+	 * @param array   $variation_data  Array of variation data.
+	 * @param WP_Post $variation       The variation's WP post.
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v2.2.17
+	 */
+	public static function add_variation_removal_flag( $loop, $variation_data, $variation ) {
+
+		// On large sites we validate the request on submit, rather than on page load to avoid performance hits caused by wcs_get_subscriptions_for_product().
+		if ( wcs_is_large_site() ) {
+			$can_remove = false;
+		} else {
+			$related_subscriptions = wcs_get_subscriptions_for_product( $variation->ID, 'ids', array( 'limit' => 1 ) );
+			$can_remove            = empty( $related_subscriptions );
+		}
+
+		printf( '<input type="hidden" class="wcs-can-remove-variation" value="%d" />', intval( $can_remove ) );
+
+		if ( ! $can_remove ) {
+			$msg = __( 'This variation can not be removed because it is associated with existing subscriptions. To remove this variation, please permanently delete any related subscriptions.', 'woocommerce-subscriptions' );
+			printf( '<a href="#" class="tips delete wcs-can-not-remove-variation-msg" data-tip="%s" rel="%s"></a>', wc_sanitize_tooltip( $msg ), absint( $variation->ID ) ); // XSS ok.
+		}
+	}
+
+	/**
+	 * Processes an AJAX request to check if a product has a variation which is either sync'd or has a trial.
+	 * Once at least one variation with a trial or sync date is found, this will terminate and return true, otherwise false.
+	 *
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v2.0.18
+	 */
+	public static function check_product_variations_for_syncd_or_trial() {
+
+		check_admin_referer( 'one_time_shipping', 'nonce' );
+
+		$product                = wc_get_product( wc_clean( wp_unslash( $_POST['product_id'] ) ) );
+		$is_synced_or_has_trial = false;
+
+		if ( self::is_subscription( $product ) ) {
+
+			foreach ( $product->get_children() as $variation_id ) {
+
+				if ( isset( $_POST['variations_checked'] ) && in_array( $variation_id, $_POST['variations_checked'] ) ) {
+					continue;
+				}
+
+				$variation_product = wc_get_product( $variation_id );
+
+				if ( self::get_trial_length( $variation_product ) ) {
+					$is_synced_or_has_trial = true;
+					break;
+				}
+
+				if ( WC_Subscriptions_Synchroniser::is_product_synced( $variation_product ) ) {
+					$is_synced_or_has_trial = true;
+					break;
+				}
+			}
+		}
+
+		wp_send_json( array( 'is_synced_or_has_trial' => $is_synced_or_has_trial ) );
+	}
+
+	/**
+	 * Processes an AJAX request to update a product's One Time Shipping setting after a bulk variation edit has been made.
+	 * After bulk edits (variation level saving as well as variation bulk actions), variation data has been updated in the
+	 * database and therefore doesn't require the product global settings to be updated by the user for the changes to take effect.
+	 * This function, triggered after saving variations or triggering the trial length bulk action, ensures one time shipping settings
+	 * are updated after determining if one time shipping is still available to the product.
+	 *
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v2.0.18
+	 */
+	public static function maybe_update_one_time_shipping_on_variation_edits() {
+
+		check_admin_referer( 'one_time_shipping', 'nonce' );
+
+		$product_id = isset( $_POST['product_id'] ) ? absint( wp_unslash( $_POST['product_id'] ) ) : 0;
+
+		if ( ! $product_id ) {
+			wp_send_json_error( array( 'message' => __( 'Missing or invalid product ID.', 'woocommerce-subscriptions' ) ), 400 );
+		}
+
+		// Authorize against the specific product; the shared nonce is not product-specific.
+		if ( ! current_user_can( 'edit_product', $product_id ) ) {
+			wp_send_json_error( array( 'message' => __( 'You do not have permission to edit this product.', 'woocommerce-subscriptions' ) ), 403 );
+		}
+
+		$one_time_shipping_enabled      = wc_clean( wp_unslash( $_POST['one_time_shipping_enabled'] ) );
+		$one_time_shipping_selected     = wc_clean( wp_unslash( $_POST['one_time_shipping_selected'] ) );
+		$subscription_one_time_shipping = 'no';
+
+		if ( 'false' !== $one_time_shipping_enabled && 'true' === $one_time_shipping_selected ) {
+			$subscription_one_time_shipping = 'yes';
+		}
+
+		update_post_meta( $product_id, '_subscription_one_time_shipping', $subscription_one_time_shipping );
+
+		wp_send_json( array( 'one_time_shipping' => $subscription_one_time_shipping ) );
+	}
+
+	/**
+	 * Wrapper to check whether we have a product ID or product and if we have the former, return the later.
+	 *
+	 * @param mixed $product A WC_Product object or product ID
+	 * @return WC_Product
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v2.2.0
+	 */
+	private static function maybe_get_product_instance( $product ) {
+
+		if ( ! is_object( $product ) || ! is_a( $product, 'WC_Product' ) ) {
+			$product = wc_get_product( $product );
+		}
+
+		return $product;
+	}
+
+	/**
+	 * Get a piece of subscription related meta data for a product in a version compatible way.
+	 *
+	 * @param mixed $product A WC_Product object or product ID
+	 * @param string $meta_key The string key for the meta data
+	 * @param mixed $default_value The value to return if the meta doesn't exist or isn't set
+	 * @param string $empty_handling (optional) How empty values should be handled -- can be 'use_default_value' or 'allow_empty'. Defaults to 'allow_empty' returning the empty value.
+	 * @return mixed
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v2.2.0
+	 */
+	public static function get_meta_data( $product, $meta_key, $default_value, $empty_handling = 'allow_empty' ) {
+
+		$product = self::maybe_get_product_instance( $product );
+
+		$meta_value = $default_value;
+
+		if ( self::is_subscription( $product ) ) {
+
+			if ( is_callable( array( $product, 'meta_exists' ) ) ) { // WC 3.0
+
+				$prefixed_key = wcs_maybe_prefix_key( $meta_key );
+
+				// Only set the meta value when the object has a meta value to workaround ambiguous default return values
+				if ( $product->meta_exists( $prefixed_key ) ) {
+					$meta_value = $product->get_meta( $prefixed_key, true );
+				} elseif ( $product->meta_exists( $meta_key ) ) {
+					$meta_value = $product->get_meta( $meta_key, true );
+				}
+			} elseif ( isset( $product->{$meta_key} ) ) { // WC < 3.0
+				$meta_value = $product->{$meta_key};
+			}
+		}
+
+		if ( 'use_default_value' === $empty_handling && empty( $meta_value ) ) {
+			$meta_value = $default_value;
+		}
+
+		return $meta_value;
+	}
+
+	/**
+	 * sync variable product min/max prices with WC 3.0
+	 *
+	 * @param WC_Product_Variable $product
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v2.2.0
+	 */
+	public static function variable_subscription_product_sync( $product ) {
+
+		if ( self::is_subscription( $product ) ) {
+
+			$child_variation_ids = $product->get_visible_children();
+
+			if ( $child_variation_ids ) {
+
+				$min_max_data = wcs_get_min_max_variation_data( $product, $child_variation_ids );
+
+				if ( is_callable( array( $product, 'set_min_and_max_variation_data' ) ) ) {
+					$product->set_min_and_max_variation_data( $min_max_data, $child_variation_ids );
+				}
+
+				$product->add_meta_data( '_min_price_variation_id', $min_max_data['min']['variation_id'], true );
+				$product->add_meta_data( '_max_price_variation_id', $min_max_data['max']['variation_id'], true );
+
+				$product->add_meta_data( '_min_variation_price', $min_max_data['min']['price'], true );
+				$product->add_meta_data( '_max_variation_price', $min_max_data['max']['price'], true );
+				$product->add_meta_data( '_min_variation_regular_price', $min_max_data['min']['regular_price'], true );
+				$product->add_meta_data( '_max_variation_regular_price', $min_max_data['max']['regular_price'], true );
+				$product->add_meta_data( '_min_variation_sale_price', $min_max_data['min']['sale_price'], true );
+				$product->add_meta_data( '_max_variation_sale_price', $min_max_data['max']['sale_price'], true );
+
+				$product->add_meta_data( '_min_variation_period', $min_max_data['min']['period'], true );
+				$product->add_meta_data( '_max_variation_period', $min_max_data['max']['period'], true );
+				$product->add_meta_data( '_min_variation_period_interval', $min_max_data['min']['interval'], true );
+				$product->add_meta_data( '_max_variation_period_interval', $min_max_data['max']['interval'], true );
+
+				$product->add_meta_data( '_subscription_price', $min_max_data['min']['price'], true );
+				$product->add_meta_data( '_subscription_period', $min_max_data['min']['period'], true );
+				$product->add_meta_data( '_subscription_period_interval', $min_max_data['min']['interval'], true );
+				$product->add_meta_data( '_subscription_sign_up_fee', $min_max_data['subscription']['signup-fee'], true );
+				$product->add_meta_data( '_subscription_trial_period', $min_max_data['subscription']['trial_period'], true );
+				$product->add_meta_data( '_subscription_trial_length', $min_max_data['subscription']['trial_length'], true );
+				$product->add_meta_data( '_subscription_length', $min_max_data['subscription']['length'], true );
+			}
+		}
+
+		return $product;
+	}
+
+	/**
+	 * Get an array of parent IDs from a potential child product, used to determine if a product belongs to a group.
+	 *
+	 * @param WC_Product $product The product object to get parents from.
+	 * @return array Parent IDs
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v2.2.4
+	 */
+	public static function get_parent_ids( $product ) {
+		global $wpdb;
+		$parent_product_ids = array();
+
+		if ( wcs_is_woocommerce_pre( '3.0' ) && isset( $product->post->post_parent ) ) {
+			$parent_product_ids[] = $product->get_parent();
+		} else {
+			$parent_product_ids = $wpdb->get_col(
+				$wpdb->prepare(
+					// phpcs:ignore WordPress.DB.PreparedSQLPlaceholders.LikeWildcardsInQuery
+					"SELECT post_id FROM {$wpdb->prefix}postmeta WHERE meta_key = '_children' AND meta_value LIKE '%%i:%d;%%'",
+					$product->get_id()
+				)
+			);
+		}
+
+		return $parent_product_ids;
+	}
+
+	/**
+	 * Get a product's list of parent IDs which are a grouped type.
+	 *
+	 * Unlike @see WC_Subscriptions_Product::get_parent_ids(), this function will return parent products which still exist, are visible and are a grouped product.
+	 *
+	 * @param WC_Product $product The product object to get parents from.
+	 * @return array The product's grouped parent IDs.
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v2.3.0
+	 */
+	public static function get_visible_grouped_parent_product_ids( $product ) {
+		$parent_product_ids = self::get_parent_ids( $product );
+
+		// Verify that the parent products exist and are indeed grouped products
+		foreach ( $parent_product_ids as $index => $product_id ) {
+			$parent_product = wc_get_product( $product_id );
+
+			if ( ! is_a( $parent_product, 'WC_Product' ) || ! $parent_product->is_type( 'grouped' ) || 'publish' !== wcs_get_objects_property( $parent_product, 'post_status' ) ) {
+				unset( $parent_product_ids[ $index ] );
+			}
+		}
+
+		return $parent_product_ids;
+	}
+
+	/**
+	 * Gets the add to cart text for subscription products.
+	 *
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v3.0.7
+	 * @return string The add to cart text.
+	 */
+	public static function get_add_to_cart_text() {
+		/**
+		 * Filter the "Add to cart" button text for subscription products.
+		 *
+		 * @since 7.8.0
+		 * @param string $button_text The "Add to cart" button text.
+		 * @return string The "Add to cart" button text.
+		 */
+		return apply_filters( 'wc_subscription_product_add_to_cart_text', __( 'Add to cart', 'woocommerce-subscriptions' ) );
+	}
+
+	/**
+	 * Validates an ajax request to delete a subscription variation.
+	 *
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v3.x.x
+	 */
+	public static function validate_variation_deletion() {
+		check_admin_referer( 'wc_subscriptions_admin', 'nonce' );
+
+		$variation_id  = absint( $_POST['variation_id'] );
+		$subscriptions = wcs_get_subscriptions_for_product( $variation_id, 'ids', array( 'limit' => 1 ) );
+
+		wp_send_json( array( 'can_remove' => empty( $subscriptions ) ? 'yes' : 'no' ) );
+	}
+
+	/************************
+	 * Deprecated Functions *
+	 ************************/
+
+	/**
+	 * Override the WooCommerce "Add to cart" text with "Sign up now".
+	 *
+	 * @since 1.0.0 - Migrated from WooCommerce Subscriptions v1.0
+	 * @deprecated 1.0.0 - Migrated from WooCommerce Subscriptions v3.0.7
+	 */
+	public static function add_to_cart_text( $button_text, $product_type = '' ) {
+		_deprecated_function( __METHOD__, '3.0.7', 'WC_Subscriptions_Product::get_add_to_cart_text' );
+		global $product;
+
+		if ( self::is_subscription( $product ) || in_array( $product_type, array( 'subscription', 'subscription-variation' ) ) ) {
+			$button_text = get_option( WC_Subscriptions_Admin::$option_prefix . '_add_to_cart_button_text', __( 'Add to cart', 'woocommerce-subscriptions' ) );
+		}
+
+		return $button_text;
+	}
+
+	/**
+	 * Check if the current session has an order awaiting payment for a subscription to a specific product line item.
+	 *
+	 * @deprecated 2.1 Use WCS_Limiter::order_awaiting_payment_for_product()
+	 *
+	 * @return bool
+	 **/
+	protected static function order_awaiting_payment_for_product( $product_id ) {
+		_deprecated_function( __METHOD__, '2.1', 'WCS_Limiter::order_awaiting_payment_for_product' );
+
+		global $wp;
+
+		if ( ! isset( self::$order_awaiting_payment_for_product[ $product_id ] ) ) {
+
+			self::$order_awaiting_payment_for_product[ $product_id ] = false;
+
+			if ( ! empty( WC()->session->order_awaiting_payment ) || isset( $_GET['pay_for_order'] ) ) {
+
+				$order_id = ! empty( WC()->session->order_awaiting_payment ) ? WC()->session->order_awaiting_payment : $wp->query_vars['order-pay'];
+				$order    = wc_get_order( absint( $order_id ) );
+
+				if ( is_object( $order ) && $order->has_status( array( 'pending', 'failed' ) ) ) {
+					foreach ( $order->get_items() as $item ) {
+						if ( $item['product_id'] == $product_id || $item['variation_id'] == $product_id ) {
+
+							$subscriptions = wcs_get_subscriptions(
+								array(
+									'order_id'   => wcs_get_objects_property( $order, 'id' ),
+									'product_id' => $product_id,
+								)
+							);
+
+							if ( ! empty( $subscriptions ) ) {
+								$subscription = array_pop( $subscriptions );
+
+								if ( $subscription->has_status( array( 'pending', 'on-hold' ) ) ) {
+									self::$order_awaiting_payment_for_product[ $product_id ] = true;
+								}
+							}
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		return self::$order_awaiting_payment_for_product[ $product_id ];
+	}
+
+	/**
+	 * Returns the sign up fee (including tax) by filtering the products price used in
+	 * @see WC_Product::get_price_including_tax( $qty )
+	 * @deprecated 2.2.0
+	 *
+	 * @return string
+	 */
+	public static function get_sign_up_fee_including_tax( $product, $qty = 1 ) {
+		wcs_deprecated_function( __METHOD__, '2.2.0', 'wcs_get_price_including_tax( $product, array( "qty" => $qty, "price" => WC_Subscriptions_Product::get_sign_up_fee( $product ) ) )' );
+		return wcs_get_price_including_tax(
+			$product,
+			array(
+				'qty'   => $qty,
+				'price' => self::get_sign_up_fee( $product ),
+			)
+		);
+	}
+
+	/**
+	 * Returns the sign up fee (excluding tax) by filtering the products price used in
+	 * @see WC_Product::get_price_excluding_tax( $qty )
+	 * @deprecated 2.2.0
+	 *
+	 * @return string
+	 */
+	public static function get_sign_up_fee_excluding_tax( $product, $qty = 1 ) {
+		wcs_deprecated_function( __METHOD__, '2.2.0', 'wcs_get_price_excluding_tax( $product, array( "qty" => $qty, "price" => WC_Subscriptions_Product::get_sign_up_fee( $product ) ) )' );
+		return wcs_get_price_excluding_tax(
+			$product,
+			array(
+				'qty'   => $qty,
+				'price' => self::get_sign_up_fee( $product ),
+			)
+		);
+	}
+}

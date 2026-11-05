@@ -1,0 +1,702 @@
+/**
+ * Subscriptions Health Check admin styles.
+ *
+ * Loaded only on the WC Status page via Bootstrap's admin_enqueue_scripts
+ * handler. Previously inline in StatusTab::render(); extracted so the
+ * browser caches the bytes, CSP headers can cover them, and other
+ * plugins can override without !important.
+ */
+
+/*
+ * The candidates table is sized to its content (table-layout: auto, so
+ * columns grow to fit their longest cell), and on stores with long
+ * product titles or customer names it can be wider than the admin
+ * content area. WC Admin's embed page CSS sets
+ *   .woocommerce-embed-page #wpcontent,
+ *   .woocommerce-embed-page #wpbody-content { overflow-x: initial !important }
+ * which removes the default horizontal containment on the admin chrome,
+ * letting that overflow bubble all the way up to the body and turn the
+ * whole page into a horizontal scroll. Restoring containment at the
+ * same elements (with `clip`, which clips the paint without forcing a
+ * vertical scrollbar) keeps the overflow inside our scroll wrapper.
+ *
+ * Scoped via `:has()` so the override only applies when this tab is
+ * being rendered — other WC Status tabs and other embed pages keep
+ * WC's intended `overflow-x: initial`. Specificity (0,2,1) plus
+ * `!important` is what's needed to outrank WC's own (0,1,1) +
+ * `!important`.
+ */
+.woocommerce-embed-page #wpcontent:has(.woocommerce-subscriptions-health-check-tab),
+.woocommerce-embed-page #wpbody-content:has(.woocommerce-subscriptions-health-check-tab) {
+	overflow-x: clip !important;
+}
+
+/* 16px gap down from the WC Status nav to our page title, matching the Figma section spacing. WC's
+   `.woo-nav-tab-wrapper` ships a ~1em (~14px) bottom margin; this top margin sibling-collapses with it
+   (the larger wins) to net 16px, without overriding the shared nav-tab spacing on other Status tabs. */
+.woocommerce-subscriptions-health-check-tab {
+	margin-top: 16px;
+}
+
+.woocommerce-subscriptions-health-check-header {
+	display: flex;
+	/* Bottom-align the Run scan button with the title block per the Figma "Page header" (items-end),
+	   so the button lines up with the subtitle's baseline rather than the title line. */
+	align-items: flex-end;
+	justify-content: space-between;
+	gap: 16px;
+	/* 16px gap down to the status strip, matching the Figma section spacing. */
+	margin: 0 0 16px;
+	flex-wrap: wrap;
+}
+
+/* Match the WP admin page-title treatment used on the Orders screen (`.wrap h1`: 23px / 400 / 1.3) so
+   the heading reads as a top-level page title. Kept as an <h2> for heading hierarchy — WC's Status
+   template already emits a screen-reader <h1> (the tab name) as the page's h1 — and we don't copy WP's
+   9px top padding because `.health-check-tab`'s margin-top owns the gap above the title. */
+.woocommerce-subscriptions-health-check-header-title h2 {
+	font-size: 23px;
+	font-weight: 400;
+	line-height: 1.3;
+	margin: 0 0 4px;
+	padding: 0;
+}
+
+.woocommerce-subscriptions-health-check-header-title .description {
+	margin: 0;
+	max-width: 60em;
+}
+
+.woocommerce-subscriptions-health-check-header-actions {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	flex-shrink: 0;
+}
+
+.woocommerce-subscriptions-health-check-header-actions form {
+	margin: 0;
+}
+
+/*
+ * Inline CSS-only spinner used inside the active "Running" button while a
+ * scan is in flight. Matches the visual language of the Gutenberg Spinner
+ * component (`@wordpress/components`) — a 16x16 ring with a single coloured
+ * arc rotating at 1s — without pulling in the React package or the WP-admin
+ * GIF (`.spinner.is-active`). The element is `aria-hidden`; a sibling
+ * `screen-reader-text` carries the textual "Scan in progress." announcement.
+ *
+ * Per design, the button stays in its active primary state during a scan
+ * (rather than the disabled state) so the label + icon remain readable
+ * across WP admin colour schemes.
+ */
+.woocommerce-subscriptions-health-check-spinner {
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	/*
+	 * F4-E: spinner is now icon-first inside the Cancel-scan button. The button itself uses
+	 * `display: inline-flex; gap: 6px;` (see the `.woocommerce-subscriptions-health-check-cancel-button`
+	 * rule below) so the gap handles spacing between the spinner and the label. The legacy
+	 * `margin-inline-start: 6px` from when the spinner sat AFTER the label would otherwise add
+	 * a redundant gap on the leading side. Kept the size + colour rules intact so the spinner
+	 * still renders inside any future non-flex container.
+	 */
+	vertical-align: middle;
+	/*
+	 * `currentColor` for both the ring and arc so the spinner adapts to
+	 * whichever WP admin colour scheme is active. The ring is rendered at
+	 * a low opacity to provide a faint track, the arc at full opacity to
+	 * mark the rotation. The active `.button-primary` paints text in
+	 * white, so on the default scheme this is a white spinner over the
+	 * theme blue.
+	 */
+	border: 2px solid color-mix( in srgb, currentcolor 30%, transparent );
+	border-top-color: currentColor;
+	border-radius: 50%;
+	animation: woocommerce-subscriptions-health-check-spinner-rotate 1s linear infinite;
+}
+
+@keyframes woocommerce-subscriptions-health-check-spinner-rotate {
+	to {
+		transform: rotate( 360deg );
+	}
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.woocommerce-subscriptions-health-check-spinner {
+		animation-duration: 6s;
+	}
+}
+
+/*
+ * Outranks WooCommerce core's `.woocommerce-embed-page .notice { padding: 1px 12px }`
+ * rule from `embed/style.css`, which ties on specificity (0,2,0) with a
+ * bare `.tab .summary` selector and loads AFTER our stylesheet in the
+ * cascade — which would otherwise flatten the card to WP's default
+ * notice padding. The compound `.notice.<summary>` chip bumps us to
+ * (0,3,0). The pre-extraction inline `<style>` block won by source
+ * order; moving to an external stylesheet in `<head>` gave up that
+ * tiebreaker, so we rely on specificity instead.
+ */
+.woocommerce-subscriptions-health-check-tab .notice.woocommerce-subscriptions-health-check-summary {
+	display: flex;
+	gap: 24px;
+	flex-wrap: wrap;
+	padding: 20px;
+	/* 8px bottom margin, not 16px: the candidates form's views nav (`.subsubsub`) sits directly
+	   below and carries its own native 8px top margin (WP core) which the search box mirrors
+	   (`.search-box`, 6px from WC admin.css). Those native margins are what vertically center the
+	   views/search row the WP-standard way (as on the Orders screen), so we leave them intact — and
+	   our 8px stacks with the nav's 8px to net the same 16px section gap we set above the strip. */
+	margin: 0 0 8px;
+	border-left-color: #2271b1;
+}
+
+/*
+ * Resolve-outcome notices are injected at the page's notice anchor (see
+ * health-check-admin.js `buildNotice`). On the WC Status screen (a
+ * `woocommerce-embed-page`) WP/WC collapse `.notice` to `padding: 1px 12px`,
+ * leaving the 24px `.notice-dismiss` button no room to sit comfortably.
+ * Restore standard vertical padding for breathing room, and centre the
+ * dismiss button explicitly: WP core pins it at a fixed `top: 12px`, so on a
+ * notice that wraps to multiple lines the close button would otherwise stay
+ * near the top instead of centring. The triple-class selector (0,3,0)
+ * outranks WC's `.woocommerce-embed-page .notice` (0,2,0) regardless of
+ * stylesheet load order; longhand padding leaves the dismiss-button right
+ * clearance untouched.
+ */
+.notice.woocommerce-subscriptions-health-check-notice.is-dismissible {
+	padding-top: 8px;
+	padding-bottom: 8px;
+}
+
+.notice.woocommerce-subscriptions-health-check-notice.is-dismissible .notice-dismiss {
+	top: 50%;
+	transform: translateY(-50%);
+}
+
+/* Column rows (label / value / secondary line) stack with a uniform 4px gap per Figma — the gap is
+   the single source of inter-row spacing, so the individual rows carry no vertical margins. */
+.woocommerce-subscriptions-health-check-summary-col {
+	flex: 1 1 220px;
+	min-width: 220px;
+	display: flex;
+	flex-direction: column;
+	gap: 4px;
+}
+
+.woocommerce-subscriptions-health-check-summary-label {
+	display: block;
+	font-size: 11px;
+	font-weight: 600;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
+	color: #646970;
+}
+
+.woocommerce-subscriptions-health-check-card-primary {
+	font-size: 13px;
+	font-weight: 600;
+	color: #1d2327;
+	line-height: 1.4;
+}
+
+/*
+ * Inline muted scope span shown after the "Completed X ago" / "Failed X ago" headline on the
+ * LAST SCAN card (F4-B). Uses the WP-admin secondary-text grey (`#50575e`) so it matches the
+ * nightly-status "next in X" copy and the Figma's body-text colour — `#646970` is the label
+ * colour in the design, so the scope text reads as supporting body info, not a label.
+ */
+.woocommerce-subscriptions-health-check-last-scan-scope {
+	color: #50575e;
+	font-weight: 400;
+	font-size: 13px;
+	margin-inline-start: 4px;
+}
+
+.woocommerce-subscriptions-health-check-card-secondary {
+	font-size: 13px;
+	color: #50575e;
+	line-height: 1.4;
+}
+
+.woocommerce-subscriptions-health-check-card-secondary a {
+	color: #50575e;
+}
+
+.woocommerce-subscriptions-health-check-card-secondary-warn {
+	color: #b26a00;
+}
+
+/* Success variant for healthy status signals — currently the version card's "Up to date ✓" copy.
+   Uses the same `#00a32a` green as the nightly-status "on" dot so the two healthy signals on the
+   status strip share a colour token. */
+.woocommerce-subscriptions-health-check-card-secondary-success {
+	color: #00a32a;
+}
+
+.woocommerce-subscriptions-health-check-customer-payment-sub,
+.woocommerce-subscriptions-health-check-last-payment-total {
+	color: #606a73;
+	font-size: 12px;
+}
+
+/* Token-on-file label is supporting info, not a status signal - same muted-gray as the wc_price totals. */
+.woocommerce-subscriptions-health-check-token {
+	color: #606a73;
+	font-size: 12px;
+}
+
+/* ── Resolve modal ───────────────────────────────────────────────── */
+
+.wcs-health-check-dialog-modal .wc-backbone-modal-main .wc-backbone-modal-header .modal-close-link {
+	border-left: none;
+}
+
+/* Loading spinner centred inside the modal article. */
+.wcs-health-check-dialog-loading {
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	padding: 3em 0;
+}
+
+.wcs-health-check-dialog-loading .spinner {
+	float: none;
+	margin: 0;
+}
+
+/* Error message inside the modal. */
+.wcs-health-check-dialog-error {
+	padding: 1em 0 2.5em 0;
+}
+
+.wcs-health-check-dialog-error p {
+	margin: 0;
+	font-size: 13px;
+	color: #d63638;
+}
+
+/* Non-color indicator so the error state is perceivable without
+   relying on the red text alone (WCAG 1.4.1 Use of Color). Uses an
+   inline SVG background instead of a Unicode emoji so screen readers
+   don't announce "warning sign" alongside the role="alert" text. */
+.wcs-health-check-dialog-error p::before {
+	content: "";
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	margin-inline-end: 6px;
+	vertical-align: text-bottom;
+	background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23d63638' d='M12 2L1 21h22L12 2zm0 3.99L19.53 19H4.47L12 5.99zM11 16h2v2h-2zm0-6h2v5h-2z'/%3E%3C/svg%3E") no-repeat center / contain;
+}
+
+/* Explanation text block inside the modal article. */
+.wcs-health-check-dialog-explanation {
+	padding: 1em 0 2.5em 0;
+	margin: 0;
+}
+
+.wcs-health-check-dialog-explanation p {
+	margin: 0;
+	font-size: 13px;
+	line-height: 1.6;
+	color: #1d2327;
+}
+
+/*
+ * Visually disable action buttons while a tool call is in flight.
+ * Uses aria-disabled (not HTML disabled) to preserve keyboard focus.
+ * Mirrors WordPress's native :disabled button styles so the appearance
+ * matches regardless of admin colour scheme.
+ */
+.wcs-health-check-dialog-actions button[aria-disabled="true"] {
+	color: #a7aaad !important;
+	background: #f6f7f7 !important;
+	border-color: #dcdcde !important;
+	box-shadow: none !important;
+	text-shadow: none !important;
+	cursor: default;
+}
+
+/* Footer action buttons — secondary left, primary right. */
+.wcs-health-check-dialog-actions {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	gap: 8px;
+	padding: 1em;
+}
+
+/* Inline spinner inside the clicked action button — matches the
+   "Running ◌" pattern used by the Scan Now header button. Reuses
+   the same keyframes defined for the header spinner above. */
+.wcs-health-check-dialog-spinner {
+	display: inline-block;
+	width: 16px;
+	height: 16px;
+	margin-inline-start: 6px;
+	vertical-align: middle;
+	border: 2px solid rgba( 0, 0, 0, 0.15 );
+	border-top-color: currentColor;
+	border-radius: 50%;
+	animation: woocommerce-subscriptions-health-check-spinner-rotate 1s linear infinite;
+}
+
+@media ( prefers-reduced-motion: reduce ) {
+	.wcs-health-check-dialog-spinner {
+		animation-duration: 6s;
+	}
+}
+
+/* Underline row-action links on hover to match the Products table. */
+.woocommerce-subscriptions-health-check-candidates-form .row-actions a:hover {
+	text-decoration: underline;
+}
+
+/* Wider search input so the full placeholder fits. */
+#woocommerce-subscriptions-health-check-search-input {
+	min-width: 320px;
+}
+
+/*
+ * Vertically centre row content to match the WC Orders list. WP's
+ * `wp-list-table` defaults to `vertical-align: top`, which pins the
+ * status/billing-mode/renewal-status pills to the top edge when the
+ * neighbouring column stacks two lines (subscription id over product
+ * title, etc.). WooCommerce core applies
+ * `vertical-align: middle` to every td/th in its Orders list for the
+ * same reason; mirroring that here keeps the two surfaces visually
+ * consistent.
+ */
+.wp-list-table.wcs-health-check-candidates td,
+.wp-list-table.wcs-health-check-candidates th {
+	vertical-align: middle;
+}
+
+/*
+ * Keep every header label on a single line. Two reasons it matters:
+ *  1. WP_List_Table renders each sortable header as
+ *       <a><span>Title</span><span class="sorting-indicators">…</span></a>
+ *     The two child spans are inline-level, so at column widths that
+ *     barely fit the title the sort indicator wraps to a new line.
+ *     The `th a` selector targets the anchor directly to outrank any
+ *     more-specific WP core admin rule that might re-enable wrapping.
+ *  2. Combined with the `table-layout: auto` override below, nowrap on
+ *     the headers gives each column a natural minimum width equal to
+ *     its header text — which is what makes the table push past the
+ *     scroll wrapper on narrow viewports so the wrapper actually scrolls.
+ */
+.wp-list-table.wcs-health-check-candidates thead th,
+.wp-list-table.wcs-health-check-candidates thead th a {
+	white-space: nowrap;
+}
+
+/*
+ * WP core floats every <span> child of a sortable header anchor:
+ *   th.sortable a span, th.sorted a span { float: left }
+ * (list-tables.css). Floats ignore `white-space: nowrap` — they wrap to
+ * a new line whenever the available width is too narrow to fit them
+ * side-by-side, and floated children don't contribute to a cell's
+ * min-content width under `table-layout: auto`, so the cell can be
+ * sized too narrow to fit the title and indicator side-by-side.
+ *
+ * Cancelling the float lets the spans flow as inline elements again so
+ * `white-space: nowrap` on the anchor (inherited from `thead th`) keeps
+ * the title and the indicator container on a single line, and the
+ * cell's min-content reflects the natural width of both. `vertical-
+ * align: middle` aligns the indicator with the title baseline since the
+ * title is text and the indicator container is an inline-level grid.
+ */
+.wp-list-table.wcs-health-check-candidates thead th.sortable a span,
+.wp-list-table.wcs-health-check-candidates thead th.sorted a span {
+	float: none;
+	vertical-align: middle;
+}
+
+.wp-list-table.wcs-health-check-candidates .sorting-indicators {
+	display: inline-grid;
+}
+
+/*
+ * Horizontal scroll wrapper for the candidates table — mirrors how
+ * WooCommerce's analytics tables behave on narrow viewports: only the
+ * data area scrolls, while the surrounding views/search/pagination chrome
+ * stays at full content width. The `<div>` wrapper is bracketed around
+ * the `<table>` by `CandidatesListTable::display_tablenav()`.
+ *
+ * `width: 100%` pins the wrapper to its containing form's content area
+ * so it cannot shrink-wrap to the table — without it, certain admin
+ * layouts (notably anything that gives the form a flex/inline-block
+ * context) let the wrapper grow to the table's natural width and the
+ * scroll never engages.
+ */
+.wcs-health-check-candidates-scroll {
+	width: 100%;
+	overflow-x: auto;
+}
+
+/*
+ * Counter `.widefat.fixed`'s `table-layout: fixed` + `width: 100%`,
+ * which forces every column into an equal slice of the wrapper width
+ * regardless of content — so the table never overflows and the scroll
+ * wrapper above never scrolls. Switching to `auto` layout with `width:
+ * auto` lets each column size to its content (with nowrap-ed headers
+ * acting as the per-column floor). `min-width: 100%` keeps the table
+ * spanning the full available width on wide viewports where columns
+ * would otherwise leave empty space to the right.
+ */
+.wcs-health-check-candidates-scroll .wp-list-table.wcs-health-check-candidates {
+	table-layout: auto;
+	width: auto;
+	min-width: 100%;
+}
+
+/*
+ * Warning-triangle tooltip used in the Billing mode cell (manual + has-token
+ * rows in the Supports-auto-renewal view) and the Next-payment cell on
+ * past-due rows. The wrapper is `tabindex="0"` so it can take focus from a
+ * keyboard, and the ::after bubble surfaces the same copy that mouse users
+ * see via the native `title` attribute. Screen readers read the tooltip
+ * text via `aria-label` on the wrapper.
+ */
+.woocommerce-subscriptions-health-check-warning {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	width: 16px;
+	height: 16px;
+	color: #dba617;
+	cursor: help;
+	vertical-align: middle;
+	position: relative;
+}
+
+.woocommerce-subscriptions-health-check-warning:focus {
+	outline: 2px solid #2271b1;
+	outline-offset: 2px;
+	border-radius: 2px;
+}
+
+.woocommerce-subscriptions-health-check-warning-icon {
+	display: block;
+	width: 14px;
+	height: 14px;
+}
+
+/*
+ * Floating tooltip element appended to <body> by the Health Check
+ * admin script — kept outside the candidates table wrapper so the
+ * wrapper's `overflow-x: auto` (which forces a non-`visible`
+ * `overflow-y` per the CSS spec) can't clip the bubble on first-row
+ * or last-row icons. Position is set inline via JS and recomputed on
+ * each show; this rule only handles appearance + show/hide. Screen
+ * readers continue to get the tooltip copy via `aria-label` on the
+ * icon span — no native `title` is rendered, so no double-bubble.
+ */
+.woocommerce-subscriptions-health-check-tooltip {
+	position: absolute;
+	display: none;
+	background: #1e1e1e;
+	color: #fff;
+	padding: 6px 10px;
+	border-radius: 3px;
+	font-size: 12px;
+	line-height: 1.4;
+	font-weight: normal;
+	white-space: normal;
+	max-width: 240px;
+	pointer-events: none;
+	z-index: 100000;
+}
+
+.woocommerce-subscriptions-health-check-tooltip.is-visible {
+	display: block;
+}
+
+/*
+ * Arrow pointing at the warning icon. CSS-triangle technique via
+ * transparent borders. The arrow's horizontal position is fed by a
+ * `--arrow-left` custom property set inline by the script — that lets
+ * the arrow stay aligned with the icon even when the bubble is edge-
+ * clamped against the viewport (so it isn't always centred on the
+ * tooltip itself).
+ */
+.woocommerce-subscriptions-health-check-tooltip::after {
+	content: '';
+	position: absolute;
+	top: 100%;
+	left: var(--arrow-left, 50%);
+	transform: translateX(-50%);
+	border: 6px solid transparent;
+	border-top-color: #1e1e1e;
+}
+
+/*
+ * Flipped-below variant: when the script can't fit the tooltip above
+ * the icon (near the top of the viewport) it places the bubble below
+ * and adds `is-below`. The arrow swaps to the top edge and flips its
+ * filled border so it points up at the icon.
+ */
+.woocommerce-subscriptions-health-check-tooltip.is-below::after {
+	top: auto;
+	bottom: 100%;
+	border-top-color: transparent;
+	border-bottom-color: #1e1e1e;
+}
+
+/*
+ * Past-due next-payment cell: warning icon as the first column, date and
+ * diff text stacked in the second column so they share a left edge. The
+ * cell stays single-row by collapsing the icon's vertical alignment to the
+ * top of the text stack — without that, an icon centred against the two-
+ * line stack would push the row height up.
+ */
+.woocommerce-subscriptions-health-check-next-payment-past {
+	display: inline-flex;
+	align-items: flex-start;
+	gap: 4px;
+}
+
+.woocommerce-subscriptions-health-check-next-payment-text {
+	display: flex;
+	flex-direction: column;
+}
+
+/*
+ * WOOSUBS-1661 - destructive Cancel button + nightly-status line under
+ * the LAST SCAN card.
+ *
+ * The cancel button is styled per the Figma V3 design (node 4083-178):
+ * white background, red border + red text using the project-wide
+ * `--wc-red` token (`#cc1818` fallback, matching
+ * `assets/css/gifting/shortcode-checkout.css`). The button class is
+ * applied on top of WP core's `.button` base; the rules below override
+ * WP's blue border/text + grey background for the default, hover, focus,
+ * and active states.
+ *
+ * The nightly-status line is rendered as an inline-flex strip with a
+ * status dot, the on/off label, the optional "next in X" copy, a bullet
+ * separator, and a Manage link to the WC > Settings > Subscriptions
+ * section. The dot greens out when nightly scans are on and greys out
+ * when they're off; the Manage link uses the WP admin blue.
+ */
+
+/* Cancel scan button - destructive (white bg / red border + text). */
+.button.woocommerce-subscriptions-health-check-cancel-button {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	background: #fff;
+	color: var( --wc-red, #cc1818 );
+	border-color: var( --wc-red, #cc1818 );
+	box-shadow: 0 0 0 transparent;
+}
+
+.button.woocommerce-subscriptions-health-check-cancel-button:hover,
+.button.woocommerce-subscriptions-health-check-cancel-button:focus {
+	background: #fff5f5;
+	color: var( --wc-red, #cc1818 );
+	border-color: var( --wc-red, #cc1818 );
+}
+
+.button.woocommerce-subscriptions-health-check-cancel-button:focus {
+	/* Pair WP's focus-ring contract (2px outline + offset shadow) with
+	   our red instead of the WP default blue so the ring matches the
+	   destructive intent. */
+	outline: 2px solid var( --wc-red, #cc1818 );
+	outline-offset: 0;
+	box-shadow: 0 0 0 1px #fff, 0 0 0 3px var( --wc-red, #cc1818 );
+}
+
+.button.woocommerce-subscriptions-health-check-cancel-button:active {
+	background: #fbe9e9;
+	color: var( --wc-red, #cc1818 );
+	border-color: var( --wc-red, #cc1818 );
+}
+
+/* Nightly-status strip under the LAST SCAN card. 13px to match the card secondary lines per Figma.
+   Inter-row spacing is owned by the column's 4px flex gap, so no top margin here. */
+.woocommerce-subscriptions-health-check-nightly-status {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	font-size: 13px;
+	line-height: 1.4;
+	color: #50575e;
+}
+
+/* Status dot - greys out when off, greens when on. Sized 8x8 per Figma. */
+.woocommerce-subscriptions-health-check-nightly-status__dot {
+	display: inline-block;
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	background: #c3c4c7;
+	flex-shrink: 0;
+}
+
+.woocommerce-subscriptions-health-check-nightly-status__dot.is-on {
+	background: #00a32a;
+}
+
+.woocommerce-subscriptions-health-check-nightly-status__dot.is-off {
+	background: #c3c4c7;
+}
+
+/* Label + "next in X" copy share the same muted body colour. */
+.woocommerce-subscriptions-health-check-nightly-status__label,
+.woocommerce-subscriptions-health-check-nightly-status__next-in {
+	color: #50575e;
+}
+
+/* Bullet separators on the nightly-status line. `#50575e` to match the surrounding body copy (and the
+   LAST SCAN scope bullet) per the Figma, which renders the bullets in the same grey as the "next in X"
+   text rather than a lighter decorative tone. The Manage link stands out via its blue colour, not via
+   a lighter bullet. */
+.woocommerce-subscriptions-health-check-nightly-status__sep {
+	color: #50575e;
+}
+
+/* Action links - WP admin blue, underline on hover/focus to match the default WP admin link affordance.
+   Shared by the nightly-status "Manage" link and the SCHEDULED ACTIONS card "Go to scheduled actions"
+   link. The card-link selector is qualified with `a.<class>` so it outranks the (0,1,1) muted
+   `.card-secondary a` default that would otherwise paint it grey. */
+.woocommerce-subscriptions-health-check-nightly-status__manage,
+.woocommerce-subscriptions-health-check-card-secondary a.woocommerce-subscriptions-health-check-card-link {
+	color: #2271b1;
+	text-decoration: none;
+}
+
+.woocommerce-subscriptions-health-check-nightly-status__manage:hover,
+.woocommerce-subscriptions-health-check-nightly-status__manage:focus,
+.woocommerce-subscriptions-health-check-card-secondary a.woocommerce-subscriptions-health-check-card-link:hover,
+.woocommerce-subscriptions-health-check-card-secondary a.woocommerce-subscriptions-health-check-card-link:focus {
+	color: #135e96;
+	text-decoration: underline;
+}
+
+/* Subscription-status pill colours for the candidates table Status column.
+   The candidates table reuses the main Subscriptions list markup
+   (`subscription-status order-status status-{slug}`). WooCommerce core's
+   order-status CSS - present on every WC admin screen - already colours the
+   shared statuses (On hold / Cancelled / Pending), but the
+   subscription-specific ones live in WCS's `assets/css/admin.css`, which is not
+   enqueued on the WC Status screen. Mirror just those rules here so Active,
+   Expired and Pending Cancellation match the Subscriptions list. Keep these
+   values in sync with `assets/css/admin.css` (.subscription-status.status-*). */
+.woocommerce-subscriptions-health-check-tab .subscription-status.status-active {
+	background: #c6e1c6;
+	color: #5b841b;
+}
+
+.woocommerce-subscriptions-health-check-tab .subscription-status.status-expired {
+	background: #bd94af;
+	color: #724663;
+}
+
+.woocommerce-subscriptions-health-check-tab .subscription-status.status-pending-cancel {
+	background: #bfbfbf;
+	color: #737373;
+}

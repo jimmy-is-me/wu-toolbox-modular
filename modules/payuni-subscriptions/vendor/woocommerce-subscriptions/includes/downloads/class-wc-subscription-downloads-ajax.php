@@ -1,0 +1,128 @@
+<?php
+if ( ! defined( 'ABSPATH' ) ) {
+	exit; // Exit if accessed directly.
+}
+
+/**
+ * WooCommerce Subscription Downloads Ajax.
+ *
+ * @package  WC_Subscription_Downloads_Ajax
+ * @category Ajax
+ * @author   WooThemes
+ */
+class WC_Subscription_Downloads_Ajax {
+
+	/**
+	 * Ajax actions.
+	 */
+	public function __construct() {
+		add_action( 'wp_ajax_wc_subscription_downloads_search', array( $this, 'search_subscriptions' ) );
+		add_action( 'wp_ajax_wc_subscription_linked_downloadable_products_search', array( $this, 'search_downloadable_products' ) );
+	}
+
+	/**
+	 * Search subscription products.
+	 */
+	public function search_subscriptions() {
+		ob_start();
+
+		global $wpdb;
+
+		check_ajax_referer( 'search-products', 'security' );
+
+		$term = wc_clean( stripslashes( $_GET['term'] ) );
+
+		if ( empty( $term ) ) {
+			die();
+		}
+
+		$found_subscriptions = array();
+
+		$term = apply_filters( 'woocommerce_subscription_downloads_json_search_order_number', $term );
+
+		// Find subscription products by title.
+		$query_subscriptions = $wpdb->get_results( $wpdb->prepare( "
+			SELECT ID
+			FROM $wpdb->posts AS posts
+				LEFT JOIN $wpdb->term_relationships AS t_relationships ON(posts.ID = t_relationships.object_id)
+				LEFT JOIN $wpdb->term_taxonomy AS t_taxonomy ON(t_relationships.term_taxonomy_id = t_taxonomy.term_taxonomy_id)
+				LEFT JOIN $wpdb->terms AS terms ON(t_taxonomy.term_id = terms.term_id)
+			WHERE posts.post_type = 'product'
+			AND posts.post_status = 'publish'
+			AND posts.post_title LIKE %s
+			AND t_taxonomy.taxonomy = 'product_type'
+			AND (terms.slug = 'subscription' OR terms.slug = 'variable-subscription')
+			ORDER BY posts.post_date DESC
+		", '%' . $term . '%' ) );
+
+		if ( $query_subscriptions ) {
+			foreach ( $query_subscriptions as $item ) {
+				$_product = wc_get_product( $item->ID );
+
+				// Only surface products the current user may read, matching WooCommerce core's product search.
+				if ( ! wc_products_array_filter_readable( $_product ) ) {
+					continue;
+				}
+
+				$found_subscriptions[ $item->ID ] = sanitize_text_field( $_product->get_formatted_name() );
+
+				if ( 'variable-subscription' == $_product->get_type() ) {
+					$chindren = get_children( array( 'post_parent' => $_product->get_id(), 'post_type' => 'product_variation' ) );
+
+					foreach ( $chindren as $child ) {
+						$_child_product = wc_get_product( $child );
+
+						// A readable parent doesn't make its variations readable - check each one. Note that
+						// 'product_variation' is registered without map_meta_cap, so this resolves to the
+						// primitive read_product capability that shop managers and administrators hold.
+						if ( ! wc_products_array_filter_readable( $_child_product ) ) {
+							continue;
+						}
+
+						$found_subscriptions[ $child->ID ] = sanitize_text_field( $_child_product->get_formatted_name() );
+					}
+				}
+			}
+		}
+
+		wp_send_json( $found_subscriptions );
+	}
+
+	/**
+	 * Searches for downloadable products that are simple or variants.
+	 *
+	 * @return void
+	 */
+	public function search_downloadable_products(): void {
+		$results = array();
+
+		// Prevent error noise from leaking.
+		ob_start();
+
+		if ( isset( $_GET['term'] ) && check_ajax_referer( 'search-products', 'security' ) ) {
+			$term = wc_clean( wp_unslash( $_GET['term'] ) );
+		}
+
+		if ( ! empty( $term ) ) {
+			$products = wc_get_products(
+				array(
+					'downloadable' => true,
+					'limit'        => 100,
+					's'            => $term,
+					'type'         => array( 'simple', 'variation' ),
+					'status'       => 'any',
+				)
+			);
+
+			// Filter to products the current user may read, matching WooCommerce core's product search.
+			$products = array_filter( $products, 'wc_products_array_filter_readable' );
+
+			foreach ( $products as $product ) {
+				$results[ $product->get_id() ] = sanitize_text_field( $product->get_formatted_name() );
+			}
+		}
+
+		ob_clean();
+		wp_send_json( $results );
+	}
+}

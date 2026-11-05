@@ -7,6 +7,7 @@
  * replaced to prevent duplicate plugin activation and global function clashes.
  */
 defined('ABSPATH') || exit;
+require_once __DIR__.'/settings.php';
 
 final class WUTM_PAYUNi_Payment_Module {
     private const SOURCE_PLUGIN = 'wpbr-payuni-payment/wpbr-payuni-payment.php';

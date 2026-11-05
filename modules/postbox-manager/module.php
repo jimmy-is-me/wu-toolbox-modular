@@ -25,7 +25,23 @@ final class WUTM_Postbox_Manager {
         foreach((array)(self::settings()['hide'][$screen->post_type]??[]) as $id)if(self::id($id)){$selectors[]='[id="'.$id.'"]';$selectors[]='#screen-options-wrap label[for="'.$id.'-hide"]';}
         if($selectors)echo '<style id="wutm-pbm-hide">'.implode(',',$selectors).'{display:none!important}</style>';
     }
-    static function states(){foreach((array)self::settings()['state'] as $type=>$state){if(!is_string($type)||sanitize_key($type)!==$type)continue;add_filter('get_user_option_closedpostboxes_'.$type,static function($result)use($type){return WUTM_Postbox_Manager::closed($result,$type);});}}
+    static function states(){foreach((array)self::settings()['state'] as $type=>$state){if(!is_string($type)||sanitize_key($type)!==$type)continue;add_filter('get_user_option_closedpostboxes_'.$type,static function($result)use($type){return WUTM_Postbox_Manager::apply_defaults($result,$type);});}}
+    static function apply_defaults($result,$type){
+        $screen=get_current_screen();$uid=get_current_user_id();
+        if($uid&&$screen&&$screen->base==='post'&&$screen->post_type===$type){
+            $state=(array)(self::settings()['state'][$type]??[]);$revision=hash('sha256',wp_json_encode($state));$key='wutm_pbm_revision_'.$type;
+            if(get_user_option($key,$uid)!==$revision){
+                $result=is_array($result)?$result:[];
+                foreach($state as $id=>$mode)if(self::id($id)&&$mode==='closed')$result[]=$id;
+                $result=array_values(array_unique($result));
+                // Persist once: subsequent native expand/collapse actions remain authoritative.
+                update_user_meta($uid,'closedpostboxes_'.$type,$result);
+                delete_user_option($uid,'closedpostboxes_'.$type,true);
+                update_user_option($uid,$key,$revision,true);
+            }
+        }
+        return self::closed($result,$type);
+    }
     static function closed($result,$type){
         $state=(array)(self::settings()['state'][$type]??[]);$closed=[];$open=[];
         foreach($state as $id=>$mode)if(self::id($id)){if($mode==='closed')$closed[]=$id;elseif($mode==='open')$open[]=$id;}
@@ -48,7 +64,7 @@ final class WUTM_Postbox_Manager {
             foreach((array)$boxes as $id=>$box){if(!self::id($id))continue;echo '<tr><td>'.esc_html($box['title']).'<br><code>'.esc_html($id).'</code></td><td>'.esc_html($box['context']).'</td><td><input type="checkbox" name="hide['.esc_attr($type).'][]" value="'.esc_attr($id).'" '.checked(in_array($id,(array)($settings['hide'][$type]??[]),true),true,false).'></td><td><select name="state['.esc_attr($type).']['.esc_attr($id).']">';foreach([''=>'不處理','closed'=>'預設收合','open'=>'強制展開'] as $value=>$label)echo '<option value="'.$value.'" '.selected($settings['state'][$type][$id]??'',$value,false).'>'.$label.'</option>';echo '</select></td></tr>';}
             echo '</tbody></table></div>';
         }
-        echo '<p><button class="button button-primary" name="pbm_action" value="save">儲存設定</button></p></form><h2>重設使用者收合記錄</h2><p>預設收合只對未操作過的使用者生效；強制展開會持續生效。重設會清除所選文章類型所有使用者的收合偏好，其他類型與其他偏好保留。多站網路可能共用此記錄，因此僅網路管理員可重設。</p>';
+        echo '<p><button class="button button-primary" name="pbm_action" value="save">儲存設定</button></p></form><h2>重設使用者收合記錄</h2><p>收合設定變更後，各帳號下次進入編輯頁會套用一次，之後可自行展開。強制展開會持續生效。重設會清除所選文章類型所有使用者的收合偏好，其他類型與其他偏好保留。多站網路可能共用此記錄，因此僅網路管理員可重設。</p>';
         if(!is_multisite()||current_user_can('manage_network_options')){echo '<form method="post" onsubmit="return confirm(\'確定重設所選文章類型的所有使用者收合記錄？多站網路可能共用此記錄。\')">';wp_nonce_field('wutm_pbm_save');echo '<select name="reset_pt">';foreach($registry as $type=>$boxes)echo '<option value="'.esc_attr($type).'">'.esc_html($type).'</option>';echo '</select> <button class="button" name="pbm_action" value="reset_users">重設使用者記錄</button></form>';}
         wutm_admin_page_close();
     }

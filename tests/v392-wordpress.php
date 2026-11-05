@@ -1,0 +1,40 @@
+<?php
+if(!defined('WP_CLI')||!WP_CLI||getenv('WUTM_MEDIA_INTEGRATION')!=='1'||DB_NAME!=='wci_fixture'||$GLOBALS['wpdb']->prefix!=='wme_wp_')throw new RuntimeException('Disposable fixture only');
+function v392_check($yes,$label){if(!$yes)throw new RuntimeException($label);}
+require_once ABSPATH.'wp-admin/includes/screen.php';require_once ABSPATH.'wp-admin/includes/template.php';set_current_screen('product');
+require_once dirname(__DIR__).'/modules/postbox-manager/module.php';
+$uid=get_current_user_id();update_option('pbm_settings',['hide'=>[],'state'=>['product'=>['fixture-box'=>'closed']]]);update_user_meta($uid,'closedpostboxes_product',[]);delete_user_option($uid,'wutm_pbm_revision_product',true);WUTM_Postbox_Manager::states();
+v392_check(in_array('fixture-box',get_user_option('closedpostboxes_product'),true),'Existing administrator gets changed default');
+update_user_meta($uid,'closedpostboxes_product',[]);v392_check(get_user_option('closedpostboxes_product')===[],'User can reopen after initial application');
+update_option('pbm_settings',['hide'=>[],'state'=>['product'=>['fixture-box'=>'closed','another'=>'closed']]]);v392_check(in_array('another',get_user_option('closedpostboxes_product'),true),'Changed policy applies once again');
+update_option('pbm_settings',['hide'=>[],'state'=>['product'=>['fixture-box'=>'open']]]);v392_check(!in_array('fixture-box',get_user_option('closedpostboxes_product'),true),'Forced open remains effective');
+
+class WUTM_Refund_Fixture extends \WPBrewer\Payuni\Payment\Gateways\GatewayBase {public static $calls=[];public function __construct(){$this->id='wutm-refund-fixture';$this->supports=['refunds'];}public function process_refund($id,$amount=null,$reason=''){self::$calls[]=[$id,$amount];return true;}}
+add_filter('woocommerce_payment_gateways',static function($list){$list[]=WUTM_Refund_Fixture::class;return $list;});WC()->payment_gateways()->init();
+add_filter('pre_http_request',static fn()=>new WP_Error('fixture','Blocked external traffic'),999);
+add_filter('pre_wp_mail','__return_true');
+$orders=[];
+foreach(['manual','auto','auto'] as $mode){$o=wc_create_order();$o->set_payment_method('wutm-refund-fixture');$o->set_total(100);$o->save();$orders[]=$o;update_option('wutm_payuni_refund_mode',$mode);$o->update_status('refunded');}
+v392_check(count(WUTM_Refund_Fixture::$calls)===2,'Only explicit auto mode submits status-based refund');WUTM_PAYUNi_Settings::auto_refund($orders[1]->get_id());v392_check(count(WUTM_Refund_Fixture::$calls)===2,'Repeated status cannot refund twice');
+$o=wc_create_order();$o->set_payment_method('wutm-refund-fixture');$o->set_total(100);$o->save();$orders[]=$o;
+$r=wc_create_refund(['order_id'=>$o->get_id(),'amount'=>100,'refund_payment'=>true]);v392_check(!is_wp_error($r)&&count(WUTM_Refund_Fixture::$calls)===3,'Normal gateway refund is not repeated by automatic status hook');
+
+v392_check(class_exists('WUTM_SUB_PAYUNI_Gateway')&&function_exists('wcs_create_subscription'),'Subscription engine and gateway booted through enabled module');
+update_option('woocommerce_currency','TWD');$subsettings=['enabled'=>'yes','testmode'=>'yes','auth3d'=>'no','merchant_test'=>'TESTMERCHANT','hash_key_test'=>str_repeat('K',32),'hash_iv_test'=>str_repeat('I',16)];update_option('woocommerce_payuni-credit-subscription_settings',$subsettings);
+$normal=get_option('payuni_payment_hashkey');v392_check(get_option('wutm_sub_payuni_payment_hash_key_test')===str_repeat('K',32)&&get_option('payuni_payment_hashkey')===$normal,'Subscription keys isolated');
+$gateway=new WUTM_SUB_PAYUNI_Gateway();v392_check($gateway->is_available(),'Configured sandbox gateway available');
+update_option('woocommerce_payuni-credit-subscription_settings',array_merge($subsettings,['enabled'=>'no']));v392_check(!(new WUTM_SUB_PAYUNI_Gateway())->is_available(),'Disabled subscription gateway unavailable');update_option('woocommerce_payuni-credit-subscription_settings',$subsettings);
+$p=new WC_Product_Subscription();$p->set_name('一般商店月訂閱');$p->set_regular_price(66);$p->update_meta_data('_subscription_period','month');$p->update_meta_data('_subscription_period_interval',1);$p->save();
+$o=wc_create_order(['customer_id'=>$uid]);$o->add_product($p,1);$o->set_payment_method('payuni-credit-subscription');$o->set_currency('TWD');$o->set_billing_email('test@example.test');$o->calculate_totals();$o->save();$orders[]=$o;
+$sub=wcs_create_subscription(['order_id'=>$o->get_id(),'customer_id'=>$uid,'billing_period'=>'month','billing_interval'=>1,'start_date'=>gmdate('Y-m-d H:i:s')]);v392_check(!is_wp_error($sub),'Subscription created');$sub->add_product($p,1);$sub->set_payment_method('payuni-credit-subscription');$sub->set_currency('TWD');$sub->calculate_totals();$sub->save();
+$requests=0;$mock=static function($pre,$args,$url)use(&$requests){if(!str_contains($url,'payuni.com.tw'))return $pre;$requests++;$sent=WUTMPayuniSubscription\APIs\Payment::decrypt($args['body']['EncryptInfo']);$answer=['Status'=>'SUCCESS','Message'=>'fixture','MerTradeNo'=>$sent['MerTradeNo'],'TradeAmt'=>$sent['TradeAmt'],'TradeNo'=>'TEST-'.$requests,'Card4No'=>'1111','CreditHash'=>'FIXTURE-TOKEN','CreditLife'=>'1230'];$enc=WUTMPayuniSubscription\APIs\Payment::encrypt($answer);return ['response'=>['code'=>200],'headers'=>[],'body'=>wp_json_encode(['EncryptInfo'=>$enc,'HashInfo'=>WUTMPayuniSubscription\APIs\Payment::hash_info($enc)])];};
+remove_all_filters('pre_http_request');add_filter('pre_http_request',$mock,10,3);add_filter('pre_http_request',static fn($pre)=>$pre===false?new WP_Error('fixture','No outbound'): $pre,999);
+$_POST=['payment_method'=>'payuni-credit-subscription','payuni-credit-subscription-card-number'=>'4111111111111111','payuni-credit-subscription-card-expiry'=>'12/30','payuni-credit-subscription-card-cvc'=>'123'];
+$result=$gateway->process_payment($o->get_id());v392_check(($result['result']??'')==='success'&&wc_get_order($o->get_id())->is_paid(),'Signed sandbox first payment accepted');$gateway->process_payment($o->get_id());v392_check($requests===1,'First payment not repeated');
+$sub->update_status('active');$renewal=wcs_create_renewal_order($sub);$renewal->set_payment_method('payuni-credit-subscription');$renewal->set_currency('TWD');$renewal->set_billing_email('test@example.test');$renewal->save();$orders[]=$renewal;
+WUTM_SUB_PAYUNI_Renewal::run((float)$renewal->get_total(),$renewal);WUTM_SUB_PAYUNI_Renewal::run((float)$renewal->get_total(),wc_get_order($renewal->get_id()));v392_check(wc_get_order($renewal->get_id())->is_paid()&&$requests===2,'Renewal paid once');
+remove_filter('pre_http_request',$mock,10);$timeout=static function()use(&$requests){$requests++;return new WP_Error('timeout','Fixture timeout');};add_filter('pre_http_request',$timeout,10,3);
+$unknown=wcs_create_renewal_order($sub);$unknown->set_payment_method('payuni-credit-subscription');$unknown->set_currency('TWD');$unknown->save();$orders[]=$unknown;WUTM_SUB_PAYUNI_Renewal::run((float)$unknown->get_total(),$unknown);WUTM_SUB_PAYUNI_Renewal::run((float)$unknown->get_total(),wc_get_order($unknown->get_id()));v392_check(wc_get_order($unknown->get_id())->has_status('on-hold')&&$requests===3,'Uncertain renewal held and never retried');
+$_GET=[];ob_start();WUTM_SUB_PAYUNI_Admin_Subscriptions::render();$list=ob_get_clean();v392_check(str_contains($list,'一般商店月訂閱'),'Generic subscription list without pet plan metadata');
+$_POST=$_REQUEST=[];$sub->delete(true);foreach($orders as $order)$order->delete(true);$p->delete(true);
+echo "v3.9.2 native modules passed: existing-user collapse, manual/automatic/refund deduplication, engine startup, isolated credentials, first payment, renewal, timeout and generic subscription management.\n";

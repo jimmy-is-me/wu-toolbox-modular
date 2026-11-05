@@ -1,0 +1,438 @@
+<?php
+/**
+ * WooCommerce Subscriptions setup
+ *
+ * @package WooCommerce Subscriptions
+ * @since   4.0.0
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+use Automattic\WooCommerce_Subscriptions\Internal\Products\BulkActions;
+use Automattic\WooCommerce_Subscriptions\Internal\Telemetry\Events as WC_Tracks_Events;
+use Automattic\WooCommerce_Subscriptions\Internal\Queue_Management\Manager as Queue_Management;
+use Automattic\WooCommerce_Subscriptions\Settings;
+
+/**
+ * @method static WC_Subscriptions_Plugin instance()
+ */
+class WC_Subscriptions_Plugin extends WC_Subscriptions_Core_Plugin {
+
+	/**
+	 * Initialise the WC Subscriptions plugin.
+	 *
+	 * @since 4.0.0
+	 */
+	public function init() {
+		parent::init();
+		WC_Subscriptions_Switcher::init();
+		$this->add_cart_handler( new WCS_Cart_Switch() );
+		WCS_Manual_Renewal_Manager::init();
+
+		( new \Automattic\WooCommerce_Subscriptions\Internal\HealthCheck\Bootstrap() )->register();
+		( new Queue_Management() )->setup();
+		WCS_Customer_Suspension_Manager::init();
+		WCS_Drip_Downloads_Manager::init();
+		WCS_Zero_Initial_Payment_Checkout_Manager::init();
+		WCS_Retry_Manager::init();
+		WCS_Early_Renewal_Modal_Handler::init();
+		WCS_Limited_Recurring_Coupon_Manager::init();
+		WCS_Call_To_Action_Button_Text_Manager::init();
+		WCS_Subscriber_Role_Manager::init();
+		WCS_Upgrade_Notice_Manager::init();
+		WCS_Admin_Assets::init();
+		BulkActions::init();
+
+		/*
+		 * Skip the classic renderer when a plugin update or rollback replaced the files on disk after
+		 * this request registered its class map - see WC_Subscriptions_Admin::are_settings_classes_loadable()
+		 * for the window. The settings surface degrades for this request instead of fataling the plugin load.
+		 */
+		if ( WC_Subscriptions_Admin::are_settings_classes_loadable() ) {
+			\Automattic\WooCommerce_Subscriptions\Internal\Admin\Settings\Classic_Renderer::init();
+		}
+
+		$tracks_events = new WC_Tracks_Events();
+		$tracks_events->setup();
+
+		if ( defined( 'WP_CLI' ) && WP_CLI ) {
+			new WC_Subscriptions_CLI();
+		}
+
+		add_action( 'admin_enqueue_scripts', array( $this, 'maybe_show_welcome_message' ) );
+		add_action( 'plugins_loaded', array( $this, 'init_apfs' ) );
+		add_action( 'plugins_loaded', array( $this, 'init_gifting' ) );
+		add_action( 'plugins_loaded', array( $this, 'init_downloads' ) );
+		add_action( 'plugins_loaded', array( \Automattic\WooCommerce_Subscriptions\Internal\Abilities\Abilities_Registrar::class, 'init' ), 100 );
+		add_action( 'admin_notices', array( WC_Subscription_Downloads_Settings::class, 'add_notice_about_bundled_feature' ) );
+	}
+
+	/**
+	 * Initialises classes which need to be loaded after other plugins have loaded.
+	 *
+	 * Hooked onto 'plugins_loaded' by @see WC_Subscriptions_Core_Plugin::init()
+	 *
+	 * @since 4.0.0
+	 */
+	public function init_version_dependant_classes() {
+		parent::init_version_dependant_classes();
+		WCS_API::init();
+		new WCS_Auth();
+		WCS_Webhooks::init();
+		new WCS_Admin_Reports();
+		new WCS_Report_Cache_Manager();
+
+		if ( class_exists( 'WCS_Early_Renewal' ) ) {
+			$notice = new WCS_Admin_Notice( 'error' );
+
+			// translators: 1-2: opening/closing <b> tags, 3: Subscriptions version.
+			$notice->set_simple_content( sprintf( __( '%1$sWarning!%2$s We can see the %1$sWooCommerce Subscriptions Early Renewal%2$s plugin is active. Version %3$s of %1$sWooCommerce Subscriptions%2$s comes with that plugin\'s functionality packaged into the core plugin. Please deactivate WooCommerce Subscriptions Early Renewal to avoid any conflicts.', 'woocommerce-subscriptions' ), '<b>', '</b>', $this->get_plugin_version() ) ); // get_plugin_version() is used here to report the correct WCS version.
+			$notice->set_actions(
+				array(
+					array(
+						'name' => __( 'Installed Plugins', 'woocommerce-subscriptions' ),
+						'url'  => admin_url( 'plugins.php' ),
+					),
+				)
+			);
+
+			$notice->display();
+		} else {
+			WCS_Early_Renewal_Manager::init();
+
+			require_once $this->get_plugin_directory( 'includes/early-renewal/wcs-early-renewal-functions.php' );
+
+			if ( WCS_Early_Renewal_Manager::is_early_renewal_enabled() ) {
+				$this->add_cart_handler( new WCS_Cart_Early_Renewal() );
+			}
+		}
+	}
+
+	/**
+	 * Gets the plugin's directory url.
+	 *
+	 * @since 4.0.0
+	 * @param string $path Optional. The path to append.
+	 * @return string
+	 */
+	public function get_plugin_directory_url( $path = '' ) {
+		return plugin_dir_url( WC_Subscriptions::$plugin_file ) . $path;
+	}
+
+	/**
+	 * Gets the plugin's directory.
+	 *
+	 * @since 4.0.0
+	 * @param string $path Optional. The path to append.
+	 * @return string
+	 */
+	public function get_plugin_directory( $path = '' ) {
+		return plugin_dir_path( WC_Subscriptions::$plugin_file ) . $path;
+	}
+
+	/**
+	 * Gets the activation transient name.
+	 *
+	 * @since 4.0.0
+	 * @return string The transient name used to record when the plugin was activated.
+	*/
+	public function get_activation_transient() {
+		return WC_Subscriptions::$activation_transient;
+	}
+
+	/**
+	 * Gets the product type name.
+	 *
+	 * @since 4.0.0
+	 * @return string The product type name.
+	 */
+	public function get_product_type_name() {
+		return WC_Subscriptions::$name;
+	}
+
+	/**
+	 * Gets the version of WooCommerce Subscriptions.
+	 *
+	 * NOTE: This function should only be used to get the version of WooCommerce Subscriptions.
+	 * `WC_Subscriptions_Core_Plugin::instance()->get_plugin_version()` will return either the version of WooCommerce Subscriptions (if installed) or the version of WooCommerce Subscriptions Core.
+	 * `WC_Subscriptions_Core_Plugin::instance()->get_library_version()` should be used to get the version of WooCommerce Subscriptions Core.
+	 *
+	 * @since 4.0.0
+	 * @see get_library_version()
+	 * @return string The plugin version.
+	 */
+	public function get_plugin_version() {
+		return WC_Subscriptions::$version;
+	}
+
+	/**
+	 * Gets the plugin file name
+	 *
+	 * @since 4.0.0
+	 * @return string The plugin file
+	 */
+	public function get_plugin_file() {
+		return WC_Subscriptions::$plugin_file;
+	}
+
+	/**
+	 * Gets the Payment Gateways handler class
+	 *
+	 * @since 4.0.0
+	 * @return string
+	 */
+	public function get_gateways_handler_class() {
+		return 'WC_Subscriptions_Payment_Gateways';
+	}
+
+	/**
+	 * Gets the canonical Subscriptions settings accessor.
+	 *
+	 * @return Settings
+	 */
+	public function settings() {
+		return Settings::instance();
+	}
+
+
+	/**
+	 * Adds welcome message after activating the plugin
+	 *
+	 * Does nothing since 9.1.0. The notice's "Add a Subscription Product" button led to the legacy
+	 * product-type walkthrough, which has been inert since 9.0.0 made the "Simple subscription" and
+	 * "Variable subscription" product types opt-in and off by default. The notice only rendered on a
+	 * store with no legacy subscription products, which is exactly the case where neither type is
+	 * available. admin_installed_notice() is left in place for a replacement onboarding flow.
+	 *
+	 * @see https://linear.app/a8c/issue/WOOSUBS-1849
+	 */
+	public function maybe_show_welcome_message() {
+		// No-op. The welcome notice is retired, see the docblock above.
+	}
+
+	/**
+	 * Outputs a welcome message. Called when the Subscriptions extension is activated.
+	 *
+	 * @since 1.0
+	 */
+	public function admin_installed_notice() {
+		?>
+		<div id="message" class="updated woocommerce-message wc-connect woocommerce-subscriptions-activated">
+			<div class="squeezer">
+				<h4>
+					<?php
+					echo wp_kses(
+						sprintf(
+							// translators: $1-$2: opening and closing <strong> tags, $3-$4: opening and closing <em> tags.
+							__(
+								'%1$sWooCommerce Subscriptions Installed%2$s &#8211; %3$sYou\'re ready to start selling subscriptions!%4$s',
+								'woocommerce-subscriptions'
+							),
+							'<strong>',
+							'</strong>',
+							'<em>',
+							'</em>'
+						),
+						[
+							'strong' => true,
+							'em'     => true,
+						]
+					);
+					?>
+				</h4>
+
+				<p class="submit">
+					<a href="<?php echo esc_url( WC_Subscriptions_Admin::add_subscription_url() ); ?>" class="button button-primary"><?php esc_html_e( 'Add a Subscription Product', 'woocommerce-subscriptions' ); ?></a>
+					<a href="<?php echo esc_url( WC_Subscriptions_Admin::settings_tab_url() ); ?>" class="docs button button-primary"><?php esc_html_e( 'Settings', 'woocommerce-subscriptions' ); ?></a>
+					<a href="https://twitter.com/share" class="twitter-share-button" data-url="http://www.woocommerce.com/products/woocommerce-subscriptions/" data-text="Woot! I can sell subscriptions with #WooCommerce" data-via="WooCommerce" data-size="large">Tweet</a>
+					<script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="//platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script>
+				</p>
+			</div>
+		</div>
+		<?php
+	}
+
+	/**
+	 * Attempts to initialize APFS (All Products for Subscriptions) functionality.
+	 *
+	 * By the time `plugins_loaded` fires, WordPress has already included every active plugin file.
+	 * If the standalone APFS plugin is active, its top-level `function WCS_ATT()` declaration will
+	 * have executed during file inclusion - so `function_exists( 'WCS_ATT' )` is a reliable check.
+	 *
+	 * The `is_plugin_being_activated` fallback covers the single request where a merchant activates
+	 * the standalone plugin: WordPress calls `activate_plugin()` after `plugins_loaded`, so the
+	 * standalone file has not been included yet and `function_exists` would be false. Without this
+	 * check the standalone's unconditional `function WCS_ATT()` declaration would redeclare-fatal.
+	 */
+	public function init_apfs() {
+		if (
+			$this->is_plugin_being_activated( 'woocommerce-all-products-for-subscriptions' )
+			|| function_exists( 'WCS_ATT' )
+		) {
+			// Standalone APFS is active or being activated. Still show the
+			// Subscription Plans welcome announcement so the merchant sees the
+			// migration prompt even without the bundled code path.
+			add_action(
+				'admin_init',
+				function () {
+					if ( ! class_exists( 'WCS_ATT_Admin_Welcome_Announcement' ) ) {
+						return;
+					}
+
+					if ( WCS_ATT_Admin_Welcome_Announcement::is_welcome_announcement_dismissed() ) {
+						return;
+					}
+
+					WCS_ATT_Admin_Welcome_Announcement::init();
+				},
+				5
+			);
+			return;
+		}
+
+		// Declare the legacy global function used by internal APFS code and
+		// third-party integrations.  PHPStan does not support inner named
+		// functions (phpstan/phpstan#165), so we load a dedicated file.
+		require_once $this->get_plugin_directory( 'includes/apfs/wcs-att-global-function.php' );
+
+		$GLOBALS['woocommerce_subscribe_all_the_things'] = WCS_ATT();
+	}
+
+	/**
+	 * Attempts to initialize gifting functionality.
+	 *
+	 * Before doing this, the method tries to determine if the standalone WooCommerce Gifting plugin is active and has
+	 * already loaded (if the standalone plugin is active, we do not proceed). To accomplish this, this method expects
+	 * to run during plugins_loaded at priority 20 (whereas the equivalent code from the standalone plugin will run at
+	 * priority 11).
+	 */
+	public function init_gifting() {
+		if ( ! WCSG_Admin_Welcome_Announcement::is_welcome_announcement_dismissed() ) {
+			WCSG_Admin_Welcome_Announcement::init();
+		}
+
+		if (
+			$this->is_plugin_being_activated( 'woocommerce-subscriptions-gifting' )
+			|| function_exists( 'wcsg_load' )
+		) {
+			return;
+		}
+
+		$gifting_includes = trailingslashit( $this->get_plugin_directory( 'includes/gifting' ) );
+
+		require_once $gifting_includes . 'wcsg-compatibility-functions.php';
+
+		WCSG_Admin_Order::init();
+		WCSG_Product::init();
+		WCSG_Cart::init();
+		WCSG_Checkout::init();
+		WCSG_Recipient_Management::init();
+		WCSG_Recipient_Details::init();
+		WCSG_Email::init();
+		WCSG_Download_Handler::init();
+		WCSG_Admin::init();
+		WCSG_Recipient_Addresses::init();
+		WCSG_Template_Loader::init();
+		WCSG_Admin_System_Status::init();
+
+		add_action(
+			'init',
+			function () {
+				new WCSG_Privacy();
+			}
+		);
+
+		WCS_Gifting::init();
+	}
+
+	/**
+	 * Attempts to initialize additional downloads functionality.
+	 *
+	 * This functionality makes it possible to link downloadable products with a subscription
+	 * product. Purchasers of the subscription product then automatically get access to the files associated with downloadable product.
+	 *
+	 * Previously, this functionality existed as a standalone plugin (WooCommerce Subscription Downnloads) and so,
+	 * before initializing, we try to determine if the standalone plugin is active and has already loaded (if it is
+	 * active, we do not proceed).
+	 */
+	public function init_downloads() {
+		if (
+			$this->is_plugin_being_activated( 'woocommerce-subscription-downloads' )
+			|| class_exists( WC_Subscription_Downloads::class, false )
+		) {
+			if ( class_exists( WC_Subscription_Downloads::class, false ) ) {
+				// Will show the welcome announcement if the standalone plugin is active and the welcome announcement has not been dismissed.
+				if ( ! WC_Subscription_Downloads_Admin_Welcome_Announcement::is_welcome_announcement_dismissed() ) {
+					WC_Subscription_Downloads_Admin_Welcome_Announcement::init();
+				}
+			}
+
+			return;
+		}
+
+		WC_Subscription_Downloads::setup();
+	}
+
+	/**
+	 * Tries to determine if the specified plugin is being activated.
+	 *
+	 * The provided plugin slug can be either the complete relative plugin path (ie, 'plugin-slug/plugin-slug.php') or
+	 * just a part of the path (ie, 'plugin-slug'). So long as the plugin which is actually being activated contains
+	 * that string, then we consider ourselves to have a match and will return true.
+	 *
+	 * Therefore, consider with care how precise you need to be: something highly specific like our first example will
+	 * fail if the plugin directory has been renamed. A shorter fragment, on the other hand, will potentially match the
+	 * wrong plugin.
+	 *
+	 * This method is only useful as a means of detecting when a plugin is activated through 'conventional' means (via
+	 * the plugin admin screen, or via WP CLI), but it will not provide protection if, for example, third party code
+	 * makes its own arbitrary calls to activate_plugin().
+	 *
+	 * @param string $plugin_slug Plugin slug.
+	 *
+	 * @return bool
+	 */
+	private function is_plugin_being_activated( string $plugin_slug ): bool {
+		// Try to determine if a plugin is in the process of being activated via the plugin admin screen.
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended
+		$action = isset( $_REQUEST['action'] ) ? wc_clean( wp_unslash( $_REQUEST['action'] ) ) : '';
+		// phpcs:disable WordPress.Security.NonceVerification.Recommended
+		$plugin = isset( $_REQUEST['plugin'] ) ? wc_clean( wp_unslash( $_REQUEST['plugin'] ) ) : '';
+
+		if (
+			'activate' === $action
+			&& str_contains( $plugin, $plugin_slug )
+		) {
+			return true;
+		}
+
+		// Try to determine if a plugin is being activated via WP CLI.
+		if ( class_exists( WP_CLI::class ) ) {
+			// Note that flags such as `--no-color` are filtered out of this array.
+			$args = WP_CLI::get_runner()->arguments;
+
+			if ( ! is_countable( $args ) ) {
+				return false;
+			}
+
+			if (
+				( count( $args ) < 3
+				|| 'plugin' !== $args[0]
+				|| 'activate' !== $args[1] )
+			) {
+				return false;
+			}
+
+			// The remaining arguments are the list of plugin slugs to be activated.
+			$plugins_to_be_activated = array_slice( $args, 2 );
+
+			foreach ( $plugins_to_be_activated as $plugin ) {
+				if ( str_contains( $plugin, $plugin_slug ) ) {
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+}
