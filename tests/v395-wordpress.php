@@ -4,6 +4,7 @@ require_once ABSPATH.'wp-admin/includes/screen.php';
 require_once ABSPATH.'wp-admin/includes/template.php';
 require_once ABSPATH.'wp-admin/includes/class-wp-list-table.php';
 require_once ABSPATH.'wp-admin/includes/class-wp-posts-list-table.php';
+require_once WC_ABSPATH.'includes/admin/wc-admin-functions.php';
 set_current_screen('edit-shop_order');
 require dirname(__DIR__).'/modules/order-list-layout/module.php';
 require_once WC_ABSPATH.'includes/admin/list-tables/class-wc-admin-list-table-orders.php';
