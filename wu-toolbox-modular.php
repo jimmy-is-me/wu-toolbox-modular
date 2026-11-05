@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name: WU Toolbox Modular
+ * Plugin Name: Wu Toolbox Modular
  * Plugin URI: https://wumetax.com/
- * Description: WU Toolbox 的按需載入模組化版本。每項功能獨立，只有啟用後才會載入。
- * Version: 3.9.3
+ * Description: Wu Toolbox 的按需載入模組化版本。每項功能獨立，只有啟用後才會載入。
+ * Version: 3.9.4
  * Author: Wumetax
  * Author URI: https://wumetax.com/
  * License: GPL-2.0-or-later
@@ -14,7 +14,7 @@
 defined('ABSPATH') || exit;
 
 define('WUTM_FILE', __FILE__);
-define('WUTM_VERSION', '3.9.3');
+define('WUTM_VERSION', '3.9.4');
 define('WUTM_PATH', plugin_dir_path(__FILE__));
 define('WUTM_URL', plugin_dir_url(__FILE__));
 
@@ -64,7 +64,7 @@ add_filter('plugin_row_meta', function (array $links, string $file): array {
 
     if (!$has_details_link) {
         $links[] = '<a href="' . esc_url($details_url) . '" class="thickbox open-plugin-details-modal" aria-label="' .
-            esc_attr__('檢視 WU Toolbox Modular 詳細資料', 'wu-toolbox-modular') . '">' .
+            esc_attr__('檢視 Wu Toolbox Modular 詳細資料', 'wu-toolbox-modular') . '">' .
             esc_html__('檢視詳細資料', 'wu-toolbox-modular') .
             '</a>';
     }
@@ -108,15 +108,22 @@ add_action('admin_init', function () {
 
 add_action('admin_menu', function () {
     add_menu_page(
-        __('WU Toolbox Modular', 'wu-toolbox-modular'),
-        __('WU Toolbox', 'wu-toolbox-modular'),
+        __('Wu Toolbox Modular', 'wu-toolbox-modular'),
+        __('Wu Toolbox', 'wu-toolbox-modular'),
         'manage_options',
         'wu-toolbox-modular',
         'wutm_render_admin_page',
-        'dashicons-admin-tools',
+        wutm_toolbox_menu_icon(),
         80
     );
 }, 5);
+
+// Refresh the previous default label even when a menu layout stored it verbatim.
+add_action('admin_menu',static function(){
+    global $menu,$submenu;
+    foreach((array)$menu as $index=>$entry)if(($entry[2]??'')==='wu-toolbox-modular'&&in_array(wp_strip_all_tags((string)($entry[0]??'')),['WU Toolbox','WU TOOLBOX'],true))$menu[$index][0]='Wu Toolbox';
+    foreach((array)($submenu['wu-toolbox-modular']??[]) as $index=>$entry)if(($entry[2]??'')==='wu-toolbox-modular'&&in_array(wp_strip_all_tags((string)($entry[0]??'')),['WU Toolbox','WU TOOLBOX'],true))$submenu['wu-toolbox-modular'][$index][0]='Wu Toolbox';
+},PHP_INT_MAX);
 
 add_action('wp_ajax_wutm_toggle_module', function () {
     check_ajax_referer('wutm_toggle_module', 'nonce');
@@ -145,7 +152,7 @@ add_action('wp_ajax_wutm_toggle_module', function () {
     }
     if ($enable && function_exists('wutm_license_is_valid') && !wutm_license_is_valid()) {
         wp_send_json_error([
-            'message' => '請先完成 WU Toolbox 授權驗證，才能啟用新模組。',
+            'message' => '請先完成 Wu Toolbox 授權驗證，才能啟用新模組。',
             'license_url' => admin_url('admin.php?page=wu-toolbox-modular#wutm-license'),
         ], 403);
     }

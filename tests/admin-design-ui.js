@@ -43,6 +43,8 @@ const render = mode => execFileSync(php, [...phpArgs, 'tests/admin-design.php', 
    await page.goto(origin+'/dashboard');
    if(fontCSS){await page.addStyleTag({content:fontCSS});await page.evaluate(()=>document.fonts.ready);}
    assert.ok(await page.locator('.wutm-card').count()>100,'All registry modules present');
+   assert.equal(await page.locator('.wutm-card .wutm-icon svg').count(),await page.locator('.wutm-card').count(),'Every module uses SVG artwork');
+   assert.ok((await page.locator('.wutm-icon').allTextContents()).every(text=>text.trim()===''),'No letter or emoji icons');
    assert.equal(await page.locator('.wutm-ui-header').count(),1);
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,'Dashboard overflow '+width);
    const categoryLinks=page.locator('.wutm-category-nav a');

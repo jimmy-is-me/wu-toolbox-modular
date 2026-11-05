@@ -81,7 +81,7 @@ add_action('wp_dashboard_setup', function() {
 		'normal',
 		'high'
 	);
-});
+}, PHP_INT_MAX - 1);
 
 // ===== Unified Dashboard Renderer =====
 
@@ -1122,6 +1122,7 @@ function wu_dashboard_settings_page() {
 	?>
 	<div class="wrap">
 		<h1>儀表板設定</h1>
+		<p>狀態小工具：<?php echo $enabled?'已啟用':'尚未啟用，請勾選下方「啟用客戶儀表板」並儲存'; ?>。<a href="<?php echo esc_url(admin_url('index.php')); ?>">前往控制台</a>。若已啟用仍看不到，請確認「顯示項目設定」及「後台介面管理 → 儀表板小工具管理」沒有關閉「網站維運管理儀表板」。</p>
 		
 		<div class="notice notice-info" style="padding:15px;">
 			<p style="margin:0;"><strong>系統說明</strong></p>

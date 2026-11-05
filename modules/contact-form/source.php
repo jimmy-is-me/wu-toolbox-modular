@@ -1,8 +1,8 @@
 <?php
 defined('ABSPATH') || exit;
 /**
- * KH Mini Form - 可自訂欄位聯絡表單
- * 短碼:[kh_mini_form_x7]
+ * Wu Contact Form - 可自訂欄位聯絡表單
+ * 短碼:[wu_contact_form]
  */
 
 define('WUTM_CF_OPT', 'khmf_fields');
@@ -25,7 +25,7 @@ function wutm_cf_types() {
 
 // 1. 後台留言類型
 add_action('init', function () {
-    register_post_type('khmf_entry', [
+    register_post_type('wu_entry', [
         'labels' => ['name' => '表單留言', 'singular_name' => '表單留言', 'menu_name' => '表單留言'],
         'public' => false, 'show_ui' => true,
         'show_in_menu' => 'wu-toolbox-modular',
@@ -85,11 +85,11 @@ function wutm_cf_row_html($i, $f) {
     <?php return ob_get_clean();
 }
 
-function wutm_cf_settings_page() { if (!current_user_can('manage_options')) return; wutm_admin_page_open('聯絡表單', '短碼：[wu_contact_form]；原短碼 [kh_mini_form_x7] 仍可使用。');
+function wutm_cf_settings_page() { if (!current_user_can('manage_options')) return; wutm_admin_page_open('聯絡表單', '短碼：[wu_contact_form]。');
     $fields = wutm_cf_fields(); ?>
     <div class="wrap">
         <h1>表單設定</h1>
-        <p>短碼:<code>[kh_mini_form_x7]</code></p>
+        <p>短碼:<code>[wu_contact_form]</code></p>
         <form method="post" action="options.php">
             <?php settings_fields('wutm_cf_group'); ?>
             <h2>基本設定</h2>
@@ -137,10 +137,10 @@ function wutm_cf_settings_page() { if (!current_user_can('manage_options')) retu
 <?php wutm_admin_page_close(); }
 
 // 3. 後台列表欄位
-add_filter('manage_khmf_entry_posts_columns', function () {
+add_filter('manage_wu_entry_posts_columns', function () {
     return ['cb' => '<input type="checkbox">', 'title' => '標題', 'wutm_cf_summary' => '內容摘要', 'date' => '時間'];
 });
-add_action('manage_khmf_entry_posts_custom_column', function ($col, $id) {
+add_action('manage_wu_entry_posts_custom_column', function ($col, $id) {
     if ($col !== 'wutm_cf_summary') return;
     $data = get_post_meta($id, '_khmf_data', true);
     if (!is_array($data)) return;
@@ -156,7 +156,7 @@ add_action('add_meta_boxes', function () {
             echo '<p><strong>' . esc_html($row['label']) . ':</strong><br>' . nl2br(esc_html($row['value'])) . '</p>';
         }
         echo '<p><strong>IP:</strong> ' . esc_html(get_post_meta($post->ID, '_khmf_ip', true)) . '</p>';
-    }, 'khmf_entry', 'normal', 'high');
+    }, 'wu_entry', 'normal', 'high');
 });
 
 // 4. 算術驗證(用簽章 token,不需要 session,也不怕多人同時使用)
@@ -177,7 +177,7 @@ function wutm_cf_check_captcha($token, $answer) {
 }
 
 // 5. 短碼
-add_shortcode('kh_mini_form_x7', function () {
+add_shortcode('wu_contact_form', function () {
     $msg = '';
     $s = $_GET['khmf'] ?? '';
     if ($s === 'ok')  $msg = '<div class="khmf-notice khmf-ok">感謝您的來信,我們會盡快回覆。</div>';
@@ -272,7 +272,7 @@ function wutm_cf_handle() {
     set_transient($key, 1, 30);
 
     $title = $first_text ?: ('留言 ' . current_time('Y-m-d H:i'));
-    $id = wp_insert_post(['post_type' => 'khmf_entry', 'post_status' => 'publish', 'post_title' => $title]);
+    $id = wp_insert_post(['post_type' => 'wu_entry', 'post_status' => 'publish', 'post_title' => $title]);
     if (!$id || is_wp_error($id)) {wp_safe_redirect($fail);exit;}
     if ($id && !is_wp_error($id)) {
         update_post_meta($id, '_khmf_data', $data);
@@ -291,4 +291,3 @@ function wutm_cf_handle() {
     wp_safe_redirect($ok);
     exit;
 }
-add_shortcode('wu_contact_form', $GLOBALS['shortcode_tags']['kh_mini_form_x7']);

@@ -16,6 +16,9 @@ const render=(...args)=>execFileSync(php,['tests/style-youtube.php',...args],{en
    assert.equal(await page.locator('form').getAttribute('action'),'options.php');
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Style RWD '+theme+' '+width);
    assert.deepEqual(errors,[]);
+   await page.evaluate(()=>{const menu=document.createElement('aside');menu.id='adminmenu';menu.innerHTML='<div class="wp-menu-image svg" style="width:36px;height:34px;background-image:url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjwvc3ZnPg==)"></div>';document.body.append(menu);const controls=document.createElement('div');controls.innerHTML='<select aria-label="風格測試"><option>百分比折扣</option><option>固定購物車折扣</option></select><button class="button dashicons dashicons-admin-tools" aria-label="圖標測試"></button>';document.getElementById('wpbody-content').append(controls);});
+   assert.notEqual(await page.locator('#adminmenu .svg').evaluate(node=>getComputedStyle(node).backgroundImage),'none','Theme preserves SVG menu background '+theme);
+   if(theme!=='native'){assert((await page.locator('select[aria-label="風格測試"]').boundingBox()).height>=35);assert((await page.locator('button[aria-label="圖標測試"]').evaluate(node=>getComputedStyle(node).fontFamily)).includes('dashicons'),'Icon-only buttons retain icon font '+theme);}
    if(process.env.WUTM_VISUAL_OUTPUT){fs.mkdirSync(process.env.WUTM_VISUAL_OUTPUT,{recursive:true});await page.screenshot({path:path.join(process.env.WUTM_VISUAL_OUTPUT,'style-'+theme+'-'+width+'.png')});}
    await page.close();
   }

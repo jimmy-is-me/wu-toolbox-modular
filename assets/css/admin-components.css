@@ -79,6 +79,7 @@ body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-tab-indicator{di
 body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-search input[type=search]{max-width:none}
 .wutm-admin-screen .wutm-signal-bars{display:flex;align-items:end;gap:5px;height:23px;margin-top:16px;max-width:215px}
 .wutm-admin-screen .wutm-signal-bars i{width:4px;height:30%;background:#53c8ed;border-radius:1px;animation:wutm-tech-wave 1.5s ease-in-out infinite alternate;opacity:.7}
+.wutm-admin-screen .wutm-icon svg{display:block;width:24px;height:24px;flex:none}
 .wutm-admin-screen .wutm-signal-bars i:nth-child(3n){animation-delay:-.7s;background:#6af3cf}
 .wutm-admin-screen .wutm-signal-bars i:nth-child(4n){animation-delay:-.3s}
 .wutm-admin-screen .wutm-signal-bars i:nth-child(5n){animation-delay:-1s}

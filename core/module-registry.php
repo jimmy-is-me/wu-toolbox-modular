@@ -48,7 +48,7 @@ function wutm_modules(): array {
         'content-duplicator' => ['name' => '內容複製器', 'description' => '複製文章、頁面與自訂內容。', 'group' => '內容管理', 'icon' => '📄'],
         'content-ordering' => ['name' => '文章及分類排序', 'description' => '在專屬設定頁拖曳排序文章、頁面、商品與分類。', 'group' => '內容管理', 'icon' => '↕️', 'settings_page' => 'wu-content-ordering'],
         'contact-widgets' => ['name' => '浮動聯絡按鈕', 'description' => '在網站前台顯示可自訂的聯絡方式按鈕。', 'group' => '前台介面', 'icon' => '💬'],
-        'contact-form'=>['name'=>'聯絡表單','description'=>'可自訂六種欄位、排序、必填與算術驗證，儲存留言並寄送通知。','group'=>'前台介面','icon'=>'信','settings_page'=>'wu-contact-form','related_pages'=>['edit.php?post_type=khmf_entry']],
+        'contact-form'=>['name'=>'聯絡表單','description'=>'可自訂六種欄位、排序、必填與算術驗證，儲存留言並寄送通知。','group'=>'前台介面','icon'=>'信','settings_page'=>'wu-contact-form','related_pages'=>['edit.php?post_type=wu_entry']],
         'test-orders'=>['name'=>'測試訂單產生器','description'=>'建立帶有測試標記的訂單，支援數量、狀態、日期及清理；預設不寄信、不扣庫存。','group'=>'測試工具','icon'=>'測','requires'=>'woocommerce','settings_page'=>'wu-test-orders'],
         'custom-cursor' => ['name' => '自訂網站鼠標', 'description' => '在桌面裝置顯示極簡圓環鼠標，支援連結互動、點擊效果、文字欄位切換及圓環、中心點與互動顏色設定。', 'group' => '前台介面', 'icon' => '🖱️', 'settings_page' => 'wu-custom-cursor'],
         'page-transition' => ['name' => '頁面轉場動畫', 'description' => '站內正常換頁時顯示可自訂品牌色、Logo 與文字的全螢幕轉場動畫；自動略過 WooCommerce AJAX、外部連結、下載與同頁錨點。', 'group' => '前台介面', 'icon' => '✨', 'settings_page' => 'wu-page-transition'],

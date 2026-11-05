@@ -390,6 +390,13 @@ html.wp-toolbar{background:var(--wu-bg)}
 
 %B% #wpbody-content :is(%I%){background-color:var(--wu-inbg);border:var(--wu-inb);border-bottom:var(--wu-inbb);color:var(--wu-ink);font-family:var(--wu-mono);box-shadow:none}
 %B% #wpbody-content :is(%I%):focus{background-color:var(--wu-infocus);border-color:var(--wu-focus);box-shadow:none;outline:0}
+%B% #wpbody-content select:not([multiple]):not(.media-modal *){box-sizing:border-box;min-height:36px;line-height:1.5;padding:4px 32px 4px 10px;max-width:100%;text-transform:none;letter-spacing:normal}
+%B% #wpbody-content select option{text-transform:none;letter-spacing:normal}
+%B% #wpbody-content .select2-container{max-width:100%}
+%B% #wpbody-content .select2-selection--single{min-height:36px}
+%B% #wpbody-content .select2-selection--single .select2-selection__rendered{line-height:34px;padding-right:30px}
+%B% #wpbody-content .select2-selection--single .select2-selection__arrow{height:34px}
+%B% #wpbody-content .button.dashicons{font-family:dashicons!important;font-size:20px;letter-spacing:normal;text-transform:none}
 %B% :is(input[type=checkbox],input[type=radio]){border:2px solid var(--wu-ink);background:var(--wu-surface);box-shadow:none}
 %B% input[type=checkbox]:checked{background:var(--wu-ink);border-color:var(--wu-ink)}
 %B% input[type=checkbox]:checked::before{filter:brightness(0) invert(1)}
@@ -439,7 +446,8 @@ CSS;
 %B% #adminmenu>li.menu-top>a.menu-top,%B% #adminmenu .wp-submenu a{background:transparent!important;background-image:none!important;color:var(--wu-menu-ink)!important;-webkit-text-fill-color:var(--wu-menu-ink)!important;border:0!important;border-radius:0!important;box-shadow:none!important;text-shadow:none!important;text-decoration:none!important;transform:none!important;font-family:var(--wu-ui);font-size:13px;font-weight:400}
 %B% #adminmenu>li.menu-top>a.menu-top{text-transform:var(--wu-mtf);letter-spacing:var(--wu-mls)}
 %B% #adminmenu .wp-submenu a{text-transform:none;letter-spacing:normal;padding-top:8px;padding-bottom:8px}
-%B% :is(#adminmenu .wp-menu-name,#adminmenu .wp-menu-image){background:transparent!important;border-radius:0!important;box-shadow:none!important}
+%B% :is(#adminmenu .wp-menu-name,#adminmenu .wp-menu-image){background-color:transparent!important;border-radius:0!important;box-shadow:none!important}
+%B% #toplevel_page_wu-toolbox-modular .wp-menu-name{text-transform:none!important;letter-spacing:normal!important}
 
 /* 懸浮：整列淡色，與子選單一致 */
 %B% #adminmenu>li.menu-top:not(.current):not(.wp-has-current-submenu)>a.menu-top:is(:hover,:focus),
@@ -457,6 +465,7 @@ CSS;
 %B% :is(#adminmenu>li.menu-top,#adminmenu>li.menu-top>a,#adminmenu .wp-submenu a)::before,
 %B% :is(#adminmenu>li.menu-top,#adminmenu>li.menu-top>a,#adminmenu .wp-submenu a)::after{content:none!important;display:none!important}
 %B% #adminmenu .wp-menu-image::before{color:#D5DED6!important;-webkit-text-fill-color:#D5DED6!important}
+%B% #adminmenu .wp-menu-image.svg{background-repeat:no-repeat!important;background-size:20px 20px!important;background-position:center 8px!important}
 %B% :is(#adminmenu .wp-menu-image img,#adminmenu .wp-menu-image.svg){filter:brightness(0) invert(1)!important}
 
 %B% :is(#adminmenu .wp-submenu,#adminmenu .wp-submenu-wrap){background:var(--wu-menu)!important;border:0!important;border-radius:0!important;padding:8px 0!important;box-shadow:none!important}

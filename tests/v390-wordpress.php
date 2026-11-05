@@ -24,14 +24,14 @@ try {
  v390_assert($external===0,'Third-party order automations isolated');
  $_POST=['wutm_to_nonce'=>wp_create_nonce('wutm_to_delete')];$_REQUEST=$_POST;v390_run('admin_post_wutm_to_delete');v390_assert(wutm_to_count_test_orders()===0&&wc_get_order($real->get_id()),'Cleanup never deletes real order with accidental test flag');
  do_action('init');
- v390_assert(shortcode_exists('wu_contact_form')&&shortcode_exists('kh_mini_form_x7'),'Both form shortcodes retained');
+ v390_assert(shortcode_exists('wu_contact_form')&&!shortcode_exists('kh_mini_form_x7'),'Only Wu form shortcode is registered');
  $captcha=wutm_cf_make_captcha();$answer=explode('|',$captcha['token'])[0];v390_assert(wutm_cf_check_captcha($captcha['token'],$answer)&&!wutm_cf_check_captcha($captcha['token'],$answer.'bad'),'Captcha numeric validation');
  ob_start();wutm_cf_settings_page();$settings=ob_get_clean();v390_assert(strpos($settings,'name="khmf_recipient"')!==false&&strpos($settings,'wutm-ui-root')!==false,'Legacy settings and common layout');
  wp_set_current_user(0);$_SERVER['REMOTE_ADDR']='192.0.2.90';delete_transient('khmf_rl_'.md5($_SERVER['REMOTE_ADDR']));delete_transient('wutm_cf_rl_'.md5($_SERVER['REMOTE_ADDR']));
  $_POST=['wutm_cf_nonce'=>wp_create_nonce('wutm_cf_submit'),'wutm_cf_back'=>home_url('/'),'wutm_cf_token'=>$captcha['token'],'wutm_cf_answer'=>$answer,'wutm_cf_f_0'=>'測試姓名','wutm_cf_f_1'=>'test@example.test','wutm_cf_f_2'=>'0900000000','wutm_cf_f_3'=>'測試留言'];$_REQUEST=$_POST;
- v390_run('admin_post_nopriv_wutm_cf_submit');$entries=get_posts(['post_type'=>'khmf_entry','numberposts'=>10]);
+ v390_run('admin_post_nopriv_wutm_cf_submit');$entries=get_posts(['post_type'=>'wu_entry','numberposts'=>10]);
  v390_assert(count($entries)===1&&count(get_post_meta($entries[0]->ID,'_khmf_data',true))===4,'Guest submission preserves full stored fields');
- $after=count($entries);$_POST['wutm_cf_f_0']=['invalid'];v390_run('admin_post_nopriv_wutm_cf_submit');v390_assert(count(get_posts(['post_type'=>'khmf_entry','numberposts'=>10]))===$after,'Malformed submission cannot write');
+ $after=count($entries);$_POST['wutm_cf_f_0']=['invalid'];v390_run('admin_post_nopriv_wutm_cf_submit');v390_assert(count(get_posts(['post_type'=>'wu_entry','numberposts'=>10]))===$after,'Malformed submission cannot write');
  foreach($entries as $entry)wp_delete_post($entry->ID,true);
  wp_set_current_user($uid);require dirname(__DIR__).'/modules/contact-widgets/module.php';
  $handler=new \WUTM\ContactWidgets\Admin\YSChatAjaxHandler();$method=new ReflectionMethod($handler,'sanitize_settings');$method->setAccessible(true);

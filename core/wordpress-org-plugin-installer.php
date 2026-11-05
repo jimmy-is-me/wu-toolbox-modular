@@ -155,7 +155,7 @@ final class WUTM_WordPress_Org_Plugin_Installer {
         ?>
         <div class="wrap wutm-module-wrap">
             <h1><?php echo esc_html($config['name']); ?></h1>
-            <p class="wutm-module-subtitle">這是官方外掛的快速安裝入口。WU Toolbox Modular 不會內建、重製、修改或載入 <?php echo esc_html($config['name']); ?> 的功能。</p>
+            <p class="wutm-module-subtitle">這是官方外掛的快速安裝入口。Wu Toolbox Modular 不會內建、重製、修改或載入 <?php echo esc_html($config['name']); ?> 的功能。</p>
 
             <?php if (is_array($notice)) : ?>
                 <div class="notice notice-<?php echo esc_attr(in_array($notice['type'], ['success', 'warning', 'error'], true) ? $notice['type'] : 'info'); ?> is-dismissible"><p><?php echo esc_html($notice['message']); ?></p></div>
