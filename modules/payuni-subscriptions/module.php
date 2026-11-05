@@ -32,7 +32,7 @@ final class WUTM_PAYUNi_Subscriptions {
     }
     static function page(){
         if(!current_user_can('manage_options'))return;
-        wutm_admin_page_open('PAYUNi 定期訂閱','信用卡首期付款、3D 驗證、排程續扣與失敗對帳；沿用訂閱商品及 WooCommerce 訂閱管理。');
+        wutm_admin_page_open('PAYUNi 定期訂閱','信用卡首期付款、3D 驗證、排程續扣與失敗對帳；使用 WooCommerce 傳統結帳與訂閱商品。幣別須為新台幣，金額須為整數且至少 NT$10。');
         if(!class_exists('WUTM_SUB_PAYUNI_Gateway')){echo '<p>'.esc_html(self::$problem?:'訂閱付款尚未載入，請檢查訂閱引擎及外掛衝突。').'</p>';wutm_admin_page_close();return;}
         echo '<p><a class="button" href="'.esc_url(admin_url('admin.php?page=wu-payuni-subscription-list')).'">訂閱管理</a> <a class="button" href="'.esc_url(admin_url('edit.php?post_type=product')).'">訂閱商品設定</a></p><form method="post" action="'.esc_url(admin_url('admin-post.php')).'"><input type="hidden" name="action" value="wutm_subscription_save">';wp_nonce_field('wutm_subscription_save');(new WUTM_SUB_PAYUNI_Gateway())->admin_options();submit_button('儲存訂閱付款設定');echo '</form><p>預設使用沙盒；請先完成首刷、3D 通知、續扣、停止續訂及失敗對帳測試。正式環境須 HTTPS。本模組沿用來源的本站信用卡輸入流程，不是跳轉至金流收款頁；訂閱金鑰與一般 PAYUNi 付款設定分開。</p>';wutm_admin_page_close();
     }

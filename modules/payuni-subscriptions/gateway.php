@@ -1,6 +1,7 @@
 <?php
 if(!defined('ABSPATH'))exit;
 final class WUTM_SUB_PAYUNI_Gateway extends WUTMPayuniSubscription\Gateways\CreditSubscription {
+ public function get_icon(){return '<span class="wutm-payuni-subscription-label">PAYUNi</span>';}
  public function __construct(){parent::__construct();$this->enabled=$this->get_option('enabled','no');$this->order_button_text='確認訂閱並付款';$this->supports=array_values(array_diff($this->supports,['subscription_payment_method_change','subscription_payment_method_change_customer','subscription_payment_method_change_admin']));}
  public function init_form_fields():void {
   parent::init_form_fields();
