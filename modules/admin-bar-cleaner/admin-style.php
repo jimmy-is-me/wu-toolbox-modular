@@ -570,6 +570,11 @@ CSS;
 
 		$css['software'] = <<<'CSS'
 %B% #wpbody-content{font-size:16px;line-height:1.6}
+%B% #wpbody-content .wutm-ui-root{--wutm-ink:#16191f;--wutm-muted:#454c58;--wutm-blue:#074ce0;--wutm-line:#dde0e6;background:#fcfcfd!important;color:#16191f}
+%B% #wpbody-content .wutm-ui-root .wutm-ui-header{background:#fff!important;border-color:#dde0e6!important}
+%B% #wpbody-content .wutm-ui-root :is(h1,h2,h3,h4){font-family:var(--wu-heading);color:#16191f}
+%B% #wpbody-content .wu-geometry{display:none}
+%B% #wpbody-content .wu-settings-header{grid-template-columns:1fr}
 %B% #wpbody-content :is(.postbox,.card,.wu-theme-choice,.wu-settings-header,.wutm-ui-panel){border-radius:12px!important;box-shadow:0 8px 24px rgba(22,25,31,.05)!important}
 %B% #wpbody-content .postbox-header{border-radius:12px 12px 0 0!important}
 %B% #wpbody-content :is(.button,.page-title-action,input:not([type=checkbox]):not([type=radio]),select,textarea,.select2-selection){border-radius:8px!important}
@@ -582,7 +587,7 @@ CSS;
 %B% .wu-geometry{background:#f3f4f6;border-radius:12px}
 @media(prefers-reduced-motion:reduce){%B% #wpbody-content :is(.button,.page-title-action){transition:none;transform:none!important}}
 CSS;
-		// Module styles can override a hover background without its text colour.
+		// WebKit text fill changes immediately; keep the background in sync rather than fading from white.
 		$css['newsprint'] .= <<<'CSS'
 %B% #wpbody-content :is(a.button,button.button,input.button,a.page-title-action){transition:none!important}
 CSS;
