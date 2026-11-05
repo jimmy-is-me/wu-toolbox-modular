@@ -10,3 +10,11 @@ add_action('woocommerce_product_options_general_product_data',function():void{wo
 add_action('woocommerce_admin_process_product_object',function($product):void{if(isset($_POST['_wu_sales_offset']))$product->update_meta_data('_wu_sales_offset',(int)wp_unslash($_POST['_wu_sales_offset']));});
 add_action('woocommerce_single_product_summary',function():void{global $product;$o=wutm_sales_count_options();if(!$product||!$o['show_product_page'])return;echo '<div class="wu-sales-count">'.esc_html(sprintf($o['label'],wutm_sales_count_value($product->get_id()))).'</div>';},11);
 add_shortcode('wu_sales',function($atts):string{$atts=shortcode_atts(['id'=>0],$atts,'wu_sales');return(string)wutm_sales_count_value(absint($atts['id']));});
+add_action('woocommerce_product_quick_edit_start',function(){echo '<label><span class="title">購買量調整</span><span class="input-text-wrap"><input type="number" step="1" name="_wu_sales_offset" value=""></span></label><p class="description">顯示購買量＝真實銷售量＋調整值，可填負數；不更動真實銷售量。</p>';});
+add_action('manage_product_posts_custom_column',function($column,$id){if($column==='name')echo '<span class="wutm-sales-offset" hidden data-value="'.esc_attr((int)get_post_meta($id,'_wu_sales_offset',true)).'"></span>';},20,2);
+add_action('woocommerce_product_quick_edit_save',function($product){if(current_user_can('edit_post',$product->get_id())&&isset($_POST['_wu_sales_offset'])&&is_scalar($_POST['_wu_sales_offset'])){$product->update_meta_data('_wu_sales_offset',(int)wp_unslash($_POST['_wu_sales_offset']));$product->save_meta_data();}});
+add_action('admin_enqueue_scripts',function(){
+    $screen=get_current_screen();if(!$screen||$screen->id!=='edit-product')return;
+    wp_enqueue_script('inline-edit-post');
+    wp_add_inline_script('inline-edit-post','jQuery(function($){var original=inlineEditPost.edit;inlineEditPost.edit=function(id){original.apply(this,arguments);var pid=typeof id==="object"?this.getId(id):id;var value=$("#post-"+pid+" .wutm-sales-offset").attr("data-value");$("#edit-"+pid+" [name=_wu_sales_offset]").val(value===undefined?"":value);};});');
+});

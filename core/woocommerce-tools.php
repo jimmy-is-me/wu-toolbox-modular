@@ -57,6 +57,13 @@ class WU_WooCommerce_Optimizer {
             'wu_woo_hide_product_grouped' => '隱藏商品類型：組合商品（現有組合商品保留原類型）',
             'wu_woo_hide_product_shipping' => '隱藏商品編輯：運送方式',
             'wu_woo_hide_product_linked' => '隱藏商品編輯：連結商品',
+            'wu_woo_hide_quick_weight' => '隱藏快速編輯：重量',
+            'wu_woo_hide_quick_dimensions' => '隱藏快速編輯：長寬高',
+            'wu_woo_hide_quick_shipping_class' => '隱藏快速編輯：運送類別',
+            'wu_woo_hide_quick_featured' => '隱藏快速編輯：精選內容',
+            'wu_woo_hide_product_reviews' => '隱藏商品評價選單',
+            'wu_woo_hide_product_import' => '隱藏商品匯入入口',
+            'wu_woo_hide_product_export' => '隱藏商品匯出入口',
             'wu_woo_custom_footer' => '頁尾顯示 Woocommerce X Wumetax（預設開啟）'
         );
     }
@@ -78,6 +85,17 @@ class WU_WooCommerce_Optimizer {
             'wu_woo_hide_payments_menu' => '#adminmenu>li:has(>a[href*="page=wc-admin&task=payments"]),#adminmenu>li:has(>a[href*="page=wc-admin&task=woocommerce-payments"]),#adminmenu>li:has(>a[href*="page=wc-settings&tab=checkout"]),#adminmenu>li:has(>a[href="admin.php?page=wc-admin&path=%2Fpayments"])'
         );
         $css = '';
+        foreach (array('reviews'=>'product-reviews','import'=>'product_importer','export'=>'product_exporter') as $key=>$slug) {
+            if (get_option('wu_woo_hide_product_'.$key,false)) $css .= '#adminmenu .wp-submenu li:has(>a[href*="page='.$slug.'"]){display:none!important;}';
+        }
+        $screen=get_current_screen();
+        if ($screen && ($screen->id??'')==='edit-product') {
+            foreach (array('weight'=>'label:has(input[name="_weight"])','dimensions'=>'.dimensions','shipping_class'=>'label:has(select[name="_shipping_class"])','featured'=>'label:has(input[name="_featured"])') as $key=>$selector) {
+                if(get_option('wu_woo_hide_quick_'.$key,false))$css.='#the-list .inline-edit-row '.$selector.'{display:none!important;}';
+            }
+            if(get_option('wu_woo_hide_product_import',false))$css.='a.page-title-action[href*="page=product_importer"]{display:none!important;}';
+            if(get_option('wu_woo_hide_product_export',false))$css.='a.page-title-action[href*="page=product_exporter"]{display:none!important;}';
+        }
         foreach ($rules as $option => $selector) {
             if (get_option($option, false)) $css .= $selector . '{display:none!important;}';
         }
@@ -254,7 +272,7 @@ class WU_WooCommerce_Optimizer {
         echo '<input type="checkbox" id="wu_woo_taiwan_address" name="wu_woo_taiwan_address" value="1" ' . checked(1, $value, false) . ' />';
         echo '<label for="wu_woo_taiwan_address">啟用台灣地址下拉選單</label>';
         echo '<p class="description">縣市/鄉鎮市區/郵遞區號自動關聯。</p>';
-        echo '<div style="margin-top:10px;padding:12px 14px;background:#f6f7f7;border-left:4px solid #2271b1"><strong>啟用後的結帳欄位調整：</strong><ul style="margin:8px 0 0 18px;list-style:disc"><li>帳單姓名改為單一姓名欄位，隱藏姓氏欄位</li><li>隱藏帳單地址第二行與國家選擇（固定台灣）</li><li>隱藏收件姓氏、公司、地址第二行與國家選擇（固定台灣）</li><li>縣市、鄉鎮市區改為連動下拉選單並自動填入郵遞區號</li></ul></div>';
+        echo '<div style="margin-top:10px;padding:12px 14px;background:#f6f7f7;border-left:4px solid #2271b1"><strong>啟用後的結帳欄位調整：</strong><ul style="margin:8px 0 0 18px;list-style:disc"><li>帳單姓名改為單一姓名欄位，隱藏姓氏欄位</li><li>隱藏帳單公司與地址第二行；國家固定顯示台灣</li><li>隱藏收件姓氏、公司與地址第二行；國家固定顯示台灣</li><li>縣市、鄉鎮市區改為連動下拉選單並自動填入郵遞區號</li><li>勾選不同收件地址後，隱藏帳單地址並取消其必填；姓名、電話與電子郵件仍保留</li></ul></div>';
     }
 
     public function enable_island_shipping_callback() {
@@ -1144,6 +1162,8 @@ class WU_WooCommerce_Optimizer {
         if (self::$taiwan_address_registered) return;
         self::$taiwan_address_registered = true;
         add_filter('woocommerce_checkout_fields', array($this, 'customize_taiwan_address_fields'), 999);
+        add_filter('woocommerce_form_field_hidden', array($this,'taiwan_country_label'),10,4);
+        add_filter('woocommerce_checkout_get_value', static function($value,$key){return in_array($key,array('billing_country','shipping_country'),true)?'TW':$value;},999,2);
         add_filter('woocommerce_ship_to_different_address_checked', '__return_false');
         add_filter('gettext', array($this, 'change_ship_to_different_text'), 999, 3);
         add_action('wp_enqueue_scripts', array($this, 'enqueue_taiwan_address_assets'), 999);
@@ -1193,9 +1213,7 @@ class WU_WooCommerce_Optimizer {
 
         // Company is optional in Taiwan checkout.  Invoice company data is
         // validated separately by the electronic-invoice fields.
-        if (isset($fields['billing']['billing_company'])) {
-            $fields['billing']['billing_company']['required'] = false;
-        }
+        unset($fields['billing']['billing_company']);
 
         if (isset($fields['billing']['billing_email'])) {
             $fields['billing']['billing_email']['priority'] = 20;
@@ -1313,7 +1331,25 @@ class WU_WooCommerce_Optimizer {
             $fields['shipping']['shipping_address_1']['priority'] = 50;
         }
 
+        foreach(array('country','state','city','postcode','address_1','address_2','region_type') as $part){
+            $key='billing_'.$part;
+            if(isset($fields['billing'][$key])){
+                $fields['billing'][$key]['custom_attributes']['data-wutm-required']=empty($fields['billing'][$key]['required'])?'0':'1';
+                if($this->taiwan_different_address()){$fields['billing'][$key]['required']=false;$fields['billing'][$key]['validate']=array();}
+            }
+        }
         return $fields;
+    }
+
+    private function taiwan_different_address() {
+        $data=$_POST;
+        if(isset($_POST['post_data'])&&is_string($_POST['post_data']))parse_str(wp_unslash($_POST['post_data']),$data);
+        return !empty($data['ship_to_different_address']) && (!function_exists('wc_ship_to_billing_address_only')||!wc_ship_to_billing_address_only());
+    }
+
+    public function taiwan_country_label($field,$key,$args,$value) {
+        if(in_array($key,array('billing_country','shipping_country'),true))return str_replace('<input','<span class="wutm-fixed-country">台灣</span><input',$field);
+        return $field;
     }
 
     private function checkout_address_value($prefix, $field) {
@@ -1442,6 +1478,19 @@ class WU_WooCommerce_Optimizer {
     private function get_taiwan_address_js() {
         return "
 jQuery(document).ready(function($) {
+    var billingAddressRows = '#billing_country_field,#billing_state_field,#billing_city_field,#billing_postcode_field,#billing_address_1_field,#billing_address_2_field,#billing_region_type_field';
+    $('<style>.wutm-tw-different '+billingAddressRows.split(',').join(',.wutm-tw-different ')+'{display:none!important}</style>').appendTo('head');
+    function toggleBillingAddress(){
+        var different=$('#ship-to-different-address-checkbox').is(':checked');
+        $(document.body).toggleClass('wutm-tw-different',different);
+        $(billingAddressRows).each(function(){
+            var row=$(this);if(row.data('wutm-required')===undefined){var baseline=row.find('[data-wutm-required]').first().attr('data-wutm-required');row.data('wutm-required',baseline===undefined?row.hasClass('validate-required'):baseline==='1');}
+            row.toggleClass('validate-required',!different&&!!row.data('wutm-required')).removeClass('woocommerce-invalid woocommerce-invalid-required-field');
+            row.find('input,select').prop('required',!different&&!!row.data('wutm-required')).attr('aria-required',different?'false':(row.data('wutm-required')?'true':'false'));
+        });
+    }
+    $(document.body).on('change','#ship-to-different-address-checkbox',toggleBillingAddress).on('updated_checkout',toggleBillingAddress);
+    toggleBillingAddress();
     var addressData = wuTaiwanAddress;
     var isUpdating = false;
     var currentRegion = 'mainland';
@@ -1642,7 +1691,7 @@ jQuery(document).ready(function($) {
                 if ($saved !== '') $data[$key] = $saved;
             }
             $country_key = $prefix . '_country';
-            if (empty($data[$country_key])) $data[$country_key] = 'TW';
+            $data[$country_key] = 'TW';
         }
 
         return $data;

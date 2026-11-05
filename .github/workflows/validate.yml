@@ -145,6 +145,8 @@ jobs:
           grep -Fq 'v3.9.4 native modules passed:' "$RUNNER_TEMP/wutm-v394.log"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/v395-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-v395.log"
           grep -Fq 'v3.9.5 native orders passed:' "$RUNNER_TEMP/wutm-v395.log"
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/v396-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-v396.log"
+          grep -Fq 'v3.9.6 native checkout passed:' "$RUNNER_TEMP/wutm-v396.log"
       - name: Check maps and content overview preservation, permissions and scope
         run: |
           php tests/content-modules.php
@@ -242,6 +244,7 @@ jobs:
           export WUTM_TEST_CHROME="$(node -p "require('playwright').chromium.executablePath()")"
           node tests/admin-enhancements-ui.js
           node tests/style-youtube-ui.js
+          node tests/v396-ui.js
           node tests/invoice-admin-ui.js
           node tests/newebpay-ui.js
           node tests/onepage-checkout-ui.js
