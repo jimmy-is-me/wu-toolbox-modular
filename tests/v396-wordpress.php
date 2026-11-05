@@ -17,7 +17,7 @@ try{
  foreach([['ship_to_different_address'=>'1'],['post_data'=>'ship_to_different_address=1']] as $post){
   $_POST=$post;$fields=$optimizer->customize_taiwan_address_fields($base);
   foreach(['country','state','city','postcode','address_1'] as $part)v396_assert($fields['billing']['billing_'.$part]['required']===false,'Separate-address billing optional '.$part);
-  $checkout=WC()->checkout();$prop=new ReflectionProperty(WC_Checkout::class,'checkout_fields');$prop->setAccessible(true);$old=$prop->getValue($checkout);$prop->setValue($checkout,['billing'=>$fields['billing']]);
+  $checkout=WC()->checkout();$prop=new ReflectionProperty(WC_Checkout::class,'fields');$prop->setAccessible(true);$old=$prop->getValue($checkout);$prop->setValue($checkout,['billing'=>$fields['billing']]);
   $data=[];foreach($fields['billing'] as $key=>$field)$data[$key]='';$data['billing_first_name']='測試';$data['billing_country']='TW';
   $errors=new WP_Error();$validate=new ReflectionMethod(WC_Checkout::class,'validate_posted_data');$validate->setAccessible(true);$args=[&$data,&$errors];$validate->invokeArgs($checkout,$args);$prop->setValue($checkout,$old);
   foreach($errors->get_error_codes() as $code)v396_assert(!preg_match('/billing_(state|city|postcode|address_1|country)/',$code),'Native checkout does not reject hidden address '.$code);
