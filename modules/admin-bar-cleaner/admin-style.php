@@ -570,9 +570,9 @@ CSS;
 
 		$css['software'] = <<<'CSS'
 %B% #wpbody-content{font-size:16px;line-height:1.6}
-%B% #wpbody-content .wutm-ui-root{--wutm-ink:#16191f;--wutm-muted:#454c58;--wutm-blue:#074ce0;--wutm-line:#dde0e6;background:#fcfcfd!important;color:#16191f}
-%B% #wpbody-content .wutm-ui-root .wutm-ui-header{background:#fff!important;border-color:#dde0e6!important}
-%B% #wpbody-content .wutm-ui-root :is(h1,h2,h3,h4){font-family:var(--wu-heading);color:#16191f}
+%B%.wu-theme-software #wpbody-content :is(#wutm-media,.wutm-ui-root){--wutm-ink:#16191f;--wutm-muted:#454c58;--wutm-blue:#074ce0;--wutm-line:#dde0e6;background:#fcfcfd!important;color:#16191f}
+%B%.wu-theme-software #wpbody-content :is(#wutm-media,.wutm-ui-root) .wutm-ui-header{background:#fff!important;border-color:#dde0e6!important}
+%B%.wu-theme-software #wpbody-content :is(#wutm-media,.wutm-ui-root) :is(h1,h2,h3,h4){font-family:var(--wu-heading);color:#16191f}
 %B% #wpbody-content .wu-geometry{display:none}
 %B% #wpbody-content .wu-settings-header{grid-template-columns:1fr}
 %B% #wpbody-content :is(.postbox,.card,.wu-theme-choice,.wu-settings-header,.wutm-ui-panel){border-radius:12px!important;box-shadow:0 8px 24px rgba(22,25,31,.05)!important}

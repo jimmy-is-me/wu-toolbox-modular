@@ -23,7 +23,7 @@ const render=(...args)=>execFileSync(php,['tests/style-youtube.php',...args],{en
     await page.evaluate(()=>{const x=document.createElement('div');x.className='jmi-wrap';x.innerHTML='<div class="jmi-quick"><a href="#" class="button" style="background:#fff;color:#666978">本月</a></div>';document.getElementById('wpbody-content').append(x);});
     await page.locator('.jmi-quick a').hover();const colors=await page.locator('.jmi-quick a').evaluate(n=>({bg:getComputedStyle(n).backgroundColor,ink:getComputedStyle(n).webkitTextFillColor}));assert.equal(colors.bg,'rgb(17, 17, 17)');assert.equal(colors.ink,'rgb(249, 249, 247)');
    }
-   if(theme==='software')assert.equal(await page.locator('.wu-theme-choice').first().evaluate(n=>getComputedStyle(n).borderRadius),'12px');
+   if(theme==='software'){assert.equal(await page.locator('.wu-theme-choice').first().evaluate(n=>getComputedStyle(n).borderRadius),'12px');assert.equal(await page.locator('.wu-settings').evaluate(n=>getComputedStyle(n).backgroundImage),'none');}
    if(process.env.WUTM_VISUAL_OUTPUT){fs.mkdirSync(process.env.WUTM_VISUAL_OUTPUT,{recursive:true});await page.screenshot({path:path.join(process.env.WUTM_VISUAL_OUTPUT,'style-'+theme+'-'+width+'.png')});}
    await page.close();
   }
