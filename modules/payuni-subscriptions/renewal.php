@@ -15,11 +15,11 @@ final class WUTM_SUB_PAYUNI_Renewal {
    foreach ($subscriptions as $subscription) {
     if (!$subscription->has_status('active') || (int)$subscription->get_customer_id() !== (int)$order->get_customer_id()) throw new RuntimeException('訂閱狀態或付款帳戶不符');
    }
-   $token = WC_Payment_Tokens::get_customer_default_token($order->get_customer_id());
-   if (!$token || $token->get_gateway_id() !== 'payuni-credit-subscription') {
-    $tokens = WC_Payment_Tokens::get_customer_tokens($order->get_customer_id(), 'payuni-credit-subscription');
-    $token = $tokens ? end($tokens) : false;
-   }
+   $bound=[];foreach($subscriptions as $subscription){$id=(int)$subscription->get_meta('_wutm_payuni_bound_token');if($id)$bound[]=$id;}
+   $bound=array_values(array_unique($bound));if(count($bound)>1)throw new RuntimeException('訂閱綁定的卡片不一致');
+   $token=$bound?WC_Payment_Tokens::get($bound[0]):false;
+   if(!$bound){$tokens=WC_Payment_Tokens::get_customer_tokens($order->get_customer_id(),'payuni-credit-subscription');if(count($tokens)===1)$token=reset($tokens);}
+   if($token&&((int)$token->get_user_id()!==(int)$order->get_customer_id()||$token->get_gateway_id()!=='payuni-credit-subscription'))throw new RuntimeException('訂閱卡片不屬於付款帳戶');
    if (!$token || !$token->get_token()) throw new RuntimeException('找不到可用的訂閱卡片');
    $gateway = new WUTM_SUB_PAYUNI_Gateway();
    if ($gateway->enabled !== 'yes' || ! $gateway->is_available()) throw new RuntimeException('PAYUNi 訂閱付款尚未啟用');

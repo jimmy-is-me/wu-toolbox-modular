@@ -338,7 +338,8 @@ final class Response {
 
 			if ( $should_save_card ) {
 				if ( '' !== $card_hash ) {
-					self::save_card_to_payment_method( $card_hash, $card_4no, $card_expiry_month, $card_expiry_year, $user_id, $order->get_payment_method() );
+					$bound_id=self::save_card_to_payment_method( $card_hash, $card_4no, $card_expiry_month, $card_expiry_year, $user_id, $order->get_payment_method() );
+                    if($bound_id)$order->update_meta_data('_payuni_token_id',$bound_id);
 				} else {
 					// 補償對帳走的 /trade/query 不回傳 CreditHash，記憶卡號無法補建。
 					// 過去這種情況完全無聲，顧客以為卡存好了，下次結帳才發現沒有。
@@ -358,6 +359,7 @@ final class Response {
 			 */
 
 			$token_id = $order->get_meta( '_payuni_token_id' );
+            if($token_id&&function_exists('wcs_get_subscriptions_for_order'))foreach(\wcs_get_subscriptions_for_order($order) as $subscription){$subscription->update_meta_data('_wutm_payuni_bound_token',(int)$token_id);$subscription->save();}
 			if ( $token_id && is_numeric( $token_id ) ) {
 				$token = \WC_Payment_Tokens::get( $token_id );
 				if ( $token ) {
@@ -543,9 +545,9 @@ final class Response {
 		string $card_expiry_year,
 		int $user_id,
 		?string $method = 'payuni-credit-subscription'
-	): void {
+	): int {
 		if ( ! $card_hash ) {
-			return;
+			return 0;
 		}
 
 		$token = new \WC_Payment_Token_CC();
@@ -558,6 +560,7 @@ final class Response {
 		$token->set_user_id( $user_id );
 		$token->set_default(true);
 		$token->save();
+        return (int)$token->get_id();
 	}
 
 	/**
