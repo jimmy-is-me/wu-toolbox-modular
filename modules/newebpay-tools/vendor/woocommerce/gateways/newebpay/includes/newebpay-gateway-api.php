@@ -1,5 +1,6 @@
 <?php
 class WU_NP_NewebPay_Gateway_Api extends WU_NP_NewebPay {
+	private const MPG_VERSION = '2.3';
 
 	public static $api_test_url = [
 		'checkout' => 'https://ccore.newebpay.com/MPG/mpg_gateway',
@@ -25,7 +26,7 @@ class WU_NP_NewebPay_Gateway_Api extends WU_NP_NewebPay {
 			'MerchantID'      => $MerchantID,
 			'RespondType'     => 'JSON',
 			'TimeStamp'       => new DateTime( '', new DateTimeZone( 'Asia/Taipei' ) ),
-			'Version'         => '1.5',
+			'Version'         => self::MPG_VERSION,
 			'MerchantOrderNo' => self::generate_trade_no( $order->get_id(), WU_NP_WT::get_option( 'newebpay_gateway_order_prefix' ) ),
 			'Amt'             => (int) ceil( $order->get_total() ),
 			'ItemDesc'        => $item_name, // 商品名稱第一個
@@ -66,7 +67,7 @@ class WU_NP_NewebPay_Gateway_Api extends WU_NP_NewebPay {
 		$form_data             = [
 			'MerchantID' => $MerchantID,
 			'TradeInfo'  => self::args_encrypt( $args, $HashKey, $HashIV ),
-			'Version'    => '1.5',
+			'Version'    => self::MPG_VERSION,
 		];
 		$form_data['TradeSha'] = self::generate_hash_value( $form_data['TradeInfo'], $HashKey, $HashIV );
 

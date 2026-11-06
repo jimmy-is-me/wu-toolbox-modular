@@ -11,7 +11,7 @@ const render=(...args)=>execFileSync(php,['tests/style-youtube.php',...args],{en
    if(wp)await page.addStyleTag({content:fs.readFileSync(path.join(wp,'wp-admin/css/common.css'),'utf8')+fs.readFileSync(path.join(wp,'wp-admin/css/forms.css'),'utf8')});
    await page.addStyleTag({content:fs.readFileSync('assets/css/admin.css','utf8')+fs.readFileSync('assets/css/admin-components.css','utf8')});await page.addScriptTag({path:'assets/js/admin-design.js'});
    assert.equal(await page.locator('input[type=radio]').count(),6,'Six theme choices');
-   assert.equal(await page.locator('input[type=checkbox]').count(),8,'All original toggles');
+   assert.equal(await page.locator('input[type=checkbox]').count(),7,'Remaining appearance toggles');
    assert.equal(await page.locator('[name="np_admin_opts[theme]"]:checked').inputValue(),theme);
    assert.equal(await page.locator('form').getAttribute('action'),'options.php');
    assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,'Style RWD '+theme+' '+width);

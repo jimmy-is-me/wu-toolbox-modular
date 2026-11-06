@@ -29,7 +29,7 @@ final class WUTM_Admin_Style {
 	private static function defaults() {
 		return array(
 			'schema' => 0, 'theme' => 'native', 'enable_admin' => 1, 'enable_login' => 1, 'enable_bar' => 1,
-			'show_switcher' => 1, 'hide_wp_logo' => 1, 'show_edition' => 1, 'load_fonts' => 1, 'menu_accent' => 1,
+			'hide_wp_logo' => 1, 'show_edition' => 1, 'load_fonts' => 1, 'menu_accent' => 1,
 			'accent' => '', 'edition' => 'Vol 1.0', 'powered' => 'Wumetax', 'link_label' => '網站功能與整合：',
 			'link_text' => 'Wumetax', 'link_url' => 'https://wumetax.com/website-integration/', 'site_name' => '',
 		);
@@ -186,7 +186,7 @@ final class WUTM_Admin_Style {
 	public static function sanitize( $in ) {
 		$in  = is_array( $in ) ? $in : array();
 		$out = array( 'schema' => 1 );
-		foreach ( array( 'enable_admin','enable_login','enable_bar','show_switcher','hide_wp_logo','show_edition','load_fonts','menu_accent' ) as $k ) {
+		foreach ( array( 'enable_admin','enable_login','enable_bar','hide_wp_logo','show_edition','load_fonts','menu_accent' ) as $k ) {
 			$out[ $k ] = empty( $in[ $k ] ) ? 0 : 1;
 		}
 		$t = sanitize_key( is_string($in['theme'] ?? null) ? $in['theme'] : 'native' );
@@ -216,7 +216,7 @@ final class WUTM_Admin_Style {
 			'enable_bar'    => '套用到前台管理工具列',
 			'menu_accent'   => '左側選單目前所在項目使用強調色整列色塊',
 			'show_edition'  => '顯示後台日期與網站名稱',
-			'show_switcher' => '工具列顯示 Wu 後台風格入口（管理員）',
+
 			'load_fonts'    => '載入 Google Fonts（建議開啟，各風格的標題字型依賴它）',
 			'hide_wp_logo'  => '移除工具列 WordPress 圖示及子選單',
 		);
@@ -625,9 +625,7 @@ CSS;
 	public static function toolbar( $bar ) {
 		if (get_option(self::OPTION, null) === null) return;
 		if ( self::get( 'hide_wp_logo' ) ) $bar->remove_node( 'wp-logo' );
-		if ( self::get( 'show_switcher' ) && current_user_can( 'manage_options' ) ) {
-			$bar->add_node( array( 'id' => 'wu-style-settings', 'title' => 'Wu 後台風格', 'href' => admin_url( 'admin.php?page=' . self::SLUG . '&tab=appearance' ) ) );
-		}
+		$bar->remove_node( 'wu-style-settings' );
 	}
 
 	/* ---------- 頁尾與刊頭 ---------- */

@@ -176,6 +176,15 @@ function wutm_render_admin_page_content(): void {
         });
         document.addEventListener('wutm-module-state-changed',applyFilter);applyFilter();
         const categoryNav=document.querySelector('.wutm-category-nav');
+        if (categoryNav) categoryNav.addEventListener('wheel', function(event) {
+            if (event.ctrlKey || event.shiftKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
+            const scale = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? categoryNav.clientWidth : 1;
+            const current = categoryNav.scrollLeft;
+            const next = Math.max(0, Math.min(current + event.deltaY * scale, categoryNav.scrollWidth - categoryNav.clientWidth));
+            if (next === current) return;
+            event.preventDefault();
+            categoryNav.scrollLeft = next;
+        }, {passive: false});
         if(categoryNav)categoryNav.addEventListener('click',function(event){
             const link=event.target.closest('a');if(!link)return;
             const group=document.getElementById(link.hash.slice(1));if(!group||group.hidden)return;

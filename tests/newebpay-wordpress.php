@@ -62,6 +62,7 @@ try {
     np_assert(strpos($html,'https://ccore.newebpay.com/MPG/mpg_gateway')!==false,'Sandbox endpoint used');
     preg_match('/name="TradeInfo" value="([^"]+)"/',$html,$matches);$wire=html_entity_decode($matches[1],ENT_QUOTES);
     parse_str(np_private('WU_NP_NewebPay','args_decrypt',$wire,str_repeat('k',32),str_repeat('i',16)),$payload);
+    np_assert(strpos($html, 'name="Version" value="2.3"') !== false && ($payload['Version'] ?? '') === '2.3', 'MPG envelope and encrypted payload both use 2.3');
     np_assert($payload['MerchantID']==='FIXTURE'&&(int)$payload['Amt']===100&&strpos($payload['NotifyURL'],'wu_np_newebpay_callback')!==false,'Merchant/amount/callback wire contract');
     $merchantOrder=$payload['MerchantOrderNo'];
     $make=function($changes=[])use($merchantOrder){

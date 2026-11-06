@@ -29,7 +29,7 @@ function wutm_toolbox_can_view(): bool {
     return wutm_toolbox_can_manage() || (current_user_can('manage_options') && (bool) wutm_toolbox_shared_modules());
 }
 function wutm_module_can_share(string $key, array $module): bool {
-    return empty($module['navigation']) && ($module['tag'] ?? '') !== '第三方外掛' && $key !== 'admin-menu-editor';
+    return empty($module['navigation']) && ($module['tag'] ?? '') !== '第三方外掛' && !in_array($key, ['admin-menu-editor', 'web-tools'], true);
 }
 function wutm_module_is_shared(string $key): bool {
     $shared = get_option('wutm_shared_module_menus', []);

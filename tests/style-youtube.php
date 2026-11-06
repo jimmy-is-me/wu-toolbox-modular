@@ -37,7 +37,7 @@ if($mode==='facade'){wutm_cyp_enqueue_inline_css();echo '<!doctype html><meta na
 function check($v,$message){if(!$v)throw new RuntimeException($message);}
 WUTM_Admin_Style::admin_assets('dashboard');WUTM_Admin_Style::front_assets();WUTM_Admin_Style::login_assets();check(!$styles,'Native default loads no styling or fonts');
 check(WUTM_Admin_Style::footer('Original')==='Original','New feature preserves existing footer before configured');
-foreach(['native','newsprint','botanical','flat','bauhaus','software'] as $key){theme($key);$s=WUTM_Admin_Style::sanitize(['theme'=>$key,'accent'=>'#123456']);check($s['theme']===$key,'Theme preserved '.$key);check(count($s)===17,'All style options retained');}
+foreach(['native','newsprint','botanical','flat','bauhaus','software'] as $key){theme($key);$s=WUTM_Admin_Style::sanitize(['theme'=>$key,'accent'=>'#123456']);check($s['theme']===$key,'Theme preserved '.$key);check(count($s)===16,'All style options retained');}
 check(WUTM_Admin_Style::sanitize(['theme'=>[],'accent'=>[]])['theme']==='native','Malformed style values safe');
 theme('flat');$styles=[];WUTM_Admin_Style::front_assets();check(!$styles,'Anonymous frontend has no style/font payload');
 $options['wu_custom_admin_footer_text']='Existing';check(WUTM_Admin_Style::footer('Existing')==='Existing','Existing cleaner footer takes precedence');unset($options['wu_custom_admin_footer_text']);

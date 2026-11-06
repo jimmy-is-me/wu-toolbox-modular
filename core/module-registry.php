@@ -3,6 +3,7 @@ defined('ABSPATH') || exit;
 
 function wutm_modules(): array {
     return [
+        'web-tools' => ['name' => '其他網頁工具', 'description' => '集中開啟十款 Wumetax 網頁工具與使用說明。', 'group' => '網頁工具', 'settings_page' => 'wu-web-tools'],
         'missing-product-images' => ['name' => '遺失商品圖片修復', 'description' => '掃描商品描述，從來源站補回本站遺失的同路徑圖片。', 'group' => '特殊工具', 'icon' => '🩹', 'requires' => 'woocommerce', 'settings_page' => 'wu-missing-product-images'],
         'wc-coming-soon-customizer' => ['name' => 'WC 即將推出修改', 'description' => '翻譯 WooCommerce 原生即將推出頁面的標題與說明，不改變網站原有字體或版面。', 'group' => '特殊工具', 'icon' => '🚀', 'requires' => 'woocommerce', 'settings_url' => 'admin.php?page=wc-settings&tab=site-visibility'],
         'wc-confetti' => ['name' => 'WC 紙片動畫', 'description' => '在購物車、結帳與訂單完成頁播放可自訂的雙側紙片動畫。', 'group' => '電商優化工具', 'icon' => '🎉', 'requires' => 'woocommerce', 'settings_page' => 'wu-wc-confetti'],
@@ -146,7 +147,8 @@ function wutm_grouped_modules(): array {
     $testing=$groups['測試工具']??null;unset($groups['測試工具']);
     $professional = $groups['專業工具'] ?? null;
     $special = $groups['特殊工具'] ?? null;
-    unset($groups['電商第三方金物流'], $groups['電商優化工具'], $groups['專業工具'], $groups['特殊工具']);
+    $web_tools = $groups['網頁工具'] ?? null;
+    unset($groups['電商第三方金物流'], $groups['電商優化工具'], $groups['專業工具'], $groups['特殊工具'], $groups['網頁工具']);
 
     if ($commerce_optimization !== null && isset($commerce_optimization['wc-optimization-tools'])) {
         $wc_optimization = $commerce_optimization['wc-optimization-tools'];
@@ -169,6 +171,7 @@ function wutm_grouped_modules(): array {
     if ($commerce_optimization !== null) $ordered['電商優化工具'] = $commerce_optimization;
     if ($professional !== null) $ordered['專業工具'] = $professional;
     if ($special !== null) $ordered['特殊工具'] = $special;
+    if ($web_tools !== null) $ordered['網頁工具'] = $web_tools;
 
     if($testing!==null){$with_testing=[];foreach($ordered as $name=>$items){$with_testing[$name]=$items;if($name==='電商優化工具')$with_testing['測試工具']=$testing;}if(!isset($with_testing['測試工具']))$with_testing['測試工具']=$testing;$ordered=$with_testing;}
     return $ordered;
