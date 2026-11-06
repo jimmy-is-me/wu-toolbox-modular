@@ -20,9 +20,8 @@ function wutm_render_web_tools(): void {
         ['HTML Lab', 'https://html-lab.wumetax.com/', 'https://wumetax.com/lab/html-lab-frontend-playground/'],
         ['浮水印工具', 'https://watermark.wumetax.com/watermark-tool', 'https://wumetax.com/lab/watermark-tool/'],
     ];
+    wutm_admin_page_open('其他網頁工具', '開啟 Wumetax 網頁工具與使用說明。');
     ?>
-    <div class="wrap">
-        <h1>其他網頁工具</h1>
         <table class="widefat striped">
             <thead><tr><th scope="col">工具</th><th scope="col">入口</th></tr></thead>
             <tbody>
@@ -37,6 +36,6 @@ function wutm_render_web_tools(): void {
             <?php endforeach; ?>
             </tbody>
         </table>
-    </div>
     <?php
+    wutm_admin_page_close();
 }
