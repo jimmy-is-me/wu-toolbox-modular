@@ -1,0 +1,126 @@
+name: Cleanup Actions
+
+on:
+  workflow_dispatch:
+    inputs:
+      delete_old_runs:
+        description: 'Delete older completed runs? Unchecked = preview only.'
+        type: boolean
+        required: true
+        default: false
+      keep_latest:
+        description: 'Number of newest workflow runs to keep.'
+        type: choice
+        required: true
+        default: '5'
+        options:
+          - '5'
+          - '10'
+          - '20'
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: cleanup-actions
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Preview or delete old completed runs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      KEEP_LATEST: ${{ inputs.keep_latest }}
+      DELETE_OLD_RUNS: ${{ inputs.delete_old_runs }}
+    steps:
+      - name: Inspect runs and optionally clean up
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          
+          # This job is dispatched manually. It only removes completed workflow runs.
+          if [[ "$GITHUB_REPOSITORY" != "jimmy-is-me/wu-toolbox-modular" ]]; then
+            echo "::error::Unexpected repository: $GITHUB_REPOSITORY"
+            exit 1
+          fi
+          
+          runs_file="$(mktemp)"
+          trap 'rm -f "$runs_file"' EXIT
+          
+          echo "Fetching a snapshot of the repository's workflow runs..."
+          gh api --paginate \
+            "repos/$GITHUB_REPOSITORY/actions/runs?per_page=100" \
+            --jq '.workflow_runs[] | [.created_at, (.id | tostring), .status] | @tsv' \
+            | sort -r > "$runs_file"
+          
+          total="$(wc -l < "$runs_file" | tr -d ' ')"
+          echo "Found $total workflow runs. Keeping the $KEEP_LATEST newest runs."
+          echo "Delete mode: $DELETE_OLD_RUNS"
+          
+          index=0
+          eligible=0
+          deleted=0
+          failed=0
+          skipped=0
+          
+          while IFS=$'\t' read -r created_at run_id status; do
+            [[ -n "$run_id" ]] || continue
+            index=$((index + 1))
+          
+            # Keep the newest runs, this run, and all runs that are not completed.
+            if (( index <= KEEP_LATEST )) \
+              || [[ "$run_id" == "$GITHUB_RUN_ID" ]] \
+              || [[ "$status" != "completed" ]]; then
+              skipped=$((skipped + 1))
+              continue
+            fi
+          
+            eligible=$((eligible + 1))
+          
+            if [[ "$DELETE_OLD_RUNS" != "true" ]]; then
+              if (( eligible <= 15 )); then
+                echo "[PREVIEW] Would delete run $run_id ($created_at)"
+              fi
+              continue
+            fi
+          
+            if gh api -X DELETE "repos/$GITHUB_REPOSITORY/actions/runs/$run_id" >/dev/null; then
+              deleted=$((deleted + 1))
+            else
+              echo "::warning::Failed to delete run $run_id"
+              failed=$((failed + 1))
+            fi
+          
+            if (( (deleted + failed) % 25 == 0 )); then
+              echo "Processed $((deleted + failed)) / $eligible eligible runs so far"
+            fi
+          
+            # Be gentle with GitHub's secondary API rate limits.
+            sleep 1
+          done < "$runs_file"
+          
+          echo "Eligible old completed runs: $eligible"
+          echo "Deleted: $deleted; failed: $failed; protected/skipped: $skipped"
+          
+          {
+            echo "## Cleanup Actions"
+            echo ""
+            echo "- Repository: $GITHUB_REPOSITORY"
+            echo "- Mode: $DELETE_OLD_RUNS (true = delete; false = preview)"
+            echo "- Newest runs protected: $KEEP_LATEST"
+            echo "- Runs scanned: $total"
+            echo "- Older completed runs eligible: $eligible"
+            echo "- Runs actually deleted: $deleted"
+            echo "- Deletion errors: $failed"
+            echo "- Protected or skipped: $skipped"
+            echo ""
+            echo "GitHub Releases, release ZIP assets, source files, and workflow definitions are not deleted."
+          } >> "$GITHUB_STEP_SUMMARY"
+          
+          if (( failed > 0 )); then
+            echo "::error::$failed workflow runs could not be deleted."
+            exit 1
+          fi
