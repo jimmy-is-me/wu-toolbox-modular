@@ -3,6 +3,7 @@
     let running = false;
     let paused = false;
     let job = null;
+    let pendingExport = null;
     async function request(operation) {
         const body = new FormData();
         body.append('action', 'wu_ait_scan_sitewide');
@@ -35,8 +36,12 @@
             throw error;
         } finally { clearTimeout(timer); }
     }
-    window.wuAitRunBatchedScan = async function () {
+    window.wuAitRunBatchedScan = async function (exportForm = null) {
         if (running) return;
+        if (exportForm) pendingExport = exportForm;
+        const exportButton = document.getElementById('wu-ait-scan-export-btn');
+        const exportLanguage = document.getElementById('wu-ait-scan-export-lang');
+        let completedExport = null;
         const button = document.getElementById('wu-ait-scan-btn');
         const result = document.getElementById('wu-ait-scan-result');
         const count = document.getElementById('wu-ait-discovered-count');
@@ -71,6 +76,7 @@
                 try {
                     await request('cancel');
                     job = null;
+                    pendingExport = null;
                     cancel.hidden = true;
                     button.textContent = '立即掃描全站';
                     result.textContent = '已取消未完成的掃描，原清單未變更。';
@@ -81,6 +87,8 @@
         }
         cancel.hidden = true;
         running = true;
+        if (exportButton) exportButton.disabled = true;
+        if (exportLanguage) exportLanguage.disabled = true;
         paused = false;
         button.disabled = true;
         button.textContent = '分批掃描中…';
@@ -100,6 +108,8 @@
                     if (count) count.textContent = String(job.count);
                     result.style.color = '#1a7e28';
                     job = null;
+                    completedExport = pendingExport;
+                    pendingExport = null;
                     break;
                 }
                 if (paused) { result.textContent += ' 已暫停，可在 24 小時內續掃。'; break; }
@@ -113,10 +123,16 @@
             result.textContent = '掃描未完成：' + error.message + ' 已完成的掃描清單仍保留，請按續掃。';
         } finally {
             running = false;
+            if (exportButton) exportButton.disabled = false;
+            if (exportLanguage) exportLanguage.disabled = false;
             button.disabled = false;
             button.textContent = job ? '繼續掃描全站' : '立即掃描全站';
             pause.hidden = true;
             cancel.hidden = !job;
+        }
+        if (completedExport) {
+            result.textContent += ' 正在比對目標語言並準備待補翻 CSV…';
+            completedExport.submit();
         }
     };
 }());

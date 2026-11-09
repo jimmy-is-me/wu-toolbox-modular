@@ -10,6 +10,18 @@ const fs = require('node:fs'), path = require('node:path');
             const errors = [];
             page.on('pageerror', error => errors.push(error.message));
             let revision = 0;
+            let exports = 0;
+            await page.route('https://fixture.test/qa', route => route.fulfill({ contentType: 'text/html', body: '<!doctype html><title>Scan fixture</title>' }));
+            await page.goto('https://fixture.test/qa');
+            await page.route('https://fixture.test/admin-post.php', async route => {
+                const values = new URLSearchParams(route.request().postData());
+                assert.equal(revision, 10, 'Download follows completed scan');
+                assert.equal(values.get('export_scope'), 'sitewide');
+                assert.equal(values.get('export_missing_only'), '1');
+                assert.equal(values.get('export_lang'), 'ja');
+                exports++;
+                await route.fulfill({ headers: { 'content-type': 'text/csv', 'content-disposition': 'attachment; filename="missing.csv"' }, body: 'original,translated\nfixture,\n' });
+            });
             await page.route('https://fixture.test/admin-ajax.php', async route => {
                 const start = route.request().postData().includes('start');
                 if (!start) revision++;
@@ -22,17 +34,29 @@ const fs = require('node:fs'), path = require('node:path');
             await page.setContent('<meta charset="utf-8"><style>*{box-sizing:border-box}body{margin:16px;background:#f0f0f1;font:14px sans-serif}main{padding:16px;background:white;border-radius:8px}button{padding:8px;margin:4px;max-width:100%}span{overflow-wrap:anywhere}</style><main><h2>步驟一：掃描全站</h2><p>目前已探索字串總數：<strong id="wu-ait-discovered-count">5953</strong></p><button id="wu-ait-scan-btn">立即分批掃描全站</button><span id="wu-ait-scan-result"></span></main>');
             await page.addScriptTag({ content: 'window.wuAitScanConfig={url:"https://fixture.test/admin-ajax.php",nonce:"nonce"};' });
             await page.addScriptTag({ path: path.join(__dirname, '../assets/js/ai-translate-scan.js') });
-            await page.evaluate(() => { window.wuAitRunBatchedScan(); });
+            await page.evaluate(() => {
+                const form = document.createElement('form');
+                form.action = '/admin-post.php';
+                form.method = 'post';
+                form.innerHTML = '<select name="export_lang" id="wu-ait-scan-export-lang"><option value="ja">日本語</option></select><input type="hidden" name="export_scope" value="sitewide"><input type="hidden" name="export_missing_only" value="1"><button type="button" id="wu-ait-scan-export-btn">掃描並匯出</button>';
+                document.querySelector('main').prepend(form);
+                form.querySelector('button').onclick = () => window.wuAitRunBatchedScan(form);
+            });
+            await page.click('#wu-ait-scan-export-btn');
             await page.waitForFunction(() => document.getElementById('wu-ait-scan-progress').value > 0);
             await page.click('#wu-ait-scan-pause');
             await page.waitForFunction(() => !document.getElementById('wu-ait-scan-btn').disabled);
             assert.equal(await page.locator('#wu-ait-discovered-count').textContent(), '5953');
+            assert.equal(exports, 0);
             assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'No horizontal overflow at ' + width);
             if (process.env.WUTM_QA_DIR) {
                 fs.mkdirSync(process.env.WUTM_QA_DIR, { recursive: true });
                 await page.screenshot({ path: path.join(process.env.WUTM_QA_DIR, 'ai-scan-' + width + '.png') });
             }
+            const download = page.waitForEvent('download');
             await page.evaluate(() => { window.wuAitRunBatchedScan(); });
+            assert.equal((await download).suggestedFilename(), 'missing.csv');
+            assert.equal(exports, 1);
             await page.waitForFunction(() => document.getElementById('wu-ait-discovered-count').textContent === '6100');
             assert.deepEqual(errors, []);
             await page.close();

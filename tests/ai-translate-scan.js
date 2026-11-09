@@ -66,5 +66,16 @@ function job(revision, done = false) { return { token: 'job', revision, done, pr
     assert.equal(f.elements['wu-ait-discovered-count'].textContent, '5953');
     await f.run();
     assert.equal(f.elements['wu-ait-discovered-count'].textContent, '6000', 'resume finishes');
+    let downloads = 0;
+    const exportForm = { submit() { downloads++; } };
+    f = fixture([{ data: job(0) }, { data: job(1), callback: elements => elements['wu-ait-scan-pause'].listeners.click() },
+        { data: job(1) }, { data: job(4, true) }]);
+    await f.context.window.wuAitRunBatchedScan(exportForm);
+    assert.equal(downloads, 0, 'Paused scans must not export the old list');
+    await f.run();
+    assert.equal(downloads, 1, 'Resuming exports once after successful publication');
+    f = fixture([{ data: job(0) }, { status: 504, body: '<html>Gateway timeout</html>' }]);
+    await f.context.window.wuAitRunBatchedScan(exportForm);
+    assert.equal(downloads, 1, 'Failed scans must not export the old list');
     console.log('AI scan progress, pause/resume, JSON/HTTP/login/network errors passed.');
 })().catch(error => { console.error(error); process.exitCode = 1; });
