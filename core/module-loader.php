@@ -71,8 +71,18 @@ function wutm_sync_transients_cleanup_schedule(bool $module_enabled, ?array $set
     }
 }
 
+function wutm_invalidate_optimization_rewrites(): void {
+    $settings = (array) get_option('wutm_website_optimization', []);
+    if (function_exists('wp_is_random_content_redirect_enabled') && !empty($settings['disable_random'])) {
+        delete_option('rewrite_rules');
+    }
+}
+
 add_action('wutm_module_toggled', static function (string $key, bool $enabled): void {
     if ($key === 'transients-manager') {
         wutm_sync_transients_cleanup_schedule($enabled);
+    }
+    if ($key === 'website-optimization') {
+        wutm_invalidate_optimization_rewrites();
     }
 }, 10, 2);
