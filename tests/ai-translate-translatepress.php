@@ -70,6 +70,9 @@ class WU_AIT_Test_Wpdb {
     public $rows = array();
 
     public function prepare( $query, ...$args ) {
+        if ( count( $args ) === 1 && is_array( $args[0] ) ) {
+            $args = $args[0];
+        }
         return vsprintf( str_replace( '%s', "'%s'", $query ), $args );
     }
 
@@ -91,6 +94,9 @@ class WU_AIT_Test_Wpdb {
     public function update( $table, $data, $where, $format = null, $where_format = null ) {
         foreach ( $this->rows as &$row ) {
             if ( (int) $row['id'] === (int) $where['id'] ) {
+                if ( array_key_exists( 'translated', $where ) && $row['translated'] !== $where['translated'] ) {
+                    return 0;
+                }
                 $row = array_merge( $row, $data );
                 return 1;
             }
@@ -186,6 +192,22 @@ WU_AIT_TranslatePress_Bridge::upsert_translations_by_original( 'en_US', array(
     $already_translated_wrapper => '<trp-post-container data-trp-post-id="1735">Updated title</trp-post-container>',
 ) );
 check( '<trp-post-container data-trp-post-id="1735">Updated title</trp-post-container>' === row_by_id( 4 )['translated'], 'An explicit exact wrapper translation should update that wrapper' );
+
+$wpdb->rows = array(
+    array( 'id' => 1, 'original' => '這是相同原文', 'translated' => 'Reviewed translation', 'status' => 2, 'block_type' => 0 ),
+    array( 'id' => 2, 'original' => '這是相同原文', 'translated' => '', 'status' => 0, 'block_type' => 1 ),
+);
+$written = WU_AIT_TranslatePress_Bridge::upsert_translations_by_original( 'en_US', array( '這是相同原文' => 'New translation' ), true );
+check( 1 === $written && 'New translation' === row_by_id( 2 )['translated'], 'Supplemental import fills the missing dictionary row' );
+check( 'Reviewed translation' === row_by_id( 1 )['translated'], 'Supplemental import preserves a reviewed duplicate' );
+$GLOBALS['options'][ WU_AIT_Discovery_Service::OPTION_KEY ] = array(
+    array( 'original' => '這是相同原文', 'post_id' => 1 ),
+    array( 'original' => '尚未翻譯的新內容', 'post_id' => 1 ),
+);
+$missing_csv = WU_AIT_Export_Import_Service::build_export_csv( 'en_US', 'sitewide', 0, true );
+$full_csv = WU_AIT_Export_Import_Service::build_export_csv( 'en_US' );
+check( $missing_csv['ok'] && 1 === $missing_csv['count'] && strpos( $missing_csv['csv'], '尚未翻譯的新內容' ) !== false, 'Supplemental CSV exports just missing originals' );
+check( $full_csv['ok'] && 2 === $full_csv['count'] && ( strpos( $full_csv['csv'], 'Reviewed translation' ) !== false || strpos( $full_csv['csv'], 'New translation' ) !== false ), 'Full CSV retains existing translations' );
 
 // A later front-end render may register a dictionary row for an earlier post.
 // The second pass must match against the dictionary after every page is rendered.

@@ -1,4 +1,12 @@
 /* Canonical setting-page chrome. Layout, charts, previews and form logic remain module-owned. */
+/* Unpadded panels get an inset. Existing module rules and split panels keep their layout. */
+:where(body.wutm-admin-screen #wpbody-content .wutm-ui-root .wutm-ui-panel:not(table,.wutm-ui-header,[data-wutm-ui="preserve"],:has(> .wutm-ui-panel-body))){
+    box-sizing:border-box;
+    padding:clamp(14px,2vw,20px);
+    min-width:0;
+}
+:where(body.wutm-admin-screen #wpbody-content .wutm-ui-root .wutm-ui-panel > :first-child){margin-block-start:0}
+:where(body.wutm-admin-screen #wpbody-content .wutm-ui-root .wutm-ui-panel > :last-child){margin-block-end:0}
 body.wutm-admin-screen #wpbody-content > :is(#wutm-media,.wutm-ui-root){max-width:1440px!important;padding:24px!important;border-radius:16px!important;background:var(--wutm-paper)!important;box-sizing:border-box}
 body.wutm-admin-screen #wpbody-content :is(#wutm-media,.wutm-ui-root):not(.wutm-ui-dashboard) :is(.wutm-ui-header,.wutm-ui-title),
 body.wutm-admin-screen #wpbody-content > .wutm-ui-root.wutm-ui-header{

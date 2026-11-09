@@ -21,6 +21,7 @@ const common=fs.readFileSync('assets/css/admin.css','utf8'),components=fs.readFi
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false,type+' overflow '+width);
     if(type!=='media'){
      assert.equal(await page.locator('.preview-panel.wutm-ui-panel').count(),0,'Preview is not restyled');
+     assert.ok(await page.locator('form .wutm-ui-panel').evaluate(e=>parseFloat(getComputedStyle(e).paddingInlineStart)>=14),'Module panels inset their contents');
      await page.locator('button[type=submit]').click();assert.equal(await page.evaluate(()=>nativeClicks),1,'Original listener retained');
      await page.evaluate(()=>{const node=document.createElement('section');node.className='later-panel';document.querySelector('.wrap').appendChild(node);document.dispatchEvent(new Event('wutm-admin-ui-updated'));});
      assert.equal(await page.locator('.later-panel.wutm-ui-panel').count(),1,'Explicit dynamic adaptation without polling');
