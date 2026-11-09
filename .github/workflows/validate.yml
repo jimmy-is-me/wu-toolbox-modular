@@ -215,7 +215,7 @@ jobs:
           grep -Fq "<h4>${PLUGIN_VERSION}</h4>" core/github-release-updater.php
 
   admin-design-browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - name: Install isolated browser test dependencies
