@@ -43,7 +43,7 @@ trait WUTM_SEO_Management {
         $status = $data['noindex'] ? 'noindex' : ( $data['title'] || $data['description'] ? 'manual' : 'template' );
         $issues = [];
         if ( ! $description ) { $issues[] = '缺少摘要'; }
-        if ( $data['canonical'] && ! wp_http_validate_url( $data['canonical'] ) ) { $issues[] = 'Canonical 需檢查'; }
+        if ( $data['canonical'] && ( ! filter_var( $data['canonical'], FILTER_VALIDATE_URL ) || ! preg_match( '~^https?://~i', $data['canonical'] ) ) ) { $issues[] = 'Canonical 需檢查'; }
         return [ 'data' => $data, 'title' => $title, 'description' => $description, 'status' => $status, 'issues' => $issues, 'url' => get_permalink( $id ), 'modified' => get_post_meta( $id, '_wu_seo_modified', true ) ];
     }
 
@@ -299,10 +299,10 @@ trait WUTM_SEO_Management {
         $scan = 1 === $page ? [ 'next' => 1, 'titles' => [], 'descriptions' => [], 'canonical' => [], 'ids' => [], 'incoming' => [], 'unknown' => [], 'counts' => [] ] : get_transient( $scan_key );
         if ( ! $scan || $page !== $scan['next'] ) { echo '<p>請從第 1 批開始，或使用前一次顯示的下一批頁碼。進度保留 1 小時。</p>'; return; }
         $posts = get_posts( [ 'post_type' => self::supported_post_types(), 'post_status' => 'publish', 'has_password' => false, 'posts_per_page' => 50, 'paged' => $page, 'orderby' => 'ID', 'order' => 'ASC' ] );
-        $titles = []; $descriptions = []; $counts = [ '公開內容（本批）' => count( $posts ), '已自訂' => 0, '使用範本' => 0, 'noindex' => 0, '摘要缺漏' => 0, 'Canonical 需檢查' => 0 ];
+        $titles = []; $descriptions = []; $counts = [ '已分析公開內容' => count( $posts ), '已自訂' => 0, '使用範本' => 0, 'noindex' => 0, '摘要缺漏' => 0, 'Canonical 需檢查' => 0 ];
         echo '<table class="widefat"><thead><tr><th>內容</th><th>本批分析</th></tr></thead><tbody>';
         foreach ( $posts as $post ) {
-            $row = self::seo_summary( $post->ID ); $counts[ 'manual' === $row['status'] ? '已自訂' : '使用範本' ]++;
+            $row = self::seo_summary( $post->ID ); $counts[ $row['data']['title'] || $row['data']['description'] ? '已自訂' : '使用範本' ]++;
             if ( $row['data']['noindex'] ) { $counts['noindex']++; }
             if ( ! $row['description'] ) { $counts['摘要缺漏']++; }
             $titles[ $row['title'] ][] = $post->ID; if ( $row['description'] ) { $descriptions[ $row['description'] ][] = $post->ID; }

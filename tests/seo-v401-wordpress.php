@@ -74,6 +74,9 @@ try {
     $cipher = seo401_private( 'google_secret', 'sensitive-fixture' ); seo401_assert( $cipher && strpos( $cipher, 'sensitive' ) === false && seo401_private( 'google_secret', $cipher, true ) === 'sensitive-fixture', 'OAuth secrets encrypted with site-bound authenticated cipher' );
     seo401_assert( seo401_private( 'google_secret', substr( $cipher, 0, -4 ) . 'xxxx', true ) === '', 'Tampered OAuth ciphertext rejected' );
     $_POST = []; ob_start(); Wumetax_SEO_Core_v120::seo_tools_page(); $html = ob_get_clean(); seo401_assert( strpos( $html, 'wutm-ui-root' ) !== false && strpos( $html, '尚未驗證' ) !== false, 'Management page renders shared UI and truthful external status' );
+    update_post_meta( $ids['noindex'], '_wu_seo_title', 'Custom title on a noindex page' );
+    ob_start(); seo401_private( 'content_batch_report', 1 ); $report = ob_get_clean();
+    $snapshot = get_option( 'wu_seo_analysis_snapshot' ); seo401_assert( $snapshot['complete'] && $snapshot['counts']['已自訂'] >= 2 && $snapshot['counts']['noindex'] >= 1, 'Batch analysis counts explicit SEO independently of indexing policy' );
     echo "SEO v4.0.1 native checks passed: CPT/taxonomy native providers, metadata permissions, revision history, bulk concurrency, safe diagnostics, cache, subdirectory and plain URL, OAuth encryption.\n";
 } finally {
     remove_filter( 'pre_http_request', $mock, 99 ); wp_set_current_user( $uid ); $_POST = $_REQUEST = [];
