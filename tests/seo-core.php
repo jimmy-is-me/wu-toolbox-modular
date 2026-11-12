@@ -16,6 +16,7 @@ function remove_action( ...$args ) {}
 function get_option( $key, $default = false ) { return $GLOBALS['options'][ $key ] ?? $default; }
 function get_site_option( $key, $default = false ) { return $GLOBALS['options'][ $key ] ?? $default; }
 function wp_parse_args( $value, $defaults ) { return array_merge( $defaults, $value ); }
+function get_locale() { return 'zh_TW'; }
 function get_bloginfo( $key ) { return [ 'name' => '測試品牌', 'description' => '實用內容', 'charset' => 'UTF-8' ][ $key ] ?? ''; }
 function sanitize_text_field( $value ) { return is_scalar( $value ) ? trim( strip_tags( (string) $value ) ) : ''; }
 function sanitize_email( $value ) { return filter_var( $value, FILTER_SANITIZE_EMAIL ); }

@@ -5,7 +5,7 @@ defined( 'ABSPATH' ) || exit;
 trait WUTM_SEO_Enhancements {
     private static function enhancement_defaults() {
         return [
-            'organization_type' => 'Organization',
+            'organization_type' => 'none',
             'organization_legal_name' => '',
             'organization_description' => '',
             'organization_phone' => '',
@@ -59,8 +59,8 @@ trait WUTM_SEO_Enhancements {
         foreach ( [ 'organization_legal_name', 'organization_description', 'organization_phone', 'organization_street', 'organization_city', 'organization_postcode' ] as $key ) {
             $out[ $key ] = sanitize_text_field( $input[ $key ] ?? '' );
         }
-        $type = $input['organization_type'] ?? 'Organization';
-        $out['organization_type'] = in_array( $type, [ 'Organization', 'OnlineStore' ], true ) ? $type : 'Organization';
+        $type = $input['organization_type'] ?? self::settings()['organization_type'];
+        $out['organization_type'] = in_array( $type, [ 'none', 'Organization', 'OnlineStore', 'LocalBusiness' ], true ) ? $type : 'Organization';
         foreach ( [ 'about_page', 'contact_page' ] as $key ) {
             $out[ $key ] = absint( $input[ $key ] ?? 0 );
         }
@@ -213,14 +213,14 @@ trait WUTM_SEO_Enhancements {
         $extra = [];
         foreach ( $graph as &$node ) {
             if ( 'Organization' === $node['@type'] ) {
-                $node['@type'] = $s['organization_type'];
+                $node['@type'] = 'LocalBusiness' === $s['organization_type'] && ( ! $s['organization_street'] || ! $s['organization_city'] || ! $s['target_region'] ) ? 'Organization' : $s['organization_type'];
                 foreach ( [ 'alternateName' => 'organization_alt_name', 'legalName' => 'organization_legal_name', 'description' => 'organization_description', 'email' => 'organization_email', 'telephone' => 'organization_phone' ] as $property => $setting ) {
                     if ( '' !== $s[ $setting ] ) {
                         $node[ $property ] = $s[ $setting ];
                     }
                 }
-                if ( $s['organization_street'] && $s['organization_city'] ) {
-                    $node['address'] = [ '@type' => 'PostalAddress', 'streetAddress' => $s['organization_street'], 'addressLocality' => $s['organization_city'], 'addressCountry' => 'TW' ];
+                if ( $s['organization_street'] && $s['organization_city'] && $s['target_region'] ) {
+                    $node['address'] = [ '@type' => 'PostalAddress', 'streetAddress' => $s['organization_street'], 'addressLocality' => $s['organization_city'], 'addressCountry' => self::settings()['target_region'] ];
                     if ( $s['organization_postcode'] ) {
                         $node['address']['postalCode'] = $s['organization_postcode'];
                     }
@@ -249,7 +249,7 @@ trait WUTM_SEO_Enhancements {
                     $extra[] = $person;
                 }
                 $node['mainEntityOfPage'] = [ '@id' => $page_id ];
-                $extra[] = [ '@type' => 'WebPage', '@id' => $page_id, 'url' => $canonical, 'name' => get_the_title( get_queried_object_id() ), 'isPartOf' => [ '@id' => home_url( '/#website' ) ], 'inLanguage' => 'zh-TW' ];
+                $extra[] = [ '@type' => 'WebPage', '@id' => $page_id, 'url' => $canonical, 'name' => get_the_title( get_queried_object_id() ), 'isPartOf' => [ '@id' => home_url( '/#website' ) ], 'inLanguage' => str_replace( '_', '-', get_locale() ) ];
             } elseif ( 'WebPage' === $node['@type'] ) {
                 if ( is_singular( 'page' ) && get_queried_object_id() === (int) $s['about_page'] && $about ) {
                     $node['@type'] = 'AboutPage';
@@ -263,7 +263,7 @@ trait WUTM_SEO_Enhancements {
         unset( $node );
         $graph = array_merge( $graph, $extra );
         if ( is_category() || is_tag() || is_tax() ) {
-            $graph[] = [ '@type' => 'CollectionPage', '@id' => $page_id, 'url' => $canonical, 'name' => single_term_title( '', false ), 'description' => self::seo_description(), 'isPartOf' => [ '@id' => home_url( '/#website' ) ], 'inLanguage' => 'zh-TW' ];
+            $graph[] = [ '@type' => 'CollectionPage', '@id' => $page_id, 'url' => $canonical, 'name' => single_term_title( '', false ), 'description' => self::seo_description(), 'isPartOf' => [ '@id' => home_url( '/#website' ) ], 'inLanguage' => str_replace( '_', '-', get_locale() ) ];
             $breadcrumb = self::hierarchical_breadcrumbs();
             if ( $breadcrumb ) { $graph[] = $breadcrumb; }
         }
@@ -310,7 +310,7 @@ trait WUTM_SEO_Enhancements {
         <div class="wu-seo-card">
             <h2>品牌與內容可信度</h2>
             <p>提供真實、公開且與網站內容一致的品牌資料，讓搜尋引擎理解組織與作者。這些設定不會產生虛構評價、認證或保證排名。</p>
-            <div class="wu-seo-grid"><label class="wu-seo-label" for="wu-org-type"><strong>組織類型</strong></label><div><select id="wu-org-type" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[organization_type]"><?php foreach ( [ 'Organization' => '一般組織／品牌', 'OnlineStore' => '線上商店' ] as $key => $label ) : ?><option value="<?php echo esc_attr( $key ); ?>" <?php selected( $s['organization_type'], $key ); ?>><?php echo esc_html( $label ); ?></option><?php endforeach; ?></select></div></div>
+            <div class="wu-seo-grid"><label class="wu-seo-label" for="wu-org-type"><strong>組織類型</strong></label><div><select id="wu-org-type" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[organization_type]"><?php foreach ( [ 'none' => '不提供組織 Schema（個人／一般網站）', 'Organization' => '一般組織／品牌', 'OnlineStore' => '線上商店', 'LocalBusiness' => '實體商家（須完整真實地址及地區）' ] as $key => $label ) : ?><option value="<?php echo esc_attr( $key ); ?>" <?php selected( $s['organization_type'], $key ); ?>><?php echo esc_html( $label ); ?></option><?php endforeach; ?></select></div></div>
             <?php foreach ( [ 'organization_legal_name' => '法定組織名稱（選填）', 'organization_description' => '品牌／組織說明', 'organization_phone' => '公開聯絡電話（含國碼）', 'organization_street' => '公開街道地址（選填）', 'organization_city' => '所在縣市', 'organization_postcode' => '郵遞區號' ] as $key => $label ) : ?>
                 <div class="wu-seo-grid"><label class="wu-seo-label" for="wu-<?php echo esc_attr( $key ); ?>"><strong><?php echo esc_html( $label ); ?></strong></label><div><input id="wu-<?php echo esc_attr( $key ); ?>" class="regular-text wu-seo-input" name="<?php echo esc_attr( self::OPTION_KEY . '[' . $key . ']' ); ?>" value="<?php echo esc_attr( $s[ $key ] ); ?>"></div></div>
             <?php endforeach; ?>

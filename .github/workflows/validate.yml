@@ -102,6 +102,8 @@ jobs:
           WUTM_MEDIA_INTEGRATION: '1'
         run: |
           php "$RUNNER_TEMP/wutm-wp-cli.phar" plugin install woocommerce --version=9.0.2 --activate --path="$RUNNER_TEMP/wutm-media-wp"
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/seo-v401-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-seo401.log"
+          grep -Fq 'SEO v4.0.1 native checks passed:' "$RUNNER_TEMP/wutm-seo401.log"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/v391-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-v391.log"
           grep -Fq 'v3.9.1 native modules passed:' "$RUNNER_TEMP/wutm-v391.log"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" option update woocommerce_custom_orders_table_enabled no --path="$RUNNER_TEMP/wutm-media-wp"
@@ -181,7 +183,10 @@ jobs:
       - name: Check media-grid fallback notice stays hidden
         run: node tests/notice-center-fallback.js
       - name: Check SEO schema, indexing, taxonomy and conflict protection
-        run: php tests/seo-core.php
+        run: |
+          php tests/seo-core.php
+          php tests/seo-technical.php
+          node --check assets/js/seo-management.js
       - name: Check TranslatePress discovery and dictionary writes
         run: php tests/ai-translate-translatepress.php
       - name: Check resumable AI scan, publication integrity and error handling
@@ -206,6 +211,14 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/wutm-seo-tests" linkedom@0.18.12 --no-audit --no-fund
           NODE_PATH="$RUNNER_TEMP/wutm-seo-tests/node_modules" node tests/seo-analysis.js
           NODE_PATH="$RUNNER_TEMP/wutm-seo-tests/node_modules" node tests/content-modules-ui.js
+      - name: Check isolated multisite SEO settings and credentials
+        run: |
+          cp -a "$RUNNER_TEMP/wutm-media-wp" "$RUNNER_TEMP/wutm-seo-ms"
+          rm "$RUNNER_TEMP/wutm-seo-ms/wp-config.php"
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" config create --path="$RUNNER_TEMP/wutm-seo-ms" --dbname=wci_fixture --dbprefix=wms_wp_ --dbhost=127.0.0.1 --dbuser=root --dbpass=fixture-only --skip-check
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" core multisite-install --path="$RUNNER_TEMP/wutm-seo-ms" --url=https://network.example.test --title="SEO network fixture" --admin_user=fixture --admin_password=fixture-only --admin_email=fixture@example.test --skip-email
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/seo-multisite-wordpress.php" --path="$RUNNER_TEMP/wutm-seo-ms" --user=fixture | tee "$RUNNER_TEMP/wutm-seo-ms.log"
+          grep -Fq 'SEO multisite checks passed:' "$RUNNER_TEMP/wutm-seo-ms.log"
       - name: Check changelog is current
         shell: bash
         run: |
@@ -250,5 +263,6 @@ jobs:
           node tests/invoice-admin-ui.js
           node tests/newebpay-ui.js
           node tests/onepage-checkout-ui.js
+          node tests/seo-management-ui.js
           node tests/shipping-temperature-ui.js
           node tests/payuni-shipping-ui.js

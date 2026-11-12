@@ -16,9 +16,15 @@ if ( ! defined( 'ABSPATH' ) ) {
 if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 	require_once __DIR__ . '/enhancements.php';
 	require_once __DIR__ . '/editor-content.php';
+	require_once __DIR__ . '/technical.php';
+	require_once __DIR__ . '/management.php';
+	require_once __DIR__ . '/search-console.php';
 
 	final class Wumetax_SEO_Core_v120 {
 		use WUTM_SEO_Enhancements;
+		use WUTM_SEO_Technical;
+		use WUTM_SEO_Management;
+		use WUTM_SEO_Search_Console;
 
 		const VERSION        = '1.3.0';
 		const OPTION_KEY     = 'wumetax_seo_core_settings_v100';
@@ -28,9 +34,13 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 		const SETTINGS_PAGE  = 'wumetax-seo-core-settings';
 
 		private static $settings = null;
+		private static $settings_blog = null;
 
 		public static function init() {
 			self::enhancement_init();
+			self::technical_init();
+			self::management_init();
+			self::search_console_init();
 			add_action( 'admin_menu', [ __CLASS__, 'admin_menu' ] );
 			add_action( 'admin_init', [ __CLASS__, 'register_settings' ] );
 			add_action( 'admin_enqueue_scripts', [ __CLASS__, 'admin_assets' ] );
@@ -75,8 +85,8 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 				'bing_verify'              => '',
 				'social_profiles'          => '',
 				'robots_extra'             => '',
-				'target_locale'            => 'zh_TW',
-				'target_region'            => 'TW',
+				'target_locale'            => ( function_exists( 'get_locale' ) ? get_locale() : 'en_US' ),
+				'target_region'            => '',
 				'enable_schema'            => 1,
 				'enable_og'                => 1,
 				'enable_twitter'           => 1,
@@ -87,6 +97,8 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 		}
 
 		private static function settings() {
+			$blog = function_exists( 'get_current_blog_id' ) ? get_current_blog_id() : 0;
+			if ( self::$settings_blog !== $blog ) { self::$settings = null; self::$settings_blog = $blog; }
 			if ( null !== self::$settings ) {
 				return self::$settings;
 			}
@@ -96,7 +108,10 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 				$saved = [];
 			}
 
-			self::$settings = wp_parse_args( $saved, self::defaults() );
+
+			$defaults = self::defaults();
+			if ( $saved && ! isset( $saved['organization_type'] ) ) { $defaults['organization_type'] = 'Organization'; }
+			self::$settings = wp_parse_args( $saved, $defaults );
 			return self::$settings;
 		}
 
@@ -152,12 +167,10 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 				? sanitize_textarea_field( $input['robots_extra'] )
 				: '';
 
-			$allowed_locales = [ 'zh_TW' ];
-			$locale = isset( $input['target_locale'] ) ? sanitize_text_field( $input['target_locale'] ) : 'zh_TW';
-			$out['target_locale'] = in_array( $locale, $allowed_locales, true ) ? $locale : 'zh_TW';
-
-			$region = isset( $input['target_region'] ) ? strtoupper( sanitize_text_field( $input['target_region'] ) ) : 'TW';
-			$out['target_region'] = ( 'TW' === $region ) ? 'TW' : 'TW';
+			$locale = sanitize_text_field( $input['target_locale'] ?? $defaults['target_locale'] );
+			$out['target_locale'] = preg_match( '/^[a-z]{2,3}(?:_[A-Za-z0-9]+)*$/', $locale ) ? $locale : $defaults['target_locale'];
+			$region = strtoupper( sanitize_text_field( $input['target_region'] ?? '' ) );
+			$out['target_region'] = preg_match( '/^[A-Z]{2}$/', $region ) ? $region : '';
 
 			$out['enable_schema']           = ! empty( $input['enable_schema'] ) ? 1 : 0;
 			$out['enable_og']               = ! empty( $input['enable_og'] ) ? 1 : 0;
@@ -579,12 +592,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 			);
 
 			$wp_locale = get_locale();
-			$locale_ok = ( 'zh_TW' === $wp_locale );
-			$checks[] = self::audit_check(
-				'locale', '台灣繁中語系',
-				$locale_ok ? 'WordPress 網站語言為繁體中文（台灣），SEO Core 會輸出 zh-TW / zh_TW。' : '目前 WordPress locale 為 ' . $wp_locale . '。若主要受眾是台灣，建議網站語言使用繁體中文（台灣）。',
-				$locale_ok ? 'pass' : 'partial', 8, $general_url, '檢查網站語言'
-			);
+			$checks[] = self::audit_check( 'locale', '網站語系', '網站語言：' . $wp_locale . '；請核對實際內容及多語系外掛的語言設定。', 'pass', 8, $general_url, '檢查網站語言' );
 
 			if ( $home_id ) {
 				$home_title = trim( (string) get_post_meta( $home_id, '_wu_seo_title', true ) );
@@ -597,7 +605,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 				);
 				$checks[] = self::audit_check(
 					'home_desc', '首頁 Meta Description',
-					$home_desc ? '首頁已有自訂 Meta Description。' : '首頁目前使用自動摘要，建議手動撰寫台灣使用者看得懂的服務說明。',
+					$home_desc ? '首頁已有自訂 Meta Description。' : '首頁目前使用自動摘要，建議手動撰寫目標讀者看得懂的服務說明。',
 					$home_desc ? 'pass' : 'partial', 8, $home_edit, '編輯首頁 SEO'
 				);
 			} else {
@@ -623,12 +631,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 			$checks[] = self::audit_check( 'schema', '結構化資料', ! empty( $s['enable_schema'] ) ? 'JSON-LD Schema 已啟用。' : 'Schema 已關閉。', ! empty( $s['enable_schema'] ) ? 'pass' : 'partial', 5, $settings_url, '檢查 Schema 設定' );
 			$checks[] = self::audit_check( 'og', 'Open Graph', ! empty( $s['enable_og'] ) ? 'Open Graph 已啟用，分享至 LINE / Facebook 等平台可取得標題與圖片。' : 'Open Graph 已關閉。', ! empty( $s['enable_og'] ) ? 'pass' : 'partial', 4, $settings_url, '檢查 Open Graph' );
 
-			$sitemap_ok = function_exists( 'wp_sitemaps_get_server' ) && $public;
-			$checks[] = self::audit_check(
-				'sitemap', 'XML Sitemap',
-				$sitemap_ok ? 'SEO 核心 Sitemap 可使用：' . home_url( '/wp-sitemap.xml' ) : '目前無法確認 XML Sitemap 可公開使用。',
-				$sitemap_ok ? 'pass' : 'fail', 6, home_url( '/wp-sitemap.xml' ), '開啟 Sitemap'
-			);
+			$checks[] = self::audit_check( 'sitemap', 'XML Sitemap 與公開擷取', '原生 Sitemap 入口：' . self::sitemap_url() . '。尚未驗證公開 HTTP、子檔、Googlebot 及搜尋索引；請執行 SEO 管理與診斷。', 'partial', 0, admin_url( 'admin.php?page=wu-seo-tools' ), '執行技術診斷' );
 
 			$org_ok = '' !== trim( (string) $s['organization_name'] );
 			$checks[] = self::audit_check( 'organization', 'Organization 資訊', $org_ok ? '組織名稱已設定：' . $s['organization_name'] : '尚未設定組織名稱。', $org_ok ? 'pass' : 'partial', 3, $settings_url, '補充組織資料' );
@@ -675,8 +678,8 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 					.wu-seo-health{max-width:1240px;margin-top:24px}.wu-seo-health *{box-sizing:border-box}.wu-seo-health h1{font-size:28px;margin:0 0 7px}.wu-seo-health .lead{margin:0;color:#646970;line-height:1.7;max-width:980px}.wu-seo-top{display:grid;grid-template-columns:270px minmax(0,1fr);gap:18px;margin:24px 0}.wu-seo-card{background:#fff;border:1px solid #dcdcde;border-radius:14px;padding:22px;box-shadow:0 5px 22px rgba(0,0,0,.025)}.wu-animate{opacity:0;transform:translateY(8px);transition:opacity .28s ease,transform .28s ease}.wu-animate.is-visible{opacity:1;transform:translateY(0)}.wu-score-card{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:240px}.wu-score-ring{width:132px;height:132px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:conic-gradient(#4fa567 0%,#e8ece9 0);position:relative;box-shadow:0 12px 34px rgba(52,124,75,.08)}.wu-score-ring:before{content:"";position:absolute;inset:10px;background:#fff;border-radius:50%}.wu-score-number{position:relative;z-index:2;font-size:36px;font-weight:800;color:#171b19}.wu-score-card strong{font-size:16px;margin-top:14px}.wu-score-card small{display:block;color:#72777c;line-height:1.6;margin-top:5px}.wu-overview{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px}.wu-metric{background:#f7f9f8;border:1px solid transparent;border-radius:11px;padding:15px;transition:border-color .2s ease,transform .2s ease}.wu-metric:hover{border-color:#dce6df;transform:translateY(-1px)}.wu-metric b{display:block;font-size:25px;color:#171b19}.wu-metric span{font-size:12px;color:#646970}.wu-note{margin-top:16px;padding:12px 14px;border-radius:10px;background:#f0f7f2;color:#355441;line-height:1.65}.wu-conflict{margin:18px 0;padding:14px 16px;border-left:4px solid #d63638;background:#fff2f2;border-radius:8px}.wu-checks{overflow:hidden;padding:0}.wu-check{display:grid;grid-template-columns:112px minmax(0,1fr) auto;gap:15px;align-items:center;padding:17px 20px;border-bottom:1px solid #eee;transition:background .18s ease}.wu-check:hover{background:#fbfcfb}.wu-check:last-child{border-bottom:0}.wu-pill{display:inline-flex;justify-content:center;min-width:78px;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700}.wu-pill.pass{background:#edf8f0;color:#24733d}.wu-pill.partial{background:#fff7e5;color:#8b5e00}.wu-pill.fail{background:#fff0f0;color:#b32d2e}.wu-check h3{font-size:14px;margin:0 0 4px}.wu-check p{margin:0;color:#646970;line-height:1.55}.wu-content-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-top:28px}.wu-content-head h2{margin-bottom:5px}.wu-content-head p{margin:0;color:#646970}.wu-type-filters{display:flex;flex-wrap:wrap;gap:7px;justify-content:flex-end}.wu-type-filter{appearance:none;border:1px solid #d7ddd9;background:#fff;color:#425048;padding:6px 10px;border-radius:999px;font-size:12px;cursor:pointer;transition:.18s ease}.wu-type-filter:hover,.wu-type-filter.is-active{border-color:#4fa567;background:#edf8f0;color:#24733d}.wu-content-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:16px 0 12px}.wu-stat{background:#fff;border:1px solid #dcdcde;border-radius:12px;padding:17px;min-height:92px;transition:transform .2s ease,border-color .2s ease}.wu-stat:hover{transform:translateY(-2px);border-color:#cfdad3}.wu-stat b{display:block;font-size:25px;margin-bottom:4px}.wu-stat span{color:#646970;font-size:12px}.wu-scope-note{margin:0 0 22px;color:#646970;font-size:12px;line-height:1.6}.wu-issues{width:100%;border-collapse:collapse}.wu-issues th,.wu-issues td{text-align:left;padding:13px 14px;border-bottom:1px solid #eee;vertical-align:top}.wu-issues th{background:#f7f8f7;font-size:12px}.wu-issues td{background:#fff}.wu-issues tr{transition:opacity .16s ease}.wu-issues .wu-type-badge{display:inline-flex;margin-top:4px;padding:2px 7px;border-radius:999px;background:#f1f4f2;color:#66716b;font-size:10px}.wu-empty-filter{display:none;padding:22px;text-align:center;color:#72777c;background:#fff}.wu-help{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.wu-help h3{margin:0 0 8px;font-size:15px}.wu-help p{margin:0;color:#646970;line-height:1.7}.wu-help code{font-size:12px}@media(max-width:1050px){.wu-content-grid{grid-template-columns:repeat(3,1fr)}}@media(max-width:900px){.wu-seo-top{grid-template-columns:1fr}.wu-overview,.wu-help{grid-template-columns:1fr}.wu-content-head{align-items:flex-start;flex-direction:column}.wu-type-filters{justify-content:flex-start}.wu-check{grid-template-columns:90px 1fr}.wu-check .button{grid-column:2}.wu-issues{display:block;overflow-x:auto}}@media(max-width:620px){.wu-content-grid{grid-template-columns:repeat(2,1fr)}}@media(prefers-reduced-motion:reduce){.wu-animate,.wu-stat,.wu-metric,.wu-check{transition:none!important;transform:none!important}}
 				</style>
 
-				<h1>SEO 核心</h1>
-				<p class="wutm-module-subtitle lead">用台灣繁體中文網站的實際設定需求來檢查，不做「關鍵字塞越多分數越高」的玩法。分數代表站內 SEO 設定完整度，不代表 Google 官方排名，也不是流量預測。</p>
+				<h1>SEO 核心</h1><p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=wu-seo-tools' ) ); ?>">SEO 列表管理、批次修改與技術診斷</a></p>
+				<p class="wutm-module-subtitle lead">依目前網站的實際 SEO 設定檢查，不做「關鍵字塞越多分數越高」的玩法。分數代表站內 SEO 設定完整度，不代表 Google 官方排名，也不是流量預測。</p>
 
 				<?php if ( ! empty( $audit['conflicts'] ) ) : ?>
 					<div class="wu-conflict"><strong>偵測到其他 SEO 外掛：</strong> <?php echo esc_html( implode( '、', $audit['conflicts'] ) ); ?>。<?php echo self::output_is_owned_elsewhere() ? '本核心已自動暫停前台輸出；編輯與匯入仍可使用。' : '目前允許同時輸出，請確認沒有重複 Meta／Schema。'; ?></div>
@@ -686,7 +689,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 					<div class="wu-seo-card wu-score-card wu-animate">
 						<div class="wu-score-ring" id="wu-seo-score-ring" data-score="<?php echo esc_attr( $score ); ?>"><div class="wu-score-number" id="wu-seo-score-number">0</div></div>
 						<strong>網站 SEO 設定完整度</strong>
-						<small>技術基礎、台灣語系、首頁資訊與分享資料；不以驗證方式或內容統計計分。</small>
+						<small>站內設定、網站語系、首頁資訊與分享資料；不以驗證方式或內容統計計分。</small>
 					</div>
 					<div class="wu-seo-card wu-animate">
 						<h2 style="margin-top:0;">目前狀況</h2>
@@ -696,7 +699,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 							<div class="wu-metric"><b class="wu-count" data-count="<?php echo esc_attr( $bad ); ?>">0</b><span>需要處理</span></div>
 						</div>
 						<div class="wu-note"><strong>檢查範圍：</strong>只統計本站可在前台獨立開啟且已發佈的公開內容；不公開、不可獨立瀏覽的內容類型、範本與附件不納入計算。</div>
-						<p style="margin:16px 0 0;"><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SETTINGS_PAGE ) ); ?>">全站 SEO 設定</a> <a class="button" href="<?php echo esc_url( home_url( '/wp-sitemap.xml' ) ); ?>" target="_blank" rel="noopener">查看 Sitemap</a></p>
+						<p style="margin:16px 0 0;"><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::SETTINGS_PAGE ) ); ?>">全站 SEO 設定</a> <a class="button" href="<?php echo esc_url( self::sitemap_url() ); ?>" target="_blank" rel="noopener">查看 Sitemap</a></p>
 					</div>
 				</div>
 
@@ -749,7 +752,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 
 				<h2>如何設定</h2>
 				<div class="wu-help">
-					<div class="wu-seo-card wu-animate"><h3>1. 先完成全站基本設定</h3><p>網站語言使用「繁體中文（台灣）」、確認 HTTPS 與固定網址，再設定品牌名稱、預設分享圖片及 Search Console 驗證。</p></div>
+					<div class="wu-seo-card wu-animate"><h3>1. 先完成全站基本設定</h3><p>網站語言配合實際內容、確認 HTTPS 與固定網址，再設定品牌名稱、預設分享圖片及 Search Console 驗證。</p></div>
 					<div class="wu-seo-card wu-animate"><h3>2. 重要頁面才優先手動優化</h3><p>首頁、網站服務、主機維護、案例、主要文章與 Lab 優先設定。其他頁面可先使用自動 fallback，不需要為了追求 100 分把每頁都硬填一次。</p></div>
 					<div class="wu-seo-card wu-animate"><h3>3. 上線後用 Search Console 驗證</h3><p>提交 <code>/wp-sitemap.xml</code>，重要新頁可使用網址檢查要求重新建立索引。實際收錄與排名仍由 Google 判定。</p></div>
 				</div>
@@ -822,8 +825,8 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 					@media(max-width:760px){.wu-seo-grid{grid-template-columns:1fr}}
 				</style>
 
-				<h1>SEO 核心</h1>
-				<p class="wutm-module-subtitle">台灣繁中網站用的輕量 SEO 核心。前台不載入 JavaScript 或 CSS；設定完成度請至 <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::DASHBOARD_PAGE ) ); ?>">SEO 健檢</a> 查看。</p>
+				<h1>SEO 核心</h1><p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=wu-seo-tools' ) ); ?>">SEO 列表管理、批次修改與技術診斷</a></p>
+				<p class="wutm-module-subtitle">適用不同網站的通用 SEO 核心。前台不載入 JavaScript 或 CSS；設定完成度請至 <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::DASHBOARD_PAGE ) ); ?>">SEO 健檢</a> 查看。</p>
 
 				<?php if ( is_wp_error( $import_result ) ) : ?>
 					<div class="notice notice-error inline"><p><?php echo esc_html( $import_result->get_error_message() ); ?></p></div>
@@ -872,11 +875,11 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 						</div>
 
 						<div class="wu-seo-grid">
-							<div class="wu-seo-label"><strong>主要市場與語系</strong><p>此版本以台灣繁體中文網站為主要用途。</p></div>
+							<div class="wu-seo-label"><strong>主要市場與語系</strong><p>依網站的語言與目標市場設定，不限特定地區。</p></div>
 							<div>
-								<input type="hidden" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[target_locale]" value="zh_TW">
-								<input type="hidden" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[target_region]" value="TW">
-								<strong>台灣（繁體中文）</strong><br><span style="color:#646970">Schema：zh-TW / Open Graph：zh_TW / 區域：TW。WordPress「網站語言」仍建議設為「繁體中文」。</span>
+								<label>語言代碼 <input name="<?php echo esc_attr( self::OPTION_KEY ); ?>[target_locale]" value="<?php echo esc_attr( $s['target_locale'] ); ?>"></label>
+								<label>地區代碼（可留空） <input name="<?php echo esc_attr( self::OPTION_KEY ); ?>[target_region]" value="<?php echo esc_attr( $s['target_region'] ); ?>"></label>
+								<p>例如 zh_TW、en_US；多語系頁面的語系由目前網站語言決定。地區不是所有網站的必要設定。</p>
 							</div>
 						</div>
 
@@ -1149,8 +1152,8 @@ function App(){
  },[meta,editor.title,editor.excerpt,editor.content,editor.featured,editor.postId]);
  function chooseImage(){if(!window.wp.media){return;}const frame=wp.media({title:'選擇 OG Image',button:{text:'使用這張圖片'},library:{type:'image'},multiple:false});frame.on('select',function(){const a=frame.state().get('selection').first().toJSON();if(a&&a.id){setMeta('_wu_seo_og_image',parseInt(a.id,10));}});frame.open();}
  const tone=computed.score>=80?'ok':'warn';
- const scoreBox=e('div',{className:'wu-seo-side-score'},e('div',{className:'wu-seo-side-score-top'},e('div',{className:'wu-seo-side-ring',style:{'--wu-score':computed.score}},e('b',null,String(computed.score))),e('div',null,e('h3',null,'台灣繁中內容健檢'),e('p',null,'這是設定完整度，不是 Google 官方分數。'))),e('div',{className:'wu-seo-side-chips'},e('span',{className:'wu-seo-side-chip '+(computed.tl>=8&&computed.tl<=45?'ok':'warn')},'標題'),e('span',{className:'wu-seo-side-chip '+(computed.dl>=30&&computed.dl<=120?'ok':'warn')},'摘要'),e('span',{className:'wu-seo-side-chip '+(computed.hasImage?'ok':'warn')},'分享圖'),e('span',{className:'wu-seo-side-chip '+(computed.indexable?'ok':'warn')},'索引')));
- const preview=e('div',{className:'wu-seo-side-preview'},e('small',null,'GOOGLE 搜尋預覽（台灣繁中）'),e('div',{className:'wu-seo-side-url'},editor.permalink||window.location.href),e('div',{className:'wu-seo-side-title'},computed.title||'尚未設定標題'),e('div',{className:'wu-seo-side-desc'},computed.desc||'尚無摘要，建議補充 Meta Description。'));
+ const scoreBox=e('div',{className:'wu-seo-side-score'},e('div',{className:'wu-seo-side-score-top'},e('div',{className:'wu-seo-side-ring',style:{'--wu-score':computed.score}},e('b',null,String(computed.score))),e('div',null,e('h3',null,'內容 SEO 設定檢查'),e('p',null,'這是設定完整度，不是 Google 官方分數。'))),e('div',{className:'wu-seo-side-chips'},e('span',{className:'wu-seo-side-chip '+(computed.tl>=8&&computed.tl<=45?'ok':'warn')},'標題'),e('span',{className:'wu-seo-side-chip '+(computed.dl>=30&&computed.dl<=120?'ok':'warn')},'摘要'),e('span',{className:'wu-seo-side-chip '+(computed.hasImage?'ok':'warn')},'分享圖'),e('span',{className:'wu-seo-side-chip '+(computed.indexable?'ok':'warn')},'索引')));
+ const preview=e('div',{className:'wu-seo-side-preview'},e('small',null,'GOOGLE 搜尋預覽'),e('div',{className:'wu-seo-side-url'},editor.permalink||window.location.href),e('div',{className:'wu-seo-side-title'},computed.title||'尚未設定標題'),e('div',{className:'wu-seo-side-desc'},computed.desc||'尚無摘要，建議補充 Meta Description。'));
  const imageUrl=media&&media.source_url?media.source_url:'';
  const [analysis,setAnalysis]=wp.element.useState({checks:[]});
  wp.element.useEffect(function(){const timer=setTimeout(function(){setAnalysis(window.WUTMSEOAnalysis?window.WUTMSEOAnalysis.analyze(editor.content,computed.title,computed.desc,meta._wu_seo_topic,editor.permalink||window.location.href):{checks:[]});},350);return function(){clearTimeout(timer);};},[editor.content,computed.title,computed.desc,meta._wu_seo_topic,editor.permalink]);
@@ -1244,7 +1247,7 @@ JS;
 				data-has-image="<?php echo $effective_image ? '1' : '0'; ?>">
 				<div class="wu-seo-local-score" id="wu-seo-local-score">--</div>
 				<div>
-					<h3>台灣繁中內容健檢</h3>
+					<h3>內容 SEO 設定檢查</h3>
 					<p>這是本頁 SEO 設定完整度，不是 Google 官方分數。重點檢查繁中標題、摘要、分享圖片與是否允許索引，不做關鍵字密度灌分。</p>
 					<div class="wu-seo-mini-checks">
 						<span class="wu-seo-mini" id="wu-check-title">標題</span>
@@ -1257,7 +1260,7 @@ JS;
 			</div>
 
 			<div class="wu-seo-serp">
-				<div class="wu-seo-serp-label">GOOGLE 搜尋預覽（台灣繁中）</div>
+				<div class="wu-seo-serp-label">GOOGLE 搜尋預覽</div>
 				<div class="wu-seo-serp-url"><?php echo esc_html( get_permalink( $post ) ?: home_url( '/' ) ); ?></div>
 				<div class="wu-seo-serp-title" id="wu-serp-title"><?php echo esc_html( $m['title'] ?: $fallback_title ); ?></div>
 				<div class="wu-seo-serp-desc" id="wu-serp-desc"><?php echo esc_html( $m['description'] ?: ( $fallback_desc ?: '尚無可用摘要，建議手動撰寫 Meta Description。' ) ); ?></div>
@@ -1712,7 +1715,7 @@ JS;
 			}
 
 			if ( ! empty( $s['enable_og'] ) ) {
-				echo '<meta property="og:locale" content="zh_TW">' . "\n";
+				echo '<meta property="og:locale" content="' . esc_attr( get_locale() ) . '">' . "\n";
 				echo '<meta property="og:type" content="' . esc_attr( $type ) . '">' . "\n";
 				echo '<meta property="og:site_name" content="' . esc_attr( self::site_name() ) . '">' . "\n";
 				echo '<meta property="og:title" content="' . esc_attr( $title ) . '">' . "\n";
@@ -1771,7 +1774,7 @@ JS;
 			if ( $same_as ) {
 				$org['sameAs'] = $same_as;
 			}
-			$graph[] = $org;
+			if ( 'none' !== $s['organization_type'] ) { $graph[] = $org; }
 
 			$graph[] = [
 				'@type'     => 'WebSite',
@@ -1779,7 +1782,7 @@ JS;
 				'url'       => $site_url,
 				'name'      => $site_name,
 				'publisher' => [ '@id' => $org_id ],
-				'inLanguage'=> 'zh-TW',
+				'inLanguage'=> str_replace( '_', '-', get_locale() ),
 			];
 
 			if ( is_singular() ) {
@@ -1788,13 +1791,8 @@ JS;
 				$schema_type = 'WebPage';
 				if ( 'post' === $post_type ) {
 					$schema_type = 'Article';
-				} elseif ( 'skb_doc' === $post_type ) {
-					$schema_type = 'TechArticle';
-				} elseif ( 'wumetax_portfolio' === $post_type ) {
-					$schema_type = 'CreativeWork';
-				} elseif ( 'wumetax_lab' === $post_type ) {
-					$schema_type = 'SoftwareApplication';
 				}
+				$schema_type = apply_filters( 'wu_seo_schema_type', $schema_type, $post_type, $post_id );
 
 				$item = [
 					'@type'      => $schema_type,
@@ -1802,7 +1800,7 @@ JS;
 					'url'        => $canonical,
 					'name'       => get_the_title( $post_id ),
 					'description'=> self::seo_description(),
-					'inLanguage' => 'zh-TW',
+					'inLanguage' => str_replace( '_', '-', get_locale() ),
 					'isPartOf'   => [ '@id' => $website_id ],
 				];
 
@@ -1831,6 +1829,7 @@ JS;
 			}
 
 			$graph = self::enrich_schema( $graph, $canonical );
+			if ( 'none' === $s['organization_type'] ) { foreach ( $graph as &$node ) { unset( $node['publisher'] ); } unset( $node ); }
 			$data = [
 				'@context' => 'https://schema.org',
 				'@graph'   => $graph,
@@ -1959,6 +1958,7 @@ JS;
 		}
 
 		public static function filter_sitemap_stylesheet_css( $css ) {
+			if ( self::output_is_owned_elsewhere() ) { return $css; }
 			return $css . <<<'CSS'
 
 			:root{color-scheme:light}
@@ -1984,9 +1984,10 @@ CSS;
 		}
 
 		public static function filter_sitemap_stylesheet_content( $xsl_content ) {
+			if ( self::output_is_owned_elsewhere() ) { return $xsl_content; }
 			$site_name   = wp_strip_all_tags( get_bloginfo( 'name' ) );
 			$title       = esc_xml( ( $site_name ? $site_name . '｜' : '' ) . 'XML Sitemap' );
-			$description = esc_xml( '此 XML Sitemap 由 Wumetax SEO 核心產生，協助搜尋引擎發現本站公開內容。' );
+			$description = esc_xml( '此 XML Sitemap 由 Wu SEO 核心產生，協助搜尋引擎發現本站公開內容。' );
 			$learn_more  = '<a href="' . esc_url( 'https://www.sitemaps.org/' ) . '">' . esc_xml( '了解 XML Sitemap' ) . '</a>';
 			$header      = '<div id="sitemap__header"><h1>' . $title . '</h1><p>' . $description . '</p><p>' . $learn_more . '</p></div>';
 
