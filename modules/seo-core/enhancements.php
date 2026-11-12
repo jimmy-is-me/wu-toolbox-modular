@@ -3,6 +3,14 @@
 defined( 'ABSPATH' ) || exit;
 
 trait WUTM_SEO_Enhancements {
+    private static function seo_locale() {
+        $locale = self::settings()['target_locale'];
+        if ( ! empty( $GLOBALS['TRP_LANGUAGE'] ) && is_string( $GLOBALS['TRP_LANGUAGE'] ) ) { $locale = $GLOBALS['TRP_LANGUAGE'];
+        } elseif ( function_exists( 'pll_current_language' ) ) { $locale = pll_current_language( 'locale' ) ?: $locale;
+        } elseif ( defined( 'ICL_SITEPRESS_VERSION' ) ) { $locale = get_locale(); }
+        $locale = apply_filters( 'wu_seo_locale', $locale );
+        return is_string( $locale ) && preg_match( '/^[a-z]{2,3}(?:[_-][A-Za-z0-9]+)*$/', $locale ) ? str_replace( '-', '_', $locale ) : get_locale();
+    }
     private static function enhancement_defaults() {
         return [
             'organization_type' => 'none',
@@ -249,7 +257,7 @@ trait WUTM_SEO_Enhancements {
                     $extra[] = $person;
                 }
                 $node['mainEntityOfPage'] = [ '@id' => $page_id ];
-                $extra[] = [ '@type' => 'WebPage', '@id' => $page_id, 'url' => $canonical, 'name' => get_the_title( get_queried_object_id() ), 'isPartOf' => [ '@id' => home_url( '/#website' ) ], 'inLanguage' => str_replace( '_', '-', get_locale() ) ];
+                $extra[] = [ '@type' => 'WebPage', '@id' => $page_id, 'url' => $canonical, 'name' => get_the_title( get_queried_object_id() ), 'isPartOf' => [ '@id' => home_url( '/#website' ) ], 'inLanguage' => str_replace( '_', '-', self::seo_locale() ) ];
             } elseif ( 'WebPage' === $node['@type'] ) {
                 if ( is_singular( 'page' ) && get_queried_object_id() === (int) $s['about_page'] && $about ) {
                     $node['@type'] = 'AboutPage';
@@ -263,7 +271,7 @@ trait WUTM_SEO_Enhancements {
         unset( $node );
         $graph = array_merge( $graph, $extra );
         if ( is_category() || is_tag() || is_tax() ) {
-            $graph[] = [ '@type' => 'CollectionPage', '@id' => $page_id, 'url' => $canonical, 'name' => single_term_title( '', false ), 'description' => self::seo_description(), 'isPartOf' => [ '@id' => home_url( '/#website' ) ], 'inLanguage' => str_replace( '_', '-', get_locale() ) ];
+            $graph[] = [ '@type' => 'CollectionPage', '@id' => $page_id, 'url' => $canonical, 'name' => single_term_title( '', false ), 'description' => self::seo_description(), 'isPartOf' => [ '@id' => home_url( '/#website' ) ], 'inLanguage' => str_replace( '_', '-', self::seo_locale() ) ];
             $breadcrumb = self::hierarchical_breadcrumbs();
             if ( $breadcrumb ) { $graph[] = $breadcrumb; }
         }

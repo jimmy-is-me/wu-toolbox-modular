@@ -139,7 +139,7 @@ trait WUTM_SEO_Technical {
         if ( false !== $cached ) { return $cached; }
         $result = self::diagnostic_request( $url );
         if ( isset( $result['body'] ) ) {
-            $result['xml'] = self::inspect_xml( $result['body'] );
+            if ( ! isset( $result['error'] ) ) { $result['xml'] = self::inspect_xml( $result['body'] ); }
             unset( $result['body'] );
         }
         $result['checked_at'] = time();

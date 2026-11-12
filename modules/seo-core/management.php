@@ -241,6 +241,7 @@ trait WUTM_SEO_Management {
         }
         if ( isset( $_POST['preview_seo'] ) ) {
             $rows = [];
+            if ( ! empty( $_FILES['seo_csv']['name'] ) && ( ! empty( $_FILES['seo_csv']['error'] ) || $_FILES['seo_csv']['size'] > 1048576 ) ) { echo '<p>CSV 上傳失敗或超過 1 MB，尚未修改任何資料。請檢查檔案大小後重試。</p>'; return; }
             if ( ! empty( $_FILES['seo_csv']['tmp_name'] ) && is_uploaded_file( $_FILES['seo_csv']['tmp_name'] ) && $_FILES['seo_csv']['size'] <= 1048576 ) {
                 $fp = fopen( $_FILES['seo_csv']['tmp_name'], 'r' ); $header = fgetcsv( $fp, 0, ',', '"', '' );
                 if ( $header ) {

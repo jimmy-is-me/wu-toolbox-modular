@@ -1715,7 +1715,7 @@ JS;
 			}
 
 			if ( ! empty( $s['enable_og'] ) ) {
-				echo '<meta property="og:locale" content="' . esc_attr( get_locale() ) . '">' . "\n";
+				echo '<meta property="og:locale" content="' . esc_attr( self::seo_locale() ) . '">' . "\n";
 				echo '<meta property="og:type" content="' . esc_attr( $type ) . '">' . "\n";
 				echo '<meta property="og:site_name" content="' . esc_attr( self::site_name() ) . '">' . "\n";
 				echo '<meta property="og:title" content="' . esc_attr( $title ) . '">' . "\n";
@@ -1782,7 +1782,7 @@ JS;
 				'url'       => $site_url,
 				'name'      => $site_name,
 				'publisher' => [ '@id' => $org_id ],
-				'inLanguage'=> str_replace( '_', '-', get_locale() ),
+				'inLanguage'=> str_replace( '_', '-', self::seo_locale() ),
 			];
 
 			if ( is_singular() ) {
@@ -1800,7 +1800,7 @@ JS;
 					'url'        => $canonical,
 					'name'       => get_the_title( $post_id ),
 					'description'=> self::seo_description(),
-					'inLanguage' => str_replace( '_', '-', get_locale() ),
+					'inLanguage' => str_replace( '_', '-', self::seo_locale() ),
 					'isPartOf'   => [ '@id' => $website_id ],
 				];
 
