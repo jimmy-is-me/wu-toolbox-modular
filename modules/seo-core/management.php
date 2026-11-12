@@ -113,7 +113,8 @@ trait WUTM_SEO_Management {
         if ( 0 !== strpos( $key, '_wu_seo_' ) || ! isset( self::seo_field_labels()[ substr( $key, 8 ) ] ) ) { return; }
         $before = $GLOBALS['wu_seo_before'][ get_current_blog_id() ][ $id ][ $key ] ?? '';
         unset( $GLOBALS['wu_seo_before'][ get_current_blog_id() ][ $id ][ $key ] );
-        $history = (array) get_post_meta( $id, '_wu_seo_history', true );
+        $history = get_post_meta( $id, '_wu_seo_history', true );
+        $history = is_array( $history ) ? $history : [];
         $history[] = [ 'user' => get_current_user_id(), 'time' => current_time( 'mysql' ), 'field' => substr( $key, 8 ), 'before' => $before, 'after' => get_post_meta( $id, $key, true ) ];
         update_post_meta( $id, '_wu_seo_history', array_slice( $history, -50 ) );
         update_post_meta( $id, '_wu_seo_modified', current_time( 'mysql' ) );
