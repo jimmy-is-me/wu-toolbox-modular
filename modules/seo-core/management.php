@@ -94,7 +94,7 @@ trait WUTM_SEO_Management {
                 if ( $data[ $key ] && ! $value ) { return new WP_Error( 'canonical', 'Canonical 必須是完整 HTTP(S) 網址。' ); }
             } elseif ( 'topic' === $key ) { $value = wutm_seo_keywords( $data[ $key ] );
             } else { $value = sanitize_text_field( $data[ $key ] ); }
-            if ( (string) $old === (string) $value ) { continue; }
+            if ( (string) $old === (string) $value && ( metadata_exists( 'post', $id, $meta_key ) || '' === (string) $value ) ) { continue; }
             $result = update_post_meta( $id, $meta_key, wp_slash( $value ) );
             if ( false === $result ) { return new WP_Error( 'write_failed', '部分欄位儲存失敗，請查看歷史再重試。' ); }
             $changed[] = $key;

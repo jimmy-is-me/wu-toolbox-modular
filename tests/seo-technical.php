@@ -3,6 +3,7 @@ require __DIR__ . '/seo-core.php';
 function wp_parse_url( $url, $component = -1 ) { return parse_url( $url, $component ); }
 $xml = '<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://example.test/a/?a=1&amp;b=2</loc><lastmod>2026-01-01</lastmod></url></urlset>';
 $result = Wumetax_SEO_Core_v120::inspect_xml( $xml );
+check( ! Wumetax_SEO_Core_v120::inspect_xml( '' )['valid'], 'Empty response is reported instead of throwing' );
 check( $result['valid'] && $result['count'] === 1 && $result['urls'][0] === 'https://example.test/a/?a=1&b=2', 'XML namespace, escaping and date validated' );
 check( ! Wumetax_SEO_Core_v120::inspect_xml( str_replace( 'urlset', 'html', $xml ) )['valid'], 'HTML error page rejected' );
 check( ! Wumetax_SEO_Core_v120::inspect_xml( str_replace( 'schemas/sitemap/0.9', 'wrong', $xml ) )['valid'], 'Wrong namespace rejected' );

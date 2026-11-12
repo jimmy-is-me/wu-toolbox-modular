@@ -105,6 +105,7 @@ trait WUTM_SEO_Technical {
 
     public static function inspect_xml( $body ) {
         $out = [ 'valid' => false, 'count' => 0, 'urls' => [], 'issues' => [] ];
+        if ( '' === trim( $body ) ) { $out['issues'][] = '回應沒有 XML 內容，請檢查主機與快取。'; return $out; }
         if ( ! preg_match( '//u', $body ) || preg_match( '/encoding=["\'](?!UTF-8)[^"\']+/i', $body ) ) { $out['issues'][] = '內容不是 UTF-8。'; }
         if ( stripos( $body, '<!DOCTYPE' ) !== false || stripos( $body, '<!ENTITY' ) !== false ) { $out['issues'][] = 'XML 包含不允許的 DTD／實體宣告。'; return $out; }
         if ( ! class_exists( 'DOMDocument' ) ) { $out['issues'][] = '主機缺少 DOM XML 擴充，XML 格式尚未驗證。'; return $out; }
