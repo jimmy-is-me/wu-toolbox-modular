@@ -102,6 +102,8 @@ jobs:
           WUTM_MEDIA_INTEGRATION: '1'
         run: |
           php "$RUNNER_TEMP/wutm-wp-cli.phar" plugin install woocommerce --version=9.0.2 --activate --path="$RUNNER_TEMP/wutm-media-wp"
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/v403-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-v403.log"
+          grep -Fq 'v4.0.3 native checks passed:' "$RUNNER_TEMP/wutm-v403.log"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/seo-v401-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-seo401.log"
           grep -Fq 'SEO v4.0.1 native checks passed:' "$RUNNER_TEMP/wutm-seo401.log"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/v391-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-v391.log"

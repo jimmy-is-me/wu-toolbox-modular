@@ -15,6 +15,9 @@ final class WUTM_User_Switcher {
         add_action('admin_menu', [__CLASS__, 'menu'], 90);
         add_filter('user_row_actions', [__CLASS__, 'user_row_actions'], 10, 2);
         add_action('admin_action_wutm_switch_user', [__CLASS__, 'switch_user']);
+        add_action('admin_post_wutm_switch_back', [__CLASS__, 'switch_back']);
+        add_action('wp_footer', [__CLASS__, 'return_notice']);
+        add_action('woocommerce_admin_order_data_after_order_details', [__CLASS__, 'order_switch_link']);
         add_action('admin_action_wutm_switch_back', [__CLASS__, 'switch_back']);
         add_action('admin_bar_menu', [__CLASS__, 'admin_bar'], 100);
         add_action('admin_post_wutm_user_switcher_save', [__CLASS__, 'save']);
@@ -61,6 +64,22 @@ final class WUTM_User_Switcher {
         ], admin_url('users.php')), 'wutm_switch_user_' . (int) $user->ID);
         $actions['wutm_switch_user'] = '<a href="' . esc_url($url) . '">切換至此帳號</a>';
         return $actions;
+    }
+
+    public static function order_switch_link($order): void {
+        if (!is_object($order) || !method_exists($order, 'get_customer_id') || !current_user_can('edit_shop_order', $order->get_id())) return;
+        $id = (int) $order->get_customer_id();
+        if (!self::can_switch_to($id)) return;
+        $destination = function_exists('wc_get_page_permalink') ? wc_get_page_permalink('myaccount') : home_url('/');
+        $url = wp_nonce_url(add_query_arg(['action'=>'wutm_switch_user','user_id'=>$id,'redirect_to'=>rawurlencode($destination)], admin_url('users.php')), 'wutm_switch_user_'.$id);
+        echo '<p class="form-field form-field-wide"><a class="button" href="'.esc_url($url).'">切換至此顧客帳號</a></p>';
+    }
+
+    public static function return_notice(): void {
+        $id = self::origin_user_id();
+        if (!$id || !get_userdata($id)) return;
+        $url = wp_nonce_url(add_query_arg('action', 'wutm_switch_back', admin_url('admin-post.php')), 'wutm_switch_back_'.$id);
+        echo '<aside style="position:fixed;bottom:16px;left:16px;z-index:999999;background:#fff;color:#111;padding:12px;border:2px solid #2271b1"><a href="'.esc_url($url).'">返回原始管理帳號</a></aside>';
     }
 
     private static function current_url(): string {

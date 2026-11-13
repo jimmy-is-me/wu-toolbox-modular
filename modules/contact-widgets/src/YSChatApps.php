@@ -33,7 +33,7 @@ class YSChatApps {
                 'color'       => '#06c755',
                 'icon_fg'     => '#ffffff',
                 'placeholder' => '@your-line-id 或 https://lin.ee/xxxx',
-                'desc'        => __( '填 LINE ID（例：@jhu2359x）或官方帳號連結（lin.ee / line.me 均可）。', 'wu-contact-widgets' ),
+                'desc'        => __( '官方帳號填含 @ 的 ID（未填 @ 會補上）；個人帳號請貼 LINE「分享行動條碼」的完整好友連結，勿填個人搜尋 ID。', 'wu-contact-widgets' ),
             ],
             'facebook-messenger' => [
                 'title'       => 'Messenger',
@@ -176,9 +176,11 @@ class YSChatApps {
         }
 
         if ( 'line' === $key ) {
-            // line.me 網址 → 抽出純 ID（@xxx）；官方短網址 lin.ee 原樣保留。
-            if ( preg_match( '#line\.me/(?:R/)?(?:ti/p|oaMessage)/(@?[^/?\#\s]+)#i', $value, $m ) ) {
-                return rawurldecode( $m[1] );
+            // Preserve official short links and personal QR invitation tokens verbatim.
+            $url = preg_match( '~^https?://~i', $value ) ? $value : 'https://' . $value;
+            $host = strtolower( (string) parse_url( $url, PHP_URL_HOST ) );
+            if ( in_array( $host, [ 'line.me', 'www.line.me', 'lin.ee' ], true ) ) {
+                return preg_replace( '~^http://~i', 'https://', $url );
             }
         }
 
@@ -245,8 +247,7 @@ class YSChatApps {
 
         // LINE ID 需 URL encode（@ 保留原樣即可，line.me 接受）。
         if ( 'line' === $key ) {
-            $value = rawurlencode( $value );
-            $value = str_replace( '%40', '@', $value );
+            $value = rawurlencode( '@' . ltrim( rawurldecode( $value ), '@' ) );
         }
 
         return $prefixes[ $key ] . $value;

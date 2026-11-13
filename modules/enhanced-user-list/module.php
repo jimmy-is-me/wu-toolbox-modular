@@ -28,6 +28,7 @@ class WU_Enhanced_User_List {
     public function __construct() {
         $this->settings = $this->load_settings();
 
+        add_action('admin_head', [$this, 'hide_connection_tooltip']);
         add_action('admin_menu', [$this, 'add_admin_menu'], 15);
 
         add_filter('manage_users_columns',         [$this, 'add_user_columns']);
@@ -814,6 +815,11 @@ class WU_Enhanced_User_List {
 
     // ===== 隱藏用戶設定選項 =====
 
+    public function hide_connection_tooltip(): void {
+        global $pagenow;
+        if ($pagenow === 'users.php') echo '<style>.jetpack-connection-tooltip-icon{display:none!important}</style>';
+    }
+
     public function hide_user_profile_options(): void {
         global $pagenow;
         if (!in_array($pagenow, ['profile.php', 'user-edit.php'], true)) return;
@@ -828,6 +834,8 @@ class WU_Enhanced_User_List {
         .user-linkedin-wrap, .user-mastodon-wrap, .user-tiktok-wrap,
         .user-instagram-wrap, .user-youtube-wrap, .user-github-wrap,
         .user-pinterest-wrap, .user-dribbble-wrap,
+        .user-wordpress-wrap, .user-medium-wrap, .user-vimeo-wrap,
+        .user-vkontakte-wrap, .user-vk-wrap, .user-odnoklassniki-wrap,
         .elementor-ai-wrap, .elementor-ai-settings { display:none !important; }
         </style>
         <script>
