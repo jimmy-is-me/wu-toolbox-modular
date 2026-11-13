@@ -33,7 +33,7 @@ trait WUTM_SEO_Management {
     }
 
     public static function seo_columns( $columns ) {
-        return array_merge( $columns, [ 'wu_seo' => 'SEO 狀態', 'wu_seo_title' => 'SEO 標題', 'wu_seo_description' => 'SEO 摘要', 'wu_seo_topic' => 'SEO 主題', 'wu_seo_canonical' => 'Canonical', 'wu_seo_noindex' => '索引規則', 'wu_seo_modified' => 'SEO 最後更新' ] );
+        return array_merge( $columns, [ 'wu_seo' => 'SEO 狀態', 'wu_seo_title' => 'SEO 標題', 'wu_seo_description' => 'SEO 摘要', 'wu_seo_topic' => 'SEO 主題', 'wu_seo_canonical' => 'Canonical' ] );
     }
 
     public static function seo_summary( $id ) {

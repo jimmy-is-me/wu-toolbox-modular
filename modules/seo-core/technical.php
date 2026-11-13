@@ -179,6 +179,8 @@ trait WUTM_SEO_Technical {
         if ( ! empty( $_POST ) ) { check_admin_referer( 'wu_seo_tools' ); }
         wutm_admin_page_open( 'SEO 管理與技術診斷', '網站設定、內容、技術檢查、Sitemap 一致性與外部搜尋狀態分別呈現。所有網路診斷皆由您手動啟動。' );
         echo '<p><a class="button" href="' . esc_url( admin_url( 'admin.php?page=' . self::SETTINGS_PAGE ) ) . '">全站 SEO 設定</a></p>';
+        self::simple_optimization_panel();
+        echo '<details><summary>進階工具：技術數據、批次修改與 Google 授權</summary>';
         self::management_dashboard();
         WUTM_SEO_Sitemap_Review::panel();
         echo '<h2>Sitemap 與爬蟲存取</h2><p>保留 WordPress 原生 Sitemap。一般 HTTP 測試不等於 Googlebot 測試；外部搜尋／索引狀態：尚未驗證。HTML 預覽只供管理員閱讀，請提交 XML 網址至 Search Console。</p>';
@@ -196,7 +198,25 @@ trait WUTM_SEO_Technical {
         if ( isset( $_POST['robots_check'] ) ) { self::robots_report(); }
         self::management_forms();
         self::search_console_page();
+        echo '</details>';
         wutm_admin_page_close();
+    }
+
+    private static function simple_optimization_panel() {
+        if ( isset($_POST['wu_seo_optimize']) ) {
+            // Safe presentation repair only: never change public/noindex/canonical metadata.
+            update_option('wu_seo_sitemap_display', 'xml', false);
+            delete_transient('wu_seo_http_' . md5(self::sitemap_url()));
+            $result = self::run_sitemap_diagnostic();
+            $ok = ($result['status'] ?? 0) === 200 && !empty($result['xml']['valid']) && empty($result['error']) && empty($result['challenge']);
+            update_option('wu_seo_simple_result', ['ok'=>$ok,'time'=>time(),'message'=>$ok ? '原生 XML 已啟用，Sitemap 索引 HTTP 與 XML 檢查通過。' : '原生 XML 已啟用，但 Sitemap 索引仍有問題，請展開進階工具查看 HTTP 或 XML 異常。'], false);
+        }
+        $result = get_option('wu_seo_simple_result', []);
+        echo '<section class="wutm-ui-panel"><h2>先完成這一步</h2><p>按一次即可啟用不依賴瀏覽器美化的原生 XML，並重新檢查 Sitemap 索引。保留文章 SEO、索引規則與既有 Sitemap。</p><form method="post">';
+        wp_nonce_field('wu_seo_tools');
+        echo '<button class="button button-primary" name="wu_seo_optimize" value="1">一鍵檢查與安全優化</button></form>';
+        if ($result) echo '<p role="status">'.esc_html($result['message']).' 檢查時間：'.esc_html(wp_date('Y-m-d H:i:s',$result['time'])).'</p>';
+        echo '<p>此處的完成只代表 Sitemap 索引檢查；子檔與 Google 收錄另外驗證。其他內容請從文章或頁面的「SEO 快速編輯」調整。</p></section>';
     }
 
     private static function robots_report() {

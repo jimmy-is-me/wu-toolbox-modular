@@ -41,7 +41,7 @@ try {
     $tax = new WP_Sitemaps_Taxonomies(); $term_urls = array_column( $tax->get_url_list( 1, 'seo401_category' ), 'loc' );
     seo401_assert( in_array( get_term_link( $terms['public'], 'seo401_category' ), $term_urls ), 'Public custom taxonomy remains supported' );
     seo401_assert( ! in_array( get_term_link( $terms['noindex'], 'seo401_category' ), $term_urls ) && ! in_array( get_term_link( $terms['canonical'], 'seo401_category' ), $term_urls ), 'Term noindex/canonical rules match sitemap' );
-    $cols = apply_filters( 'manage_seo401_item_posts_columns', [ 'title' => 'Title' ] ); seo401_assert( count( $cols ) === 8 && isset( $cols['wu_seo_topic'] ), 'Native CPT list columns registered' );
+    $cols = apply_filters( 'manage_seo401_item_posts_columns', [ 'title' => 'Title' ] ); seo401_assert( count( $cols ) === 6 && isset( $cols['wu_seo_topic'] ), 'Native CPT list columns registered' );
     $id = $ids['public'];
     $result = Wumetax_SEO_Core_v120::write_seo_data( $id, [ 'title' => 'Edited SEO', 'description' => 'A useful description', 'topic' => 'one，two', 'noindex' => 0 ] );
     seo401_assert( ! is_wp_error( $result ) && get_post_meta( $id, '_wu_seo_topic', true ) === 'one, two', 'Shared CRUD uses registered sanitizer' );
