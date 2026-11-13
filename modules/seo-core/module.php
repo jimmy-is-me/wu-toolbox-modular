@@ -17,6 +17,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 	require_once __DIR__ . '/enhancements.php';
 	require_once __DIR__ . '/editor-content.php';
 	require_once __DIR__ . '/technical.php';
+	require_once __DIR__ . '/sitemap-review.php';
 	require_once __DIR__ . '/management.php';
 	require_once __DIR__ . '/search-console.php';
 

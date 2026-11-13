@@ -64,6 +64,10 @@ try {
     add_filter( 'pre_http_request', $mock, 99, 3 );
     $r = Wumetax_SEO_Core_v120::run_sitemap_diagnostic(); $n = count( $requests );
     Wumetax_SEO_Core_v120::run_sitemap_diagnostic(); seo401_assert( count( $requests ) === $n && $r['xml']['valid'] && $r['xml']['count'] === 1, 'Diagnostic parses actual HTTP body and caches without auto fetching children' );
+    update_option( WUTM_SEO_Sitemap_Review::OPTION, [ 'source'=>home_url('/fixture.xml'), 'xml_checked_at'=>time(), 'xml_count'=>1, 'urls'=>[get_permalink($id)], 'results'=>[], 'cursor'=>0, 'last_request'=>0 ], false );
+    $review = WUTM_SEO_Sitemap_Review::step(); seo401_assert( ! is_wp_error($review) && $review['cursor'] === 1 && count($review['results']) === 1, 'Manual sitemap review persists one bounded result' );
+    seo401_assert( is_wp_error(WUTM_SEO_Sitemap_Review::step()), 'Completed review performs no extra request' );
+    delete_option( WUTM_SEO_Sitemap_Review::OPTION );
     $mode = 'loop'; $r = Wumetax_SEO_Core_v120::diagnostic_request( home_url( '/loop/' ) ); seo401_assert( isset( $r['error'] ) && count( $r['chain'] ) === 1, 'Redirect cycle stopped' );
     $mode = 'foreign'; $r = Wumetax_SEO_Core_v120::diagnostic_request( home_url( '/foreign/' ) ); seo401_assert( isset( $r['error'] ) && ! in_array( 'https://attacker.invalid/', $requests ), 'External redirect not requested' );
     $mode = 'challenge'; $r = Wumetax_SEO_Core_v120::diagnostic_request( home_url( '/challenge/' ) ); seo401_assert( $r['status'] === 403 && $r['challenge'] && $r['cloudflare'], 'Challenge/403 reported as failure, not SEO success' );

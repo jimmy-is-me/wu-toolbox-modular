@@ -25,3 +25,9 @@ check( Wumetax_SEO_Core_v120::diagnostic_request( 'https://example.test.attacker
 check( Wumetax_SEO_Core_v120::diagnostic_request( 'https://example.test:8443/' )['error'], 'Alternate port rejected' );
 check( Wumetax_SEO_Core_v120::diagnostic_request( 'https://user:pass@example.test/' )['error'], 'Embedded credentials rejected' );
 echo "SEO technical security checks passed.\n";
+
+$r = WUTM_SEO_Sitemap_Review::evidence( [ 'status' => 200, 'url' => 'https://example.test/a/', 'chain' => [ ['status'=>301], ['status'=>200] ], 'body' => '<html><head><meta name="robots" content="noindex"><link rel="canonical" href="https://example.test/b/"></head></html>' ] );
+check( count( $r['issues'] ) === 3 && strpos( $r['google'], '尚未驗證' ) !== false, 'Redirect, noindex and noncanonical evidence remain separate from Google' );
+$r = WUTM_SEO_Sitemap_Review::evidence( [ 'status'=>403, 'challenge'=>true, 'body'=>'<html>challenge</html>' ] );
+check( count( $r['issues'] ) === 2, 'Challenge never reported as normal indexable content' );
+echo "Sitemap review evidence checks passed.\n";
