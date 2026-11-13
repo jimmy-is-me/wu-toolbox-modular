@@ -209,7 +209,7 @@ trait WUTM_SEO_Technical {
             delete_transient('wu_seo_http_' . md5(self::sitemap_url()));
             $result = self::run_sitemap_diagnostic();
             $ok = ($result['status'] ?? 0) === 200 && !empty($result['xml']['valid']) && empty($result['error']) && empty($result['challenge']);
-            update_option('wu_seo_simple_result', ['ok'=>$ok,'time'=>time(),'message'=>$ok ? '原生 XML 已啟用，Sitemap 索引 HTTP 與 XML 檢查通過。' : '原生 XML 已啟用，但 Sitemap 索引仍有問題，請展開進階工具查看 HTTP 或 XML 異常。'], false);
+            update_option('wu_seo_simple_result', ['ok'=>$ok,'site'=>home_url('/'),'time'=>time(),'message'=>$ok ? '原生 XML 已啟用，Sitemap 索引 HTTP 與 XML 檢查通過。' : '原生 XML 已啟用，但 Sitemap 索引仍有問題，請展開進階工具查看 HTTP 或 XML 異常。'], false);
         }
         $result = get_option('wu_seo_simple_result', []);
         echo '<section class="wutm-ui-panel"><h2>先完成這一步</h2><p>按一次即可啟用不依賴瀏覽器美化的原生 XML，並重新檢查 Sitemap 索引。保留文章 SEO、索引規則與既有 Sitemap。</p><form method="post">';

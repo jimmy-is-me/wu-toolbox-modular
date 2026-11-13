@@ -632,7 +632,10 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 			$checks[] = self::audit_check( 'schema', '結構化資料', ! empty( $s['enable_schema'] ) ? 'JSON-LD Schema 已啟用。' : 'Schema 已關閉。', ! empty( $s['enable_schema'] ) ? 'pass' : 'partial', 5, $settings_url, '檢查 Schema 設定' );
 			$checks[] = self::audit_check( 'og', 'Open Graph', ! empty( $s['enable_og'] ) ? 'Open Graph 已啟用，分享至 LINE / Facebook 等平台可取得標題與圖片。' : 'Open Graph 已關閉。', ! empty( $s['enable_og'] ) ? 'pass' : 'partial', 4, $settings_url, '檢查 Open Graph' );
 
-			$checks[] = self::audit_check( 'sitemap', 'XML Sitemap 與公開擷取', '原生 Sitemap 入口：' . self::sitemap_url() . '。尚未驗證公開 HTTP、子檔、Googlebot 及搜尋索引；請執行 SEO 管理與診斷。', 'partial', 0, admin_url( 'admin.php?page=wu-seo-tools' ), '執行技術診斷' );
+            $result = get_option('wu_seo_simple_result', []);
+            $fresh = $result && ($result['site'] ?? '') === home_url('/') && time() - ($result['time'] ?? 0) < 86400;
+            $message = $fresh ? $result['message'] . '（僅 Sitemap 索引；子檔與 Google 收錄尚未驗證）' : '請按一鍵檢查與安全優化；不需自行判讀技術數據。';
+            $checks[] = self::audit_check('sitemap', 'XML Sitemap 索引檢查', $message, $fresh ? (!empty($result['ok']) ? 'pass' : 'fail') : 'partial', 0, admin_url('admin.php?page=wu-seo-tools'), '一鍵檢查與安全優化');
 
 			$org_ok = '' !== trim( (string) $s['organization_name'] );
 			$checks[] = self::audit_check( 'organization', 'Organization 資訊', $org_ok ? '組織名稱已設定：' . $s['organization_name'] : '尚未設定組織名稱。', $org_ok ? 'pass' : 'partial', 3, $settings_url, '補充組織資料' );

@@ -9,6 +9,8 @@ const fs = require('node:fs'), assert = require('node:assert/strict'), {execFile
    const page = await browser.newPage({viewport:{width,height:900}}); const errors=[]; page.on('pageerror', e => errors.push(e.message));
    await page.setContent('<meta name="viewport" content="width=device-width"><style>body{margin:0}*{box-sizing:border-box}#wpbody-content{padding:8px}pre{overflow-wrap:anywhere}</style><body class="wutm-admin-screen"><div id="wpbody-content">' + html + '<button class="wu-seo-open" data-id="1">編輯 SEO</button></div></body>');
    await page.addStyleTag({content:fs.readFileSync('assets/css/admin-components.css','utf8')});
+   assert.equal(await page.locator('details').first().evaluate(e => e.open), false);
+   assert(await page.getByRole('button', {name:'一鍵檢查與安全優化'}).isVisible());
    await page.addScriptTag({content:jquery});
    await page.evaluate(() => {
     window.inlineEditPost = {edit(){},getId(){return 1;}};

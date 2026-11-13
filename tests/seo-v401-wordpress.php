@@ -68,6 +68,8 @@ try {
     $review = WUTM_SEO_Sitemap_Review::step(); seo401_assert( ! is_wp_error($review) && $review['cursor'] === 1 && count($review['results']) === 1, 'Manual sitemap review persists one bounded result' );
     seo401_assert( is_wp_error(WUTM_SEO_Sitemap_Review::step()), 'Completed review performs no extra request' );
     delete_option( WUTM_SEO_Sitemap_Review::OPTION );
+    $_POST=['wu_seo_optimize'=>1]; ob_start(); seo401_private('simple_optimization_panel'); ob_end_clean(); $_POST=[];
+    seo401_assert(get_option('wu_seo_simple_result')['ok'] === true && get_option('wu_seo_sitemap_display') === 'xml', 'One-click checks actual XML and saves scoped evidence');
     $mode = 'loop'; $r = Wumetax_SEO_Core_v120::diagnostic_request( home_url( '/loop/' ) ); seo401_assert( isset( $r['error'] ) && count( $r['chain'] ) === 1, 'Redirect cycle stopped' );
     $mode = 'foreign'; $r = Wumetax_SEO_Core_v120::diagnostic_request( home_url( '/foreign/' ) ); seo401_assert( isset( $r['error'] ) && ! in_array( 'https://attacker.invalid/', $requests ), 'External redirect not requested' );
     $mode = 'challenge'; $r = Wumetax_SEO_Core_v120::diagnostic_request( home_url( '/challenge/' ) ); seo401_assert( $r['status'] === 403 && $r['challenge'] && $r['cloudflare'], 'Challenge/403 reported as failure, not SEO success' );
