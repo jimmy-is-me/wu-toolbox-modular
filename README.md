@@ -30,3 +30,9 @@ SEO 核心的功能、設定順序與發佈後驗證方式見 [SEO 核心使用�
 頁面快取的狀態、排除原因及訪客驗證方式見 [頁面快取與網站速度](docs/PAGE-CACHE.md)。
 
 後台 Tech Precision 共用呈現架構、驗證與範圍見 [後台外觀](docs/ADMIN-DESIGN.md)。
+
+## v4.0.2 實際交付範圍
+
+新增子 Sitemap 分批人工續查與結果保存（每份最多 500 個網址、每次一個、至少間隔 5 秒），檢查 HTTP、轉址、Canonical、noindex 及本機非公開狀態。原生 Sitemap 引擎不變。SEO 對話框可即時同步列表並顯示字數。
+
+URL Inspection API、重要網址中心、品牌分析、逐頁成效與綜合報告仍屬後續功能，尚未交付。HTTP 診斷不代表 Googlebot 或 Google 索引證據。

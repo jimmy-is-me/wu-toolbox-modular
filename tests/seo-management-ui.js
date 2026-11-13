@@ -15,6 +15,11 @@ const fs = require('node:fs'), assert = require('node:assert/strict'), {execFile
     window.wuSeoManagement = {url:'/ajax',nonce:'fixture'}; window.requests = [];
     window.jQuery.post = async (url, args) => { window.requests.push(args); return {success:true,data:{data:Object.assign({title:'原標題',description:'原摘要',topic:'one, two',canonical:'',noindex:0,nofollow:0,og_title:'',og_desc:'',og_image:0},args.data || {}),title:'自動範本標題',description:'自動摘要',image:'',history:[{time:'2026-11-13',user:1,field:'title',before:'舊值',after:'原標題'}]}}; };
    });
+   await page.evaluate(() => {
+    const table = document.createElement('table');
+    table.innerHTML = '<tbody><tr id="post-1"><td class="column-wu_seo">舊狀態<span hidden class="wu-seo-row-data"></span></td><td class="column-wu_seo_title">舊標題</td><td class="column-wu_seo_noindex"></td></tr></tbody>';
+    document.body.appendChild(table);
+   });
    await page.addScriptTag({content:fs.readFileSync('assets/js/seo-management.js','utf8')});
    assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'Management controls fit viewport '+width);
    await page.locator('.wu-seo-open').click(); await page.waitForFunction(() => document.getElementById('wu-seo-save-status').textContent === '已讀取。');
@@ -24,6 +29,10 @@ const fs = require('node:fs'), assert = require('node:assert/strict'), {execFile
    await page.locator('#wu-seo-editor [type=submit]').click();
    await page.waitForFunction(() => document.getElementById('wu-seo-save-status').textContent.includes('已儲存'));
    const sent = await page.evaluate(() => window.requests.at(-1)); assert.equal(sent.data.noindex,1); assert.equal(sent.data.nofollow,0); assert.equal(sent.data.title,'更新搜尋標題');
+   assert.equal(await page.locator('#post-1 .column-wu_seo_title').textContent(), '自動範本標題');
+   assert.equal(await page.locator('#post-1 .column-wu_seo_noindex').textContent(), 'noindex');
+   assert.equal(await page.locator('.wu-seo-row-data').evaluate(e => JSON.parse(e.dataset.seo).title), '更新搜尋標題');
+   assert((await page.locator('#wu-seo-length-title').textContent()).includes('6 字'));
    await page.locator('#wu-seo-close').click(); assert.equal(await page.locator('dialog').evaluate(e => e.open),false);
    assert.deepEqual(errors,[]); await page.close();
   }

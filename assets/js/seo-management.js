@@ -7,9 +7,33 @@
     let row = null;
     let busy = false;
     function preview() {
+        ['title', 'description', 'og_title', 'og_desc'].forEach(key => {
+            const field = form.elements[key];
+            let output = document.getElementById('wu-seo-length-' + key);
+            if (!output) { output = document.createElement('small'); output.id = 'wu-seo-length-' + key; field.parentNode.appendChild(output); }
+            output.textContent = '目前 ' + Array.from(field.value || '').length + ' 字（長度僅供編輯參考）';
+        });
         document.getElementById('wu-seo-search-title').textContent = form.elements.title.value || (row && row.title) || '';
         document.getElementById('wu-seo-search-desc').textContent = form.elements.description.value || (row && row.description) || '';
         document.getElementById('wu-seo-social-preview').textContent = (form.elements.og_title.value || form.elements.title.value || (row && row.title) || '') + ' — ' + (form.elements.og_desc.value || form.elements.description.value || (row && row.description) || '');
+    }
+    function refreshRow() {
+        const tr = document.getElementById('post-' + form.elements.id.value);
+        if (!tr) return;
+        const values = {title: row.title, description: row.description, topic: row.data.topic,
+            canonical: row.data.canonical || row.url || '', noindex: Number(row.data.noindex) ? 'noindex' : '允許索引（不保證收錄）', modified: row.modified || '尚無修改記錄'};
+        Object.entries(values).forEach(([key, value]) => {
+            const cell = tr.querySelector('.column-wu_seo_' + key);
+            if (cell) cell.textContent = value || '';
+        });
+        const source = tr.querySelector('.wu-seo-row-data');
+        if (source) source.dataset.seo = JSON.stringify(row.data);
+        const cell = tr.querySelector('.column-wu_seo');
+        if (cell) {
+            Array.from(cell.childNodes).filter(node => node.nodeType === Node.TEXT_NODE).forEach(node => node.remove());
+            const label = Number(row.data.noindex) ? '不建立索引' : (row.data.title || row.data.description ? '已手動設定' : '使用自動範本');
+            cell.prepend(document.createTextNode(label + ((row.issues || []).length ? '；' + row.issues.join('；') : '')));
+        }
     }
     async function request(extra) {
         if (busy) return;
@@ -38,7 +62,8 @@
             const image = document.getElementById('wu-seo-social-image');
             image.hidden = !row.image; if (row.image) image.src = row.image;
             preview();
-            status.textContent = extra && (extra.data || extra.restore !== undefined) ? '已儲存。關閉面板後重新整理列表可看到最新資料。' : '已讀取。';
+            refreshRow();
+            status.textContent = extra && (extra.data || extra.restore !== undefined) ? '已儲存，列表已同步更新。' : '已讀取。';
         } catch (error) { status.textContent = error.message || '連線失敗，請重試。'; }
         finally { busy = false; form.querySelector('[type=submit]').disabled = false; }
     }
