@@ -4,3 +4,5 @@
 .woocommerce-account .wcmp-points-wrap table{width:100%;table-layout:fixed}
 .woocommerce-account .wcmp-points-wrap :is(td,th){overflow-wrap:anywhere;padding:10px}
 @media(max-width:480px){.woocommerce-account .wcmp-points-wrap table{font-size:12px}.woocommerce-account .wcmp-rules-grid{display:grid;grid-template-columns:1fr}}
+
+.wutm-member-card{max-width:440px;padding:24px;border:1px solid currentColor;border-radius:16px;font:inherit;box-sizing:border-box}.wutm-member-card-qr img,.wutm-member-card-qr canvas{max-width:100%;height:auto}

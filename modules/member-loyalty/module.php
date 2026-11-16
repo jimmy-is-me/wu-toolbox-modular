@@ -11,6 +11,7 @@ require_once __DIR__ . '/promotion-policy.php';
 
 require_once __DIR__ . '/points.php';
 require_once __DIR__ . '/tiers.php';
+require_once __DIR__ . '/member-card.php';
 
 add_action('admin_menu', function (): void {
     add_submenu_page('wu-toolbox-modular', '會員點數與階級', '會員點數與階級', 'manage_woocommerce', 'wu-member-loyalty', 'wutm_render_member_loyalty_page');
@@ -27,6 +28,7 @@ function wutm_render_member_loyalty_page(): void {
     $navigation = [
         'points' => ['label' => '點數管理', 'query' => 'tab', 'items' => ['overview' => '總覽', 'members' => '會員點數', 'settings' => '點數設定']],
         'tiers' => ['label' => '階級與會員', 'query' => 'view', 'items' => ['rules' => '階級規則', 'members' => '會員名單', 'settings' => '全站設定']],
+        'member-card' => ['label'=>'數位會員卡', 'query'=>'', 'items'=>[]],
         'vip-store' => ['label' => 'VIP 隱密賣場', 'query' => '', 'items' => []],
     ];
     if (!isset($navigation[$section])) $section = 'points';
@@ -61,7 +63,9 @@ function wutm_render_member_loyalty_page(): void {
             <p class="wutm-loyalty-breadcrumb"><?php echo esc_html($navigation[$section]['label']); ?><?php if ($selection) : ?><span aria-hidden="true"> / </span><?php echo esc_html($current_label); ?><?php endif; ?></p>
             <h2 class="wutm-loyalty-current-title"><?php echo esc_html($current_label); ?></h2>
     <?php
-    if ($section === 'points') {
+    if ($section === 'member-card') {
+        WUTM_Loyalty_Card::page();
+    } elseif ($section === 'points') {
         WC_Member_Points_Rewards::instance()->wcmp_render_admin_page();
     } elseif ($section === 'tiers') {
         if ($selection === 'members') WC_Membership_Tiers::instance()->wmt_page_members();
