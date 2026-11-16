@@ -54,7 +54,11 @@ jobs:
           node --check assets/js/admin-design.js
           node tests/admin-ui-contract.js
       - name: Check member loyalty promotion calculations
-        run: php tests/member-loyalty-promotion-policy.php
+        run: |
+          php tests/member-loyalty-promotion-policy.php
+          php tests/member-loyalty-routes.php
+          php tests/member-loyalty-card.php
+          node --check modules/member-loyalty/member-card.js
       - name: Check restored EZPAY isolation against foreign Guzzle 7 and PSR 2
         run: |
           mkdir -p "$RUNNER_TEMP/wutm-foreign-guzzle"
