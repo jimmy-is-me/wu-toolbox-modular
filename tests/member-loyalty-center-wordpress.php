@@ -1,6 +1,7 @@
 <?php
 // Run in the isolated WordPress + WooCommerce CI installation, never production.
-if (!defined('ABSPATH') || !class_exists('WooCommerce')) throw new RuntimeException('Native WP/WC required');
+if (!defined('WP_CLI') || getenv('WUTM_MEDIA_INTEGRATION') !== '1' || DB_NAME !== 'wci_fixture' || !class_exists('WooCommerce')) throw new RuntimeException('Disposable native WP/WC fixture only');
+require_once ABSPATH.'wp-admin/includes/user.php';
 $root=dirname(__DIR__);foreach(['points','tiers','member-center','member-card'] as $file)require_once $root.'/modules/member-loyalty/'.$file.'.php';
 function loyalty_native_assert($ok,$message){if(!$ok)throw new RuntimeException($message);}
 $points=WC_Member_Points_Rewards::instance();$tiers=WC_Membership_Tiers::instance();

@@ -160,6 +160,8 @@ jobs:
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/v396-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-v396.log"
           grep -Fq 'v3.9.6 native checkout passed:' "$RUNNER_TEMP/wutm-v396.log"
       - name: Check member center against native WordPress and WooCommerce
+        env:
+          WUTM_MEDIA_INTEGRATION: '1'
         run: |
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/member-loyalty-center-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-member-center.log"
           grep -Fq 'Native member center checks passed:' "$RUNNER_TEMP/wutm-member-center.log"
