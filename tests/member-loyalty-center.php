@@ -42,5 +42,6 @@ if(strpos($card,'&lt;safe&gt;')===false||strpos($card,'data-qr=')===false)throw 
 if(strpos($points,'1250')===false||strpos($points,'data-label="說明"')===false)throw new RuntimeException('Real balance and responsive ledger required');
 if(strpos(wutm_loyalty_expiry(''),'永久有效')===false||strpos(wutm_loyalty_expiry('invalid'),'確認會員效期')===false)throw new RuntimeException('Expiry fallback required');
 $GLOBALS['single_only']=true;$progress=$tier->wmt_shortcode_progress([]);if(strpos($progress,'單筆消費達 1,000')===false || strpos($progress,'沒有更高')!==false)throw new RuntimeException('Single-order-only upgrade is not highest tier');$GLOBALS['single_only']=false;
+if(strpos(wutm_loyalty_expiry('2026-02-31 00:00:00'),'確認會員效期')===false)throw new RuntimeException('Invalid calendar date must not be normalized');
 if(in_array('--admin-html',$argv??[],true)){ob_start();WUTM_Loyalty_Card::page();echo ob_get_clean();exit;}
 if(in_array('--html',$argv??[],true)){echo $html.$points.$card;}else{echo "Member center checks passed: production renderers, coupon states, real balance, tiers, expiry and escaping.\n";}
