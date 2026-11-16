@@ -22,7 +22,7 @@
 - PHP：既有優惠計算、端點生命週期、會員卡隱私／期限、共用後台規範回歸。
 - 新增 `tests/member-loyalty-center.php`：實際 PHP renderer 與服務方法，測試四種券狀態、點數、升級比較、僅單筆門檻及安全輸出。
 - 新增 `tests/member-loyalty-center-ui.js`：1440／768／390／320 寬度，實際生成 QR 後以獨立 decoder 解碼比對內容、期限、失敗提示、券碼複製、比較展開、減少動畫與後台使用說明。已人工查看桌機與手機截圖。
-- 新增 `tests/member-loyalty-center-wordpress.php`：供 CI 的原生 WordPress／WooCommerce 資料庫測試，驗證真實會員餘額、REST 權限、失效 Token、不扣點、重新產生 Token、實際優惠券與台灣時區邊界。以 Actions 實際執行結果為準。
+- 新增 `tests/member-loyalty-center-wordpress.php`：供 CI 的原生 WordPress／WooCommerce 資料庫測試，驗證真實會員餘額、REST 權限、失效 Token、不扣點、重新產生 Token、實際優惠券與台灣時區邊界。另外覆蓋其他模組提早啟動 REST 時的查驗入口註冊；以 Actions 實際執行結果為準。
 - 未宣稱已實測實體 iPhone／Android 相機、MONGA 正式站、所有佈景主題及 CDN 組合。發布後應使用顧客與授權人員不同帳號實機驗收。
 
 ## 資料與回復

@@ -2,6 +2,7 @@
 // Privacy and expiry checks against the actual card renderer/service.
 define('ABSPATH', __DIR__);define('WUTM_URL','https://fixture.test/');define('WUTM_VERSION','test');
 $options=[];$transients=[];$logged=true;$user=7;$allowed=false;
+$routes=[];function did_action($hook){return 1;}function doing_action($hook){return false;}function register_rest_route($namespace,$route,$args){$GLOBALS['routes'][$namespace.$route]=$args;}function current_user_can($cap){return $GLOBALS['allowed'];}
 function add_shortcode(...$a){}function add_action(...$a){}function get_option($k,$d=false){return $GLOBALS['options'][$k]??$d;}function wp_parse_args($a,$b){return array_merge($b,$a);}
 function is_user_logged_in(){return $GLOBALS['logged'];}function get_current_user_id(){return $GLOBALS['user'];}function wp_get_current_user(){return (object)['display_name'=>'Private member'];}
 function wp_generate_password(...$a){return str_repeat('a',48);}function set_transient($k,$v,$t){$GLOBALS['transients'][$k]=$v;}function get_transient($k){return $GLOBALS['transients'][$k]??false;}
@@ -13,6 +14,8 @@ class WP_REST_Response{public $data;function __construct($data){$this->data=$dat
 class CardRequest{function get_param($k){return str_repeat('a',48);}}
 require dirname(__DIR__).'/modules/member-loyalty/member-card.php';
 function card_assert($ok,$message){if(!$ok)throw new RuntimeException($message);}
+card_assert(isset($routes['wu-loyalty/v1/card']), 'Late module load registers card route after REST startup');
+$permission=$routes['wu-loyalty/v1/card']['permission_callback'];card_assert(!$permission(),'Ordinary users cannot verify cards');$allowed=true;card_assert($permission(),'Authorized staff can verify cards');$allowed=false;
 card_assert(WUTM_Loyalty_Card::render()==='','Off by default');
 $options['wutm_loyalty_card']=['enabled'=>true];$logged=false;card_assert(strpos(WUTM_Loyalty_Card::render(),'請先登入')!==false,'Logged-out privacy');
 $logged=true;$html=WUTM_Loyalty_Card::render();card_assert(strpos($html,'123')!==false,'Actual points service used');

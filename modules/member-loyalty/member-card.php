@@ -4,13 +4,17 @@ final class WUTM_Loyalty_Card {
     public static function boot(): void {
         add_shortcode('wu_member_card', [__CLASS__, 'render']);
         add_action('woocommerce_account_dashboard', [__CLASS__, 'account']);
-        add_action('rest_api_init', static function(): void {
-            register_rest_route('wu-loyalty/v1', '/card', [
-                'methods'=>'GET', 'callback'=>[__CLASS__, 'verify'],
-                'permission_callback'=>static function(){return current_user_can('manage_woocommerce');},
-            ]);
-        });
+        add_action('rest_api_init', [__CLASS__, 'register_routes']);
+        // Some integrations initialize the REST server before optional modules load.
+        if (function_exists('did_action') && did_action('rest_api_init') && !doing_action('rest_api_init')) self::register_routes();
     }
+    public static function register_routes(): void {
+        register_rest_route('wu-loyalty/v1', '/card', [
+            'methods'=>'GET', 'callback'=>[__CLASS__, 'verify'],
+            'permission_callback'=>static function(){return current_user_can('manage_woocommerce');},
+        ]);
+    }
+
     public static function settings(): array {
         return wp_parse_args((array)get_option('wutm_loyalty_card', []), ['enabled'=>false,'title'=>'數位會員卡']);
     }
