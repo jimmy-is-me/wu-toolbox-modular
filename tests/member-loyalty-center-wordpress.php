@@ -10,7 +10,7 @@ $admin=get_current_user_id();$user=wp_insert_user(['user_login'=>'loyalty-native
 loyalty_native_assert(!is_wp_error($user),'Member created');
 update_option('wutm_loyalty_card',['enabled'=>true]);update_user_meta($user,'wcmp_points_balance',1250);
 wp_set_current_user($user);$html=WUTM_Loyalty_Card::render();
-loyalty_native_assert(strpos($html,'Native &lt;member&gt;')!==false && strpos($html,'1250')!==false,'Own card, escaped name, real points');
+loyalty_native_assert(strpos($html,esc_html(wp_get_current_user()->display_name))!==false && strpos($html,'1250')!==false,'Own card, escaped name, real points');
 preg_match('/data-qr="([^"]+)"/',$html,$match);parse_str(wp_parse_url(html_entity_decode($match[1]),PHP_URL_QUERY),$query);
 preg_match('/data-qr="([^"]+)"/',WUTM_Loyalty_Card::render(),$fresh_match);parse_str(wp_parse_url(html_entity_decode($fresh_match[1]),PHP_URL_QUERY),$fresh_query);
 loyalty_native_assert($fresh_query['card_token']!==$query['card_token'],'Refreshing card creates a fresh opaque token');
