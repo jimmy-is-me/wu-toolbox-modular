@@ -11,6 +11,7 @@ require_once __DIR__ . '/promotion-policy.php';
 
 require_once __DIR__ . '/points.php';
 require_once __DIR__ . '/tiers.php';
+require_once __DIR__ . '/member-center.php';
 require_once __DIR__ . '/member-card.php';
 
 add_action('admin_menu', function (): void {
@@ -60,7 +61,7 @@ function wutm_render_member_loyalty_page(): void {
             <?php endforeach; ?>
         </nav>
         <main class="wutm-loyalty-content" id="wutm-loyalty-content">
-            <p class="wutm-loyalty-breadcrumb"><?php echo esc_html($navigation[$section]['label']); ?><?php if ($selection) : ?><span aria-hidden="true"> / </span><?php echo esc_html($current_label); ?><?php endif; ?></p>
+            <?php if ($selection) : ?><p class="wutm-loyalty-breadcrumb"><?php echo esc_html($navigation[$section]['label']); ?><span aria-hidden="true"> / </span><?php echo esc_html($current_label); ?></p><?php endif; ?>
             <h2 class="wutm-loyalty-current-title"><?php echo esc_html($current_label); ?></h2>
     <?php
     if ($section === 'member-card') {
@@ -146,7 +147,9 @@ add_action('admin_enqueue_scripts', static function(): void {
     }
 });
 add_action('wp_enqueue_scripts', static function(): void {
-    if (function_exists('is_account_page') && is_account_page()) {
-        wp_enqueue_style('wutm-loyalty-account', WUTM_URL . 'modules/member-loyalty/account.css', [], WUTM_VERSION);
+    global $post;
+    $shortcode_page = $post && preg_match('/\[(?:wu_member_card|wmt_dashboard|wmt_progress|wcmp_points_balance)\b/', $post->post_content);
+    if ((function_exists('is_account_page') && is_account_page()) || $shortcode_page) {
+        wutm_loyalty_center_assets();
     }
 }, 100);

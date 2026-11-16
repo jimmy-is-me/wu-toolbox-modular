@@ -1198,15 +1198,17 @@ final class WC_Membership_Tiers {
                 $expires = $coupon->get_date_expires();
                 if ( $expires ) {
                     $expires_text = '有效至 ' . date_i18n( 'Y/m/d', $expires->getTimestamp() );
-                    if ( $expires->getTimestamp() < current_time( 'timestamp' ) ) $status = '已過期';
+                    if ( $expires->getTimestamp() < time() ) $status = '已過期';
                 }
                 $limit = intval( $coupon->get_usage_limit() );
                 if ( $limit > 0 && intval( $coupon->get_usage_count() ) >= $limit ) $status = '已使用';
             }
             ?>
-            <li class="wmt-coupon-item">
+            <li class="wmt-coupon-item <?php echo $status === '可使用' ? 'is-available' : 'is-unavailable'; ?>">
+                <span class="wutm-coupon-status"><?php echo esc_html($status); ?></span>
                 <strong><?php echo esc_html( $label ); ?></strong><br/>
                 <span class="wmt-coupon-code"><?php echo esc_html( $row->coupon_code ); ?></span>
+                <?php if ($status === '可使用') : ?><button type="button" class="wutm-coupon-copy" data-coupon-copy="<?php echo esc_attr($row->coupon_code); ?>">複製券碼</button><small>是否適用仍依結帳條件判定</small><?php endif; ?>
                 <span class="wmt-coupon-meta"><?php echo esc_html( $status . '・' . $expires_text . '・' . $row->month_key ); ?></span>
             </li>
             <?php
@@ -1221,7 +1223,7 @@ final class WC_Membership_Tiers {
         $tier = $this->wmt_get_user_current_tier( $user_id );
         $row = $this->wmt_get_user_tier_row( $user_id );
         $settings = $this->wmt_get_settings();
-        if ( ! $tier ) return '';
+        if ( ! $tier ) return '<section class="wutm-loyalty-center">'.(function_exists('wutm_loyalty_center_nav') ? wutm_loyalty_center_nav() : '').'<p>商店尚未設定會員等級，請聯絡管理員確認。</p></section>';
         // 會員打開「我的會員」時也補發本月應得權益，避免等待排程。
         $this->wmt_issue_monthly_perks_for_user( $user_id, date_i18n( 'Y-m' ) );
         $birthday = get_user_meta( $user_id, 'billing_birthday', true );
@@ -1230,7 +1232,8 @@ final class WC_Membership_Tiers {
         ob_start();
         ?>
         <style><?php echo $this->wmt_frontend_css(); ?></style>
-        <div class="wmt-dashboard">
+        <div class="wmt-dashboard wutm-loyalty-center">
+            <?php if (function_exists('wutm_loyalty_center_nav')) echo wutm_loyalty_center_nav(); ?>
             <?php
             $birthday_status = isset( $_GET['wmt_birthday'] ) ? sanitize_key( wp_unslash( $_GET['wmt_birthday'] ) ) : '';
             if ( 'saved' === $birthday_status ) echo '<p class="wmt-status-message">生日已儲存。為保障資料正確，之後只有管理員能重設。</p>';
@@ -1242,10 +1245,10 @@ final class WC_Membership_Tiers {
                     <img class="wmt-dash-badge-img" src="<?php echo esc_url( $tier->badge_url ); ?>" alt="<?php echo esc_attr( $tier->name ); ?>"/>
                 <?php endif; ?>
                 <div>
-                    <p class="wmt-dash-title"><?php echo esc_html( $tier->name ); ?> 會員</p>
+                    <p class="wmt-dash-title"><?php echo esc_html(preg_match('/會員$/u', $tier->name) ? $tier->name : $tier->name.' 會員'); ?></p>
                     <p class="wmt-dash-sub">
                         <?php if ( $row && $row->expires_at ) : ?>
-                            效期至 <?php echo esc_html( date_i18n( 'Y/m/d', strtotime( $row->expires_at ) ) ); ?>
+                            <?php if (function_exists('wutm_loyalty_expiry')) echo wutm_loyalty_expiry($row->expires_at); ?><br>效期至 <?php echo esc_html( date_i18n( 'Y/m/d', strtotime( $row->expires_at ) ) ); ?>
                         <?php else : ?>
                             永久有效
                         <?php endif; ?>
@@ -1253,7 +1256,8 @@ final class WC_Membership_Tiers {
                 </div>
             </div>
 
-            <p class="wmt-section-title">專屬權益</p>
+            <p class="wmt-section-title">您目前享有的專屬權益</p>
+            <?php echo $this->wmt_tier_comparison_html($user_id); ?>
             <ul class="wmt-perks-list">
                 <?php foreach ( $this->wmt_get_perks_description( $tier ) as $perk ) : ?>
                     <li>✓ <?php echo esc_html( $perk ); ?></li>
@@ -1295,6 +1299,22 @@ final class WC_Membership_Tiers {
         return ob_get_clean();
     }
 
+    public function wmt_tier_comparison_html($user_id) {
+        $current = $this->wmt_get_user_current_tier($user_id);
+        $html='<details class="wutm-tier-comparison"><summary>查看所有會員等級、升級條件與權益</summary><p>請以以下實際設定為準；符合條件後由系統確認資格，訂單鑑賞期與會員效期仍適用。</p><div class="wutm-tier-grid">';
+        foreach ($this->wmt_get_all_tiers(true) as $tier) {
+            $html.='<section class="wutm-tier-option"><h3>'.esc_html($tier->name).($current && (int)$current->id === (int)$tier->id ? '（目前等級）' : '').'</h3><ul>';
+            foreach ($this->wmt_get_perks_description($tier) as $perk) $html.='<li>'.esc_html($perk).'</li>';
+            $html.='</ul><p>升級條件（依規則擇一）：</p><ul>';
+            if ($tier->single_amount>0) $html.='<li>單筆消費 '.esc_html(number_format($tier->single_amount)).' 元</li>';
+            if ($tier->cum_amount>0) $html.='<li>近 '.esc_html($tier->cum_amount_days).' 天累積消費 '.esc_html(number_format($tier->cum_amount)).' 元</li>';
+            if ($tier->cum_count>0) $html.='<li>近 '.esc_html($tier->cum_count_days).' 天消費 '.esc_html($tier->cum_count).' 次</li>';
+            if ($tier->single_amount<=0 && $tier->cum_amount<=0 && $tier->cum_count<=0) $html.='<li>無自動消費升級門檻；依商店設定指派。</li>';
+            $html.='</ul></section>';
+        }
+        return $html.'</div></details>';
+    }
+
     public function wmt_shortcode_progress( $atts ) {
         if ( ! is_user_logged_in() ) return '';
         return '<style>' . $this->wmt_frontend_css() . '</style>' . $this->wmt_render_progress_bar_html( get_current_user_id() );
@@ -1307,13 +1327,16 @@ final class WC_Membership_Tiers {
         $next_tier = null;
         foreach ( $tiers as $t ) {
             if ( $current && $t->level <= $current->level ) continue;
-            if ( floatval( $t->cum_amount ) <= 0 && intval( $t->cum_count ) <= 0 ) continue;
+            if ( floatval( $t->cum_amount ) <= 0 && intval( $t->cum_count ) <= 0 && floatval($t->single_amount) <= 0 ) continue;
             if ( ! $next_tier || $t->level < $next_tier->level ) $next_tier = $t;
         }
         if ( ! $next_tier ) {
-            return '<div class="wmt-max-box">🏆 您已是最高等級會員！</div>';
+            return '<div class="wmt-max-box">目前沒有更高的可升級等級，請繼續享用您的會員權益。</div>';
         }
 
+        if (floatval($next_tier->cum_amount)<=0 && intval($next_tier->cum_count)<=0) {
+            return '<div class="wmt-progress-label">升級 '.esc_html($next_tier->name).'：單筆消費達 '.esc_html(number_format($next_tier->single_amount)).' 元，完成訂單並通過鑑賞期後確認資格。</div>';
+        }
         $use_amount = floatval( $next_tier->cum_amount ) > 0;
         ob_start();
         if ( $use_amount ) {

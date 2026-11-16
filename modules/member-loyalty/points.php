@@ -994,7 +994,8 @@ final class WC_Member_Points_Rewards {
         $expiring = $this->wcmp_get_expiring_soon( $user_id, 30 );
         $label    = esc_html( $settings['front_label'] );
 
-        echo '<div class="wcmp-points-wrap">';
+        echo '<div class="wcmp-points-wrap wutm-loyalty-center">';
+        if (function_exists('wutm_loyalty_center_nav')) echo wutm_loyalty_center_nav();
 
         echo '<div class="wcmp-hero">';
         echo '<p class="wcmp-hero-label">我的' . $label . '</p>';
@@ -1011,7 +1012,7 @@ final class WC_Member_Points_Rewards {
         }
 
         echo '<div class="wcmp-rules-card">';
-        echo '<h4>規則摘要</h4>';
+        echo '<h4>點數怎麼獲得、怎麼使用？</h4><p>下方是目前商店規則。結帳可用點數會依訂單金額、優惠與點數效期重新計算；回饋倍率依會員階級套用。</p>';
         echo '<ul class="wcmp-rules-grid">';
         if ( $this->wcmp_earn_enabled() ) {
             echo '<li>消費回饋<strong>每 ' . esc_html( $settings['earn_ratio'] ) . ' 元回饋 1 點</strong></li>';
@@ -1034,11 +1035,11 @@ final class WC_Member_Points_Rewards {
             foreach ( $records as $r ) {
                 $cls = $r->amount > 0 ? 'wcmp-amount-pos' : 'wcmp-amount-neg';
                 echo '<tr>';
-                echo '<td>' . esc_html( $r->created_at ) . '</td>';
-                echo '<td>' . esc_html( $this->wcmp_type_label( $r->type ) ) . '</td>';
-                echo '<td class="' . $cls . '">' . ( $r->amount > 0 ? '+' : '' ) . intval( $r->amount ) . '</td>';
-                echo '<td>' . ( $r->order_id ? '#' . intval( $r->order_id ) : '-' ) . '</td>';
-                echo '<td>' . esc_html( $r->reason ) . '</td>';
+                echo '<td data-label="日期">' . esc_html( $r->created_at ) . '</td>';
+                echo '<td data-label="類型">' . esc_html( $this->wcmp_type_label( $r->type ) ) . '</td>';
+                echo '<td data-label="異動點數" class="' . $cls . '">' . ( $r->amount > 0 ? '+' : '' ) . intval( $r->amount ) . '</td>';
+                echo '<td data-label="訂單">' . ( $r->order_id ? '#' . intval( $r->order_id ) : '-' ) . '</td>';
+                echo '<td data-label="說明">' . esc_html( $r->reason ) . '</td>';
                 echo '</tr>';
             }
             echo '</tbody></table>';

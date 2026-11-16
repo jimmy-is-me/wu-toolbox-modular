@@ -58,6 +58,8 @@ jobs:
           php tests/member-loyalty-promotion-policy.php
           php tests/member-loyalty-routes.php
           php tests/member-loyalty-card.php
+          php tests/member-loyalty-center.php
+          node --check modules/member-loyalty/member-center.js
           node --check modules/member-loyalty/member-card.js
       - name: Check restored EZPAY isolation against foreign Guzzle 7 and PSR 2
         run: |
@@ -157,6 +159,10 @@ jobs:
           grep -Fq 'v3.9.5 native orders passed:' "$RUNNER_TEMP/wutm-v395.log"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/v396-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-v396.log"
           grep -Fq 'v3.9.6 native checkout passed:' "$RUNNER_TEMP/wutm-v396.log"
+      - name: Check member center against native WordPress and WooCommerce
+        run: |
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/member-loyalty-center-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-member-center.log"
+          grep -Fq 'Native member center checks passed:' "$RUNNER_TEMP/wutm-member-center.log"
       - name: Check maps and content overview preservation, permissions and scope
         run: |
           php tests/content-modules.php
@@ -239,12 +245,13 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install isolated browser test dependencies
         run: |
-          npm install --prefix "$RUNNER_TEMP/wutm-admin-tests" playwright@1.58.2 --no-audit --no-fund
+          npm install --prefix "$RUNNER_TEMP/wutm-admin-tests" playwright@1.58.2 jsqr@1.4.0 --no-audit --no-fund
           node "$RUNNER_TEMP/wutm-admin-tests/node_modules/playwright/cli.js" install --with-deps chromium
       - name: Check shared admin presentation across four viewport widths
         run: |
           export NODE_PATH="$RUNNER_TEMP/wutm-admin-tests/node_modules"
           export WUTM_TEST_CHROME="$(node -p "require('playwright').chromium.executablePath()")"
+          node tests/member-loyalty-center-ui.js
           node tests/admin-design-ui.js
           node tests/admin-components-ui.js
           node tests/toolbox-visibility-ui.js
