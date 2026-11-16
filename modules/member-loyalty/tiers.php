@@ -239,7 +239,7 @@ final class WC_Membership_Tiers {
         // 我的帳戶 endpoint
         add_filter( 'woocommerce_account_menu_items', array( $this, 'wmt_add_my_account_menu_item' ) );
         add_action( 'init', array( $this, 'wmt_add_my_account_endpoint' ) );
-        add_action( 'wp_loaded', array( $this, 'wmt_maybe_flush_rewrite_rules' ) );
+        // Rewrite refresh is owned by the combined module lifecycle.
         add_action( 'woocommerce_account_vip-tier_endpoint', array( $this, 'wmt_myaccount_endpoint_content' ) );
 
         // Shortcodes

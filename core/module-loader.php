@@ -1,5 +1,6 @@
 <?php
 defined('ABSPATH') || exit;
+require_once __DIR__ . '/member-loyalty-routes.php';
 
 // Payment gateways must register compatibility and callback hooks before
 // WooCommerce finishes its own plugins_loaded bootstrap.

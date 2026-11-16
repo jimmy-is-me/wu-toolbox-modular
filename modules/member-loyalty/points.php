@@ -141,7 +141,7 @@ final class WC_Member_Points_Rewards {
 
         add_filter( 'woocommerce_account_menu_items', array( $this, 'wcmp_add_my_account_menu_item' ) );
         add_action( 'init', array( $this, 'wcmp_add_my_account_endpoint' ) );
-        add_action( 'wp_loaded', array( $this, 'wcmp_maybe_flush_rewrite_rules' ) );
+        // Rewrite refresh is owned by the combined module lifecycle.
 
         add_action( 'woocommerce_account_my-points_endpoint', array( $this, 'wcmp_my_points_endpoint_content' ) );
 
@@ -1358,7 +1358,7 @@ final class WC_Member_Points_Rewards {
             error_log( 'WC Member Points: 設定變更紀錄寫入失敗 - ' . $wpdb->last_error );
         }
 
-        flush_rewrite_rules();
+        // Point settings do not change endpoint structure.
 
         wp_safe_redirect( function_exists( 'wutm_member_loyalty_url' )
             ? wutm_member_loyalty_url( 'points', array( 'tab' => 'settings', 'saved' => 1 ) )
