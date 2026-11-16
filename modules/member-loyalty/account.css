@@ -1,0 +1,6 @@
+.woocommerce-account :is(.wcmp-points-wrap,.wmt-dashboard){font-family:inherit;min-width:0;max-width:100%}
+.woocommerce-account .wcmp-points-wrap :is(.wcmp-hero,.wcmp-expiring-card,.wcmp-rules-card){border-radius:12px;border:1px solid currentColor;padding:clamp(14px,3vw,24px);box-shadow:none}
+.woocommerce-account .wcmp-hero{background:var(--theme-palette-color-5,#f5f5f5);color:inherit}
+.woocommerce-account .wcmp-points-wrap table{width:100%;table-layout:fixed}
+.woocommerce-account .wcmp-points-wrap :is(td,th){overflow-wrap:anywhere;padding:10px}
+@media(max-width:480px){.woocommerce-account .wcmp-points-wrap table{font-size:12px}.woocommerce-account .wcmp-rules-grid{display:grid;grid-template-columns:1fr}}

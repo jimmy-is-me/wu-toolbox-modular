@@ -35,10 +35,7 @@ function wutm_render_member_loyalty_page(): void {
     if ($query_key && !isset($navigation[$section]['items'][$selection])) $selection = (string) array_key_first($navigation[$section]['items']);
     $current_label = $selection ? $navigation[$section]['items'][$selection] : $navigation[$section]['label'];
     ?>
-    <div class="wrap wutm-loyalty-wrap">
-        <h1>會員點數與階級</h1>
-        <p class="description">左側先選功能，再選子頁面；點數回饋倍率會依會員階級自動套用。</p>
-    </div>
+    <?php wutm_admin_page_open('會員點數與階級', '集中管理會員點數、階級與專屬商品；保留原有會員資料與優惠規則。'); ?>
     <div class="wutm-loyalty-layout">
         <nav class="wutm-loyalty-navigation" aria-label="會員點數與階級功能導覽">
             <?php foreach ($navigation as $key => $group) :
@@ -76,9 +73,8 @@ function wutm_render_member_loyalty_page(): void {
     ?>
         </main>
     </div>
-    <style>
-        .wutm-loyalty-wrap{max-width:none;margin-bottom:0}.wutm-loyalty-layout{display:grid;grid-template-columns:230px minmax(0,1fr);gap:20px;margin:22px 20px 20px 0;align-items:start}.wutm-loyalty-navigation{position:sticky;top:46px;background:#fff;border:1px solid #c3c4c7;border-radius:8px;padding:9px;box-shadow:0 1px 2px rgba(0,0,0,.05)}.wutm-loyalty-navigation-group+.wutm-loyalty-navigation-group{border-top:1px solid #e5e7eb;margin-top:7px;padding-top:7px}.wutm-loyalty-navigation-heading{display:block;padding:11px 12px;color:#1d2327;text-decoration:none;font-weight:700;border-radius:5px}.wutm-loyalty-navigation-group.is-active>.wutm-loyalty-navigation-heading{background:#135e96;color:#fff}.wutm-loyalty-navigation-items{display:grid;gap:2px;margin:5px 0 2px 12px}.wutm-loyalty-navigation-item{display:block;padding:9px 12px;border-left:3px solid transparent;color:#50575e;text-decoration:none}.wutm-loyalty-navigation-item.is-current{border-left-color:#2271b1;background:#f0f6fc;color:#135e96;font-weight:700}.wutm-loyalty-navigation a:focus-visible{outline:2px solid #2271b1;outline-offset:1px}.wutm-loyalty-content{min-width:0;background:#fff;border:1px solid #dcdcde;border-radius:8px;padding:22px 24px}.wutm-loyalty-content>.wrap{margin:0;max-width:none}.wutm-loyalty-content>.wrap>h1:first-child,.wutm-loyalty-content .wcmp-tabs{display:none}.wutm-loyalty-breadcrumb{margin:0;color:#646970;font-size:13px}.wutm-loyalty-current-title{font-size:23px;margin:5px 0 22px;padding-bottom:14px;border-bottom:1px solid #dcdcde}.wutm-loyalty-vip{max-width:none}.wutm-vip-guide{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;margin:18px 0}.wutm-vip-guide>div{background:#fff;border:1px solid #dcdcde;border-radius:8px;padding:18px}.wutm-vip-guide h3{margin-top:0}.wutm-vip-guide p{margin-bottom:0;line-height:1.7}.wutm-vip-flow{background:#f0f6fc;border-left:4px solid #2271b1;padding:14px 16px;margin:16px 0}.wutm-loyalty-maintenance{margin:18px 0;padding:12px 16px;background:#f6f7f7;border:1px solid #c3c4c7;border-radius:6px}.wutm-loyalty-maintenance summary{cursor:pointer;font-weight:700}.wutm-loyalty-maintenance[open] summary{margin-bottom:12px}@media(max-width:1100px){.wutm-loyalty-layout{grid-template-columns:190px minmax(0,1fr);gap:12px}.wutm-loyalty-content{padding:18px}}@media(max-width:782px){.wutm-loyalty-layout{display:block;margin:16px 10px 20px 0}.wutm-loyalty-navigation{position:static;margin-bottom:14px}.wutm-loyalty-content{padding:16px}.wutm-vip-guide{grid-template-columns:1fr}}
-    </style>
+    <?php wutm_admin_page_close(); ?>
+
     <?php
 }
 
@@ -138,3 +134,15 @@ function wutm_render_member_loyalty_vip_store_tab(): void {
     </div>
     <?php
 }
+
+add_action('admin_enqueue_scripts', static function(): void {
+    $screen = get_current_screen();
+    if ($screen && strpos($screen->id, 'wu-member-loyalty') !== false) {
+        wp_enqueue_style('wutm-loyalty-admin', WUTM_URL . 'modules/member-loyalty/admin.css', [], WUTM_VERSION);
+    }
+});
+add_action('wp_enqueue_scripts', static function(): void {
+    if (function_exists('is_account_page') && is_account_page()) {
+        wp_enqueue_style('wutm-loyalty-account', WUTM_URL . 'modules/member-loyalty/account.css', [], WUTM_VERSION);
+    }
+}, 100);
