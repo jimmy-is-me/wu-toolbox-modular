@@ -21,6 +21,12 @@ final class WUTM_Loyalty_Card {
             update_option('wutm_loyalty_card', ['enabled'=>!empty($_POST['enabled']), 'title'=>sanitize_text_field(wp_unslash($_POST['title'] ?? '數位會員卡'))], false);
             echo '<p role="status">會員卡設定已儲存。</p>';
         }
+        if (isset($_GET['card_token']) && is_string($_GET['card_token'])) {
+            $request = new WP_REST_Request('GET');
+            $request->set_param('token', sanitize_text_field(wp_unslash($_GET['card_token'])));
+            $result = self::verify($request);
+            echo '<section class="wutm-ui-panel"><h3>會員卡查驗</h3><p>'.esc_html(is_wp_error($result) ? $result->get_error_message() : wp_json_encode($result->get_data(), JSON_UNESCAPED_UNICODE)).'</p><p>查驗不執行扣點。</p></section>';
+        }
         $s=self::settings();
         echo '<form method="post">';wp_nonce_field('wutm_card_save');
         echo '<p><label><input name="enabled" type="checkbox" value="1" '.checked($s['enabled'],true,false).'> 啟用數位會員卡</label></p><p><label>卡片名稱 <input name="title" value="'.esc_attr($s['title']).'"></label></p><p>短碼：<code>[wu_member_card]</code>；啟用後也會在我的帳戶總覽顯示。QR 僅供有權限的管理員驗證，不會直接扣點。有效 5 分鐘，過期請重新載入會員卡。</p><button class="button button-primary" name="wutm_card_save" value="1">儲存設定</button></form>';
@@ -33,7 +39,7 @@ final class WUTM_Loyalty_Card {
         $id=get_current_user_id();$user=wp_get_current_user();
         $token=wp_generate_password(48,false,false);
         set_transient('wutm_card_'.hash('sha256',$token), ['id'=>$id,'expires'=>time()+300],300);
-        $url=add_query_arg('token',$token,rest_url('wu-loyalty/v1/card'));
+        $url=add_query_arg(['page'=>'wu-member-loyalty','section'=>'member-card','card_token'=>$token],admin_url('admin.php'));
         wp_enqueue_script('wutm-card-qr', WUTM_URL.'modules/wu-ai-card/assets/qrcode.min.js', [], WUTM_VERSION,true);
         wp_enqueue_script('wutm-member-card', WUTM_URL.'modules/member-loyalty/member-card.js', ['wutm-card-qr'],WUTM_VERSION,true);
         $tier=class_exists('WC_Membership_Tiers') ? WC_Membership_Tiers::instance()->wmt_get_user_current_tier($id) : null;
