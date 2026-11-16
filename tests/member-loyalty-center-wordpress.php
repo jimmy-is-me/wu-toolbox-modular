@@ -15,9 +15,12 @@ preg_match('/data-qr="([^"]+)"/',$html,$match);parse_str(wp_parse_url(html_entit
 preg_match('/data-qr="([^"]+)"/',WUTM_Loyalty_Card::render(),$fresh_match);parse_str(wp_parse_url(html_entity_decode($fresh_match[1]),PHP_URL_QUERY),$fresh_query);
 loyalty_native_assert($fresh_query['card_token']!==$query['card_token'],'Refreshing card creates a fresh opaque token');
 loyalty_native_assert(!empty($query['card_token'])&&!isset($query['user_id']),'Opaque QR token');
-if(!did_action('rest_api_init'))do_action('rest_api_init');
+rest_get_server();
+// REST controllers may initialize authentication. Set the request identity after initialization.
+wp_set_current_user($user);
 $request=new WP_REST_Request('GET','/wu-loyalty/v1/card');$request->set_param('token',$query['card_token']);
-loyalty_native_assert(rest_do_request($request)->get_status()===403,'Customer cannot look up card identities');
+$denied=rest_do_request($request);
+loyalty_native_assert(!current_user_can('manage_woocommerce') && $denied->get_status()===403,'Customer cannot look up card identities: '.wp_json_encode(['current'=>get_current_user_id(),'expected'=>$user,'status'=>$denied->get_status(),'data'=>$denied->get_data()]));
 wp_set_current_user(0);loyalty_native_assert(rest_do_request($request)->get_status()===401,'Anonymous cannot look up card identities');
 loyalty_native_assert(strpos(WUTM_Loyalty_Card::render(),'請先登入')!==false,'Anonymous card privacy');
 wp_set_current_user($admin);$response=rest_do_request($request);
