@@ -280,7 +280,7 @@ final class WC_Member_Points_Rewards {
                 "SELECT id, remaining FROM {$this->wcmp_table()}
                  WHERE user_id = %d AND remaining > 0
                  AND ( expires_at IS NULL OR expires_at > %s )
-                 ORDER BY created_at ASC",
+                 ORDER BY (expires_at IS NULL) ASC, expires_at ASC, created_at ASC, id ASC",
                 $user_id, $now
             ) );
 
