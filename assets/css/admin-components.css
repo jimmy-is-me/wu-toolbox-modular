@@ -119,3 +119,5 @@ body.wutm-admin-screen #wpbody-content .wutm-ui-root .form-table td .select2-sea
 @media(max-width:600px){.wutm-category-nav{gap:6px}.wutm-category-nav a{min-height:40px;padding:5px 10px}}
 
 body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-tabs [role=tab][hidden]{display:none!important}
+
+@media(max-width:782px){body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-tabs [role=tab]{flex-direction:column;white-space:normal;gap:0!important;line-height:1.1!important}body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-tabs .wutm-tab-count{margin-left:0;line-height:11px;font-size:9px}}
