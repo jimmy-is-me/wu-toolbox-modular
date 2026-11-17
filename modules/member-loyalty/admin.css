@@ -6,3 +6,5 @@
 .wutm-loyalty-guide h3{margin-top:0}.wutm-loyalty-guide ol{margin-left:20px}.wutm-loyalty-content form{max-width:100%}.wutm-loyalty-content input{max-width:100%}
 
 .wutm-member-adjust{display:grid;gap:10px;min-width:240px;padding:12px}.wutm-member-adjust label{display:grid;gap:5px;font-weight:600}.wutm-member-adjust :is(input,select){width:100%;max-width:100%}
+
+.wutm-member-adjust [hidden]{display:none}

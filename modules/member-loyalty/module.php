@@ -143,6 +143,7 @@ function wutm_render_member_loyalty_vip_store_tab(): void {
 add_action('admin_enqueue_scripts', static function(): void {
     $screen = get_current_screen();
     if ($screen && strpos($screen->id, 'wu-member-loyalty') !== false) {
+        wp_enqueue_script('wutm-loyalty-expiry', WUTM_URL.'modules/member-loyalty/manual-expiry.js', [], WUTM_VERSION, true);
         wp_enqueue_style('wutm-loyalty-admin', WUTM_URL . 'modules/member-loyalty/admin.css', [], WUTM_VERSION);
     }
 });

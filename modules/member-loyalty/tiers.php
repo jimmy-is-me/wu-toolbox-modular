@@ -1704,8 +1704,8 @@ final class WC_Membership_Tiers {
                                     <?php endforeach; ?>
                                 </select>
                                 </label><label>效期操作<select name="expiry_mode"><option value="keep">保留目前效期</option><option value="date">指定日期時間</option><option value="shift">從目前效期增減天數</option><option value="days">從現在起算天數</option><option value="default">依所選階級預設效期</option><option value="permanent">永久有效</option></select></label>
-                                <label>指定效期（網站時區）<input type="datetime-local" name="expires_at" value="<?php echo esc_attr($m->expires_at ? str_replace(' ','T',$m->expires_at) : ''); ?>" step="1"></label>
-                                <label>天數（負數為減少）<input type="number" name="expiry_days" min="-36500" max="36500" placeholder="例如 30 或 -7"></label>
+                                <label data-expiry-field="date">指定效期（網站時區）<input type="datetime-local" name="expires_at" value="<?php echo esc_attr($m->expires_at ? str_replace(' ','T',$m->expires_at) : ''); ?>" step="1"></label>
+                                <label data-expiry-field="days">天數（負數為減少）<input type="number" name="expiry_days" min="-36500" max="36500" placeholder="例如 30 或 -7"></label>
                                 <button class="button">套用</button>
                             </form>
                         </td>
