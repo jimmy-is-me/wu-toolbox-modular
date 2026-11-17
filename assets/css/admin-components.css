@@ -80,7 +80,7 @@ body.wutm-admin-screen #wpbody-content .wutm-visibility-settings{margin-top:20px
 body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-search{padding:13px 15px;gap:10px;align-items:center}
 body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-search input[type=search],
 body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-search>.button{height:44px!important;min-height:44px!important;box-sizing:border-box;margin:0!important}
-body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-tabs.wutm-ui-tabs{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:3px;padding:3px!important;height:44px;box-sizing:border-box;margin:0 0 0 auto!important;border-radius:7px!important;flex:0 1 440px}
+body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-tabs.wutm-ui-tabs{display:grid!important;grid-template-columns:repeat(var(--wutm-tab-count,3),minmax(0,1fr));gap:3px;padding:3px!important;height:44px;box-sizing:border-box;margin:0 0 0 auto!important;border-radius:7px!important;flex:0 1 440px}
 body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-tabs [role=tab]{display:flex;align-items:center;justify-content:center;box-sizing:border-box;margin:0!important;padding:0 9px!important;min-height:0!important;height:36px;max-height:36px;min-width:0;border:0!important;gap:5px;white-space:nowrap;font-size:12px!important;line-height:1.2!important;border-radius:5px!important;box-shadow:none!important}
 body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-tabs [aria-selected=true]{background:#fff!important;color:var(--wutm-blue-dark)!important}
 body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-tab-indicator{display:none}
@@ -117,3 +117,5 @@ body.wutm-admin-screen #wpbody-content .wutm-ui-root .form-table td .select2-sea
 .wutm-category-nav a[hidden]{display:none!important}
 .wutm-module-group{scroll-margin-top:50px}
 @media(max-width:600px){.wutm-category-nav{gap:6px}.wutm-category-nav a{min-height:40px;padding:5px 10px}}
+
+body.wutm-admin-screen #wpbody-content .wutm-ui-dashboard .wutm-module-tabs [role=tab][hidden]{display:none!important}

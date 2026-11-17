@@ -87,7 +87,7 @@ function wutm_render_admin_page_content(): void {
         <form class="wutm-module-search" role="search"><label class="screen-reader-text" for="wutm-module-search-input">搜尋功能</label><input id="wutm-module-search-input" type="search" placeholder="搜尋功能，例如：工具、版本、通知、結帳" autocomplete="off"><button type="submit" class="button button-primary">搜尋</button>
           <div class="wutm-module-tabs" role="tablist" aria-label="顯示模組">
             <span class="wutm-tab-indicator" aria-hidden="true"></span>
-            <?php foreach (['all' => '全部模組', 'enabled' => '已開啟模組', 'disabled' => '未開啟模組'] as $filter_key => $filter_label): ?>
+            <?php foreach (['all' => '全部模組', 'enabled' => '已開啟模組', 'disabled' => '未開啟模組', 'shared' => '開放模組'] as $filter_key => $filter_label): ?>
               <button type="button" id="wutm-tab-<?php echo esc_attr($filter_key); ?>" role="tab" class="wutm-module-tab" data-filter="<?php echo esc_attr($filter_key); ?>" aria-selected="<?php echo $filter_key === 'all' ? 'true' : 'false'; ?>" aria-controls="wutm-module-panels" tabindex="<?php echo $filter_key === 'all' ? '0' : '-1'; ?>"><?php echo esc_html($filter_label); ?><span class="wutm-tab-count" aria-hidden="true"></span></button>
             <?php endforeach; ?>
           </div>
@@ -137,7 +137,7 @@ function wutm_render_admin_page_content(): void {
             document.querySelectorAll('.wutm-module-group').forEach(function(group){
                 let visible=0;
                 group.querySelectorAll('.wutm-card').forEach(function(card){
-                    card.hidden=activeFilter==='enabled'&&!card.classList.contains('on')||activeFilter==='disabled'&&card.classList.contains('on');
+                    card.hidden=activeFilter==='enabled'&&!card.classList.contains('on')||activeFilter==='disabled'&&card.classList.contains('on')||activeFilter==='shared'&&!card.querySelector('.wutm-share-toggle:checked');
                     if(!card.hidden)visible++;
                 });
                 group.hidden=visible===0;totalVisible+=visible;
@@ -149,10 +149,11 @@ function wutm_render_admin_page_content(): void {
             tabs.forEach(function(tab,index){
                 const selected=tab.dataset.filter===activeFilter;
                 tab.setAttribute('aria-selected',String(selected));tab.tabIndex=selected?0:-1;
-                const count=cards.filter(function(card){return tab.dataset.filter==='all'||(tab.dataset.filter==='enabled')===card.classList.contains('on');}).length;
-                tab.querySelector('.wutm-tab-count').textContent=count;
+                const count=cards.filter(function(card){return tab.dataset.filter==='all'||(tab.dataset.filter==='shared'?!!card.querySelector('.wutm-share-toggle:checked'):(tab.dataset.filter==='enabled')===card.classList.contains('on'));}).length;
+                tab.querySelector('.wutm-tab-count').textContent=count;tab.hidden=tab.dataset.filter==='shared'&&count===0&&activeFilter!=='shared';
                 if(selected){tabList.style.setProperty('--wutm-tab-index',index);panels.setAttribute('aria-labelledby',tab.id);}
             });
+            tabList.style.setProperty('--wutm-tab-count',tabs.filter(function(t){return !t.hidden;}).length);
             const empty=document.querySelector('.wutm-filter-empty');if(empty)empty.hidden=totalVisible!==0;
             if(results){results.hidden=true;list.replaceChildren();clearMatches();}
         }
@@ -167,14 +168,15 @@ function wutm_render_admin_page_content(): void {
         tabs.forEach(function(tab,index){
             tab.addEventListener('click',function(){selectFilter(tab,false);});
             tab.addEventListener('keydown',function(event){
+                const visibleTabs=tabs.filter(function(t){return !t.hidden;}),position=visibleTabs.indexOf(tab);
                 let next=null;
-                if(event.key==='ArrowRight')next=(index+1)%tabs.length;
-                if(event.key==='ArrowLeft')next=(index-1+tabs.length)%tabs.length;
-                if(event.key==='Home')next=0;if(event.key==='End')next=tabs.length-1;
-                if(next!==null){event.preventDefault();selectFilter(tabs[next],true);}
+                if(event.key==='ArrowRight')next=(position+1)%visibleTabs.length;
+                if(event.key==='ArrowLeft')next=(position-1+visibleTabs.length)%visibleTabs.length;
+                if(event.key==='Home')next=0;if(event.key==='End')next=visibleTabs.length-1;
+                if(next!==null){event.preventDefault();selectFilter(visibleTabs[next],true);}
             });
         });
-        document.addEventListener('wutm-module-state-changed',applyFilter);applyFilter();
+        document.addEventListener('wutm-module-state-changed',applyFilter);document.addEventListener('wutm-module-share-changed',applyFilter);applyFilter();
         const categoryNav=document.querySelector('.wutm-category-nav');
         if (categoryNav) categoryNav.addEventListener('wheel', function(event) {
             if (event.ctrlKey || event.shiftKey || Math.abs(event.deltaX) >= Math.abs(event.deltaY)) return;
@@ -216,7 +218,7 @@ function wutm_render_admin_page_content(): void {
         fetch(ajaxurl,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({action:'wutm_share_module',module:input.dataset.shareModule,enabled:input.checked?1:0,nonce:'<?php echo esc_js(wp_create_nonce('wutm_share_module')); ?>'})})
         .then(r=>r.json()).then(r=>{if(!r.success)throw new Error(r.data&&r.data.message||'開放設定儲存失敗。');input.checked=!!r.data.enabled;input.closest('label').title='已儲存；其他管理員下次載入後台時生效。';})
         .catch(error=>{input.checked=old;const slot=document.querySelector('.wutm-notice-slot');if(slot){const notice=document.createElement('div');notice.className='notice notice-error';const p=document.createElement('p');p.textContent=error.message||'連線失敗，請重試。';notice.appendChild(p);slot.replaceChildren(notice);}})
-        .finally(()=>{input.disabled=!input.closest('.wutm-card').classList.contains('on');});
+        .finally(()=>{input.disabled=!input.closest('.wutm-card').classList.contains('on');document.dispatchEvent(new Event('wutm-module-share-changed'));});
     });
     (function(){
         const topButton=document.querySelector('.wutm-back-to-top');

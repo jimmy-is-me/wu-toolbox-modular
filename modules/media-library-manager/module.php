@@ -902,8 +902,12 @@ function wumf_admin_css() {
         .media-modal .media-frame .attachments-browser.wumf-has-folders > .attachments,
         .media-modal .media-frame .attachments-browser.wumf-has-folders > .attachments-wrapper{
             position:absolute!important;left:var(--wumf-panel-width)!important;inset-inline-start:var(--wumf-panel-width)!important;
-            top:var(--wumf-panel-top)!important;margin:0!important;width:auto!important;overflow:auto;box-sizing:border-box;z-index:1;
+            top:var(--wumf-panel-top)!important;right:300px!important;inset-inline-end:300px!important;margin:0!important;width:auto!important;overflow:auto;box-sizing:border-box;z-index:1;
         }
+        /* Wrappers also occur without has-load-more (Customizer and editor frames).
+           An explicit end inset prevents absolute shrink-to-fit to one tiny column. */
+        .media-modal .media-frame .attachments-browser.wumf-has-folders.hide-sidebar > .attachments,
+        .media-modal .media-frame .attachments-browser.wumf-has-folders.hide-sidebar > .attachments-wrapper{right:0!important;inset-inline-end:0!important;}
         .media-modal .media-frame .attachments-browser.wumf-has-folders > .attachments-wrapper > .attachments{
             position:relative!important;left:0!important;right:0!important;inset-inline-start:0!important;top:0!important;
             margin:0!important;width:100%!important;box-sizing:border-box;
