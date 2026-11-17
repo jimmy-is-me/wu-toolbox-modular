@@ -24,7 +24,7 @@ async function main() {
     const tabs = [...document.querySelectorAll('.wutm-module-tab')];
     const cards = [...document.querySelectorAll('.wutm-card')];
     const actual = cards.filter(card => card.dataset.navigation !== '1');
-    assert.equal(tabs.length, 3);
+    assert.equal(tabs.length, 4);
     assert.equal(tabs[0].getAttribute('aria-selected'), 'true', 'All modules selected initially');
     assert.equal(cards.filter(card => card.hidden).length, 0);
     assert.equal(Number(tabs[0].querySelector('.wutm-tab-count').textContent), actual.length);
@@ -43,6 +43,12 @@ async function main() {
     document.dispatchEvent(new window.Event('wutm-module-state-changed'));
     assert.equal(card.hidden, true, 'Successful module enable immediately updates current filter');
     assert.equal(Number(tabs[1].querySelector('.wutm-tab-count').textContent), enabled + 1);
+    const share=document.createElement('input');share.type='checkbox';share.className='wutm-share-toggle';card.appendChild(share);share.checked=true;
+    document.dispatchEvent(new window.Event('wutm-module-share-changed'));
+    assert.equal(tabs[3].hidden,false,'Sharing makes fourth filter available');tabs[3].click();
+    assert(cards.filter(c=>!c.hidden).every(c=>c.querySelector('.wutm-share-toggle:checked')),'Shared filter only includes checked modules');
+    share.checked=false;document.dispatchEvent(new window.Event('wutm-module-share-changed'));
+    assert.equal(card.hidden,true,'Revocation updates active sharing filter');
     tabs[0].click();
     assert.equal(cards.filter(card => card.hidden).length, 0);
     document.getElementById('wutm-module-search-input').value = 'Google 地圖';
