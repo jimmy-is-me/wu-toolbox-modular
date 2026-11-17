@@ -43,11 +43,11 @@ async function main() {
     document.dispatchEvent(new window.Event('wutm-module-state-changed'));
     assert.equal(card.hidden, true, 'Successful module enable immediately updates current filter');
     assert.equal(Number(tabs[1].querySelector('.wutm-tab-count').textContent), enabled + 1);
-    const share=document.createElement('input');share.type='checkbox';share.className='wutm-share-toggle';card.appendChild(share);share.checked=true;
+    const share=document.createElement('input');share.type='checkbox';share.className='wutm-share-toggle';card.appendChild(share);share.checked=true;share.setAttribute('checked','');
     document.dispatchEvent(new window.Event('wutm-module-share-changed'));
     assert.equal(tabs[3].hidden,false,'Sharing makes fourth filter available');tabs[3].click();
     assert(cards.filter(c=>!c.hidden).every(c=>c.querySelector('.wutm-share-toggle:checked')),'Shared filter only includes checked modules');
-    share.checked=false;document.dispatchEvent(new window.Event('wutm-module-share-changed'));
+    share.checked=false;share.removeAttribute('checked');document.dispatchEvent(new window.Event('wutm-module-share-changed'));
     assert.equal(card.hidden,true,'Revocation updates active sharing filter');
     tabs[0].click();
     assert.equal(cards.filter(card => card.hidden).length, 0);
