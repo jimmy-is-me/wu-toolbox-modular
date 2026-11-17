@@ -89,6 +89,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 				'target_locale'            => ( function_exists( 'get_locale' ) ? get_locale() : 'en_US' ),
 				'target_region'            => '',
 				'enable_schema'            => 1,
+                'enable_list_columns' => 0,
 				'enable_og'                => 1,
 				'enable_twitter'           => 1,
 				'noindex_author_archives'  => 1,
@@ -131,6 +132,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 		public static function sanitize_settings( $input ) {
 			$defaults = self::defaults();
 			$out      = $defaults;
+            $out['enable_list_columns'] = !empty($input['enable_list_columns']) ? 1 : 0;
 
 			if ( ! is_array( $input ) ) {
 				return $out;
@@ -932,7 +934,8 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 						<div class="wu-seo-grid">
 							<div class="wu-seo-label"><strong>輸出功能</strong><p>一般建議全部開啟。</p></div>
 							<div>
-								<label class="wu-seo-toggle"><input type="checkbox" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[enable_og]" value="1" <?php checked( 1, $s['enable_og'] ); ?>> Open Graph</label>
+								<label class="wu-seo-toggle"><input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[enable_list_columns]" value="1" <?php checked(1, $s['enable_list_columns']); ?>> 啟用內容列表 SEO 欄位（預設隱藏，請在列表「顯示項目設定」勾選需要的欄位）</label>
+<label class="wu-seo-toggle"><input type="checkbox" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[enable_og]" value="1" <?php checked( 1, $s['enable_og'] ); ?>> Open Graph</label>
 								<label class="wu-seo-toggle"><input type="checkbox" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[enable_twitter]" value="1" <?php checked( 1, $s['enable_twitter'] ); ?>> Twitter Card</label>
 								<label class="wu-seo-toggle"><input type="checkbox" name="<?php echo esc_attr( self::OPTION_KEY ); ?>[enable_schema]" value="1" <?php checked( 1, $s['enable_schema'] ); ?>> JSON-LD Schema</label>
 							</div>

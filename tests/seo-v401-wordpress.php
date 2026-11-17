@@ -20,6 +20,9 @@ $mock = static function( $pre, $args, $url ) use ( &$requests, &$mode ) {
 try {
     update_option( Wumetax_SEO_Core_v120::OPTION_KEY, [ 'avoid_seo_conflicts' => 1 ] );
     ( new ReflectionProperty( Wumetax_SEO_Core_v120::class, 'settings' ) )->setValue( null, null );
+    seo401_assert(Wumetax_SEO_Core_v120::seo_columns(['title'=>'Title'])===['title'=>'Title'],'SEO columns disabled by default');
+    update_option(Wumetax_SEO_Core_v120::OPTION_KEY,['avoid_seo_conflicts'=>1,'enable_list_columns'=>1]);
+    (new ReflectionProperty(Wumetax_SEO_Core_v120::class,'settings'))->setValue(null,null);
     register_post_type( 'seo401_item', [ 'public' => true, 'show_ui' => true, 'supports' => [ 'title', 'editor', 'custom-fields' ] ] );
     register_taxonomy( 'seo401_category', 'seo401_item', [ 'public' => true ] );
     Wumetax_SEO_Core_v120::register_post_meta_fields(); Wumetax_SEO_Core_v120::seo_list_hooks();

@@ -58,6 +58,7 @@ jobs:
           php tests/member-loyalty-promotion-policy.php
           php tests/member-loyalty-routes.php
           php tests/member-loyalty-card.php
+          php tests/member-expiry.php
           php tests/member-loyalty-center.php
           node --check modules/member-loyalty/member-center.js
           node --check modules/member-loyalty/member-card.js
@@ -279,5 +280,6 @@ jobs:
           node tests/newebpay-ui.js
           node tests/onepage-checkout-ui.js
           node tests/seo-management-ui.js
+          node tests/seo-advanced-ui.js
           node tests/shipping-temperature-ui.js
           node tests/payuni-shipping-ui.js

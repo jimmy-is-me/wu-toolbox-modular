@@ -4,3 +4,5 @@
 
 .wutm-loyalty-content .wutm-loyalty-guide{padding:18px 22px;margin:0 0 24px;background:var(--wutm-soft,#f0f6fc);border:1px solid var(--wutm-line,#dce5eb);border-radius:12px;line-height:1.8}
 .wutm-loyalty-guide h3{margin-top:0}.wutm-loyalty-guide ol{margin-left:20px}.wutm-loyalty-content form{max-width:100%}.wutm-loyalty-content input{max-width:100%}
+
+.wutm-member-adjust{display:grid;gap:10px;min-width:240px;padding:12px}.wutm-member-adjust label{display:grid;gap:5px;font-weight:600}.wutm-member-adjust :is(input,select){width:100%;max-width:100%}

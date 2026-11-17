@@ -180,7 +180,8 @@ trait WUTM_SEO_Technical {
         wutm_admin_page_open( 'SEO 管理與技術診斷', '網站設定、內容、技術檢查、Sitemap 一致性與外部搜尋狀態分別呈現。所有網路診斷皆由您手動啟動。' );
         echo '<p><a class="button" href="' . esc_url( admin_url( 'admin.php?page=' . self::SETTINGS_PAGE ) ) . '">全站 SEO 設定</a></p>';
         self::simple_optimization_panel();
-        echo '<details><summary>進階工具：技術數據、批次修改與 Google 授權</summary>';
+        echo '<details id="wu-seo-advanced"><summary>進階工具：技術數據、批次修改與 Google 授權</summary>';
+        echo '<script>(function(){const d=document.getElementById("wu-seo-advanced"),k=location.pathname+":wu-seo-tools:advanced";try{d.open=sessionStorage.getItem(k)==="1";}catch(e){}d.addEventListener("toggle",function(){try{sessionStorage.setItem(k,d.open?"1":"0");}catch(e){}});d.addEventListener("submit",function(){try{sessionStorage.setItem(k,"1");}catch(e){}},true);})();</script>';
         self::management_dashboard();
         WUTM_SEO_Sitemap_Review::panel();
         echo '<h2>Sitemap 與爬蟲存取</h2><p>保留 WordPress 原生 Sitemap。一般 HTTP 測試不等於 Googlebot 測試；外部搜尋／索引狀態：尚未驗證。HTML 預覽只供管理員閱讀，請提交 XML 網址至 Search Console。</p>';

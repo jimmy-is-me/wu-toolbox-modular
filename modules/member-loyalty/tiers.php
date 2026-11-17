@@ -11,6 +11,7 @@
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
+require_once __DIR__.'/manual-expiry.php';
 
 if ( ! class_exists( 'WC_Membership_Tiers' ) ) :
 
@@ -475,12 +476,12 @@ final class WC_Membership_Tiers {
         check_admin_referer( 'wmt_manual_set_tier' );
         $user_id = intval( $_POST['user_id'] ?? 0 );
         $tier_id = intval( $_POST['tier_id'] ?? 0 );
-        $days    = intval( $_POST['valid_days_override'] ?? 0 );
-        if ( $user_id && $tier_id ) {
-            $tier = $this->wmt_get_tier( $tier_id );
-            $valid_days = $days > 0 ? $days : ( $tier ? intval( $tier->valid_days ) : 0 );
-            $this->wmt_assign_tier( $user_id, $tier_id, $valid_days, 'manual', true );
-        }
+        $tier=$this->wmt_get_tier($tier_id);
+        if (!$user_id || !get_userdata($user_id) || !$tier) wp_die('會員或階級不存在。');
+        $row=$this->wmt_get_user_tier_row($user_id);
+        $expiry=wutm_member_manual_expiry(sanitize_key(wp_unslash($_POST['expiry_mode'] ?? 'keep')), sanitize_text_field(wp_unslash($_POST['expires_at'] ?? '')), wp_unslash($_POST['expiry_days'] ?? ''), $row->expires_at ?? null, (int)$tier->valid_days);
+        if (is_wp_error($expiry)) wp_die(esc_html($expiry->get_error_message()));
+        if (!$this->wmt_assign_tier($user_id,$tier_id,0,'manual',true,$expiry)) wp_die('儲存失敗，請重新確認會員資料。');
         $redirect = wp_get_referer() ? wp_get_referer() : ( function_exists( 'wutm_member_loyalty_url' ) ? wutm_member_loyalty_url( 'tiers', array( 'view' => 'members' ) ) : admin_url( 'admin.php?page=wmt-members' ) );
         wp_safe_redirect( add_query_arg( 'msg', 'manual_set', $redirect ) );
         exit;
@@ -602,7 +603,7 @@ final class WC_Membership_Tiers {
         $this->wmt_recalculate_user( intval( $user_id ) );
     }
 
-    private function wmt_assign_tier( $user_id, $tier_id, $valid_days, $reason = 'auto', $is_manual = false ) {
+    private function wmt_assign_tier( $user_id, $tier_id, $valid_days, $reason = 'auto', $is_manual = false, $expiry_override = false ) {
         global $wpdb;
         $valid_days = min( 36500, max( 0, absint( $valid_days ) ) );
         $current = $this->wmt_get_user_tier_row( $user_id );
@@ -613,6 +614,7 @@ final class WC_Membership_Tiers {
             $expires_at = current_datetime()->modify( '+' . absint( $valid_days ) . ' days' )->format( 'Y-m-d H:i:s' );
         }
 
+        if ($expiry_override !== false) $expires_at=$expiry_override;
         $data = array(
             'user_id'     => $user_id,
             'tier_id'     => $tier_id,
@@ -622,9 +624,9 @@ final class WC_Membership_Tiers {
         );
 
         if ( $current ) {
-            $wpdb->update( $this->wmt_table_user_tier(), $data, array( 'user_id' => $user_id ) );
+            if (false === $wpdb->update( $this->wmt_table_user_tier(), $data, array( 'user_id' => $user_id ) )) return false;
         } else {
-            $wpdb->insert( $this->wmt_table_user_tier(), $data );
+            if (false === $wpdb->insert( $this->wmt_table_user_tier(), $data )) return false;
         }
 
         if ( $from_tier_id != $tier_id ) {
@@ -1636,7 +1638,7 @@ final class WC_Membership_Tiers {
                 <input type="hidden" name="section" value="tiers"/>
                 <input type="hidden" name="view" value="members"/>
                 <input type="text" name="s" value="<?php echo esc_attr( $keyword ); ?>" placeholder="搜尋姓名或 Email"/>
-                <select name="tier_id">
+                <label>調整階級<select name="tier_id">
                     <option value="">全部</option>
                     <option value="none" <?php selected( $filter_tier, 'none' ); ?>>尚未分級</option>
                     <?php foreach ( $tiers as $t ) : ?>
@@ -1692,16 +1694,18 @@ final class WC_Membership_Tiers {
                         <td><?php echo $m->assigned_at ? esc_html( $m->assigned_at ) : '—'; ?></td>
                         <td><?php echo $m->expires_at ? esc_html( $m->expires_at ) : ( $m->tier_id ? '永久' : '—' ); ?></td>
                         <td>
-                            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="display:flex;gap:4px;">
+                            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="wutm-member-adjust">
                                 <?php wp_nonce_field( 'wmt_manual_set_tier' ); ?>
                                 <input type="hidden" name="action" value="wmt_manual_set_tier"/>
                                 <input type="hidden" name="user_id" value="<?php echo esc_attr( $m->user_id ); ?>"/>
-                                <select name="tier_id">
+                                <label>調整階級<select name="tier_id">
                                     <?php foreach ( $tiers as $t ) : ?>
                                         <option value="<?php echo esc_attr( $t->id ); ?>" <?php selected( $m->tier_id, $t->id ); ?>><?php echo esc_html( $t->name ); ?></option>
                                     <?php endforeach; ?>
                                 </select>
-                                <input type="number" name="valid_days_override" placeholder="天數(選填)" style="width:100px;"/>
+                                </label><label>效期操作<select name="expiry_mode"><option value="keep">保留目前效期</option><option value="date">指定日期時間</option><option value="shift">從目前效期增減天數</option><option value="days">從現在起算天數</option><option value="default">依所選階級預設效期</option><option value="permanent">永久有效</option></select></label>
+                                <label>指定效期（網站時區）<input type="datetime-local" name="expires_at" value="<?php echo esc_attr($m->expires_at ? str_replace(' ','T',$m->expires_at) : ''); ?>" step="1"></label>
+                                <label>天數（負數為減少）<input type="number" name="expiry_days" min="-36500" max="36500" placeholder="例如 30 或 -7"></label>
                                 <button class="button">套用</button>
                             </form>
                         </td>

@@ -26,13 +26,20 @@ trait WUTM_SEO_Management {
     }
 
     public static function seo_list_hooks() {
+        if (empty(self::settings()['enable_list_columns'])) return;
+        add_filter('default_hidden_columns', [__CLASS__, 'seo_hidden_columns'], 10, 2);
         foreach ( self::supported_post_types() as $type ) {
             add_filter( 'manage_' . $type . '_posts_columns', [ __CLASS__, 'seo_columns' ], 50 );
             add_action( 'manage_' . $type . '_posts_custom_column', [ __CLASS__, 'seo_column_value' ], 10, 2 );
         }
     }
 
+    public static function seo_hidden_columns($hidden, $screen) {
+        if ($screen->base === 'edit' && in_array($screen->post_type, self::supported_post_types(), true)) $hidden=array_unique(array_merge($hidden,['wu_seo','wu_seo_title','wu_seo_description','wu_seo_topic','wu_seo_canonical']));
+        return $hidden;
+    }
     public static function seo_columns( $columns ) {
+        if (empty(self::settings()['enable_list_columns'])) return $columns;
         return array_merge( $columns, [ 'wu_seo' => 'SEO 狀態', 'wu_seo_title' => 'SEO 標題', 'wu_seo_description' => 'SEO 摘要', 'wu_seo_topic' => 'SEO 主題', 'wu_seo_canonical' => 'Canonical' ] );
     }
 
@@ -122,6 +129,7 @@ trait WUTM_SEO_Management {
     }
 
     public static function seo_list_filter( $type ) {
+        if (empty(self::settings()['enable_list_columns'])) return;
         if ( ! in_array( $type, self::supported_post_types(), true ) ) { return; }
         echo '<select name="wu_seo_filter"><option value="">全部 SEO 狀態</option>';
         foreach ( self::seo_filters() as $key => $label ) { echo '<option value="' . esc_attr( $key ) . '" ' . selected( sanitize_key( $_GET['wu_seo_filter'] ?? '' ), $key, false ) . '>' . esc_html( $label ) . '</option>'; }

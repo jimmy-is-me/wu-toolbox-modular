@@ -37,6 +37,11 @@ foreach(['active'=>time()+3600,'expired'=>time()-3600,'used'=>time()+3600] as $s
 $method=new ReflectionMethod($tiers,'wmt_render_member_coupons_html');$method->setAccessible(true);$coupons=$method->invoke($tiers,$user);
 loyalty_native_assert(substr_count($coupons,'is-available')===1 && substr_count($coupons,'is-unavailable')===2,'Real WC coupon status and timezone');
 loyalty_native_assert(substr_count($coupons,'data-coupon-copy=')===1,'Expired/used coupon has no copy action');
+$assign=new ReflectionMethod($tiers,'wmt_assign_tier');$assign->setAccessible(true);$current_tier=$tiers->wmt_get_user_current_tier($user);
+$chosen='2027-12-25 18:45:00';loyalty_native_assert($assign->invoke($tiers,$user,$current_tier->id,0,'manual',true,$chosen),'Manual expiry write');
+loyalty_native_assert($tiers->wmt_get_user_tier_row($user)->expires_at===$chosen,'Exact manual datetime preserved');
+$shifted=wutm_member_manual_expiry('shift','',-7,$chosen,365);$assign->invoke($tiers,$user,$current_tier->id,0,'manual',true,$shifted);
+loyalty_native_assert($tiers->wmt_get_user_tier_row($user)->expires_at==='2027-12-18 18:45:00','Subtract days stored correctly');
 update_option('wutm_loyalty_card',['enabled'=>false]);loyalty_native_assert(WUTM_Loyalty_Card::render()==='','Setting disables card');
 update_option('timezone_string',$previous_timezone);foreach($codes as $id)wp_delete_post($id,true);$wpdb->delete($wpdb->prefix.'wmt_coupons_issued',['user_id'=>$user]);wp_delete_user($user);delete_transient($tokenkey);wp_set_current_user($admin);
 echo "Native member center checks passed: WP/WC rendering, REST permissions, expiry, no point spending and real coupon statuses.\n";
