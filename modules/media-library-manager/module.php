@@ -487,32 +487,42 @@ function wumf_ajax_delete_folder() {
 
         $descendants = get_term_children( $id, WUMF_TAXONOMY );
         if ( is_wp_error( $descendants ) ) {
-            $descendants = array();
+            wp_send_json_error( array( 'message' => '無法確認子資料夾，已停止。' ) );
         }
         $term_ids = array_merge( array( $id ), array_map( 'absint', $descendants ) );
-
-        $attachment_ids = get_posts(
-            array(
-                'post_type'      => 'attachment',
-                'post_status'    => 'inherit',
-                'posts_per_page' => -1,
-                'fields'         => 'ids',
-                'no_found_rows'  => true,
-                'tax_query'      => array(
-                    array(
-                        'taxonomy'         => WUMF_TAXONOMY,
-                        'field'            => 'term_id',
-                        'terms'            => $term_ids,
-                        'include_children' => false,
-                    ),
-                ),
-            )
+        global $wpdb;
+        $placeholders = implode( ',', array_fill( 0, count( $term_ids ), '%d' ) );
+        $scope = $wpdb->prepare(
+            "FROM {$wpdb->posts} p WHERE p.post_type = 'attachment' AND p.post_status = 'inherit'
+             AND EXISTS (SELECT 1 FROM {$wpdb->term_relationships} r INNER JOIN {$wpdb->term_taxonomy} t
+             ON r.term_taxonomy_id = t.term_taxonomy_id WHERE r.object_id = p.ID
+             AND t.taxonomy = %s AND t.term_id IN ($placeholders))",
+            array_merge( array( WUMF_TAXONOMY ), $term_ids )
         );
-
-        foreach ( $attachment_ids as $attachment_id ) {
-            if ( current_user_can( 'delete_post', $attachment_id ) ) {
-                wp_delete_attachment( $attachment_id, true );
+        if ( ! empty( $_POST['preview'] ) ) {
+            $preview = $wpdb->get_row( "SELECT COUNT(*) AS total, COALESCE(MAX(p.ID), 0) AS last_id $scope" );
+            if ( ! $preview ) wp_send_json_error( array( 'message' => '無法查詢受影響的媒體。' ) );
+            wp_send_json_success( array( 'count' => (int) $preview->total, 'last_id' => (int) $preview->last_id ) );
+        }
+        $cursor = absint( $_POST['cursor'] ?? 0 );
+        $limit = absint( $_POST['last_id'] ?? 0 );
+        $attachment_ids = $wpdb->get_col( "SELECT p.ID $scope AND p.ID > $cursor AND p.ID <= $limit ORDER BY p.ID ASC LIMIT 20" );
+        if ( $wpdb->last_error ) wp_send_json_error( array( 'message' => '無法讀取下一批媒體，資料夾已保留。' ) );
+        if ( $attachment_ids ) {
+            $failed = array();
+            foreach ( $attachment_ids as $attachment_id ) {
+                if ( ! current_user_can( 'delete_post', $attachment_id ) || ! wp_delete_attachment( $attachment_id, true ) ) {
+                    $failed[] = (int) $attachment_id;
+                }
             }
+            wp_send_json_success( array(
+                'done' => false, 'cursor' => (int) end( $attachment_ids ),
+                'deleted_media' => count( $attachment_ids ) - count( $failed ), 'failed' => $failed,
+            ) );
+        }
+        $remaining = $wpdb->get_var( "SELECT COUNT(*) $scope" );
+        if ( null === $remaining || (int) $remaining > 0 ) {
+            wp_send_json_success( array( 'done' => true, 'folders_retained' => true, 'remaining' => $remaining ) );
         }
 
         // Delete deepest folders first.
@@ -524,12 +534,13 @@ function wumf_ajax_delete_folder() {
         );
         foreach ( $term_ids as $term_id ) {
             if ( wumf_get_term_or_error( $term_id ) ) {
-                wp_delete_term( $term_id, WUMF_TAXONOMY );
+                $deleted = wp_delete_term( $term_id, WUMF_TAXONOMY );
+                if ( is_wp_error( $deleted ) || ! $deleted ) wp_send_json_error( array( 'message' => '部分資料夾無法刪除，請重新整理確認結果。' ) );
             }
         }
 
         delete_user_meta( get_current_user_id(), WUMF_UNDO_KEY );
-        wp_send_json_success( array( 'deleted_media' => count( $attachment_ids ) ) );
+        wp_send_json_success( array( 'done' => true, 'folders_retained' => false ) );
     }
 
     $child_ids = get_terms(
@@ -1742,7 +1753,7 @@ function wumf_admin_js() {
                 $d.find('.wumf-danger-confirm').toggle($(this).val()==='media');
             });
             $d.on('click','.wumf-cancel',function(){ $d.remove(); });
-            $d.on('click',function(e){ if(e.target===this) $d.remove(); });
+            $d.on('click',function(e){ if(e.target===this && !$d.data('busy')) $d.remove(); });
             $d.on('click','.wumf-confirm-delete',function(){
                 const delMedia=$d.find('input[name="wumf-del-mode"]:checked').val()==='media';
                 const typed=$d.find('.wumf-typed').val()||'';
@@ -1751,14 +1762,46 @@ function wumf_admin_js() {
                     return;
                 }
                 $(this).prop('disabled',true).text('處理中…');
-                api('wumf_delete_folder',{id:id,delete_media:delMedia?1:0,typed:typed}).then(function(){
+                const $button=$(this);
+                let deleted=0, failed=[];
+                $d.find('input, .wumf-cancel').prop('disabled',true);
+                $d.data('busy',true);
+                (async function(){
+                    if(!delMedia){
+                        await api('wumf_delete_folder',{id:id});
+                        toast('資料夾已刪除',true);
+                    } else {
+                        const args={id:id,delete_media:1,typed:typed};
+                        const preview=await api('wumf_delete_folder',Object.assign({preview:1},args));
+                        if(!window.confirm('此操作涉及 '+preview.count+' 個媒體檔案，確定永久刪除？')) return;
+                        let cursor=0;
+                        for(;;){
+                            const result=await api('wumf_delete_folder',Object.assign({cursor:cursor,last_id:preview.last_id},args));
+                            if(result.done){
+                                if(result.folders_retained){
+                                    alert('已刪除 '+deleted+' 個檔案。資料夾已保留，尚有 '+(result.remaining ?? '未知數量')+' 個檔案。'+
+                                        (failed.length ? ' 刪除失敗的媒體 ID：'+failed.join('、') : ''));
+                                } else {
+                                    toast('已永久刪除資料夾及 '+deleted+' 個媒體檔案');
+                                }
+                                break;
+                            }
+                            cursor=result.cursor;
+                            deleted+=result.deleted_media;
+                            failed=failed.concat(result.failed);
+                            $button.text('已刪除 '+deleted+' 個');
+                        }
+                    }
                     $d.remove();
-                    toast(delMedia?'資料夾與媒體已永久刪除':'資料夾已刪除',!delMedia);
                     reloadTree(true);
                     refreshAll();
-                }).catch(function(err){
-                    alert(err.message);
-                    $d.find('.wumf-confirm-delete').prop('disabled',false).text('刪除');
+                })().catch(function(err){
+                    alert(err.message+(delMedia?' 本次已確認刪除 '+deleted+' 個檔案，請重新檢查剩餘媒體。':''));
+                    reloadTree(true);
+                    refreshAll();
+                }).finally(function(){
+                    $d.removeData('busy').find('input, .wumf-cancel').prop('disabled',false);
+                    $button.prop('disabled',false).text('刪除');
                 });
             });
         }

@@ -88,6 +88,11 @@ if ( $mode === 'admin' ) {
 if ( $mode === 'test-control' ) {
     header( 'Content-Type: application/json' );
     $op = $_GET['op'] ?? 'stats';
+    if ( $op === 'benchmark' ) {
+        $start = hrtime( true );
+        (new ReflectionMethod( 'WUTM_Page_Cache', 'invalidate_matching' ))->invoke( null, 42, array(), array(), 'benchmark' );
+        echo json_encode( array( 'ms' => (hrtime(true) - $start) / 1e6 ) ); return;
+    }
     if ( $op === 'invalidate' ) {
         (new ReflectionMethod( 'WUTM_Page_Cache', 'invalidate_matching' ))->invoke( null, 42, array( 'page' ), array( 7 ), 'test' );
     } elseif ( $op === 'clear' ) {

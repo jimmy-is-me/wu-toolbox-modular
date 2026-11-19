@@ -66,6 +66,7 @@ function esc_html( $value ) { return htmlspecialchars( (string) $value, ENT_QUOT
 
 class WU_AIT_Test_Wpdb {
     public $prefix = 'wp_';
+    public $posts = 'wp_posts';
     public $last_error = '';
     public $rows = array();
 
@@ -77,6 +78,12 @@ class WU_AIT_Test_Wpdb {
     }
 
     public function get_var( $query ) {
+        $ids = $GLOBALS['scan_ids'] ?? [1,2];
+        if ( strpos( $query, 'SELECT MAX(ID)' ) === 0 ) return $ids ? max( $ids ) : null;
+        if ( strpos( $query, 'SELECT COUNT(*) FROM wp_posts' ) === 0 ) return count( $ids );
+        if ( preg_match( '/SELECT ID FROM wp_posts.*ID > (\d+) AND ID <= (\d+)/s', $query, $match ) ) {
+            return array_values( array_filter( $ids, fn($id) => $id > $match[1] && $id <= $match[2] ) )[0] ?? null;
+        }
         return 'wp_trp_dictionary_zh_tw_en_us';
     }
 

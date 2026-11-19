@@ -56,13 +56,17 @@ add_action( 'wp_ajax_wutm_gutenberg_scan', static function () {
         ++$state['scanned'];
     }
     $done = count( $rows ) < 25;
+    $result = [ 'done' => $done, 'scanned' => $state['scanned'] ];
     if ( $done ) {
-        update_option( 'wutm_gutenberg_usage', [ 'counts' => $state['counts'], 'time' => time() ], false );
+        $snapshot = [ 'counts' => $state['counts'], 'time' => time() ];
+        if ( ! update_option( 'wutm_gutenberg_usage', $snapshot, false ) && get_option( 'wutm_gutenberg_usage' ) !== $snapshot ) wp_send_json_error( [], 500 );
+        $result['counts'] = $snapshot['counts'];
+        $result['timestamp'] = wp_date( 'Y-m-d H:i', $snapshot['time'] );
         delete_transient( $key );
     } else {
         set_transient( $key, $state, 30 * MINUTE_IN_SECONDS );
     }
-    wp_send_json_success( [ 'done' => $done, 'scanned' => $state['scanned'] ] );
+    wp_send_json_success( $result );
 } );
 
 function wutm_gutenberg_page(): void {
@@ -80,11 +84,14 @@ function wutm_gutenberg_page(): void {
     }
     $usage = get_option( 'wutm_gutenberg_usage', [] );
     $names = array_unique( array_merge( array_keys( $registry ), array_keys( $usage['counts'] ?? [] ) ) );
-    sort( $names );
+    $counts = empty( $usage['time'] ) ? [] : ( $usage['counts'] ?? [] );
+    usort( $names, static function ( $left, $right ) use ( $counts ) {
+        return ( ( $counts[$right] ?? 0 ) <=> ( $counts[$left] ?? 0 ) ) ?: strcmp( $left, $right );
+    } );
     wutm_admin_page_open( '古騰堡管理', '管理新增區塊清單與進階相簿。隱藏設定會保留現有區塊及其內容。' );
     echo '<p>掃描資料庫已儲存的內容及巢狀區塊。同步版型本體計一次；佈景檔案中的預設範本與動態產生的區塊不計。零次表示上次掃描時未找到。</p>';
-    if ( ! empty( $usage['time'] ) ) echo '<p>上次掃描：' . esc_html( wp_date( 'Y-m-d H:i', $usage['time'] ) ) . '</p>';
-    echo '<button type="button" class="button" id="wutm-block-scan" data-nonce="' . esc_attr( wp_create_nonce( 'wutm_gutenberg_scan' ) ) . '">掃描使用量</button> <span id="wutm-block-status" role="status"></span>';
+    echo '<p id="wutm-block-scan-time">' . esc_html( empty( $usage['time'] ) ? '' : '上次掃描：' . wp_date( 'Y-m-d H:i', $usage['time'] ) ) . '</p>';
+    echo '<div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px"><button type="button" class="button" id="wutm-block-scan" data-nonce="' . esc_attr( wp_create_nonce( 'wutm_gutenberg_scan' ) ) . '">掃描使用量</button> <span id="wutm-block-status" role="status"></span><button type="submit" form="wutm-block-settings" class="button button-primary" name="wutm_save_blocks" value="1" style="margin-inline-start:auto">儲存設定</button></div>';
     echo '<form method="post" id="wutm-block-settings">';
     wp_nonce_field( 'wutm_save_blocks' );
     echo '<input type="hidden" name="hidden_blocks" value="' . esc_attr( wp_json_encode( $hidden ) ) . '">';
@@ -93,12 +100,12 @@ function wutm_gutenberg_page(): void {
     echo '<label>狀態 <select id="wutm-block-state"><option value="">全部</option><option value="hidden">已勾選隱藏</option><option value="visible">未勾選隱藏</option><option value="unused">未使用</option></select></label> ';
     echo '<button type="button" class="button" id="wutm-block-hide-unused"' . disabled( empty( $usage['time'] ), true, false ) . '>勾選未使用區塊</button> ';
     echo '<button type="button" class="button" id="wutm-block-show-all">清除隱藏勾選</button></p>';
-    echo '<div style="overflow-x:auto"><table class="widefat striped"><thead><tr><th>區塊</th><th>來源</th><th>使用量</th><th>從插入器隱藏</th></tr></thead><tbody>';
+    echo '<div style="overflow-x:auto"><table class="widefat striped"><thead><tr><th>區塊</th><th>來源</th><th scope="col"' . ( $counts ? ' aria-sort="descending"' : '' ) . '>使用量</th><th>從插入器隱藏</th></tr></thead><tbody>';
     foreach ( $names as $name ) {
         $block = $registry[$name] ?? null;
         $title = $block->title ?? $name;
         $count = $usage['counts'][$name] ?? 0;
-        echo '<tr><td>' . esc_html( $title ) . ' <code>' . esc_html( $name ) . '</code></td><td>' . esc_html( explode( '/', $name )[0] ) . '</td><td>' . esc_html( empty( $usage['time'] ) ? '未掃描' : $count ) . '</td><td>';
+        echo '<tr data-block-name="' . esc_attr( $name ) . '"><td>' . esc_html( $title ) . ' <code>' . esc_html( $name ) . '</code></td><td>' . esc_html( explode( '/', $name )[0] ) . '</td><td data-usage>' . esc_html( empty( $usage['time'] ) ? '未掃描' : $count ) . '</td><td>';
         if ( $block && 'wu-toolbox/advanced-gallery' !== $name ) {
             echo '<input type="checkbox" data-block="' . esc_attr( $name ) . '" data-count="' . esc_attr( empty( $usage['time'] ) ? '' : $count ) . '" aria-label="' . esc_attr( '隱藏 ' . $title ) . '" ' . checked( in_array( $name, $hidden, true ), true, false ) . '>';
         } else {
@@ -106,7 +113,7 @@ function wutm_gutenberg_page(): void {
         }
         echo '</td></tr>';
     }
-    echo '</tbody></table></div><p><button class="button button-primary" name="wutm_save_blocks" value="1">儲存設定</button></p></form>';
+    echo '</tbody></table></div></form>';
     wutm_admin_page_close();
 }
 

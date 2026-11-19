@@ -27,11 +27,18 @@ class WU_AIT_Batched_Scan {
                 }
                 if ( $job ) { self::cleanup( $job['token'] ); }
                 $types = array_values( array_diff( get_post_types( array( 'public' => true ), 'names' ), array( 'attachment' ) ) );
-                $query = new WP_Query( array( 'post_type' => $types ?: array( 'post', 'page' ), 'post_status' => 'publish',
-                    'posts_per_page' => -1, 'fields' => 'ids', 'orderby' => 'ID', 'order' => 'ASC',
-                    'no_found_rows' => true, 'update_post_meta_cache' => false, 'update_post_term_cache' => false ) );
+                global $wpdb;
+                $types = $types ?: ['post','page'];
+                $limit = (int) $wpdb->get_var( "SELECT MAX(ID) FROM {$wpdb->posts}" );
+                $placeholders = implode( ',', array_fill( 0, count( $types ), '%s' ) );
+                $total = $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$wpdb->posts} WHERE post_status = 'publish' AND ID <= %d AND post_type IN ($placeholders)",
+                    array_merge( [$limit], $types )
+                ) );
+                if ( null === $total || $wpdb->last_error ) throw new RuntimeException( '無法讀取待掃描內容。' );
                 $job = array( 'token' => wp_generate_uuid4(), 'owner' => get_current_user_id(), 'expires' => $now + DAY_IN_SECONDS,
-                    'ids' => array_map( 'intval', $query->posts ), 'phase' => 'render', 'cursor' => 0, 'revision' => 0,
+                    'types' => $types, 'limit' => $limit, 'last_id' => 0, 'total' => (int) $total,
+                    'phase' => 'render', 'cursor' => 0, 'revision' => 0,
                     'store' => array(), 'visible' => 0, 'dictionary' => 0 );
                 self::save( $job );
                 wp_schedule_single_event( $job['expires'], 'wu_ait_scan_cleanup', array( $job['token'] ) );
@@ -45,19 +52,33 @@ class WU_AIT_Batched_Scan {
                 return self::status( $job ); // Replayed requests never advance the same page twice.
             }
             if ( $operation !== 'step' ) { throw new RuntimeException( '無效的掃描操作。' ); }
-            $total = count( $job['ids'] );
+            $total = ( $job['total'] ?? count( $job['ids'] ) );
             $matched_key = null;
+            $next_id = null;
+            if ( ! isset( $job['ids'] ) && 'render' === $job['phase'] && $job['cursor'] < $total ) {
+                global $wpdb;
+                $placeholders = implode( ',', array_fill( 0, count( $job['types'] ), '%s' ) );
+                $next_id = $wpdb->get_var( $wpdb->prepare(
+                    "SELECT ID FROM {$wpdb->posts} WHERE post_status = 'publish' AND ID > %d AND ID <= %d
+                     AND post_type IN ($placeholders) ORDER BY ID ASC LIMIT 1",
+                    array_merge( [$job['last_id'], $job['limit']], $job['types'] )
+                ) );
+                if ( $wpdb->last_error ) throw new RuntimeException( '無法讀取下一筆內容，請稍後續掃。' );
+                if ( null === $next_id ) $total = $job['total'] = $job['cursor'];
+            }
             if ( $job['cursor'] < $total ) {
-                $id = $job['ids'][ $job['cursor'] ];
+                $id = (int) ( $job['ids'][ $job['cursor'] ] ?? $next_id );
                 $key = self::page_key( $token, $job['cursor'] );
                 if ( $job['phase'] === 'render' ) {
                     $visible = WU_AIT_TranslatePress_Bridge::get_translatable_segments_for_post( $id );
-                    $page = array( 'visible' => $visible, 'html' => WU_AIT_TranslatePress_Bridge::scan_html( $id ) );
+                    $page = array( 'id' => $id, 'visible' => $visible, 'html' => WU_AIT_TranslatePress_Bridge::scan_html( $id ) );
                     self::write( $key, $page );
+                    $job['last_id'] = $id;
                     $job['visible'] += count( $visible );
                 } else {
                     $page = get_option( $key, null );
                     if ( ! is_array( $page ) ) { throw new RuntimeException( '掃描暫存不完整，請重新掃描；原清單未變更。' ); }
+                    $id = (int) ( $page['id'] ?? $id );
                     WU_AIT_TranslatePress_Bridge::seed_scan_html( $id, $page['html'] );
                     $dictionary = WU_AIT_TranslatePress_Bridge::get_dictionary_originals_for_post( $id );
                     $job['dictionary'] += count( $dictionary );
@@ -113,7 +134,7 @@ class WU_AIT_Batched_Scan {
     private static function save( array $job ): void { self::write( self::JOB, $job ); }
     private static function page_key( string $token, int $index ): string { return 'wu_ait_scan_page_' . $token . '_' . $index; }
     private static function status( array $job ): array {
-        $total = count( $job['ids'] );
+        $total = ( $job['total'] ?? count( $job['ids'] ) );
         $done = $job['phase'] === 'done';
         $processed = $done ? $total * 2 : ( $job['phase'] === 'match' ? $total : 0 ) + $job['cursor'];
         return array( 'token' => $job['token'], 'revision' => $job['revision'], 'done' => $done,
@@ -124,7 +145,8 @@ class WU_AIT_Batched_Scan {
     public static function cleanup( string $token ): void {
         $job = get_option( self::JOB, array() );
         if ( ! $job || ! hash_equals( $job['token'], $token ) ) { return; }
-        foreach ( $job['ids'] as $index => $id ) { delete_option( self::page_key( $token, $index ) ); }
+        $pages = isset( $job['ids'] ) ? count( $job['ids'] ) : ( 'render' === $job['phase'] ? $job['cursor'] + 1 : $job['total'] );
+        for ( $index = 0; $index < $pages; ++$index ) delete_option( self::page_key( $token, $index ) );
         delete_option( self::JOB );
         wp_clear_scheduled_hook( 'wu_ait_scan_cleanup', array( $token ) );
     }

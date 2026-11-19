@@ -21,7 +21,7 @@ final class WC_Membership_Tiers {
     const LOG_OPT           = 'wmt_last_run_log';
     const CRON_HOOK_DAILY   = 'wmt_daily_recalculate';
     const CRON_HOOK_CONFIRM = 'wmt_confirm_single_order';
-    const VERSION           = '1.2.0-wutm';
+    const VERSION           = '1.2.1-wutm';
     const VERSION_OPT       = 'wmt_plugin_version';
 
     private static $instance = null;
@@ -135,6 +135,9 @@ final class WC_Membership_Tiers {
             from_tier_id BIGINT UNSIGNED NULL,
             to_tier_id BIGINT UNSIGNED NULL,
             reason VARCHAR(50) NOT NULL,
+            actor_id BIGINT UNSIGNED NULL,
+            from_expires_at DATETIME NULL,
+            to_expires_at DATETIME NULL,
             created_at DATETIME NOT NULL,
             PRIMARY KEY (id),
             KEY user_id (user_id)
@@ -618,7 +621,7 @@ final class WC_Membership_Tiers {
         $data = array(
             'user_id'     => $user_id,
             'tier_id'     => $tier_id,
-            'assigned_at' => current_time( 'mysql' ),
+            'assigned_at' => $is_manual && $current && (int) $from_tier_id === (int) $tier_id ? $current->assigned_at : current_time( 'mysql' ),
             'expires_at'  => $expires_at,
             'updated_at'  => current_time( 'mysql' ),
         );
@@ -629,12 +632,17 @@ final class WC_Membership_Tiers {
             if (false === $wpdb->insert( $this->wmt_table_user_tier(), $data )) return false;
         }
 
-        if ( $from_tier_id != $tier_id ) {
+        $changed_tier = $from_tier_id != $tier_id;
+        $old_expiry = $current->expires_at ?? null;
+        if ( $changed_tier || ( $is_manual && $old_expiry !== $expires_at ) ) {
             $wpdb->insert( $this->wmt_table_history(), array(
                 'user_id'      => $user_id,
                 'from_tier_id' => $from_tier_id,
                 'to_tier_id'   => $tier_id,
-                'reason'       => $reason,
+                'reason'       => $changed_tier ? $reason : 'manual_expiry',
+                'actor_id'     => $is_manual ? get_current_user_id() : null,
+                'from_expires_at' => $old_expiry,
+                'to_expires_at'   => $expires_at,
                 'created_at'   => current_time( 'mysql' ),
             ) );
 

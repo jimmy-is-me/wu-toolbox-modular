@@ -40,8 +40,12 @@ loyalty_native_assert(substr_count($coupons,'data-coupon-copy=')===1,'Expired/us
 $assign=new ReflectionMethod($tiers,'wmt_assign_tier');$assign->setAccessible(true);$current_tier=$tiers->wmt_get_user_current_tier($user);
 $chosen='2027-12-25 18:45:00';loyalty_native_assert($assign->invoke($tiers,$user,$current_tier->id,0,'manual',true,$chosen),'Manual expiry write');
 loyalty_native_assert($tiers->wmt_get_user_tier_row($user)->expires_at===$chosen,'Exact manual datetime preserved');
+$wpdb->update($wpdb->prefix.'wmt_user_tier',['assigned_at'=>'2026-01-01 10:00:00'],['user_id'=>$user]);
 $shifted=wutm_member_manual_expiry('shift','',-7,$chosen,365);$assign->invoke($tiers,$user,$current_tier->id,0,'manual',true,$shifted);
 loyalty_native_assert($tiers->wmt_get_user_tier_row($user)->expires_at==='2027-12-18 18:45:00','Subtract days stored correctly');
+loyalty_native_assert($tiers->wmt_get_user_tier_row($user)->assigned_at==='2026-01-01 10:00:00','Expiry-only change preserves assignment timestamp');
+$entry=$wpdb->get_row($wpdb->prepare("SELECT * FROM {$wpdb->prefix}wmt_history_log WHERE user_id=%d ORDER BY id DESC LIMIT 1",$user));
+loyalty_native_assert($entry->reason==='manual_expiry' && (int)$entry->actor_id===$admin && $entry->from_expires_at===$chosen && $entry->to_expires_at===$shifted,'Manual expiry audit records actor and both dates');
 update_option('wutm_loyalty_card',['enabled'=>false]);loyalty_native_assert(WUTM_Loyalty_Card::render()==='','Setting disables card');
 update_option('timezone_string',$previous_timezone);foreach($codes as $id)wp_delete_post($id,true);$wpdb->delete($wpdb->prefix.'wmt_coupons_issued',['user_id'=>$user]);wp_delete_user($user);delete_transient($tokenkey);wp_set_current_user($admin);
 echo "Native member center checks passed: WP/WC rendering, REST permissions, expiry, no point spending and real coupon statuses.\n";

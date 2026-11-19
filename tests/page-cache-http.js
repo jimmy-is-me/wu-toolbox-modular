@@ -185,6 +185,14 @@ async function checkBypass(url, reason, headers = {}, method = 'GET') {
   assert.equal(bounded.count, 106); assert.equal(bounded.items.length, 100);
   const cleared = JSON.parse((await request('/test-control/?op=clear')).body); assert.equal(cleared.count, 0);
   assert.ok(!fs.readdirSync(cache).some(file => file.endsWith('.tmp') || file.startsWith('.wutm-') && !['.wutm-cache.lock', '.wutm-generation'].includes(file)), 'No temporary/probe/diagnostic leftovers after clear');
+  if (process.env.WUTM_CACHE_BENCH === '1') {
+    for (let i = 0; i < 3000; ++i) {
+      fs.writeFileSync(path.join(cache, 'benchmark-' + i + '.html.gz.json'), JSON.stringify({post_id: i % 10 === 0 ? 42 : 99}));
+    }
+    const benchmark = JSON.parse((await request('/test-control/?op=benchmark')).body);
+    assert.equal(fs.readdirSync(cache).filter(file => file.startsWith('benchmark-')).length, 2700);
+    console.log('Cache invalidation, 3000 metadata files / 300 matches: ' + benchmark.ms.toFixed(1) + ' ms');
+  }
   assert.ok(!/PHP (?:Fatal|Warning|Deprecated|Notice)/.test(serverLog), serverLog);
   console.log('Page-cache HTTP checks passed: nested buffers, complete output, device variants, privacy, compression, TTL, diagnostics, atomic writes and invalidation.');
 })().catch(error => { console.error(error); console.error(serverLog); process.exitCode = 1; }).finally(async () => {
