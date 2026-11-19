@@ -2,7 +2,7 @@
 defined('ABSPATH') || exit;
 
 function wutm_pcm_defaults(): array {
-    return ['expand_mode'=>'current_only','show_count'=>0,'hide_empty'=>0,'width'=>'100%','font_size'=>15,'sub_font_size'=>14,'font_weight'=>'600','text_color'=>'#111111','active_color'=>'#111111','row_bg'=>'#f5f5f5','row_hover'=>'#e8e8e8'];
+    return ['expand_mode'=>'current_only','show_count'=>0,'hide_empty'=>0,'show_search'=>0,'show_mobile'=>0,'width'=>'100%','font_size'=>15,'sub_font_size'=>14,'font_weight'=>'600','text_color'=>'#111111','active_color'=>'#111111','row_bg'=>'#f5f5f5','row_hover'=>'#e8e8e8'];
 }
 
 function wutm_pcm_options(): array { return wp_parse_args((array) get_option('wutm_product_category_menu', []), wutm_pcm_defaults()); }
@@ -15,6 +15,8 @@ function wutm_pcm_sanitize($input): array {
     return [
         'expand_mode' => in_array($input['expand_mode'] ?? '', $modes, true) ? $input['expand_mode'] : $defaults['expand_mode'],
         'show_count' => empty($input['show_count']) ? 0 : 1,
+        'show_search' => empty($input['show_search']) ? 0 : 1,
+        'show_mobile' => empty($input['show_mobile']) ? 0 : 1,
         'hide_empty' => empty($input['hide_empty']) ? 0 : 1,
         'width' => preg_match('/^\d+(?:\.\d+)?(?:px|%|vw|rem|em)$/', trim((string) ($input['width'] ?? ''))) ? trim((string) $input['width']) : '100%',
         'font_size' => max(10, min(30, absint($input['font_size'] ?? 15))),
@@ -39,10 +41,10 @@ function wutm_pcm_admin_page(): void {
     if (!current_user_can('manage_options')) return;
     $o = wutm_pcm_options(); ?>
     <div class="wrap wutm-pcm-admin"><style>.wutm-pcm-admin{max-width:980px}.wutm-pcm-hero{margin:18px 0;padding:25px 28px;border-radius:16px;background:linear-gradient(135deg,#102d4d,#2771ad);color:#fff}.wutm-pcm-hero h1{margin:0 0 8px;color:#fff}.wutm-pcm-code{padding:7px 11px;border:1px solid #acd0ea;border-radius:8px;background:#eff8ff;color:#155985;font:600 13px ui-monospace,monospace;cursor:pointer}.wutm-pcm-panel{margin:18px 0;padding:22px 26px;border:1px solid #dbe4ed;border-radius:14px;background:#fff;box-shadow:0 8px 24px rgba(20,45,75,.06)}.wutm-pcm-grid{display:grid;grid-template-columns:repeat(2,minmax(240px,1fr));gap:18px 28px}.wutm-pcm-grid label{font-weight:600}.wutm-pcm-grid label>*{display:block;margin-top:7px}.wutm-pcm-grid select,.wutm-pcm-grid input[type=number]{width:100%;min-height:40px}@media(max-width:700px){.wutm-pcm-grid{grid-template-columns:1fr}}</style>
-    <style>.wutm-pcm-admin .wutm-pcm-code{display:inline-block;margin-left:8px;padding:5px 10px;border-radius:6px}.wutm-pcm-admin .wutm-module-subtitle{margin:0 0 22px}.wutm-pcm-admin .wutm-pcm-panel{padding:20px 22px;border-color:#dcdcde;border-radius:8px;box-shadow:none}.wutm-pcm-admin .wutm-pcm-panel>h2{margin:0 0 18px;padding-bottom:10px;border-bottom:1px solid #e5e7eb;font-size:17px}.wutm-pcm-admin input[type=checkbox]{display:inline-block!important;margin:0 6px 0 0!important}.wutm-pcm-admin label:has(>input[type=checkbox]){display:flex;align-items:center}.wutm-pcm-admin label:has(.wp-picker-container){display:flex!important;align-items:flex-start!important;flex-direction:column}.wutm-pcm-admin label:has(.wp-picker-container) .wp-picker-container{margin-top:8px}</style>
+    <style>.wutm-pcm-admin .wutm-pcm-code{display:inline-block;margin-left:8px;padding:5px 10px;border-radius:6px}.wutm-pcm-admin .wutm-module-subtitle{margin:0 0 22px}.wutm-pcm-admin .wutm-pcm-panel{padding:20px 22px;border-color:#dcdcde;border-radius:8px;box-shadow:none}.wutm-pcm-admin .wutm-pcm-panel>h2{margin:0 0 18px;padding-bottom:10px;border-bottom:1px solid #e5e7eb;font-size:17px}.wutm-pcm-admin input[type=checkbox]{display:inline-block!important;margin:0 6px 0 0!important}.wutm-pcm-admin label:has(>input[type=checkbox]){display:flex;align-items:center}.wutm-pcm-color-field{min-width:0}.wutm-pcm-color-field>label{display:block!important;margin-bottom:8px}.wutm-pcm-color-field .iris-picker{max-width:100%}</style>
     <h1>商品分類選單設定</h1><p class="wutm-module-subtitle">建立支援多層分類與目前分類自動展開的手風琴選單。文字大小以 px 為單位；「目前分類與展開圖示顏色」同時控制目前所在分類及加減圖示；兩種背景色分別控制一般狀態與滑鼠移入／目前分類狀態。<button type="button" class="wutm-pcm-code" onclick="navigator.clipboard.writeText('[wutm_product_categories]');this.textContent='已複製：[wutm_product_categories]'">[wutm_product_categories]　點擊複製</button></p>
-    <form method="post" action="options.php"><?php settings_fields('wutm_pcm_group'); ?><section class="wutm-pcm-panel"><h2>選單行為</h2><div class="wutm-pcm-grid"><label>預設展開狀態<select name="wutm_product_category_menu[expand_mode]"><option value="current_only" <?php selected($o['expand_mode'], 'current_only'); ?>>只展開目前分類</option><option value="expand_all" <?php selected($o['expand_mode'], 'expand_all'); ?>>全部展開</option><option value="collapse_all" <?php selected($o['expand_mode'], 'collapse_all'); ?>>全部收合</option></select></label><label><input type="checkbox" name="wutm_product_category_menu[show_count]" value="1" <?php checked($o['show_count']); ?>> 顯示商品數量</label><label><input type="checkbox" name="wutm_product_category_menu[hide_empty]" value="1" <?php checked($o['hide_empty']); ?>> 只隱藏自己及子分類皆無商品的分類</label></div><p class="description">取消勾選即可顯示所有商品分類，包括沒有商品的分類。分類順序可在「文章及分類排序」設定頁調整。</p></section>
-    <section class="wutm-pcm-panel"><h2>外觀設定</h2><div class="wutm-pcm-grid"><label>選單區塊寬度<input name="wutm_product_category_menu[width]" value="<?php echo esc_attr($o['width']); ?>"><small>預設 100%，跟隨網站內容區。</small></label><label>主分類文字大小<input type="number" min="10" max="30" name="wutm_product_category_menu[font_size]" value="<?php echo (int) $o['font_size']; ?>"></label><label>子分類文字大小<input type="number" min="10" max="30" name="wutm_product_category_menu[sub_font_size]" value="<?php echo (int) $o['sub_font_size']; ?>"></label><label>分類文字粗細<select name="wutm_product_category_menu[font_weight]"><?php foreach (['300'=>'細體','400'=>'標準','500'=>'中等','600'=>'半粗','700'=>'粗體'] as $v=>$label): ?><option value="<?php echo esc_attr($v); ?>" <?php selected($o['font_weight'], $v); ?>><?php echo esc_html($label); ?></option><?php endforeach; ?></select></label><label>所有分類文字顏色<input class="wutm-pcm-color" name="wutm_product_category_menu[text_color]" value="<?php echo esc_attr($o['text_color']); ?>"></label><label>目前分類與展開圖示顏色<input class="wutm-pcm-color" name="wutm_product_category_menu[active_color]" value="<?php echo esc_attr($o['active_color']); ?>"></label><label>主分類列背景顏色<input class="wutm-pcm-color" name="wutm_product_category_menu[row_bg]" value="<?php echo esc_attr($o['row_bg']); ?>"></label><label>滑鼠移入與目前分類背景<input class="wutm-pcm-color" name="wutm_product_category_menu[row_hover]" value="<?php echo esc_attr($o['row_hover']); ?>"></label></div></section><?php submit_button('儲存設定'); ?></form></div>
+    <form method="post" action="options.php"><?php settings_fields('wutm_pcm_group'); ?><section class="wutm-pcm-panel"><h2>選單行為</h2><div class="wutm-pcm-grid"><label>預設展開狀態<select name="wutm_product_category_menu[expand_mode]"><option value="current_only" <?php selected($o['expand_mode'], 'current_only'); ?>>只展開目前分類</option><option value="expand_all" <?php selected($o['expand_mode'], 'expand_all'); ?>>全部展開</option><option value="collapse_all" <?php selected($o['expand_mode'], 'collapse_all'); ?>>全部收合</option></select></label><label><input type="checkbox" name="wutm_product_category_menu[show_count]" value="1" <?php checked($o['show_count']); ?>> 顯示商品數量</label><label><input type="checkbox" name="wutm_product_category_menu[hide_empty]" value="1" <?php checked($o['hide_empty']); ?>> 只隱藏自己及子分類皆無商品的分類</label><label><input type="checkbox" name="wutm_product_category_menu[show_search]" value="1" <?php checked($o['show_search']); ?>> 在選單頂部顯示分類搜尋</label><label><input type="checkbox" name="wutm_product_category_menu[show_mobile]" value="1" <?php checked($o['show_mobile']); ?>> 在手機顯示選單（預設收合）</label></div><p class="description">取消勾選即可顯示所有商品分類，包括沒有商品的分類。啟用手機顯示後，WooCommerce 商店與商品分類頁會在商品列表前顯示可收合選單。其他頁面依短碼放置位置顯示。分類順序可在「文章及分類排序」設定頁調整。</p></section>
+    <section class="wutm-pcm-panel"><h2>外觀設定</h2><div class="wutm-pcm-grid"><label>選單區塊寬度<input name="wutm_product_category_menu[width]" value="<?php echo esc_attr($o['width']); ?>"><small>預設 100%，跟隨網站內容區。</small></label><label>主分類文字大小<input type="number" min="10" max="30" name="wutm_product_category_menu[font_size]" value="<?php echo (int) $o['font_size']; ?>"></label><label>子分類文字大小<input type="number" min="10" max="30" name="wutm_product_category_menu[sub_font_size]" value="<?php echo (int) $o['sub_font_size']; ?>"></label><label>分類文字粗細<select name="wutm_product_category_menu[font_weight]"><?php foreach (['300'=>'細體','400'=>'標準','500'=>'中等','600'=>'半粗','700'=>'粗體'] as $v=>$label): ?><option value="<?php echo esc_attr($v); ?>" <?php selected($o['font_weight'], $v); ?>><?php echo esc_html($label); ?></option><?php endforeach; ?></select></label><div class="wutm-pcm-color-field"><label for="wutm-pcm-text_color">所有分類文字顏色</label><input id="wutm-pcm-text_color" class="wutm-pcm-color" name="wutm_product_category_menu[text_color]" value="<?php echo esc_attr($o['text_color']); ?>"></div><div class="wutm-pcm-color-field"><label for="wutm-pcm-active_color">目前分類與展開圖示顏色</label><input id="wutm-pcm-active_color" class="wutm-pcm-color" name="wutm_product_category_menu[active_color]" value="<?php echo esc_attr($o['active_color']); ?>"></div><div class="wutm-pcm-color-field"><label for="wutm-pcm-row_bg">主分類列背景顏色</label><input id="wutm-pcm-row_bg" class="wutm-pcm-color" name="wutm_product_category_menu[row_bg]" value="<?php echo esc_attr($o['row_bg']); ?>"></div><div class="wutm-pcm-color-field"><label for="wutm-pcm-row_hover">滑鼠移入與目前分類背景</label><input id="wutm-pcm-row_hover" class="wutm-pcm-color" name="wutm_product_category_menu[row_hover]" value="<?php echo esc_attr($o['row_hover']); ?>"></div></div></section><?php submit_button('儲存設定'); ?></form></div>
     <?php
 }
 
@@ -59,11 +61,17 @@ function wutm_pcm_tree(array $terms, array $children_by_parent, int $current, ar
         $link = get_term_link($term);
         $label = esc_html($term->name) . ($show_count ? ' <small>(' . absint($term->count) . ')</small>' : '');
         $html .= '<div class="wutm-pcm-item' . ($branch ? ' is-current' : '') . '" role="listitem"><div class="wutm-pcm-row">';
-        // A temporary permalink error must not erase a whole category branch.
-        $html .= is_wp_error($link) ? '<span class="wutm-pcm-label">' . $label . '</span>' : '<a href="' . esc_url($link) . '">' . $label . '</a>';
-        if ($children) $html .= '<button type="button" class="wutm-pcm-toggle" aria-expanded="' . ($expanded ? 'true' : 'false') . '" aria-label="' . esc_attr('切換 ' . $term->name . ' 子分類') . '"><span></span></button>';
+        if ( $children ) {
+            $html .= '<button type="button" class="wutm-pcm-toggle" aria-expanded="' . ($expanded ? 'true' : 'false') . '"><span>' . $label . '</span><span class="wutm-pcm-icon" aria-hidden="true"></span></button>';
+        } else {
+            $html .= is_wp_error($link) ? '<span class="wutm-pcm-label">' . $label . '</span>' : '<a href="' . esc_url($link) . '"' . ($active ? ' aria-current="page"' : '') . '>' . $label . '</a>';
+        }
         $html .= '</div>';
-        if ($children) $html .= '<div class="wutm-pcm-children"' . ($expanded ? '' : ' hidden') . '>' . wutm_pcm_tree($children, $children_by_parent, $current, $ancestors, $mode, $show_count) . '</div>';
+        if ($children) {
+            $html .= '<div class="wutm-pcm-children"' . ($expanded ? '' : ' hidden') . '>';
+            if (!is_wp_error($link)) $html .= '<a class="wutm-pcm-parent-link" href="' . esc_url($link) . '"' . ($active ? ' aria-current="page"' : '') . '>查看全部：' . esc_html($term->name) . '</a>';
+            $html .= wutm_pcm_tree($children, $children_by_parent, $current, $ancestors, $mode, $show_count) . '</div>';
+        }
         $html .= '</div>';
     }
     return $html . '</div>';
@@ -107,7 +115,7 @@ function wutm_pcm_all_product_categories(): array {
     return $cached = array_values($by_id);
 }
 
-function wutm_pcm_shortcode($atts): string {
+function wutm_pcm_render($atts, bool $mobile_archive = false): string {
     $o = wutm_pcm_options();
     $atts = shortcode_atts(['hide_empty' => (string) $o['hide_empty'], 'show_count' => (string) $o['show_count'], 'expand_mode' => $o['expand_mode']], $atts, 'wutm_product_categories');
     $hide_empty = filter_var($atts['hide_empty'], FILTER_VALIDATE_BOOLEAN);
@@ -152,15 +160,39 @@ function wutm_pcm_shortcode($atts): string {
     $current = is_tax('product_cat') ? (int) get_queried_object_id() : 0;
     $ancestors = $current ? array_map('intval', get_ancestors($current, 'product_cat')) : [];
     $uid = wp_unique_id('wutm-pcm-');
-    $html = '<nav id="' . esc_attr($uid) . '" class="wutm-pcm" aria-label="商品分類">' . wutm_pcm_tree($terms, $children_by_parent, $current, $ancestors, $mode, $show_count) . '</nav>';
-    $html .= '<style>#' . esc_attr($uid) . '{max-width:440px;font-family:inherit}#' . esc_attr($uid) . ' ul{margin:0;padding:0;list-style:none}#' . esc_attr($uid) . ' .wutm-pcm-item{margin:0 0 7px}#' . esc_attr($uid) . ' .wutm-pcm-row{display:flex;align-items:center;min-height:46px;border-radius:9px;background:' . esc_attr($o['row_bg']) . ';overflow:hidden;transition:.2s}#' . esc_attr($uid) . ' .wutm-pcm-row:hover,#' . esc_attr($uid) . ' .is-current>.wutm-pcm-row{background:' . esc_attr($o['row_hover']) . '}#' . esc_attr($uid) . ' .wutm-pcm-row>a{flex:1;padding:11px 14px;color:' . esc_attr($o['text_color']) . ';font-size:' . (int) $o['font_size'] . 'px;font-weight:' . esc_attr($o['font_weight']) . ';text-decoration:none}#' . esc_attr($uid) . ' .is-current>.wutm-pcm-row>a{color:' . esc_attr($o['active_color']) . '}#' . esc_attr($uid) . ' small{opacity:.62}#' . esc_attr($uid) . ' .wutm-pcm-toggle{position:relative;width:42px;height:42px;border:0;background:transparent;cursor:pointer}#' . esc_attr($uid) . ' .wutm-pcm-toggle:before,#' . esc_attr($uid) . ' .wutm-pcm-toggle:after{position:absolute;left:15px;top:20px;width:12px;height:2px;background:' . esc_attr($o['active_color']) . ';content:""}#' . esc_attr($uid) . ' .wutm-pcm-toggle:after{transform:rotate(90deg);transition:.2s}#' . esc_attr($uid) . ' .wutm-pcm-toggle[aria-expanded=true]:after{transform:none}#' . esc_attr($uid) . ' .wutm-pcm-children{margin:4px 0 5px 14px;padding-left:12px;border-left:2px solid ' . esc_attr($o['row_bg']) . '}#' . esc_attr($uid) . ' .wutm-pcm-children .wutm-pcm-row{min-height:38px;background:transparent}#' . esc_attr($uid) . ' .wutm-pcm-children .wutm-pcm-row>a{padding:8px 10px;font-size:' . (int) $o['sub_font_size'] . 'px}</style>';
+    $class = $mobile_archive ? 'wutm-pcm-archive-mobile' : 'wutm-pcm-inline';
+    if (empty($o['show_mobile'])) $class .= ' wutm-pcm-desktop-only';
+    $html = '<nav id="' . esc_attr($uid) . '" class="wutm-pcm ' . $class . '" aria-label="商品分類">';
+    if (!empty($o['show_mobile'])) {
+        $html .= '<button type="button" class="wutm-pcm-mobile-toggle" aria-expanded="false">商品分類 <span aria-hidden="true">＋</span></button>';
+    }
+    if (!empty($o['show_search'])) {
+        $html .= '<label class="wutm-pcm-search">搜尋商品分類<input type="search" placeholder="輸入分類名稱"></label><p class="wutm-pcm-empty" role="status" hidden>找不到符合的分類。</p>';
+    }
+    $html .= wutm_pcm_tree($terms, $children_by_parent, $current, $ancestors, $mode, $show_count) . '</nav>';
+    $html .= '<style>#' . esc_attr($uid) . '{max-width:440px;font-family:inherit}#' . esc_attr($uid) . ' ul{margin:0;padding:0;list-style:none}#' . esc_attr($uid) . ' .wutm-pcm-item{margin:0 0 7px}#' . esc_attr($uid) . ' .wutm-pcm-row{display:flex;align-items:center;min-height:46px;border-radius:9px;background:' . esc_attr($o['row_bg']) . ';overflow:hidden;transition:.2s}#' . esc_attr($uid) . ' .wutm-pcm-row:hover,#' . esc_attr($uid) . ' .is-current>.wutm-pcm-row{background:' . esc_attr($o['row_hover']) . '}#' . esc_attr($uid) . ' .wutm-pcm-row>a,#' . esc_attr($uid) . ' .wutm-pcm-toggle{flex:1;padding:11px 14px;color:' . esc_attr($o['text_color']) . ';font-size:' . (int) $o['font_size'] . 'px;font-weight:' . esc_attr($o['font_weight']) . ';text-decoration:none}#' . esc_attr($uid) . ' .is-current>.wutm-pcm-row>a,#' . esc_attr($uid) . ' .is-current>.wutm-pcm-row>.wutm-pcm-toggle{color:' . esc_attr($o['active_color']) . '}#' . esc_attr($uid) . ' small{opacity:.62}#' . esc_attr($uid) . ' .wutm-pcm-toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:46px;text-align:start;border:0;border-radius:inherit;background:transparent;cursor:pointer}#' . esc_attr($uid) . ' .wutm-pcm-icon:before,#' . esc_attr($uid) . ' .wutm-pcm-icon:after{position:absolute;inset-inline-start:0;top:7px;width:12px;height:2px;background:' . esc_attr($o['active_color']) . ';content:""}#' . esc_attr($uid) . ' .wutm-pcm-icon:after{transform:rotate(90deg);transition:.2s}#' . esc_attr($uid) . ' .wutm-pcm-toggle[aria-expanded=true] .wutm-pcm-icon:after{transform:none}#' . esc_attr($uid) . ' .wutm-pcm-children{margin:4px 0 5px 14px;padding-left:12px;border-left:2px solid ' . esc_attr($o['row_bg']) . '}#' . esc_attr($uid) . ' .wutm-pcm-children .wutm-pcm-row{min-height:38px;background:transparent}#' . esc_attr($uid) . ' .wutm-pcm-children .wutm-pcm-row>a,#' . esc_attr($uid) . ' .wutm-pcm-children .wutm-pcm-toggle{padding:8px 10px;font-size:' . (int) $o['sub_font_size'] . 'px}</style>';
     // Elementor page CSS can hide the menu's first direct child with a more
     // specific ID + pseudo-class selector. Repeat the ID to ensure the first
     // category remains visible without affecting nested category lists.
-    $html .= '<style>#' . esc_attr($uid) . ' .wutm-pcm-list,#' . esc_attr($uid) . ' .wutm-pcm-item{display:block!important;visibility:visible!important;opacity:1!important}#' . esc_attr($uid) . '#' . esc_attr($uid) . '>.wutm-pcm-list>.wutm-pcm-item:first-child{display:block!important;visibility:visible!important;opacity:1!important}#' . esc_attr($uid) . ' .wutm-pcm-children[hidden]{display:none!important}#' . esc_attr($uid) . ' .wutm-pcm-row>.wutm-pcm-label{flex:1;padding:11px 14px;color:' . esc_attr($o['text_color']) . ';font-size:' . (int) $o['sub_font_size'] . 'px;font-weight:' . esc_attr($o['font_weight']) . '}</style>';
-    $html .= '<script>(function(){const root=document.getElementById(' . wp_json_encode($uid) . ');if(!root||root.dataset.ready)return;root.dataset.ready="1";root.addEventListener("click",function(e){const b=e.target.closest(".wutm-pcm-toggle");if(!b||!root.contains(b))return;const c=b.closest(".wutm-pcm-item").querySelector(":scope > .wutm-pcm-children"),open=b.getAttribute("aria-expanded")==="true";b.setAttribute("aria-expanded",open?"false":"true");if(c)c.hidden=open;});})();</script>';
+    $html .= '<style>#' . esc_attr($uid) . ' .wutm-pcm-list,#' . esc_attr($uid) . ' .wutm-pcm-item{display:block!important;visibility:visible!important;opacity:1!important}#' . esc_attr($uid) . '#' . esc_attr($uid) . '>.wutm-pcm-list>.wutm-pcm-item:first-child{display:block!important;visibility:visible!important;opacity:1!important}#' . esc_attr($uid) . ' .wutm-pcm-children[hidden],#' . esc_attr($uid) . ' .wutm-pcm-item[hidden],#' . esc_attr($uid) . '#' . esc_attr($uid) . '>.wutm-pcm-list>.wutm-pcm-item[hidden]{display:none!important}#' . esc_attr($uid) . ' .wutm-pcm-row>.wutm-pcm-label{flex:1;padding:11px 14px;color:' . esc_attr($o['text_color']) . ';font-size:' . (int) $o['sub_font_size'] . 'px;font-weight:' . esc_attr($o['font_weight']) . '}</style>';
+    static $assets_printed = false;
+    if (!$assets_printed) {
+        $assets_printed = true;
+        $html .= '<style>' . file_get_contents(__DIR__ . '/menu.css') . '</style>';
+        $html .= '<script defer src="' . esc_url(WUTM_URL . 'modules/product-category-menu/menu.js?ver=' . WUTM_VERSION) . '"></script>';
+    }
     $html .= '<style>#' . esc_attr($uid) . '{width:100%;max-width:' . esc_attr($o['width']) . '}</style>';
     return $html;
 }
+function wutm_pcm_shortcode($atts): string {
+    return wutm_pcm_render($atts);
+}
+
+add_action('woocommerce_before_main_content', static function (): void {
+    if (!empty(wutm_pcm_options()['show_mobile']) && function_exists('is_shop') && (is_shop() || is_product_taxonomy())) {
+        echo wutm_pcm_render([], true);
+    }
+}, 30);
+
 add_shortcode('wutm_product_categories', 'wutm_pcm_shortcode');
 add_shortcode('wc_category_accordion', 'wutm_pcm_shortcode');

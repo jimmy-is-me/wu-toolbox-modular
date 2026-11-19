@@ -1,6 +1,8 @@
 <?php
 /** Regression checks for complete product-category hierarchy and ordering. */
 define('ABSPATH', __DIR__ . '/');
+define('WUTM_URL', '/');
+define('WUTM_VERSION', 'fixture');
 $wpdb = new class {
     public string $term_taxonomy = 'wp_term_taxonomy';
     public function get_results($sql): array {
@@ -16,7 +18,7 @@ $wpdb = new class {
 };
 function add_action(...$args): void {}
 function add_shortcode(...$args): void {}
-function get_option($key, $default = []) { return ['hide_empty' => 1]; }
+function get_option($key, $default = []) { return ['hide_empty' => 1] + ($GLOBALS['pcm_fixture_options'] ?? []); }
 function wp_parse_args($args, $defaults): array { return array_merge($defaults, $args); }
 function shortcode_atts($defaults, $atts, $shortcode): array { return array_merge($defaults, (array) $atts); }
 function is_wp_error($value): bool { return false; }
@@ -50,6 +52,11 @@ function get_terms($args): array {
 }
 
 require dirname(__DIR__) . '/modules/product-category-menu/module.php';
+if ($argc > 1 && in_array($argv[1], ['interactive', 'inline'], true)) {
+    $GLOBALS['pcm_fixture_options'] = ['show_search'=>1,'show_mobile'=>1];
+    echo wutm_pcm_render([], $argv[1] === 'interactive');
+    exit;
+}
 $html = wutm_pcm_shortcode([]);
 foreach (['Empty parent', 'Populated child', 'First by saved order', 'Orphan with products', 'Air conditioner series'] as $name) {
     if (strpos($html, $name) === false) throw new RuntimeException('Missing category: ' . $name);
@@ -58,4 +65,7 @@ if (strpos($html, 'Empty branch') !== false) throw new RuntimeException('An enti
 if (strpos($html, 'First by saved order') > strpos($html, 'Empty parent')) throw new RuntimeException('Saved category order was not applied.');
 if (strpos($html, '#wutm-pcm-test#wutm-pcm-test>.wutm-pcm-list>.wutm-pcm-item:first-child{display:block!important') === false) throw new RuntimeException('The first category must override conflicting Elementor hide rules.');
 
+if (strpos($html, 'wutm-pcm-desktop-only') === false || strpos($html, 'type="search"') !== false) {
+    throw new RuntimeException('Search and mobile display are opt-in.');
+}
 echo "Product category menu hierarchy checks passed.\n";
