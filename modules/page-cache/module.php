@@ -720,6 +720,16 @@ final class WUTM_Page_Cache {
 		return $labels[ $reason ] ?? '尚無訪客診斷紀錄';
 	}
 
+	private static function format_ttl( int $seconds ): string {
+		$parts = array();
+		foreach ( array( 86400 => '天', 3600 => '小時', 60 => '分鐘', 1 => '秒' ) as $unit => $label ) {
+			$count = intdiv( $seconds, $unit );
+			if ( $count ) $parts[] = $count . ' ' . $label;
+			$seconds %= $unit;
+		}
+		return $parts ? implode( ' ', $parts ) : '0 秒';
+	}
+
 	public static function render_page(): void {
 		if ( ! current_user_can( 'manage_options' ) ) return;
 		$settings = self::settings();
@@ -742,7 +752,7 @@ final class WUTM_Page_Cache {
 				<div><span>有效快取版本</span><strong><?php echo esc_html( $stats['count'] ); ?></strong><small>同一頁分電腦／平板／手機版本</small></div>
 				<div><span>磁碟使用量</span><strong><?php echo esc_html( size_format( $stats['size'], 2 ) ); ?></strong><small><?php echo esc_html( $stats['expired'] ); ?> 個已過期版本（再次瀏覽會重建）</small></div>
 				<div><span>引擎狀態</span><strong class="wutm-cache-badge <?php echo $healthy ? 'is-ready' : 'has-error'; ?>"><?php echo esc_html( $state ); ?></strong><small><?php echo $healthy ? 'GZIP 與目錄寫入檢查通過' : '請查看運作診斷'; ?></small></div>
-				<div><span>快取期限</span><strong><?php echo esc_html( absint( $settings['ttl'] ) ); ?> 秒</strong><small><?php echo ! empty( $settings['auto_invalidate'] ) ? '內容更新：自動清除相關頁面' : '內容更新：請手動清除'; ?></small></div>
+				<div><span>快取期限</span><strong><?php echo esc_html( self::format_ttl( absint( $settings['ttl'] ) ) ); ?></strong><small><?php echo ! empty( $settings['auto_invalidate'] ) ? '內容更新：自動清除相關頁面' : '內容更新：請手動清除'; ?></small></div>
 			</div>
 			<nav class="wutm-cache-tabs" aria-label="頁面快取設定"><?php foreach ( $tabs as $key => $label ) : ?><a class="<?php echo $tab === $key ? 'is-active' : ''; ?>" <?php echo $tab === $key ? 'aria-current="page"' : ''; ?> href="<?php echo esc_url( add_query_arg( 'tab', $key, $base_url ) ); ?>"><?php echo esc_html( $label ); ?></a><?php endforeach; ?></nav>
 			<section class="wutm-cache-panel">

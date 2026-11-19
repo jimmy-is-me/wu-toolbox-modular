@@ -85,6 +85,19 @@ async function checkBypass(url, reason, headers = {}, method = 'GET') {
   await checkBypass('/server-error/', 'http-status');
   await checkBypass('/normal/?token=secret', 'method-or-query');
   await checkBypass('/normal/', 'method-or-query', {}, 'POST');
+  const member = { Cookie: 'test_logged_in=1' };
+  for (const memberFirst of [false, true]) {
+    const url = '/price-fixture-' + (memberFirst ? 'member-first' : 'guest-first') + '/';
+    if (!memberFirst) assert.match((await checkCached(url)).body, /PRICE:100/);
+    const privatePage = await request(url, member);
+    assert.notEqual(privatePage.headers['x-wutm-page-cache'], 'HIT');
+    assert.match(privatePage.body, /PRICE:80/);
+    assert.doesNotMatch(privatePage.body, /PRICE:100/);
+    if (memberFirst) assert.match((await checkCached(url)).body, /PRICE:100/);
+    assert.match((await request(url)).body, /PRICE:100/);
+  }
+  await checkBypass('/basket-fixture/', 'commerce-page');
+  await checkBypass('/account-fixture/', 'commerce-page');
   const english = await checkCached('/en/product/');
   assert.ok(english.body.includes('ENGLISH-TRANSLATED'), 'Save translated HTML, not the inner Chinese template');
   const chinese = await checkCached('/product/');

@@ -22,6 +22,15 @@ async function jquery(page,sortable=false) {
    await page.addStyleTag({content:readWP('wp-admin/css/common.css')+readWP('wp-includes/css/media-views.css')+readWP('wp-admin/css/media.css')});
    await page.addStyleTag({content:'body{margin:0}.media-modal{inset:10px}.media-frame{height:800px}.media-frame-content{left:0;top:0;bottom:0}.media-toolbar{height:72px;box-sizing:border-box}'});
    await page.evaluate(()=>document.querySelector('.media-frame-content').setAttribute('data-columns','12'));
+   if(modal && builder){
+    await page.evaluate(()=>{
+     const browser=document.querySelector('.attachments-browser');
+     const uploader=document.createElement('div');
+     uploader.className='uploader-inline';
+     uploader.style.cssText='position:absolute;top:72px;height:700px;pointer-events:none';
+     browser.appendChild(uploader);
+    });
+   }
    await page.addStyleTag({content:mediaCSS});await jquery(page);
    await page.evaluate(()=>{window.ajaxurl='/admin-ajax.php';jQuery.ajax=()=>jQuery.Deferred().resolve({success:true,data:{folders:[{id:1,parent:0,name:'測試資料夾',count:1}],all_count:1,uncategorized_count:0}}).promise();});
    await page.addScriptTag({content:script});
@@ -32,6 +41,7 @@ async function jquery(page,sortable=false) {
     return {panel:rect('.wumf-panel'),grid:rect('.attachments'),toolbar:rect('.media-toolbar'),compact:browser.classList.contains('wumf-compact')};
    });
    assert.ok(boxes.panel.height>30,'Folder pane visible');
+   if(modal && builder) assert.ok(boxes.panel.y<boxes.toolbar.bottom+12,'Modal upload overlay must not displace folders');
    assert.ok(boxes.panel.y>=boxes.toolbar.bottom-2,'Folders below toolbar '+JSON.stringify({width,modal,wrapped,boxes}));
    if(boxes.compact) assert.ok(boxes.grid.y>=boxes.panel.bottom-2,'Mobile grid below drawer '+JSON.stringify({width,modal,wrapped,boxes}));
    else assert.ok(boxes.grid.x>=boxes.panel.right-2,'Grid beside pane '+JSON.stringify({width,modal,wrapped,boxes}));

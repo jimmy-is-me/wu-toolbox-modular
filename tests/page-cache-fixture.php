@@ -37,9 +37,9 @@ function is_404() { return $GLOBALS['mode'] === 'not-found'; }
 function is_preview() { return false; }
 function is_trackback() { return false; }
 function post_password_required() { return $GLOBALS['mode'] === 'password'; }
-function is_cart() { return false; }
+function is_cart() { return $GLOBALS['mode'] === 'basket-fixture'; }
 function is_checkout() { return $GLOBALS['mode'] === 'checkout'; }
-function is_account_page() { return false; }
+function is_account_page() { return $GLOBALS['mode'] === 'account-fixture'; }
 function is_singular() { return true; }
 function get_queried_object_id() { return 42; }
 function get_post_type( $id ) { return 'page'; }
@@ -119,7 +119,7 @@ if ( $mode === 'late-flag' ) define( 'DONOTCACHEPAGE', true );
 if ( $mode === 'late-no-cache' ) nocache_headers();
 if ( $mode === 'transformed' ) ob_start( fn( $html ) => str_replace( 'before-transform', 'AFTER-TRANSFORM', $html ) );
 if ( $mode === 'invalidated-during-render' ) WUTM_Page_Cache::clear_on_global_change();
-echo '<!doctype html><html><head><title>Fixture</title></head><body><main>before-transform ' . esc_html( $mode ) . ' ' . microtime( true ) . '</main>';
+echo '<!doctype html><html><head><title>Fixture</title></head><body><main>before-transform ' . esc_html( $mode ) . ( strpos( $mode, 'price-fixture' ) === 0 ? ( is_user_logged_in() ? ' PRICE:80' : ' PRICE:100' ) : '' ) . ' ' . microtime( true ) . '</main>';
 if ( $mode === 'large' ) echo str_repeat( 'x', 4194400 );
 if ( in_array( $mode, array( 'chunked', 'cleaned' ), true ) && ob_get_level() > 1 ) ob_end_flush();
 if ( $mode === 'chunked' ) ob_flush();

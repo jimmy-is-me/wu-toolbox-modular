@@ -1,0 +1,14 @@
+.wp-block-wu-toolbox-advanced-gallery .wp-block-image img { transition: transform .25s ease; }
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+    .wp-block-wu-toolbox-advanced-gallery.wutm-gallery-zoom .wp-block-image:hover img { transform: scale(1.04); }
+}
+@media (max-width: 600px) {
+    .wp-block-wu-toolbox-advanced-gallery .wp-block-gallery {
+        --wp--style--unstable-gallery-gap: 8px;
+    }
+}
+
+@media (max-width: 600px) {
+    .wp-block-wu-toolbox-advanced-gallery.wutm-gallery-mobile-1 .wp-block-gallery.has-nested-images figure.wp-block-image { width: 100% !important; }
+    .wp-block-wu-toolbox-advanced-gallery.wutm-gallery-mobile-2 .wp-block-gallery.has-nested-images figure.wp-block-image { width: calc((100% - 8px) / 2) !important; }
+}

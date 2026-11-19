@@ -1260,8 +1260,9 @@ function wumf_admin_js() {
             }
             // The upload drop zone sits before the toolbar on upload.php. It can
             // be opened without a DOM insertion, so an old toolbar-only offset
-            // would leave the folder pane on top of the uploader.
-            if($uploader.length){
+            // would leave the folder pane on top of the uploader. In a modal this
+            // is an overlay (including the empty-gallery state), not a flow row.
+            if($uploader.length && !$browser.closest('.media-modal').length){
                 top=Math.max(top,Math.ceil($uploader[0].getBoundingClientRect().bottom-browserRect.top));
             }
 

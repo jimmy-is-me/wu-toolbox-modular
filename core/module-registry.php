@@ -10,6 +10,7 @@ function wutm_modules(): array {
         'layout-inspector' => ['name' => '版面檢查器', 'description' => '讓管理員從前台管理列掃描 Section 與 Container 寬度、標示異常區塊並複製完整報告，可設定版面基準寬度與容許誤差。', 'group' => '特殊工具', 'icon' => '📐', 'settings_page' => 'wu-layout-inspector'],
         'wp-downgrade' => ['name' => 'WP Downgrade', 'description' => '快速安裝與啟用官方 WP Downgrade 外掛。', 'group' => '特殊工具', 'icon' => '⏪', 'tag' => '第三方外掛', 'settings_page' => 'wu-wp-downgrade'],
         'wordfence' => ['name' => 'Wordfence', 'description' => '快速安裝與啟用官方 Wordfence 外掛。', 'group' => '安全性', 'icon' => '🛡️', 'tag' => '第三方外掛', 'settings_page' => 'wu-wordfence'],
+        'gutenberg-manager' => ['name' => '古騰堡管理', 'description' => '掃描區塊使用量、整理編輯器插入器，並選用進階相簿。', 'group' => '內容管理', 'settings_page' => 'wu-gutenberg-manager'],
         'marquee-announcements' => ['name' => '跑馬燈／公告輪播', 'description' => '建立可拖曳排序的多則公告，支援全站、首頁、指定頁面或短代碼顯示與多種輪播效果。', 'group' => '內容管理', 'icon' => '📢', 'settings_page' => 'wu-marquee-announcements'],
         'knowledge-base' => ['name' => '知識庫', 'description' => '建立知識庫文件與分類，提供站內搜尋、精選內容、快捷連結、前台快速支援面板及可選擇的回到最上按鈕。', 'group' => '內容管理', 'icon' => '📚', 'settings_page' => 'wumetax-quick-support', 'related_pages' => ['edit.php?post_type=skb_doc', 'edit-tags.php?taxonomy=skb_category&post_type=skb_doc', 'edit.php?post_type=skb_doc&page=skb-settings']],
         'site-ai-connector' => ['name' => 'AI 連接器', 'description' => '統一管理 MCP、OpenAPI、Gemini 串接方式、唯讀／讀寫金鑰、IP 白名單與連線權限。', 'group' => 'AI功能', 'icon' => '', 'settings_page' => 'site-ai-connector'],
