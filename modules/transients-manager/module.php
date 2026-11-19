@@ -136,7 +136,7 @@ class WU_Transients_Manager {
         
         $sanitized['enabled'] = !empty($input['enabled']) ? true : false;
         $sanitized['auto_cleanup'] = !empty($input['auto_cleanup']) ? true : false;
-        $sanitized['cleanup_frequency'] = sanitize_text_field($input['cleanup_frequency']);
+        $sanitized['cleanup_frequency'] = sanitize_text_field($input['cleanup_frequency'] ?? 'daily');
         $sanitized['show_performance_stats'] = !empty($input['show_performance_stats']) ? true : false;
         $sanitized['protect_important'] = !empty($input['protect_important']) ? true : false;
         
@@ -150,7 +150,7 @@ class WU_Transients_Manager {
      */
     public function enqueue_admin_assets($hook) {
         // 僅在設定頁面載入
-        if ($hook !== 'wumetaxtoolkit_page_wu-transients-manager') {
+        if (($_GET['page'] ?? '') !== 'wu-transients-manager' || !current_user_can('manage_options')) {
             return;
         }
         
@@ -556,7 +556,7 @@ class WU_Transients_Manager {
                 <p><strong>建議操作：</strong></p>
                 <ul>
                     <li>使用快取外掛的管理介面清除物件快取</li>
-                    <li>本模組的統計數據僅反映資料庫中的 Transients</li>
+                    <li>使用外部物件快取時，本模組暫停統計及清理</li>
                     <li>記憶體中的 Transients 會自動過期，通常不需要手動清除</li>
                 </ul>
             </div>
@@ -639,11 +639,11 @@ class WU_Transients_Manager {
             <h2>清理操作</h2>
             <div class="wu-action-panel">
                 <div class="wu-action-buttons">
-                    <button type="button" class="button button-primary" onclick="clearTransients('expired')">
+                    <button type="button" class="button button-primary" onclick="clearTransients('expired')" <?php disabled($using_object_cache); ?>>
                         清除過期 Transients (<?php echo number_format($stats['expired']); ?> 個)
                     </button>
-                    <button type="button" class="button button-secondary" onclick="clearTransients('all')">
-                        清除所有 Transients (<?php echo number_format($stats['total']); ?> 個)
+                    <button type="button" class="button button-secondary" onclick="clearTransients('all')" <?php disabled($using_object_cache); ?>>
+                        分批清除 Transients (<?php echo number_format($stats['total']); ?> 個)
                     </button>
                     <button type="button" class="button" onclick="refreshStats()">
                         重新整理統計
@@ -710,7 +710,7 @@ class WU_Transients_Manager {
             wp_send_json_error('權限不足');
         }
         
-        $type = sanitize_text_field($_POST['type']);
+        $type = sanitize_key(wp_unslash($_POST['type'] ?? ''));
         
         if ($type === 'expired') {
             $result = $this->clear_expired_transients();
@@ -767,86 +767,52 @@ class WU_Transients_Manager {
             );
         }
         
-        // 優化的統計查詢 - 僅計算數量和大小,不讀取完整資料
-        $total_stats = $wpdb->get_row(
-            "SELECT 
-                COUNT(*) as total,
-                SUM(LENGTH(option_value)) as total_size
-             FROM {$wpdb->options}
-             WHERE option_name LIKE '_transient_%' 
-             AND option_name NOT LIKE '_transient_timeout_%'"
-        );
-        
-        $site_total_stats = $wpdb->get_row(
-            "SELECT 
-                COUNT(*) as total,
-                SUM(LENGTH(option_value)) as total_size
-             FROM {$wpdb->options}
-             WHERE option_name LIKE '_site_transient_%' 
-             AND option_name NOT LIKE '_site_transient_timeout_%'"
-        );
-        
-        $total = intval($total_stats->total) + intval($site_total_stats->total);
-        $total_size = intval($total_stats->total_size) + intval($site_total_stats->total_size);
-        
-        // 優化的過期統計查詢
-        $expired_stats = $wpdb->get_row(
-            "SELECT 
-                COUNT(*) as expired,
-                SUM(LENGTH(t1.option_value)) as expired_size
-             FROM {$wpdb->options} t1
-             LEFT JOIN {$wpdb->options} t2 
-                ON t2.option_name = CONCAT('_transient_timeout_', SUBSTRING(t1.option_name, 12))
-             WHERE t1.option_name LIKE '_transient_%' 
-             AND t1.option_name NOT LIKE '_transient_timeout_%'
-             AND (t2.option_value IS NULL OR CAST(t2.option_value AS UNSIGNED) < UNIX_TIMESTAMP())"
-        );
-        
-        $site_expired_stats = $wpdb->get_row(
-            "SELECT 
-                COUNT(*) as expired,
-                SUM(LENGTH(t1.option_value)) as expired_size
-             FROM {$wpdb->options} t1
-             LEFT JOIN {$wpdb->options} t2 
-                ON t2.option_name = CONCAT('_site_transient_timeout_', SUBSTRING(t1.option_name, 17))
-             WHERE t1.option_name LIKE '_site_transient_%' 
-             AND t1.option_name NOT LIKE '_site_transient_timeout_%'
-             AND (t2.option_value IS NULL OR CAST(t2.option_value AS UNSIGNED) < UNIX_TIMESTAMP())"
-        );
-        
-        $expired = intval($expired_stats->expired) + intval($site_expired_stats->expired);
-        $expired_size = intval($expired_stats->expired_size) + intval($site_expired_stats->expired_size);
-        $valid = $total - $expired;
-        
-        return array(
-            'total' => $total,
-            'expired' => $expired,
-            'valid' => $valid,
-            'size' => $total_size,
-            'size_formatted' => $this->format_bytes($total_size),
-            'expired_size' => $expired_size,
-            'expired_size_formatted' => $this->format_bytes($expired_size),
-            'using_object_cache' => false
-        );
+        $total = $expired = $size = $expired_size = 0;
+        foreach ($this->storage_prefixes() as $prefix) {
+            $row = $wpdb->get_row($wpdb->prepare(
+                "SELECT COUNT(*) AS total, SUM(LENGTH(v.option_value)) AS bytes,
+                        SUM(CASE WHEN t.option_value REGEXP '^[1-9][0-9]*$' AND CAST(t.option_value AS UNSIGNED) < %d THEN 1 ELSE 0 END) AS expired,
+                        SUM(CASE WHEN t.option_value REGEXP '^[1-9][0-9]*$' AND CAST(t.option_value AS UNSIGNED) < %d THEN LENGTH(v.option_value) ELSE 0 END) AS expired_bytes
+                 FROM {$wpdb->options} v LEFT JOIN {$wpdb->options} t
+                   ON t.option_name = CONCAT(%s, SUBSTRING(v.option_name, %d))
+                 WHERE v.option_name LIKE %s AND v.option_name NOT LIKE %s",
+                time(), time(), $prefix . 'timeout_', strlen($prefix) + 1,
+                $wpdb->esc_like($prefix) . '%', $wpdb->esc_like($prefix . 'timeout_') . '%'
+            ));
+            $total += (int) ($row->total ?? 0);
+            $expired += (int) ($row->expired ?? 0);
+            $size += (int) ($row->bytes ?? 0);
+            $expired_size += (int) ($row->expired_bytes ?? 0);
+        }
+        return [
+            'total' => $total, 'expired' => $expired, 'valid' => $total - $expired,
+            'size' => $size, 'size_formatted' => $this->format_bytes($size),
+            'expired_size' => $expired_size, 'expired_size_formatted' => $this->format_bytes($expired_size),
+            'using_object_cache' => false,
+        ];
     }
-    
+
+    private function storage_prefixes(): array {
+        // Network transients live outside this site's options on multisite.
+        return is_multisite() ? ['_transient_'] : ['_transient_', '_site_transient_'];
+    }
+
     /**
      * 取得 Transients 分類
      */
     private function get_transients_by_type() {
         global $wpdb;
         
-        $transients = $wpdb->get_col(
-            "SELECT option_name FROM {$wpdb->options} 
-             WHERE option_name LIKE '_transient_%' 
-             AND option_name NOT LIKE '_transient_timeout_%'
-             LIMIT 1000"
-        );
-        
+        if (wp_using_ext_object_cache()) return [];
+        $transients = $wpdb->get_col($wpdb->prepare(
+            "SELECT option_name FROM {$wpdb->options} WHERE option_name LIKE %s AND option_name NOT LIKE %s LIMIT 1000",
+            $wpdb->esc_like('_transient_') . '%', $wpdb->esc_like('_transient_timeout_') . '%'
+        ));
+
         $types = array();
         
         foreach ($transients as $transient_name) {
-            $name = str_replace('_transient_', '', $transient_name);
+            $name = substr($transient_name, strlen('_transient_'));
             
             // 分析 transient 類型
             if (strpos($name, 'feed_') === 0) {
@@ -901,80 +867,61 @@ class WU_Transients_Manager {
         return $types;
     }
     
-    /**
-     * 清除過期 Transients (優化版本)
-     */
     private function clear_expired_transients() {
-        global $wpdb;
-        
-        // 使用單一 DELETE 語句清除過期的 transients 及其 timeout
-        $deleted = $wpdb->query(
-            "DELETE t1, t2 
-             FROM {$wpdb->options} t1
-             LEFT JOIN {$wpdb->options} t2 
-                ON t2.option_name = CONCAT('_transient_timeout_', SUBSTRING(t1.option_name, 12))
-             WHERE t1.option_name LIKE '_transient_%' 
-             AND t1.option_name NOT LIKE '_transient_timeout_%'
-             AND (t2.option_value IS NULL OR CAST(t2.option_value AS UNSIGNED) < UNIX_TIMESTAMP())"
-        );
-        
-        // 清除網站級別的過期 transients
-        $site_deleted = $wpdb->query(
-            "DELETE t1, t2 
-             FROM {$wpdb->options} t1
-             LEFT JOIN {$wpdb->options} t2 
-                ON t2.option_name = CONCAT('_site_transient_timeout_', SUBSTRING(t1.option_name, 17))
-             WHERE t1.option_name LIKE '_site_transient_%' 
-             AND t1.option_name NOT LIKE '_site_transient_timeout_%'
-             AND (t2.option_value IS NULL OR CAST(t2.option_value AS UNSIGNED) < UNIX_TIMESTAMP())"
-        );
-        
-        $total_cleared = $deleted + $site_deleted;
-        
-        return array(
-            'success' => true,
-            'message' => sprintf('成功清除 %d 個過期的 Transients', $total_cleared),
-            'cleared' => $total_cleared
-        );
+        return $this->clear_database_transients(true);
     }
-    
-    /**
-     * 清除所有 Transients (帶保護機制)
-     */
+
     private function clear_all_transients() {
-        global $wpdb;
-        
-        // 如果啟用保護,建立排除條件
-        $exclude_conditions = '';
-        if ($this->settings['protect_important']) {
-            $protected_patterns = array();
-            foreach ($this->protected_transients as $pattern) {
-                $protected_patterns[] = $wpdb->prepare("option_name NOT LIKE %s", '_transient_' . $wpdb->esc_like($pattern) . '%');
-            }
-            $exclude_conditions = ' AND ' . implode(' AND ', $protected_patterns);
-        }
-        
-        // 計算要清除的數量
-        $count = $wpdb->get_var(
-            "SELECT COUNT(*) FROM {$wpdb->options} 
-             WHERE (option_name LIKE '_transient_%' OR option_name LIKE '_site_transient_%')
-             {$exclude_conditions}"
-        );
-        
-        // 清除所有符合條件的 transients
-        $wpdb->query(
-            "DELETE FROM {$wpdb->options} 
-             WHERE (option_name LIKE '_transient_%' OR option_name LIKE '_site_transient_%')
-             {$exclude_conditions}"
-        );
-        
-        return array(
-            'success' => true,
-            'message' => sprintf('成功清除 %d 個 Transients', $count),
-            'cleared' => $count
-        );
+        return $this->clear_database_transients(false);
     }
-    
+
+    private function clear_database_transients(bool $expired_only): array {
+        if (wp_using_ext_object_cache()) {
+            return ['success' => false, 'message' => '外部物件快取啟用中，請使用其管理介面清除。'];
+        }
+        global $wpdb;
+        $cleared = 0;
+        $more = false;
+        foreach ($this->storage_prefixes() as $prefix) {
+            $timeout_prefix = $prefix . 'timeout_';
+            $args = [$wpdb->esc_like($prefix) . '%', $wpdb->esc_like($timeout_prefix) . '%'];
+            $where = 'v.option_name LIKE %s AND v.option_name NOT LIKE %s';
+            if ($expired_only) {
+                $where .= " AND EXISTS (SELECT 1 FROM {$wpdb->options} t
+                    WHERE t.option_name = CONCAT(%s, SUBSTRING(v.option_name, %d))
+                    AND t.option_value REGEXP '^[1-9][0-9]*$'
+                    AND CAST(t.option_value AS UNSIGNED) < %d)";
+                array_push($args, $timeout_prefix, strlen($prefix) + 1, time());
+            }
+            if (!empty($this->settings['protect_important'])) {
+                foreach ($this->protected_transients as $protect) {
+                    $where .= ' AND v.option_name NOT LIKE %s';
+                    $args[] = $wpdb->esc_like($prefix . $protect) . '%';
+                }
+            }
+            $names = $wpdb->get_col($wpdb->prepare(
+                "SELECT v.option_name FROM {$wpdb->options} v WHERE $where ORDER BY v.option_name LIMIT 501", $args
+            ));
+            if ($wpdb->last_error) {
+                return ['success' => false, 'message' => sprintf('讀取清單失敗，本次已清除 %d 筆。', $cleared)];
+            }
+            $more = $more || count($names) > 500;
+            foreach (array_slice($names, 0, 500) as $option_name) {
+                $name = substr($option_name, strlen($prefix));
+                if ($expired_only) {
+                    $timeout = get_option($timeout_prefix . $name);
+                    if (!is_numeric($timeout) || (int) $timeout <= 0 || (int) $timeout >= time()) continue;
+                }
+                $deleted = $prefix === '_site_transient_' ? delete_site_transient($name) : delete_transient($name);
+                if ($deleted) ++$cleared;
+            }
+        }
+        return [
+            'success' => true, 'cleared' => $cleared,
+            'message' => sprintf('已清除 %d 個 Transients。', $cleared) . ($more ? '仍有待處理項目，可再次執行清理。' : ''),
+        ];
+    }
+
     /**
      * 安排自動清理
      */

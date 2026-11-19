@@ -22,6 +22,10 @@ function get_option($key, $default = []) { return ['hide_empty' => 1] + ($GLOBAL
 function wp_parse_args($args, $defaults): array { return array_merge($defaults, $args); }
 function shortcode_atts($defaults, $atts, $shortcode): array { return array_merge($defaults, (array) $atts); }
 function is_wp_error($value): bool { return false; }
+function wc_get_page_permalink($page): string { return 'https://example.test/shop/'; }
+function home_url($path): string { return 'https://example.test' . $path; }
+function is_shop(): bool { return false; }
+function is_search(): bool { return false; }
 function is_tax($taxonomy): bool { return false; }
 function wp_unique_id($prefix): string { return $prefix . 'test'; }
 function wp_json_encode($value): string { return json_encode($value); }

@@ -167,6 +167,7 @@ jobs:
         run: |
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/member-loyalty-center-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-member-center.log"
           grep -Fq 'Native member center checks passed:' "$RUNNER_TEMP/wutm-member-center.log"
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/transients-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
       - name: Check maps and content overview preservation, permissions and scope
         run: |
           php tests/content-modules.php

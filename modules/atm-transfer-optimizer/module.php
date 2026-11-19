@@ -68,7 +68,7 @@ final class WUTM_ATM_Transfer_Optimizer {
         $form_id = 'wutm-transfer-form-' . $order->get_id();
         echo '<div id="wutm-bacs-section">';
         if ($accounts) {
-            echo '<div class="wutm-bacs-card"><h4>🏦 匯款／轉帳帳號資訊</h4>';
+            echo '<div class="wutm-bacs-card"><h4>匯款／轉帳帳號資訊</h4>';
             if (!$reported && count($accounts) > 1) echo '<p>請選擇實際匯入的收款帳戶，再提交轉帳回報。</p>';
             foreach ($accounts as $account) {
                 $selected = $selected_account !== '' && hash_equals($selected_account, $account['_wutm_id']);
@@ -83,7 +83,7 @@ final class WUTM_ATM_Transfer_Optimizer {
             echo '</div>';
         }
         if ($reported) {
-            echo '<div class="wutm-transfer-report is-done"><h4>✅ 已完成轉帳回報</h4><p>回報時間：' . esc_html($this->transfer_meta($order, 'time'));
+            echo '<div class="wutm-transfer-report is-done"><h4>已完成轉帳回報</h4><p>回報時間：' . esc_html($this->transfer_meta($order, 'time'));
             $digits = $this->transfer_meta($order, 'digits');
             if ($digits !== '') echo '　帳號末碼：<strong>' . esc_html($digits) . '</strong>';
             echo '<br>收款帳戶：<strong>' . esc_html($this->order_account_label($order)) . '</strong>';
@@ -304,9 +304,22 @@ final class WUTM_ATM_Transfer_Optimizer {
         ?>
         <div class="wrap wutm-bacs-dashboard">
             <style>
-                .wutm-bacs-dashboard{padding:20px 20px 40px 0}.wutm-bacs-dashboard *{box-sizing:border-box}.wutm-bacs-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:15px;margin:20px 0}.wutm-bacs-stat,.wutm-bacs-panel{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.03)}.wutm-bacs-stat.reported{border-left:4px solid #10b981}.wutm-bacs-stat.waiting{border-left:4px solid #f59e0b}.wutm-bacs-stat .label{font-size:13px;color:#64748b;font-weight:500}.wutm-bacs-stat .num{font-size:26px;font-weight:700;margin-top:6px;color:#1e293b}.wutm-bacs-panel{padding:20px;margin-bottom:25px;overflow:auto}.wutm-bacs-panel h3{margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px}.wutm-bacs-table{width:100%;border-collapse:collapse;text-align:left;font-size:13.5px;min-width:850px}.wutm-bacs-table th{background:#f8fafc;padding:12px;border-bottom:1px solid #e2e8f0;color:#475569}.wutm-bacs-table td{padding:12px;border-bottom:1px solid #f1f5f9;color:#334155;vertical-align:middle}.wutm-bacs-table tr:hover td{background:#f8fafc}.wutm-soft-badge{display:inline-block;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600}.wutm-badge-green{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0}.wutm-badge-amber{background:#fef3c7;color:#92400e;border:1px solid #fde68a}.wutm-badge-gray{background:#f1f5f9;color:#64748b}.wutm-bacs-action{display:inline-block;padding:4px 10px;border-radius:4px;text-decoration:none;font-size:12px;font-weight:600;margin:2px}.wutm-bacs-confirm{background:#22c55e;color:#fff!important}.wutm-bacs-remind{background:#f8fafc;border:1px solid #cbd5e1;color:#475569!important}
+                .wutm-bacs-dashboard{padding:20px 20px 40px 0}.wutm-bacs-dashboard *{box-sizing:border-box}.wutm-bacs-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:15px;margin:20px 0}.wutm-bacs-stat,.wutm-bacs-panel{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:18px;box-shadow:0 1px 3px rgba(0,0,0,.03)}.wutm-bacs-stat.reported{border-left:4px solid #10b981}.wutm-bacs-stat.waiting{border-left:4px solid #f59e0b}.wutm-bacs-stat .label{font-size:13px;color:#64748b;font-weight:500}.wutm-bacs-stat .num{font-size:26px;font-weight:700;margin-top:6px;color:#1e293b}.wutm-bacs-panel{padding:20px;margin-bottom:25px;min-width:0}.wutm-bacs-panel h3{margin:0 0 14px;display:flex;align-items:center;justify-content:space-between;gap:12px}.wutm-bacs-table{width:100%;border-collapse:collapse;text-align:left;font-size:13.5px;min-width:800px}.wutm-bacs-table th{background:#f8fafc;padding:12px;border-bottom:1px solid #e2e8f0;color:#475569}.wutm-bacs-table td{padding:12px;border-bottom:1px solid #f1f5f9;color:#334155;vertical-align:middle}.wutm-bacs-table tr:hover td{background:#f8fafc}.wutm-soft-badge{display:inline-block;padding:3px 8px;border-radius:4px;font-size:12px;font-weight:600}.wutm-badge-green{background:#dcfce7;color:#15803d;border:1px solid #bbf7d0}.wutm-badge-amber{background:#fef3c7;color:#92400e;border:1px solid #fde68a}.wutm-badge-gray{background:#f1f5f9;color:#64748b}.wutm-bacs-action{display:inline-block;padding:4px 10px;border-radius:4px;text-decoration:none;font-size:12px;font-weight:600;margin:2px}.wutm-bacs-confirm{background:#22c55e;color:#fff!important}.wutm-bacs-remind{background:#f8fafc;border:1px solid #cbd5e1;color:#475569!important}
+                .wutm-bacs-subtitle{margin:8px 0 24px;color:#475569}
+                .wutm-bacs-stats{grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:12px}
+                .wutm-bacs-stat,.wutm-bacs-panel{box-shadow:none}
+                .wutm-bacs-stat .num,.wutm-bacs-table .amount{font-variant-numeric:tabular-nums}
+                .wutm-bacs-scroll{max-width:100%;overflow:auto}
+                .wutm-bacs-accounts{min-width:560px}
+                .wutm-bacs-table th{white-space:nowrap}
+                .wutm-bacs-table td small{overflow-wrap:anywhere}
+                .wutm-bacs-account-form{display:flex;align-items:center;gap:8px;min-width:215px}
+                .wutm-bacs-account-form select{width:100%;min-width:0;max-width:220px}
+                .wutm-bacs-account-form button,.wutm-bacs-action{white-space:nowrap}
+                .wutm-bacs-confirm{background:#166534}
+                .wutm-bacs-bank-number{font-family:monospace;letter-spacing:.03em;color:#1e293b}
             </style>
-            <h1>🏦 銀行轉帳對帳中心</h1>
+            <h1>銀行轉帳對帳中心</h1><p class="wutm-bacs-subtitle">核對顧客轉帳回報、管理收款帳戶與更新入帳狀態。</p>
             <?php if (isset($_GET['payment_confirmed'])) : ?><div class="notice notice-success is-dismissible"><p>已確認款項入帳並更新訂單狀態。</p></div><?php endif; ?>
             <?php if (isset($_GET['reminder_sent'])) : ?><div class="notice notice-success is-dismissible"><p>付款提醒信已寄送。</p></div><?php endif; ?>
             <?php if (isset($_GET['account_saved'])) : ?><div class="notice notice-success is-dismissible"><p>訂單收款帳戶已儲存。</p></div><?php endif; ?>
@@ -318,14 +331,14 @@ final class WUTM_ATM_Transfer_Optimizer {
                 <div class="wutm-bacs-stat"><div class="label">待核對總金額</div><div class="num" style="color:#2563eb"><?php echo wp_kses_post(wc_price($pending_amount)); ?></div></div>
             </div>
             <div class="wutm-bacs-panel">
-                <h3><span>📋 收款帳戶設定</span><a class="button button-small" href="<?php echo esc_url(admin_url('admin.php?page=wc-settings&tab=checkout&section=bacs')); ?>">修改銀行帳戶</a></h3>
+                <h3><span>收款帳戶設定</span><a class="button button-small" href="<?php echo esc_url(admin_url('admin.php?page=wc-settings&tab=checkout&section=bacs')); ?>">修改銀行帳戶</a></h3>
                 <?php if (!$accounts) : ?><p>尚未設定銀行轉帳帳戶。</p><?php else : ?>
-                <table class="wutm-bacs-table"><thead><tr><th>帳戶名稱（戶名）</th><th>銀行名稱</th><th>分行代碼</th><th>銀行帳號</th></tr></thead><tbody>
-                <?php foreach ($accounts as $account) : ?><tr><td><strong><?php echo esc_html($account['account_name'] ?? '—'); ?></strong></td><td><?php echo esc_html($account['bank_name'] ?? '—'); ?></td><td><?php echo esc_html($account['sort_code'] ?? '—'); ?></td><td><strong style="font-family:monospace;color:#b91c1c"><?php echo esc_html($account['account_number'] ?? '—'); ?></strong></td></tr><?php endforeach; ?>
-                </tbody></table><?php endif; ?>
+                <div class="wutm-bacs-scroll" role="region" aria-label="收款帳戶表格" tabindex="0"><table class="wutm-bacs-table wutm-bacs-accounts"><thead><tr><th>帳戶名稱（戶名）</th><th>銀行名稱</th><th>分行代碼</th><th>銀行帳號</th></tr></thead><tbody>
+                <?php foreach ($accounts as $account) : ?><tr><td><strong><?php echo esc_html($account['account_name'] ?? '—'); ?></strong></td><td><?php echo esc_html($account['bank_name'] ?? '—'); ?></td><td><?php echo esc_html($account['sort_code'] ?? '—'); ?></td><td><strong class="wutm-bacs-bank-number"><?php echo esc_html($account['account_number'] ?? '—'); ?></strong></td></tr><?php endforeach; ?>
+                </tbody></table></div><?php endif; ?>
             </div>
-            <div class="wutm-bacs-panel"><h3>📑 轉帳訂單對帳明細</h3>
-                <table class="wutm-bacs-table"><thead><tr><th>訂單</th><th>下單日期</th><th>訂購人／Email</th><th>總計</th><th>收款帳戶</th><th>回報狀態</th><th>回報時間</th><th>訂單狀態</th><th>快捷操作</th></tr></thead><tbody>
+            <div class="wutm-bacs-panel"><h3>轉帳訂單對帳明細</h3>
+                <div class="wutm-bacs-scroll" role="region" aria-label="訂單對帳表格" tabindex="0"><table class="wutm-bacs-table"><thead><tr><th>訂單</th><th>下單日期</th><th>訂購人／Email</th><th>總計</th><th>收款帳戶</th><th>回報狀態</th><th>回報時間</th><th>訂單狀態</th><th>快捷操作</th></tr></thead><tbody>
                 <?php if (!$orders) : ?><tr><td colspan="9" style="text-align:center">尚無銀行轉帳訂單</td></tr><?php endif; ?>
                 <?php foreach ($orders as $order) :
                     $is_paid = $order->is_paid();
@@ -339,13 +352,13 @@ final class WUTM_ATM_Transfer_Optimizer {
                     <td><?php echo esc_html($date ? $date->date_i18n('Y-m-d H:i') : '—'); ?></td>
                     <td><?php echo esc_html($order->get_formatted_billing_full_name()); ?><br><small><?php echo esc_html($order->get_billing_email()); ?></small></td>
                     <td><?php echo wp_kses_post($order->get_formatted_order_total()); ?></td>
-                    <td><form method="post" style="display:flex;gap:5px;align-items:center;min-width:210px"><?php wp_nonce_field('wutm_bacs_account_' . $order->get_id()); ?><input type="hidden" name="order_id" value="<?php echo esc_attr((string) $order->get_id()); ?>"><select name="account_id" required><option value="">未指定</option><?php foreach ($accounts as $account) : ?><option value="<?php echo esc_attr($account['_wutm_id']); ?>" <?php selected($this->order_account_id($order), $account['_wutm_id']); ?>><?php echo esc_html($this->account_label($account)); ?></option><?php endforeach; ?></select><button class="button button-small" name="wutm_bacs_save_account" value="1">儲存</button></form></td>
+                    <td><form method="post" class="wutm-bacs-account-form"><?php wp_nonce_field('wutm_bacs_account_' . $order->get_id()); ?><input type="hidden" name="order_id" value="<?php echo esc_attr((string) $order->get_id()); ?>"><select name="account_id" aria-label="訂單收款帳戶" required><option value="">未指定</option><?php foreach ($accounts as $account) : ?><option value="<?php echo esc_attr($account['_wutm_id']); ?>" <?php selected($this->order_account_id($order), $account['_wutm_id']); ?>><?php echo esc_html($this->account_label($account)); ?></option><?php endforeach; ?></select><button class="button button-small" name="wutm_bacs_save_account" value="1">儲存</button></form></td>
                     <td><?php if ($is_paid) : ?><span class="wutm-soft-badge wutm-badge-gray">款項已結清</span><?php elseif ($is_reported) : ?><span class="wutm-soft-badge wutm-badge-green">已回報<?php echo $digits ? '（末碼 ' . esc_html($digits) . '）' : ''; ?></span><?php else : ?><span class="wutm-soft-badge wutm-badge-amber">尚未回報</span><?php endif; ?></td>
                     <td><?php echo esc_html($this->transfer_meta($order, 'time') ?: '—'); ?></td>
                     <td><span class="wutm-soft-badge wutm-badge-gray"><?php echo esc_html(wc_get_order_status_name($order->get_status())); ?></span></td>
                     <td><?php if (!$is_paid) : ?><a class="wutm-bacs-action wutm-bacs-confirm" href="<?php echo esc_url($confirm_url); ?>" onclick="return confirm('確定已收到此筆款項嗎？')">確認入帳</a><a class="wutm-bacs-action wutm-bacs-remind" href="<?php echo esc_url($remind_url); ?>" onclick="return confirm('確定寄送付款提醒嗎？')">發送提醒</a><?php else : ?><a class="button button-small" href="<?php echo esc_url($order->get_edit_order_url()); ?>">檢視</a><?php endif; ?></td>
                 </tr><?php endforeach; ?>
-                </tbody></table>
+                </tbody></table></div>
             </div>
         </div>
         <?php
