@@ -22,3 +22,22 @@
 .wutm-atm-privacy-footer{margin:0;padding:.6rem max(1rem,4vw);text-align:center}
 .wutm-atm-privacy-link{min-height:44px;background:none!important;border:0!important;color:inherit!important;text-decoration:underline;font:inherit;cursor:pointer}
 @media(max-width:470px){.wutm-atm-privacy-actions{width:100%}.wutm-atm-privacy-actions button{flex:1 1 7rem}}
+
+.wutm-atm-privacy .wutm-atm-privacy-default{margin-top:.45rem;font-size:.875rem;color:var(--wutm-privacy-ink)}
+.wutm-atm-privacy--bar,.wutm-atm-privacy--corner,.wutm-atm-privacy--center,.wutm-atm-privacy--side{
+  position:fixed;z-index:100000;box-shadow:0 10px 38px rgb(20 32 57 / .18);border:1px solid var(--wutm-privacy-line);overflow:auto;
+  max-height:min(80vh,80dvh);
+}
+.wutm-atm-privacy--bar{inset:auto 0 0;padding-block-end:max(1rem,env(safe-area-inset-bottom));padding-inline:clamp(1rem,4vw,3.5rem);border-inline:0;border-bottom:0}
+.wutm-atm-privacy--corner{inset:auto max(1rem,env(safe-area-inset-right)) max(1rem,env(safe-area-inset-bottom)) auto;width:min(29rem,calc(100% - 2rem));border-radius:1rem;padding:1.25rem}
+.wutm-atm-privacy--center,.wutm-atm-privacy--side{width:min(35rem,calc(100% - 2rem));border-radius:1rem;padding:clamp(1.1rem,4vw,2rem)}
+.wutm-atm-privacy--center{inset:0;margin:auto;height:max-content}
+.wutm-atm-privacy--side{inset:0 0 0 auto;margin:0;height:100%;max-height:100%;border-radius:1rem 0 0 1rem;align-content:center}
+.wutm-atm-privacy--center::backdrop,.wutm-atm-privacy--side::backdrop{background:rgb(12 25 34 / .55)}
+.wutm-atm-privacy--corner .wutm-atm-privacy-actions,.wutm-atm-privacy--center .wutm-atm-privacy-actions,.wutm-atm-privacy--side .wutm-atm-privacy-actions{width:100%}
+.wutm-atm-privacy--corner .wutm-atm-privacy-actions button,.wutm-atm-privacy--center .wutm-atm-privacy-actions button,.wutm-atm-privacy--side .wutm-atm-privacy-actions button{flex:1 1 auto}
+.wutm-atm-privacy--dark{--wutm-privacy-ink:#f3f6fa;--wutm-privacy-muted:#c5d2df;--wutm-privacy-line:#48586b;--wutm-privacy-accent:#8fe2ce;background:#1c2736;color-scheme:dark}
+.wutm-atm-privacy--dark button{background:#273649;border-color:#8291a4;color:var(--wutm-privacy-ink)}
+.wutm-atm-privacy--dark button:hover{background:#33465e}
+.wutm-atm-privacy--dark .wutm-atm-privacy-status{color:#ffb7ad!important}
+@media(max-width:470px){.wutm-atm-privacy--side{width:calc(100% - .75rem)}}

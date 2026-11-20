@@ -24,6 +24,12 @@ final class WUTM_ATM_Consent_Admin {
             $s['policy'] = bin2hex(random_bytes(16));
         }
         $s['enabled'] = $enabled;
+        $layout = self::posted('layout');
+        $s['layout'] = isset(WUTM_ATM_Consent::layouts()[$layout]) ? $layout : 'inline';
+        $s['appearance'] = self::posted('appearance') === 'dark' ? 'dark' : 'light';
+        $s['first_visit'] = self::posted('first_visit') === 'opt_out' ? 'opt_out' : 'opt_in';
+        $s['default_analytics'] = isset($_POST['default_analytics']);
+        $s['default_marketing'] = isset($_POST['default_marketing']);
         $s['days'] = max(7, min(365, absint(self::posted('days')) ?: 180));
         $s['url'] = esc_url_raw(self::posted('url'), ['http','https']);
         $gtm = self::posted('gtm');
@@ -57,6 +63,33 @@ final class WUTM_ATM_Consent_Admin {
                 <?php wp_nonce_field(self::ACTION); ?>
                 <p><label><input type="checkbox" name="enabled" <?php checked($s['enabled']); ?>> 啟用內建 Cookie 同意橫幅</label></p>
                 <p>啟用後，本模組會以訪客的站內偏好判斷追蹤。必要功能永遠可用。請關閉其他同意橫幅，並確認其他外掛獨立載入的追蹤標籤已納入同意管理。</p>
+                <fieldset class="wutm-atm-privacy-options">
+                    <legend>橫幅外觀</legend>
+                    <label>顯示方式
+                        <select name="layout">
+                            <?php foreach (WUTM_ATM_Consent::layouts() as $id=>$label) : ?>
+                                <option value="<?php echo esc_attr($id); ?>" <?php selected($s['layout'], $id); ?>><?php echo esc_html($label); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </label>
+                    <label>色系
+                        <select name="appearance">
+                            <option value="light" <?php selected($s['appearance'], 'light'); ?>>淺色</option>
+                            <option value="dark" <?php selected($s['appearance'], 'dark'); ?>>深色</option>
+                        </select>
+                    </label>
+                    <p class="description">購物車、結帳與會員頁使用頁面內橫幅，讓訂單操作保持可見。</p>
+                </fieldset>
+                <fieldset class="wutm-atm-privacy-options">
+                    <legend>首次訪問的追蹤方式</legend>
+                    <label><select name="first_visit" aria-label="首次訪問的追蹤方式">
+                        <option value="opt_in" <?php selected($s['first_visit'], 'opt_in'); ?>>取得同意後啟用</option>
+                        <option value="opt_out" <?php selected($s['first_visit'], 'opt_out'); ?>>預設啟用，可手動拒絕</option>
+                    </select></label>
+                    <p><label><input type="checkbox" name="default_analytics" <?php checked($s['default_analytics']); ?>> 預設啟用分析</label>
+                       <label><input type="checkbox" name="default_marketing" <?php checked($s['default_marketing']); ?>> 預設啟用行銷</label></p>
+                    <p class="description">上方勾選僅用於「預設啟用」模式。此模式可啟用瀏覽器追蹤，CAPI 和 WooCommerce 購買事件仍需取得並儲存訪客的行銷同意。已儲存的偏好會優先套用。</p>
+                </fieldset>
                 <div class="wutm-atm-event-grid">
                     <?php foreach (self::TEXT as $key=>$label) : ?>
                         <label><?php echo esc_html($label); ?>
@@ -77,7 +110,7 @@ final class WUTM_ATM_Consent_Admin {
                         <?php endforeach; ?>
                     </select>
                 </label></p>
-                <p>GA4 依分析同意載入，Google Ads、Meta Pixel 與 CAPI 依行銷同意載入或發送。GTM 內的標籤仍應各自設定同意條件。</p>
+                <p>GA4 依分析偏好載入，Google Ads 和 Meta Pixel 依行銷偏好載入。GTM 內的標籤仍應各自設定同意條件。</p>
                 <p><label><input type="checkbox" name="renew"> 使現有偏好失效，下次訪問重新詢問</label></p>
                 <p class="description">僅在政策或用途變更時勾選。使用舊同意紀錄的待發行銷事件也會停止。訪客可在網站頁尾修改偏好，或在適合的位置加入 <code>[wu_cookie_preferences]</code>。</p>
                 <button class="button button-primary">儲存 Cookie 同意設定</button>

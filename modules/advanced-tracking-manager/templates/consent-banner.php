@@ -1,10 +1,18 @@
-<?php defined('ABSPATH') || exit; ?>
-<section id="wutm-atm-privacy" class="wutm-atm-privacy" aria-labelledby="wutm-atm-privacy-title" hidden>
+<?php
+defined('ABSPATH') || exit;
+$layout = $layout ?? 'inline';
+$appearance = $appearance ?? 'light';
+$banner_tag = in_array($layout, ['center','side'], true) ? 'dialog' : 'section';
+?>
+<<?php echo $banner_tag; ?> id="wutm-atm-privacy" class="wutm-atm-privacy wutm-atm-privacy--<?php echo esc_attr($layout); ?> wutm-atm-privacy--<?php echo esc_attr($appearance); ?>" aria-labelledby="wutm-atm-privacy-title" hidden>
     <div class="wutm-atm-privacy-copy">
         <h2 id="wutm-atm-privacy-title"><?php echo esc_html($settings['title']); ?></h2>
         <p><?php echo nl2br(esc_html($settings['description'])); ?>
             <?php if ($url) : ?><a href="<?php echo esc_url($url); ?>">隱私權政策</a><?php endif; ?>
         </p>
+        <?php if (!empty($opt_out)) : ?>
+            <p class="wutm-atm-privacy-default" data-wutm-privacy-default hidden>本站預設使用部分非必要 Cookie。您可立即拒絕，或分別調整分析與行銷偏好。</p>
+        <?php endif; ?>
     </div>
     <div class="wutm-atm-privacy-actions">
         <button type="button" data-wutm-privacy-choice="reject"><?php echo esc_html($settings['reject']); ?></button>
@@ -12,8 +20,8 @@
         <button type="button" data-wutm-privacy-open><?php echo esc_html($settings['preferences']); ?></button>
     </div>
     <p class="wutm-atm-privacy-status" role="status" hidden></p>
-</section>
-<dialog id="wutm-atm-privacy-dialog" class="wutm-atm-privacy-dialog" aria-labelledby="wutm-atm-privacy-dialog-title">
+</<?php echo $banner_tag; ?>>
+<dialog id="wutm-atm-privacy-dialog" class="wutm-atm-privacy-dialog wutm-atm-privacy--<?php echo esc_attr($appearance); ?>" aria-labelledby="wutm-atm-privacy-dialog-title">
     <header class="wutm-atm-privacy-dialog-header">
         <h2 id="wutm-atm-privacy-dialog-title"><?php echo esc_html($settings['title']); ?></h2>
         <button type="button" data-wutm-privacy-close aria-label="關閉偏好設定">關閉</button>

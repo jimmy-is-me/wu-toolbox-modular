@@ -12,6 +12,8 @@ final class WUTM_ATM_Consent {
     public static function settings(): array {
         return wp_parse_args((array) get_option(self::OPTION, []), [
             'enabled'=>false, 'policy'=>'', 'days'=>180, 'gtm'=>'both', 'url'=>'',
+            'layout'=>'inline', 'appearance'=>'light', 'first_visit'=>'opt_in',
+            'default_analytics'=>true, 'default_marketing'=>true,
             'title'=>'Cookie 與隱私偏好',
             'description'=>'必要 Cookie 用於網站和購物功能。您可以選擇是否允許分析與行銷 Cookie。',
             'accept'=>'同意全部', 'reject'=>'拒絕非必要', 'preferences'=>'偏好設定', 'save'=>'儲存偏好',
@@ -20,6 +22,29 @@ final class WUTM_ATM_Consent {
 
     public static function active(): bool {
         return (bool) self::settings()['enabled'];
+    }
+
+    public static function layouts(): array {
+        return ['inline'=>'頁面內橫幅', 'bar'=>'底部滿版橫幅', 'corner'=>'角落浮動卡片',
+            'center'=>'中央視窗', 'side'=>'右側面板'];
+    }
+
+    private static function browser_preferences(): array {
+        $choice = self::choice();
+        $settings = self::settings();
+        $defaults = $choice === null && $settings['first_visit'] === 'opt_out';
+        return [
+            'chosen'=>$choice !== null,
+            'defaults'=>$defaults,
+            'analytics'=>$defaults ? (bool) $settings['default_analytics'] : !empty($choice['analytics']),
+            'marketing'=>$defaults ? (bool) $settings['default_marketing'] : !empty($choice['marketing']),
+            'expires'=>(int) ($choice['expires'] ?? 0),
+        ];
+    }
+
+    public static function allows_default_visit(): bool {
+        $prefs = self::browser_preferences();
+        return self::active() && $prefs['defaults'] && $prefs['marketing'] && WUTM_ATM_Events::browser_active();
     }
 
     public static function boot(): void {
@@ -139,8 +164,9 @@ final class WUTM_ATM_Consent {
             wp_send_json_success(self::state($token));
         }
         if ($operation === 'visit' || $operation === 'cart') {
-            if (!self::marketing() || WUTM_ATM_Events::excluded()) wp_send_json_error(null, 403);
-            $events = $operation === 'visit' ? self::visit($input, $token) : self::cart();
+            $browser_only = !self::marketing() && $operation === 'visit' && self::allows_default_visit();
+            if ((!$browser_only && !self::marketing()) || WUTM_ATM_Events::excluded()) wp_send_json_error(null, 403);
+            $events = $operation === 'visit' ? self::visit($input, $token, $browser_only) : self::cart();
             wp_send_json_success($events);
         }
         wp_send_json_error(null, 400);
@@ -153,9 +179,9 @@ final class WUTM_ATM_Consent {
     }
 
     private static function state(string $token): array {
-        $choice = self::choice();
-        $analytics = !empty($choice['analytics']);
-        $marketing = !empty($choice['marketing']);
+        $preferences = self::browser_preferences();
+        $analytics = $preferences['analytics'];
+        $marketing = $preferences['marketing'];
         $excluded = WUTM_ATM_Events::excluded();
         $managed = WUTM_ATM_Events::settings()['enabled'];
         $gtm_category = self::settings()['gtm'];
@@ -163,16 +189,15 @@ final class WUTM_ATM_Consent {
         $tag = static function ($name, $allowed) {
             return $allowed && get_option('atm_' . $name . '_enabled', 0) ? (string) get_option('atm_' . $name . '_id', '') : '';
         };
-        return [
-            'chosen'=>$choice !== null, 'analytics'=>$analytics, 'marketing'=>$marketing,
-            'expires'=>(int) ($choice['expires'] ?? 0),
+        return $preferences + [
             'csrf'=>self::visitor_key('csrf', $token),
             'tags'=>[
                 'ga4'=>$tag('ga4', !$excluded && $analytics), 'ads'=>$tag('google_ads', !$excluded && $marketing),
                 'gtm'=>$tag('gtm', !$excluded && $gtm),
                 'pixel'=>!$excluded && $marketing && (!$managed || WUTM_ATM_Events::browser_active()) ? $tag('fb_pixel', true) : '',
-                'legacy'=>!$managed, 'visit'=>!$excluded && $marketing && $managed,
-                'cart'=>!$excluded && $marketing && $managed && class_exists('WUTM_ATM_Woo_Events') && WUTM_ATM_Events::is_enabled('AddToCart'),
+                'legacy'=>!$managed,
+                'visit'=>!$excluded && $marketing && $managed && (!$preferences['defaults'] || WUTM_ATM_Events::browser_active()),
+                'cart'=>!$excluded && $marketing && $preferences['chosen'] && $managed && class_exists('WUTM_ATM_Woo_Events') && WUTM_ATM_Events::is_enabled('AddToCart'),
             ],
         ];
     }
@@ -193,7 +218,7 @@ final class WUTM_ATM_Consent {
         ];
     }
 
-    private static function visit(array $input, string $token): array {
+    private static function visit(array $input, string $token, bool $browser_only = false): array {
         $page = $input['page'] ?? [];
         $id = $input['visit'] ?? '';
         if (!is_array($page) || !is_string($id) || !preg_match('/^[a-f0-9-]{32,40}$/D', $id)) return [];
@@ -208,14 +233,15 @@ final class WUTM_ATM_Consent {
         self::$collecting = true;
         try {
             if (!in_array($kind, ['receipt','ignore'], true)) {
-                $context = ['source'=>'wordpress','key'=>$key,'url'=>$url];
+                $context = ['source'=>'wordpress','key'=>$key,'url'=>$url,'browser_only'=>$browser_only];
                 WUTM_ATM_Events::track('PageView', [], $context);
                 if ($kind === 'search') WUTM_ATM_Events::track('Search', [], $context);
             }
             if (class_exists('WUTM_ATM_Woo_Events')) {
-                if ($kind === 'product') WUTM_ATM_Woo_Events::view_product($product, $key);
-                if ($kind === 'checkout') WUTM_ATM_Woo_Events::start_checkout($key);
+                if ($kind === 'product') WUTM_ATM_Woo_Events::view_product($product, $key, $browser_only);
+                if (!$browser_only && $kind === 'checkout') WUTM_ATM_Woo_Events::start_checkout($key);
             }
+            if ($browser_only) return WUTM_ATM_Events::take_browser();
             return array_merge(WUTM_ATM_Events::take_browser(), self::deferred(), $kind === 'receipt' ? [] : self::cart());
         } finally {
             self::$collecting = false;
@@ -275,6 +301,12 @@ final class WUTM_ATM_Consent {
         if (self::$rendered) return;
         self::$rendered = true;
         $settings = self::settings();
+        $layout = isset(self::layouts()[$settings['layout']]) ? $settings['layout'] : 'inline';
+        // Keep account and checkout controls accessible on transactional screens.
+        if ((function_exists('is_cart') && is_cart()) || (function_exists('is_checkout') && is_checkout()) ||
+            (function_exists('is_account_page') && is_account_page())) $layout = 'inline';
+        $appearance = $settings['appearance'] === 'dark' ? 'dark' : 'light';
+        $opt_out = $settings['first_visit'] === 'opt_out' && ($settings['default_analytics'] || $settings['default_marketing']);
         $url = $settings['url'] ?: get_privacy_policy_url();
         require WUTM_ATM_DIR . 'templates/consent-banner.php';
     }

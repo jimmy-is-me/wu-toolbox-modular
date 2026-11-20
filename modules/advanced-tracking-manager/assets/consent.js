@@ -10,6 +10,8 @@
     const marketing = dialog.querySelector('[name="marketing"]');
     const buttons = document.querySelectorAll('[data-wutm-privacy-choice]');
     const reminders = [banner, dialog].map(el => el.querySelector('.wutm-atm-privacy-status'));
+    const defaultNotice = banner.querySelector('[data-wutm-privacy-default]');
+    const modalBanner = banner.tagName === 'DIALOG';
     const denied = {analytics:false, marketing:false, tags:{}};
     let state = null;
     let effective = denied;
@@ -22,6 +24,7 @@
     let fetchingCart = false;
     let expiryTimer;
     let opener;
+    let bannerDismissed = false;
     const visit = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
     const channel = 'BroadcastChannel' in window ? new BroadcastChannel('wutm-atm-privacy:' + config.url) : null;
     const configured = new Set();
@@ -32,11 +35,11 @@
     window.dataLayer = window.dataLayer || [];
     const gtag = window.gtag || function () { window.dataLayer.push(arguments); };
     window.gtag = gtag;
-    const googleConsent = (analysis, ads) => ({
+    const googleConsent = (analysis, ads, explicit = false) => ({
         analytics_storage:analysis ? 'granted' : 'denied',
         ad_storage:ads ? 'granted' : 'denied',
-        ad_user_data:ads ? 'granted' : 'denied',
-        ad_personalization:ads ? 'granted' : 'denied'
+        ad_user_data:ads && explicit ? 'granted' : 'denied',
+        ad_personalization:ads && explicit ? 'granted' : 'denied'
     });
     gtag('consent', 'default', googleConsent(false, false));
 
@@ -61,7 +64,7 @@
             ga4Id = ga;
             window['ga-disable-' + ga] = false;
         }
-        const consent = googleConsent(next.analytics, next.marketing);
+        const consent = googleConsent(next.analytics, next.marketing, !!next.chosen);
         gtag('consent', 'update', consent);
         if ((ga || ads) && !googleLoaded) {
             googleLoaded = true;
@@ -85,7 +88,7 @@
         }
         if (meta) meta.setPixel(tags.pixel || '');
         document.dispatchEvent(new CustomEvent('wutm-atm-consent', {detail:{
-            ...window.wutmAtmConsent, granted:next.marketing
+            ...window.wutmAtmConsent, granted:!!next.chosen && next.marketing
         }}));
     }
 
@@ -150,9 +153,23 @@
         configureTags(next);
     }
 
+    function setBanner(visible) {
+        visible = visible && !bannerDismissed;
+        banner.hidden = !visible;
+        if (!modalBanner) return;
+        if (visible && !banner.open) {
+            if (typeof banner.showModal === 'function') banner.showModal();
+            else banner.setAttribute('open', '');
+        } else if (!visible && banner.open) {
+            if (typeof banner.close === 'function') banner.close();
+            else banner.removeAttribute('open');
+        }
+    }
+
     function display(next) {
         state = next;
-        banner.hidden = next.chosen;
+        if (defaultNotice) defaultNotice.hidden = !next.defaults;
+        setBanner(!next.chosen && !(modalBanner && dialog.open));
         if (!dialog.open) {
             analytics.checked = next.analytics;
             marketing.checked = next.marketing;
@@ -175,7 +192,8 @@
             display(await call('state'));
         } catch (_) {
             apply(denied);
-            banner.hidden = false;
+            if (defaultNotice) defaultNotice.hidden = true;
+            setBanner(!(modalBanner && dialog.open));
             message('暫時無法確認 Cookie 偏好。非必要追蹤已暫停，請稍後再試。');
         } finally {
             resolving = false;
@@ -214,6 +232,7 @@
             analytics.checked = !!(state && state.analytics);
             marketing.checked = !!(state && state.marketing);
             if (!dialog.open) {
+                if (modalBanner) setBanner(false);
                 if (typeof dialog.showModal === 'function') dialog.showModal();
                 else dialog.setAttribute('open', '');
             }
@@ -222,7 +241,14 @@
             else dialog.removeAttribute('open');
         } else if (button.dataset.wutmPrivacyChoice) save(button.dataset.wutmPrivacyChoice);
     });
+    banner.addEventListener('cancel', event => {
+        event.preventDefault();
+        bannerDismissed = true;
+        setBanner(false);
+        document.querySelector('.wutm-atm-privacy-footer button')?.focus();
+    });
     dialog.addEventListener('close', () => {
+        if (modalBanner && !state?.chosen && !bannerDismissed) setBanner(true);
         if (opener && opener.getClientRects().length) opener.focus();
         else document.querySelector('.wutm-atm-privacy-footer button')?.focus();
     });
