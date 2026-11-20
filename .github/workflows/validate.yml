@@ -110,6 +110,7 @@ jobs:
           WUTM_MEDIA_INTEGRATION: '1'
         run: |
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/tracking-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/tracking-consent-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
           node tests/tracking-browser.js
       - name: Check native WooCommerce payment, invoice and atomic callback preservation
         env:
@@ -140,6 +141,7 @@ jobs:
           WUTM_REPORT_EXPECT_HPOS=1 php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/order-report-export-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-report-export-hpos.log"
           grep -Fq 'Native order report passed:' "$RUNNER_TEMP/wutm-report-export-hpos.log"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/tracking-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/tracking-consent-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
           php "$RUNNER_TEMP/wutm-wp-cli.phar" option update woocommerce_custom_orders_table_enabled no --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/tracking-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
             php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/payuni-shipping-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-payuni-shipping.log"
@@ -277,6 +279,7 @@ jobs:
           node tests/order-report-export-ui.js
           node tests/media-encoder-scan-ui.js
           node tests/media-safe-cleaner-ui.js
+          node tests/tracking-consent-browser.js
       - name: Check media viewport layouts and nested taxonomy sorting
         run: |
           curl -fsSL https://wordpress.org/wordpress-6.8.3.tar.gz | tar -xz -C "$RUNNER_TEMP"

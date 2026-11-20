@@ -37,9 +37,11 @@ final class WUTM_ATM_Events {
         }
         require_once __DIR__ . '/class-event-queue.php';
         WUTM_ATM_Queue::boot();
-        add_action('template_redirect', [__CLASS__, 'protect_cache'], -100);
-        add_action('template_redirect', [__CLASS__, 'page_events'], 5);
-        add_action('wp_footer', [__CLASS__, 'print_browser'], 5);
+        if (!WUTM_ATM_Consent::active()) {
+            add_action('template_redirect', [__CLASS__, 'protect_cache'], -100);
+            add_action('template_redirect', [__CLASS__, 'page_events'], 5);
+            add_action('wp_footer', [__CLASS__, 'print_browser'], 5);
+        }
         add_action('wutm_atm_track', [__CLASS__, 'track'], 10, 3);
         add_action('user_register', static function () {
             self::track('CompleteRegistration', [], ['source' => 'wordpress']);
@@ -60,6 +62,7 @@ final class WUTM_ATM_Events {
     }
 
     public static function consent(): array {
+        if (WUTM_ATM_Consent::active()) return WUTM_ATM_Consent::marketing();
         try {
             $value = apply_filters('wutm_atm_marketing_consent', false);
         } catch (Throwable $error) {
@@ -75,8 +78,12 @@ final class WUTM_ATM_Events {
     }
 
     public static function consent_valid(array $consent, array $context = []): bool {
-        return !empty($consent['granted']) && !empty($consent['reference']) &&
-            true === apply_filters('wutm_atm_consent_still_valid', false, $consent['reference'], $context);
+        $reference = $consent['reference'] ?? '';
+        if (empty($consent['granted']) || !is_string($reference) || $reference === '') return false;
+        if (WUTM_ATM_Consent::active() || strpos($reference, WUTM_ATM_Consent_Store::REFERENCE) === 0) {
+            return WUTM_ATM_Consent::check_reference(false, $reference);
+        }
+        return true === apply_filters('wutm_atm_consent_still_valid', false, $reference, $context);
     }
 
     public static function page_events(): void {
@@ -169,6 +176,8 @@ final class WUTM_ATM_Events {
             $payload = ['name'=>$name, 'id'=>$id, 'data'=>$data];
             if (!empty($context['cart_session'])) {
                 do_action('wutm_atm_defer_cart_event', $payload);
+            } elseif (WUTM_ATM_Consent::active() && !WUTM_ATM_Consent::collecting()) {
+                WUTM_ATM_Consent::defer($payload);
             } else {
                 self::$browser[$id] = $payload;
             }
@@ -236,6 +245,12 @@ final class WUTM_ATM_Events {
 
     public static function add_browser_payload(array $payload): void {
         self::$browser[$payload['id']] = $payload;
+    }
+
+    public static function take_browser(): array {
+        $events = array_values(self::$browser);
+        self::$browser = [];
+        return $events;
     }
 
     public static function print_browser(): void {

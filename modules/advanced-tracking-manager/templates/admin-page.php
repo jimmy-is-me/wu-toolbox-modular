@@ -1,7 +1,7 @@
 <?php
 /**
  * Admin page template
- * Advanced Tracking Manager v3.0.0
+ * Advanced Tracking Manager
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
@@ -20,7 +20,7 @@ $debug_mode         = (int) get_option( 'atm_debug_mode', 0 );
 $last_saved_at      = get_option( 'atm_last_saved_at', '' );
 $last_saved_by      = get_option( 'atm_last_saved_by', '' );
 $last_diagnostic    = get_option( 'atm_last_diagnostic', array() );
-$active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], ['events','history'], true) ? $_GET['atm_tab'] : 'tracking';
+$active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], ['events','history','privacy'], true) ? $_GET['atm_tab'] : 'tracking';
 ?>
 <div class="wrap wutm-atm-wrap">
 <h1>🎯 進階追蹤程式碼管理器 <span class="atm-version">v<?php echo esc_html( WUTM_ATM_VERSION ); ?></span></h1>
@@ -36,6 +36,7 @@ $active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], 
 <div class="atm-tabs">
   <button class="atm-tab <?php echo $active_tab === 'tracking' ? 'active' : ''; ?>" data-tab="tracking">📡 追蹤設定</button>
   <button class="atm-tab <?php echo $active_tab === 'events' ? 'active' : ''; ?>" data-tab="events">事件、電商與 CAPI</button>
+  <button class="atm-tab <?php echo $active_tab === 'privacy' ? 'active' : ''; ?>" data-tab="privacy">Cookie 與隱私同意</button>
   <button class="atm-tab <?php echo $active_tab === 'history' ? 'active' : ''; ?>" data-tab="history">事件紀錄</button>
   <button class="atm-tab" data-tab="diagnostic">🔍 自動診斷</button>
   <button class="atm-tab" data-tab="guide">📖 操作說明</button>
@@ -150,6 +151,9 @@ $active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], 
 <div id="atm-tab-events" class="atm-tab-content <?php echo $active_tab === 'events' ? 'active' : ''; ?>">
   <?php WUTM_ATM_Event_Admin::render_settings(); ?>
 </div>
+<div id="atm-tab-privacy" class="atm-tab-content <?php echo $active_tab === 'privacy' ? 'active' : ''; ?>">
+  <?php WUTM_ATM_Consent_Admin::render(); ?>
+</div>
 <div id="atm-tab-history" class="atm-tab-content <?php echo $active_tab === 'history' ? 'active' : ''; ?>">
   <?php if ($active_tab === 'history') : WUTM_ATM_Event_Admin::render_log(); else : ?>
     <p><a class="button" href="<?php echo esc_url(admin_url('admin.php?page=wu-advanced-tracking-manager&atm_tab=history')); ?>">載入事件紀錄</a></p>
@@ -202,7 +206,7 @@ $active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], 
     <div class="atm-card-body atm-guide">
 
       <h3>事件、Cookie 同意及伺服器追蹤</h3>
-      <p>請依序串接網站的 Cookie 同意工具、啟用所需事件，再以 Meta 測試事件檢查伺服器連線。<a href="https://github.com/jimmy-is-me/wu-toolbox-modular/blob/main/docs/ADVANCED-TRACKING-MANAGER.md" target="_blank" rel="noopener noreferrer">查看安裝與擴充說明</a></p>
+      <p>請在「Cookie 與隱私同意」開啟內建橫幅，或接上網站既有的同意工具。啟用事件後，可用 Meta 測試事件檢查伺服器連線。<a href="https://github.com/jimmy-is-me/wu-toolbox-modular/blob/main/docs/ADVANCED-TRACKING-MANAGER.md" target="_blank" rel="noopener noreferrer">查看安裝與擴充說明</a></p>
 
       <h3>📊 GA4 — 適合大多數網站</h3>
       <ol>

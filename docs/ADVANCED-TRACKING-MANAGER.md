@@ -1,22 +1,38 @@
-# Advanced Tracking Manager 3.0
+# Advanced Tracking Manager
 
 ## 開始設定
 
 1. 在 Wu Toolbox 開啟「進階追蹤管理」。在「追蹤碼設定」設定所需平台的 ID，可分別啟用 GA4、Google Ads、GTM 和 Meta Pixel。升級會沿用舊選項，事件管理預設關閉。
-2. 由網站的 Cookie 同意工具接上文末兩個同意 Filter。沒有可靠的行銷同意時，事件模式不載入本模組的行銷標籤或送出事件。
+2. 在「Cookie 與隱私同意」啟用內建橫幅，或保留網站既有的 Cookie 同意工具並接上文末兩個 Filter。兩者使用其中一種。沒有可靠的行銷同意時，事件模式不載入本模組的行銷標籤或送出事件。
 3. 在「事件管理」啟用事件模式，選擇所需事件與發送通道。使用 WooCommerce 時可另外開啟商品、加購物車、結帳、付款成功等接點。WordPress 提供 PageView、搜尋和註冊接點，Lead 與 Contact 由網站在確認操作成功後呼叫。
 4. 使用 CAPI 時啟用伺服器通道，填入 Meta 資料集 ID、Access Token 和支援的 Graph API 版本。雙通道須使用同一個 Meta ID。也可在網站私有設定檔以 `WUTM_ATM_CAPI_TOKEN` 設定憑證，此值優先於後台。後台更新時可留空以保留原值。
 5. 可先使用「檢查資料集連線」。要驗證寫入，從 Meta 取得測試事件代碼、儲存後點「發送測試 PageView」，並在 Events Manager 的測試事件頁核對。測試使用合成匹配資料。準備上線時清除測試代碼，已排入的事件保存其原始測試模式。
+
+## 內建 Cookie 與隱私同意（v4.1.4）
+
+1. 從「Wu Toolbox → 進階追蹤管理 → Cookie 與隱私同意」啟用。可設定標題、說明、按鈕名稱與隱私權政策網址。網址留空使用 WordPress 的隱私權政策頁。
+2. 訪客可直接同意全部或拒絕非必要，也可個別選擇分析與行銷。必要功能永遠開啟。若要修改，使用頁尾的「Cookie 偏好設定」，或把 `[wu_cookie_preferences]` 放在網站適合的位置。
+3. GA4 依分析同意載入。Google Ads、Meta Pixel 和 CAPI 依行銷同意載入或發送。GTM 預設需兩種同意，純分析或純行銷容器可在分頁調整。GTM 仍須為每個標籤設定對應的同意與觸發條件。 [Google 的同意模式](https://developers.google.com/tag-platform/security/guides/consent) · [GTM Consent API](https://developers.google.com/tag-platform/tag-manager/templates/consent-apis)
+4. 同意紀錄預設保留 180 天，可設 7–365 天。瀏覽器使用站內 HttpOnly Cookie，資料庫保存匿名雜湊、選項、期限和隨機同意收據。WordPress 排程分批清理過期紀錄。改變保留天數會套用到下一次儲存，政策或用途變更可勾選「使現有偏好失效」要求重新選擇。
+5. 顧客結帳時，WooCommerce 訂單僅記下適用的隨機收據。客戶撤回、收據逾期或政策重置後，背景付款及佇列發送會重新查驗並擋下失效的轉換。重新同意會發給新收據。已由平台接收的請求無法由本模組撤回。
+
+### 快取與驗證
+
+內建模式的公開 HTML 不含訪客偏好、收據或待送事件。偏好和事件由同站的 `admin-ajax.php?action=wutm_atm_privacy` 以 POST 取得，標記為 `private, no-store`。因此公開頁面可維持 WU 頁面快取或 CDN 快取。購物車、結帳、訂單付款及完成頁維持原有排除。在 Cloudflare 已設定 Cache Everything、強制 Edge TTL 或自訂 Worker 時，確認 AJAX 和個人頁面有明確的略過規則。切換內建模式或更改橫幅後，清除 CDN 舊的公開頁面。 [Cloudflare Cache-Control](https://developers.cloudflare.com/cache/concepts/cache-control/)
+
+測試可用兩個無痕工作階段︰先在一個視窗只允許分析，核對只載入 GA4。另一個視窗開同一個快取頁時應仍顯示橫幅。再允許、拒絕並刷新，檢查選擇是否保留。GTM 容器、主題及其他外掛獨立安裝的標籤由各自管理。任意的舊版自訂結帳程式碼仍在原 WooCommerce 完成頁接點執行，進入時須已有行銷同意。
+
+內建模式直接使用既有行銷同意與收據驗證介面。關閉後回到原有設定及第三方同意 Filters，先前的內建收據會失效。
 
 ## 追蹤、付款與快取
 
 - 一筆已付款 WooCommerce 訂單的瀏覽器與伺服器 Purchase 使用同一 event_id。伺服器在付款確認後排程，顧客可關閉網頁。確認付款前的訂單與失敗、取消、退款訂單不會新送出 Purchase。伺服器送出前會再確認狀態。訂單金額、幣別及商品代號由 WooCommerce 訂單取得。
 - 瀏覽器端需持有有效的訂單完成頁授權。事件紀錄的「已準備瀏覽器事件」僅指出本機準備完成。伺服器的「Meta 已確認接收」以 API 確認為依據。廣告歸因可在平台上另行查閱。GTM 容器、主題及其他外掛的獨立追蹤請在各自設定中確認，診斷提供基本重複安裝提示。
-- 事件模式送出 WordPress 禁快取訊號。若 CDN、反向代理或快取外掛在 WordPress 前直接提供整頁，請為事件模式的網站頁面設定略過整頁快取。啟用、停用或變更標籤後清除各層舊快取。靜態檔案仍可快取。
+- 沿用第三方同意工具且啟用事件模式時，會使用舊版 WordPress 禁快取訊號。若服務在 WordPress 前直接提供整頁，請依該第三方整合設定頁面排除。內建模式的公開頁面可照常快取。
 - 使用 WP-Cron，正式站若停用內建 Cron 請由主機定時執行。傳輸錯誤與暫時性回應最多嘗試四次，重試沿用同一 ID。預設事件紀錄保存 14 天，可設 7–60 天，待送資料最多保留兩天，終止後移除待送內容。管理介面只顯示診斷摘要。測試事件與真正的 Meta 事件可使用 Meta 後台分辨。
 - CAPI 匹配資料只在確認同意後組裝。可使用雜湊電子郵件、有效的 `_fbp` 和 User-Agent，IP 預設不傳送。來源網址會限制在網站本身並移除查詢參數。傳入自訂欄位前請排除個資。
 
-## Cookie 同意與開發介面
+## 第三方 Cookie 工具與開發介面
 
 | 入口 | 行為 |
 | --- | --- |
@@ -30,7 +46,7 @@
 | `wutm_atm_allow_ip_matching` | 預設 `false`，在網站政策與同意均允許時可選用 IP 匹配。 |
 | `wutm_atm_tracking_settings_updated` | 參數為事件模式啟用狀態，可供既有快取整合程式清理網站快取。 |
 
-同意工具應使用自己可查證的收據儲存。收到撤回時，先更新該記錄，再從前台執行 `document.dispatchEvent(new CustomEvent('wutm-atm-consent', { detail: { granted: false } }))`。本模組會停止後續瀏覽器事件並更新已載入的 Meta、Google 同意狀態。GTM 內其他標籤仍需在容器設定自己的同意條件。同意後重新整理，讓 WordPress 重新確認狀態。
+第三方同意工具應使用自己可查證的收據儲存。收到撤回時，先更新該記錄，再從前台執行 `document.dispatchEvent(new CustomEvent('wutm-atm-consent', { detail: { granted: false } }))`。本模組會停止後續瀏覽器事件並更新已載入的 Meta、Google 同意狀態。GTM 內其他標籤仍需在容器設定自己的同意條件。第三方工具同意後重新整理，讓 WordPress 重新確認狀態。
 
 自訂事件範例。在已驗證並持久化的表單、課程或預約完成後呼叫。使用穩定的業務識別值，同一個操作的重送會使用相同 ID。
 
