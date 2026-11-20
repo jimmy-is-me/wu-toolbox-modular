@@ -1,15 +1,10 @@
-/* WU Toolbox Advanced Tracking Manager v2.4.0 - Admin JS */
+/* Advanced Tracking Manager diagnostics */
 (function($){
   'use strict';
 
-  // Tab switching
-  $(document).on('click', '.atm-tab', function(){
-    var tab = $(this).data('tab');
-    $('.atm-tab').removeClass('active');
-    $(this).addClass('active');
-    $('.atm-tab-content').removeClass('active');
-    $('#atm-tab-' + tab).addClass('active');
-  });
+  function escapeText(value) {
+    return $('<div>').text(value == null ? '' : String(value)).html();
+  }
 
   // Run diagnostics
   $('#atm-run-diag').on('click', function(){
@@ -28,23 +23,22 @@
       $spinner.hide();
 
       if (!res.success) {
-        $output.html('<p style="color:red;">診斷失敗：' + (res.data && res.data.message ? res.data.message : '未知錯誤') + '</p>');
+        $output.html('<p style="color:red;">診斷失敗：' + escapeText(res.data && res.data.message ? res.data.message : '未知錯誤') + '</p>');
         return;
       }
 
       var d = res.data;
-      var html = '<div class="atm-diag-meta">診斷時間：' + d.checked_at
-        + '｜前台：' + d.frontend_url
-        + '｜狀態碼：' + d.status_code
-        + '｜錯誤：' + d.errors
-        + '｜警告：' + d.warnings + '</div>';
+      var html = '<div class="atm-diag-meta">診斷時間：' + escapeText(d.checked_at)
+        + '｜前台：' + escapeText(d.frontend_url)
+        + '｜狀態碼：' + escapeText(d.status_code)
+        + '｜錯誤：' + escapeText(d.errors)
+        + '｜警告：' + escapeText(d.warnings) + '</div>';
 
-      var icons = { success: '✅', warning: '⚠️', error: '❌', info: 'ℹ️' };
       $.each(d.items, function(i, item){
-        var icon = icons[item.status] || 'ℹ️';
-        var cls  = 'atm-diag-' + item.status;
+        var status = Object.hasOwn(atmData.labels, item.status) ? item.status : 'info';
+        var cls  = 'atm-diag-' + status;
         html += '<div class="atm-diag-item ' + cls + '">';
-        html += '<strong>' + icon + ' ' + $('<div>').text(item.title).html() + '</strong><br>';
+        html += '<strong>' + escapeText(atmData.labels[status] + ' · ' + item.title) + '</strong><br>';
         html += $('<div>').text(item.message).html();
         if (item.details) {
           html += '<br><span class="atm-diag-detail">' + $('<div>').text(item.details).html() + '</span>';
