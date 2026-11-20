@@ -5,9 +5,16 @@
  */
 defined('ABSPATH') || exit;
 
-define('WUTM_ATM_VERSION', '2.4.0');
+define('WUTM_ATM_VERSION', '3.0.0');
 define('WUTM_ATM_FILE', __FILE__);
 define('WUTM_ATM_DIR', plugin_dir_path(__FILE__));
 
 require_once WUTM_ATM_DIR . 'includes/class-advanced-tracking-manager.php';
 WUTM_Advanced_Tracking_Manager::get_instance();
+
+require_once WUTM_ATM_DIR . 'includes/class-events.php';
+if (is_admin()) {
+    require_once WUTM_ATM_DIR . 'includes/class-event-admin.php';
+    WUTM_ATM_Event_Admin::boot();
+}
+WUTM_ATM_Events::boot();
