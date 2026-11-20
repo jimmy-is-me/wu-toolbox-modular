@@ -44,7 +44,11 @@ jobs:
           mkdir -p "$STAGE/wu-toolbox-modular"
           rsync -a . "$STAGE/wu-toolbox-modular/" \
             --exclude '.git' --exclude '.github' --exclude 'node_modules' \
-            --exclude 'tests' --exclude 'test' --exclude 'work' --exclude 'dist' --exclude '*.log'
+            --exclude 'tests' --exclude 'test' --exclude 'work' --exclude 'dist' --exclude '*.log' \
+            --exclude 'modules/ecpay-tools/vendor/ecpay-ecommerce-for-woocommerce/vendor/ecpay/sdk/example/' \
+            --exclude 'modules/ezpay-invoice/vendor/dennykuo/invoice-porter/demo/'
+          test ! -d "$STAGE/wu-toolbox-modular/modules/ecpay-tools/vendor/ecpay-ecommerce-for-woocommerce/vendor/ecpay/sdk/example"
+          test ! -d "$STAGE/wu-toolbox-modular/modules/ezpay-invoice/vendor/dennykuo/invoice-porter/demo"
           test -f "$STAGE/wu-toolbox-modular/wu-toolbox-modular.php"
           cd "$STAGE"
           zip -qr "$GITHUB_WORKSPACE/wu-toolbox-modular.zip" wu-toolbox-modular

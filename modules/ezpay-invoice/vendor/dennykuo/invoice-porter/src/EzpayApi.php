@@ -3,47 +3,43 @@
 namespace WUTMInvoiceDeps\InvoicePorter;
 
 use \WUTMInvoiceDeps\InvoicePorter\Contracts\ApiRequest;
-use \WUTMInvoiceDeps\GuzzleHttp;
 
 class EzpayApi implements ApiRequest
 {
 	private $instance;
 
-	/**
-	 * HTTP client
-	 *
-	 * @var object
-	 */
-	private $httpClient;
-
 	public function __construct($instance)
 	{
 		$this->instance = $instance;
-
-		$apiGate = $this->instance->isProduction
-			? $this->instance->config['api-gate']
-			: $this->instance->config['api-gate-testing'];
-
-		$this->httpClient = new \WUTMInvoiceDeps\GuzzleHttp\Client([
-			'base_uri' => $apiGate ?? 'https://inv.ezpay.com.tw/Api/',
-		]);
 	}
 
 	public function send(string $apiUri, array $postData, $doCheckCode = true, $invoiceData = null)
 	{
-		$response = $this->httpClient->request('post', $apiUri, [
-			'form_params' => [
+		$apiGate = $this->instance->isProduction
+			? 'https://inv.ezpay.com.tw/Api/'
+			: 'https://cinv.ezpay.com.tw/Api/';
+		if (!preg_match('/^[A-Za-z0-9_]+$/D', $apiUri)) {
+			throw new \InvalidArgumentException('無效的發票服務路徑');
+		}
+		$response = wp_safe_remote_post($apiGate . $apiUri, [
+			'timeout' => 25,
+			'redirection' => 0,
+			'limit_response_size' => 1048576,
+			'body' => [
 				'MerchantID_' => $this->instance->merchantID,
 				'PostData_' => $this->encryptPostData($postData),
 			],
 		]);
 
 
-		if ($response->getStatusCode() != 200) {
+		if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) {
 			throw new \Exception('串接回應錯誤');
 		}
 
-		$response = json_decode($response->getBody()->getContents());
+		$response = json_decode(wp_remote_retrieve_body($response));
+		if (!is_object($response) || !isset($response->Status, $response->Message) || !property_exists($response, 'Result')) {
+			throw new \RuntimeException('無法讀取發票服務回應');
+		}
 
 
 		$response = (object) [
