@@ -100,7 +100,10 @@ async function browserVisitor(browser) {
             assert.equal(secondPage.headers()['x-wutm-page-cache'], 'HIT');
             const request = {headers:{origin:base.origin,'X-WUTM-Consent':'1'},data:{op:'state'}};
             const visitorState = await page.request.post(new URL(endpoint, base).href, request);
-            assert.match(visitorState.headers()['cache-control'], /private.*no-store/);
+            assert.match(visitorState.headers()['cache-control'], /\bprivate\b/);
+            assert.match(visitorState.headers()['cache-control'], /\bno-store\b/);
+            assert.equal(visitorState.headers()['cdn-cache-control'], 'no-store');
+            assert((await one.context.cookies()).some(cookie => cookie.name.startsWith('wutm_privacy_') && cookie.httpOnly));
             const stolenProof = (await visitorState.json()).data.csrf;
             const foreignWrite = await two.page.request.post(new URL(endpoint, base).href, {
                 ...request, data:{op:'save',csrf:stolenProof,analytics:true,marketing:true}
@@ -120,7 +123,6 @@ async function browserVisitor(browser) {
         ]);
         await dialog.waitFor({state:'hidden'});
         await page.waitForFunction(() => window.wutmAtmConsent?.analytics && window.wutmAtmConsent?.marketing);
-        await page.waitForRequest(request => request.url().includes('gtm.js?id=GTM-FIXTURE'), {timeout:1000}).catch(() => {});
         assert(scripts.some(url => url.includes('gtm.js?id=GTM-FIXTURE')), 'GTM can start after the selected categories grant.');
         const ads = await page.evaluate(() => window.dataLayer.some(x => x[0] === 'config' && x[1] === 'AW-123456'));
         assert(ads, 'Google Ads uses marketing control independently of the GA4 loader.');

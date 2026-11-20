@@ -87,7 +87,7 @@ final class WUTM_ATM_Consent {
     public static function protect_receipt(): void {
         if (!function_exists('is_wc_endpoint_url') || (!is_wc_endpoint_url('order-received') && !is_wc_endpoint_url('order-pay'))) return;
         WUTM_ATM_Events::protect_cache();
-        header('Cache-Control: private, no-store, max-age=0', true);
+        self::private_response();
     }
 
     private static function visitor_key(string $purpose, string $token): string {
@@ -114,8 +114,7 @@ final class WUTM_ATM_Consent {
     }
 
     public static function request(): void {
-        nocache_headers();
-        header('Cache-Control: private, no-store, max-age=0', true);
+        self::private_response();
         if (!self::headers_allowed()) wp_send_json_error(null, 403);
         $input = json_decode((string) file_get_contents('php://input', false, null, 0, 4097), true);
         if (!is_array($input)) wp_send_json_error(null, 400);
@@ -145,6 +144,12 @@ final class WUTM_ATM_Consent {
             wp_send_json_success($events);
         }
         wp_send_json_error(null, 400);
+    }
+
+    private static function private_response(): void {
+        nocache_headers();
+        header('Cache-Control: private, no-store, max-age=0', true);
+        header('CDN-Cache-Control: no-store', true);
     }
 
     private static function state(string $token): array {
@@ -251,7 +256,11 @@ final class WUTM_ATM_Consent {
     public static function assets(): void {
         wp_enqueue_style('wutm-atm-privacy', plugin_dir_url(WUTM_ATM_FILE) . 'assets/consent.css', [], WUTM_ATM_VERSION);
         wp_enqueue_script('wutm-atm-events', plugin_dir_url(WUTM_ATM_FILE) . 'assets/events.js', [], WUTM_ATM_VERSION, true);
-        wp_enqueue_script('wutm-atm-privacy', plugin_dir_url(WUTM_ATM_FILE) . 'assets/consent.js', ['wutm-atm-events'], WUTM_ATM_VERSION, true);
+        $dependencies = ['wutm-atm-events'];
+        if (class_exists('WUTM_ATM_Woo_Events') && WUTM_ATM_Events::browser_active() && WUTM_ATM_Events::is_enabled('AddToCart')) {
+            $dependencies[] = 'jquery';
+        }
+        wp_enqueue_script('wutm-atm-privacy', plugin_dir_url(WUTM_ATM_FILE) . 'assets/consent.js', $dependencies, WUTM_ATM_VERSION, true);
         wp_add_inline_script('wutm-atm-privacy', 'window.wutmAtmPrivacy=' . wp_json_encode([
             'url'=>add_query_arg('action', self::AJAX, admin_url('admin-ajax.php', 'relative')),
             'page'=>self::descriptor(),
