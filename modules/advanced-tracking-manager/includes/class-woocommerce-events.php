@@ -98,14 +98,19 @@ final class WUTM_ATM_Woo_Events {
     }
 
     public static function capture_checkout($order): void {
-        if (self::paid($order)) return;
+        if (!$order instanceof WC_Order || self::paid($order)) return;
         $consent = WUTM_ATM_Events::excluded() ? [] : WUTM_ATM_Events::consent();
         $order->update_meta_data(self::META, $consent ?: ['granted'=>false]);
     }
 
     public static function capture_and_save($order): void {
-        self::capture_checkout($order);
-        $order->save_meta_data();
+        if (!$order instanceof WC_Order) return;
+        try {
+            self::capture_checkout($order);
+            $order->save_meta_data();
+        } catch (Throwable $error) {
+            // Consent storage must not interrupt order payment.
+        }
     }
 
     public static function paid($order): bool {

@@ -38,6 +38,7 @@ $orders = [];
 $product = null;
 $variable = null;
 $variation = null;
+global $wpdb;
 $table = WUTM_ATM_Queue::table();
 $read = static function ($id) use ($wpdb, $table) {
     return $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE event_id=%s", $id));

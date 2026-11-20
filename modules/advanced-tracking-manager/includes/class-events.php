@@ -83,6 +83,8 @@ final class WUTM_ATM_Events {
         if (is_feed() || is_404() || is_preview() || wp_doing_ajax() || wp_is_json_request()) return;
         if (function_exists('is_wc_endpoint_url') && (is_wc_endpoint_url('order-pay') || is_wc_endpoint_url('order-received'))) return;
         self::$allowed = self::consent();
+        // A denied page load has no event to dispatch and does not need a database row.
+        if (empty(self::$allowed['granted'])) return;
         self::track('PageView', [], ['source' => 'wordpress']);
         if (is_search()) self::track('Search', [], ['source' => 'wordpress']);
     }
@@ -193,6 +195,9 @@ final class WUTM_ATM_Events {
 
     private static function user_data(array $context): array {
         $provided = (array) ($context['user'] ?? []);
+        if (!array_key_exists('email', $provided) && empty($context['recorded_consent']) && is_user_logged_in()) {
+            $provided['email'] = wp_get_current_user()->user_email;
+        }
         $email = is_string($provided['email'] ?? null) ? strtolower(trim($provided['email'])) : '';
         $ua = sanitize_text_field($provided['user_agent'] ?? wp_unslash($_SERVER['HTTP_USER_AGENT'] ?? ''));
         $fbp = $provided['fbp'] ?? wp_unslash($_COOKIE['_fbp'] ?? '');

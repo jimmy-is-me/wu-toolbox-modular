@@ -407,7 +407,7 @@ class WUTM_Advanced_Tracking_Manager {
 			return;
 		}
 		if ( ! $this->should_output() ) {
-			echo "\n<!-- [ATM Debug] 追蹤碼已被排除（管理員或後台）-->\n";
+			echo "\n<!-- [ATM Debug] 追蹤碼未載入（管理員排除或行銷同意限制）-->\n";
 			return;
 		}
 		$lines = array( '<!-- [ATM Debug] v' . WUTM_ATM_VERSION );

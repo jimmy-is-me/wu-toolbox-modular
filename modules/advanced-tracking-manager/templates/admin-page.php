@@ -201,6 +201,9 @@ $active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], 
     <div class="atm-card-head"><span>📖 操作說明</span></div>
     <div class="atm-card-body atm-guide">
 
+      <h3>事件、Cookie 同意及伺服器追蹤</h3>
+      <p>請依序串接網站的 Cookie 同意工具、啟用所需事件，再以 Meta 測試事件檢查伺服器連線。<a href="https://github.com/jimmy-is-me/wu-toolbox-modular/blob/main/docs/ADVANCED-TRACKING-MANAGER.md" target="_blank" rel="noopener noreferrer">查看安裝與擴充說明</a></p>
+
       <h3>📊 GA4 — 適合大多數網站</h3>
       <ol>
         <li>前往 <a href="https://analytics.google.com" target="_blank" rel="noopener">Google Analytics</a>。</li>
@@ -222,7 +225,7 @@ $active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], 
         <li>前往 <a href="https://www.facebook.com/events_manager" target="_blank" rel="noopener">Meta Events Manager</a>。</li>
         <li>選擇資料來源 → 複製 <strong>Pixel ID</strong>（一串純數字）。</li>
         <li>貼回「Meta Pixel ID」欄位，開啟開關，儲存。</li>
-        <li>安裝後自動送出 PageView，可用 <a href="https://chromewebstore.google.com/detail/meta-pixel-helper/fdgfkebogiimcoedlicjlajpkdmockpc" target="_blank" rel="noopener">Meta Pixel Helper</a> 確認。</li>
+        <li>使用事件管理時，請開啟 PageView 並確認行銷同意，再使用 <a href="https://chromewebstore.google.com/detail/meta-pixel-helper/fdgfkebogiimcoedlicjlajpkdmockpc" target="_blank" rel="noopener">Meta Pixel Helper</a> 檢查。</li>
       </ol>
 
       <h3>🔍 診斷工具使用方式</h3>
