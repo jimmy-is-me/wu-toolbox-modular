@@ -73,7 +73,11 @@ try {
     $variation->set_regular_price('12.50');
     $variation->save();
     WC()->session = new WC_Session_Handler();
+    $cart_settings = $options['wutm_atm_events'];
+    $cart_settings['mode'] = 'browser';
+    update_option(WUTM_ATM_Events::OPTION, $cart_settings);
     do_action('woocommerce_add_to_cart', 'fixture-key', $variable->get_id(), 2, $variation->get_id(), [], []);
+    update_option(WUTM_ATM_Events::OPTION, $options['wutm_atm_events']);
     $cart_events = array_values((array) WC()->session->get(WUTM_ATM_Woo_Events::CART));
     wutm_tracking_assert(count($cart_events) === 1 && $cart_events[0]['event']['data']['content_ids'] === [(string) $variation->get_id()], 'Cart hook prepares the variation and quantity for AJAX browser delivery.');
     wutm_tracking_assert($cart_events[0]['event']['data']['num_items'] === 2, 'Cart hook retains purchased quantity.');
@@ -110,7 +114,8 @@ try {
     $browser->invoke(null, $order, false);
     wutm_tracking_assert((int) $read($id)->browser === 1, 'Browser and server use the same order row.');
     WUTM_ATM_Queue::work();
-    wutm_tracking_assert($read($id)->status === 'retry' && (int) $read($id)->tries === 1, 'Transport failure is retryable.');
+    $retry = $read($id);
+    wutm_tracking_assert($retry->status === 'retry' && (int) $retry->tries === 1, 'Transport failure is retryable. Actual: ' . $retry->status . '/' . $retry->reason);
     $wpdb->update($table, ['due'=>0], ['event_id'=>$id]);
     WUTM_ATM_Queue::work();
     $data = $requests[1][2]['data'][0] ?? [];
