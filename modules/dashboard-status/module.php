@@ -263,11 +263,13 @@ function wu_render_unified_dashboard() {
 				立即聯繫升級 NVMe SSD 硬碟空間:<br>
 				• +5 GB:NT$ 2,000 / 年<br>
 				• +10 GB:NT$ 3,500 / 年
+				<?php if (current_user_can('manage_options')): ?>
 				<div style="margin-top:10px;">
 					<button type="button" class="wu-button wu-button-danger" onclick="wuRequestDiskUpgrade()">
 						立即申請磁碟升級
 					</button>
 				</div>
+				<?php endif; ?>
 			</div>
 			<?php endif; ?>
 		</div>
@@ -333,7 +335,7 @@ function wu_render_unified_dashboard() {
 				</li>
 			</ul>
 		</div>
-		<?php elseif ($advanced_promo_enabled): ?>
+		<?php elseif ($advanced_promo_enabled && current_user_can('manage_options')): ?>
 		<div class="wu-section wu-section-promo">
 			<h3 class="wu-section-title">升級進階維護方案</h3>
 			<div class="wu-promo-box">
@@ -397,7 +399,7 @@ function wu_render_unified_dashboard() {
 		<?php endif; ?>
 		
 		<!-- 技術支援工單 -->
-		<?php if ($support_enabled): ?>
+		<?php if ($support_enabled && current_user_can('manage_options')): ?>
 		<div class="wu-section">
 			<h3 class="wu-section-title">技術支援工單</h3>
 			<form id="wu-support-form" class="wu-support-form">
@@ -526,8 +528,8 @@ function wu_render_unified_dashboard() {
 						$result.html('<div class="wu-notice wu-notice-error">' + response.data.message + '</div>');
 					}
 				},
-				error: function() {
-					$result.html('<div class="wu-notice wu-notice-error">提交失敗,請稍後再試或聯繫 LINE 官方帳號</div>');
+				error: function(xhr) {
+					$result.empty().append(jQuery('<div>', {class:'wu-notice wu-notice-error'}).text(xhr.responseJSON?.data?.message || '提交失敗，請稍後再試。'));
 				},
 				complete: function() {
 					$button.prop('disabled', false);
@@ -549,6 +551,7 @@ function wu_render_unified_dashboard() {
 			type: 'POST',
 			data: {
 				action: 'wu_request_advanced_plan',
+				nonce: '<?php echo esc_js(wp_create_nonce('wu_request_advanced_plan')); ?>',
 				domain: '<?php echo esc_js(home_url()); ?>',
 				site_name: '<?php echo esc_js(get_bloginfo('name')); ?>'
 			},
@@ -556,11 +559,11 @@ function wu_render_unified_dashboard() {
 				if (response.success) {
 					alert('諮詢申請已送出,我們將盡快與您聯繫!');
 				} else {
-					alert('提交失敗,請聯繫 LINE 官方帳號:https://lin.ee/Lut7wCe');
+					alert(response.data.message || '提交失敗，請稍後再試。');
 				}
 			},
-			error: function() {
-				alert('提交失敗,請聯繫 LINE 官方帳號:https://lin.ee/Lut7wCe');
+			error: function(xhr) {
+				alert(xhr.responseJSON?.data?.message || '提交失敗，請稍後再試。');
 			}
 		});
 	}
@@ -576,6 +579,7 @@ function wu_render_unified_dashboard() {
 			type: 'POST',
 			data: {
 				action: 'wu_request_disk_upgrade',
+				nonce: '<?php echo esc_js(wp_create_nonce('wu_request_disk_upgrade')); ?>',
 				domain: '<?php echo esc_js(home_url()); ?>',
 				site_name: '<?php echo esc_js(get_bloginfo('name')); ?>',
 				current_usage: '<?php echo esc_js($disk_info['used_formatted']); ?>',
@@ -586,11 +590,11 @@ function wu_render_unified_dashboard() {
 				if (response.success) {
 					alert('磁碟升級申請已送出,我們將盡快與您聯繫!');
 				} else {
-					alert('提交失敗,請聯繫 LINE 官方帳號:https://lin.ee/Lut7wCe');
+					alert(response.data.message || '提交失敗，請稍後再試。');
 				}
 			},
-			error: function() {
-				alert('提交失敗,請聯繫 LINE 官方帳號:https://lin.ee/Lut7wCe');
+			error: function(xhr) {
+				alert(xhr.responseJSON?.data?.message || '提交失敗，請稍後再試。');
 			}
 		});
 	}
@@ -598,257 +602,96 @@ function wu_render_unified_dashboard() {
 	<?php
 }
 
-// ===== Support Ticket Handler =====
-
+// ===== Dashboard requests =====
 add_action('wp_ajax_wu_submit_support_ticket', 'wu_handle_support_ticket');
-
-function wu_handle_support_ticket() {
-	check_ajax_referer('wu_support_ticket', 'nonce');
-	
-	if (!current_user_can('read')) {
-		wp_send_json_error(array('message' => '權限不足'));
-	}
-	
-	$email = sanitize_email($_POST['email'] ?? '');
-	$subject = sanitize_text_field($_POST['subject'] ?? '');
-	$message = sanitize_textarea_field($_POST['message'] ?? '');
-	$domain = sanitize_text_field($_POST['domain'] ?? '');
-	
-	if (empty($email) || empty($subject) || empty($message)) {
-		wp_send_json_error(array('message' => '請填寫所有必填欄位'));
-	}
-	
-	// 生成工單編號
-	$ticket_id = strtoupper(substr(md5($domain . time()), 0, 8));
-	
-	// 發送到 Discord
-	$webhook_url = 'https://discordapp.com/api/webhooks/1456920175335968858/p6yPCrxqVwTozOEJwIiXkxS8lSe4K4xq1noRLPeYsLXYT8AOqUjllca2rsiClzbamJF2';
-	
-	$discord_message = array(
-		'embeds' => array(
-			array(
-				'title' => '🎫 新的技術支援工單',
-				'color' => 3447003,
-				'fields' => array(
-					array(
-						'name' => '工單編號',
-						'value' => '#' . $ticket_id,
-						'inline' => true
-					),
-					array(
-						'name' => '網站',
-						'value' => $domain,
-						'inline' => false
-					),
-					array(
-						'name' => 'Email',
-						'value' => $email,
-						'inline' => true
-					),
-					array(
-						'name' => '問題類型',
-						'value' => $subject,
-						'inline' => true
-					),
-					array(
-						'name' => '問題描述',
-						'value' => $message,
-						'inline' => false
-					),
-					array(
-						'name' => '提交時間',
-						'value' => current_time('Y-m-d H:i:s'),
-						'inline' => false
-					)
-				)
-			)
-		)
-	);
-	
-	$response = wp_remote_post($webhook_url, array(
-		'headers' => array('Content-Type' => 'application/json'),
-		'body' => json_encode($discord_message),
-		'timeout' => 15
-	));
-	
-	if (is_wp_error($response)) {
-		wp_send_json_error(array('message' => '提交失敗,請稍後再試或聯繫 LINE 官方帳號'));
-	}
-	
-	// 儲存工單紀錄
-	$tickets = get_option('wu_dashboard_support_tickets', array());
-	$tickets[] = array(
-		'ticket_id' => $ticket_id,
-		'subject' => $subject,
-		'timestamp' => current_time('timestamp')
-	);
-	update_option('wu_dashboard_support_tickets', $tickets);
-	
-	wp_send_json_success(array(
-		'message' => '工單已成功提交!工單編號:#' . $ticket_id . '。我們收到後將盡快安排處理。'
-	));
-}
-
-// ===== Delete Support Ticket Handler =====
-
 add_action('wp_ajax_wu_delete_support_ticket', 'wu_handle_delete_support_ticket');
-
-function wu_handle_delete_support_ticket() {
-	if (!current_user_can('manage_options')) {
-		wp_send_json_error(array('message' => '權限不足'));
-	}
-	
-	$ticket_id = sanitize_text_field($_POST['ticket_id'] ?? '');
-	
-	if (empty($ticket_id)) {
-		wp_send_json_error(array('message' => '無效的工單編號'));
-	}
-	
-	$tickets = get_option('wu_dashboard_support_tickets', array());
-	$tickets = array_filter($tickets, function($ticket) use ($ticket_id) {
-		return $ticket['ticket_id'] !== $ticket_id;
-	});
-	
-	update_option('wu_dashboard_support_tickets', array_values($tickets));
-	
-	wp_send_json_success(array('message' => '工單已刪除'));
-}
-
-// ===== Advanced Plan Request Handler =====
-
 add_action('wp_ajax_wu_request_advanced_plan', 'wu_handle_advanced_plan_request');
-
-function wu_handle_advanced_plan_request() {
-	if (!current_user_can('read')) {
-		wp_send_json_error(array('message' => '權限不足'));
-	}
-	
-	$domain = sanitize_text_field($_POST['domain'] ?? '');
-	$site_name = sanitize_text_field($_POST['site_name'] ?? '');
-	
-	$webhook_url = 'https://discordapp.com/api/webhooks/1456931726247858190/nqtBoz3Io5j-JJbnVoYfS8waJ8lynYgj-3BuZ3TH_EiXIga5iF14GL5BI-tamrXccAKD';
-	
-	$discord_message = array(
-		'embeds' => array(
-			array(
-				'title' => '🚀 進階維護方案諮詢申請',
-				'color' => 3066993,
-				'fields' => array(
-					array(
-						'name' => '網站名稱',
-						'value' => $site_name,
-						'inline' => false
-					),
-					array(
-						'name' => '網站網址',
-						'value' => $domain,
-						'inline' => false
-					),
-					array(
-						'name' => '申請時間',
-						'value' => current_time('Y-m-d H:i:s'),
-						'inline' => false
-					),
-					array(
-						'name' => '方案內容',
-						'value' => 'NT$ 8,000 / 年(未稅)',
-						'inline' => false
-					)
-				)
-			)
-		)
-	);
-	
-	$response = wp_remote_post($webhook_url, array(
-		'headers' => array('Content-Type' => 'application/json'),
-		'body' => json_encode($discord_message),
-		'timeout' => 15
-	));
-	
-	if (is_wp_error($response)) {
-		wp_send_json_error(array('message' => '提交失敗'));
-	}
-	
-	wp_send_json_success(array('message' => '已成功送出'));
-}
-
-// ===== Disk Upgrade Request Handler =====
-
 add_action('wp_ajax_wu_request_disk_upgrade', 'wu_handle_disk_upgrade_request');
 
-function wu_handle_disk_upgrade_request() {
-	if (!current_user_can('read')) {
-		wp_send_json_error(array('message' => '權限不足'));
-	}
-	
-	$domain = sanitize_text_field($_POST['domain'] ?? '');
-	$site_name = sanitize_text_field($_POST['site_name'] ?? '');
-	$current_usage = sanitize_text_field($_POST['current_usage'] ?? '');
-	$quota = sanitize_text_field($_POST['quota'] ?? '');
-	$percentage = sanitize_text_field($_POST['percentage'] ?? '');
-	
-	$webhook_url = 'https://discordapp.com/api/webhooks/1456932781689929759/RLZBDmug38qCPtsFbqH_Imc50TqkaeV18lQpF1kLSJxyqfz6ZZ-e7T7TH2hOF-yIv_Rz';
-	
-	$discord_message = array(
-		'embeds' => array(
-			array(
-				'title' => '💾 磁碟升級申請(緊急)',
-				'color' => 15158332,
-				'fields' => array(
-					array(
-						'name' => '網站名稱',
-						'value' => $site_name,
-						'inline' => false
-					),
-					array(
-						'name' => '網站網址',
-						'value' => $domain,
-						'inline' => false
-					),
-					array(
-						'name' => '目前使用量',
-						'value' => $current_usage,
-						'inline' => true
-					),
-					array(
-						'name' => '配額',
-						'value' => $quota,
-						'inline' => true
-					),
-					array(
-						'name' => '使用率',
-						'value' => $percentage . '%',
-						'inline' => true
-					),
-					array(
-						'name' => '申請時間',
-						'value' => current_time('Y-m-d H:i:s'),
-						'inline' => false
-					),
-					array(
-						'name' => '升級方案',
-						'value' => "• +5 GB:NT$ 2,000 / 年\n• +10 GB:NT$ 3,500 / 年",
-						'inline' => false
-					)
-				)
-			)
-		)
-	);
-	
-	$response = wp_remote_post($webhook_url, array(
-		'headers' => array('Content-Type' => 'application/json'),
-		'body' => json_encode($discord_message),
-		'timeout' => 15
-	));
-	
-	if (is_wp_error($response)) {
-		wp_send_json_error(array('message' => '提交失敗'));
-	}
-	
-	wp_send_json_success(array('message' => '已成功送出'));
+function wutm_dashboard_webhook_url(string $url): string {
+	return preg_match('~^https://discord(?:app)?\.com/api/webhooks/[0-9]{17,20}/[A-Za-z0-9_-]{25,150}$~D', trim($url)) ? trim($url) : '';
 }
 
-// ===== Helper Functions =====
+function wutm_dashboard_request_guard(string $action): void {
+	if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST' || !current_user_can('manage_options')) {
+		wp_send_json_error(['message'=>'權限不足。'], 403);
+	}
+	if (!check_ajax_referer($action, 'nonce', false)) {
+		wp_send_json_error(['message'=>'頁面驗證已過期，請重新整理。'], 403);
+	}
+}
+
+function wutm_dashboard_notify(string $kind, string $title, array $fields): void {
+	$url = wutm_dashboard_webhook_url((string) get_option('wutm_dashboard_discord_webhook', ''));
+	if ($url === '') wp_send_json_error(['message'=>'請先由管理員在儀表板設定 Discord Webhook。'], 503);
+
+	// One fixed row per request type. Concurrent requests can claim the window only once.
+	global $wpdb;
+	$now = time();
+	$window_key = 'wutm_dashboard_window_' . $kind;
+	$receipt = ($now + MINUTE_IN_SECONDS) . ':' . wp_generate_uuid4();
+	$claimed = $wpdb->query($wpdb->prepare(
+		"INSERT INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s,%s,'no')
+		ON DUPLICATE KEY UPDATE option_value=IF(CAST(SUBSTRING_INDEX(option_value,':',1) AS UNSIGNED)<=%d,VALUES(option_value),option_value)",
+		$window_key, $receipt, $now
+	));
+	if ($claimed === false) wp_send_json_error(['message'=>'暫時無法處理申請，請稍後再試。'], 503);
+	if ($wpdb->get_var($wpdb->prepare("SELECT option_value FROM {$wpdb->options} WHERE option_name=%s", $window_key)) !== $receipt) {
+		wp_send_json_error(['message'=>'已接到同類申請，請等一分鐘再送出。'], 429);
+	}
+
+	$fields = ['網站'=>home_url('/')] + $fields;
+	$embed = [];
+	foreach ($fields as $name=>$value) $embed[] = ['name'=>$name, 'value'=>wp_html_excerpt((string) $value, 1000, '') ?: '—'];
+	$response = wp_safe_remote_post($url, [
+		'timeout'=>8, 'redirection'=>0, 'limit_response_size'=>4096,
+		'headers'=>['Content-Type'=>'application/json'],
+		'body'=>wp_json_encode(['allowed_mentions'=>['parse'=>[]], 'embeds'=>[['title'=>$title,'fields'=>$embed]]]),
+	]);
+	$status = is_wp_error($response) ? 0 : (int) wp_remote_retrieve_response_code($response);
+	if ($status < 200 || $status >= 300) wp_send_json_error(['message'=>'通知未送達，請確認 Webhook 設定。'], 502);
+}
+
+function wu_handle_support_ticket(): void {
+	wutm_dashboard_request_guard('wu_support_ticket');
+	$email = sanitize_email(wp_unslash((string) ($_POST['email'] ?? '')));
+	$subject = sanitize_text_field(wp_unslash((string) ($_POST['subject'] ?? '')));
+	$message = sanitize_textarea_field(wp_unslash((string) ($_POST['message'] ?? '')));
+	if (!$email || !$subject || !$message) wp_send_json_error(['message'=>'請填寫所有必填欄位。'], 400);
+	$ticket_id = strtoupper(bin2hex(random_bytes(4)));
+	wutm_dashboard_notify('support', '客服工單', ['工單編號'=>$ticket_id,'Email'=>$email,'問題類型'=>$subject,'問題描述'=>$message]);
+	$tickets = (array) get_option('wu_dashboard_support_tickets', []);
+	$tickets[] = ['ticket_id'=>$ticket_id,'subject'=>$subject,'timestamp'=>current_time('timestamp')];
+	update_option('wu_dashboard_support_tickets', $tickets, false);
+	wp_send_json_success(['message'=>'工單已送出，編號 #' . $ticket_id . '。']);
+}
+
+function wu_handle_delete_support_ticket(): void {
+	wutm_dashboard_request_guard('wu_delete_support_ticket');
+	$ticket_id = sanitize_text_field(wp_unslash((string) ($_POST['ticket_id'] ?? '')));
+	if (!$ticket_id) wp_send_json_error(['message'=>'無效的工單編號。'], 400);
+	$tickets = (array) get_option('wu_dashboard_support_tickets', []);
+	$tickets = array_filter($tickets, static function ($ticket) use ($ticket_id) {
+		return ($ticket['ticket_id'] ?? '') !== $ticket_id;
+	});
+	update_option('wu_dashboard_support_tickets', array_values($tickets), false);
+	wp_send_json_success(['message'=>'工單已刪除。']);
+}
+
+function wu_handle_advanced_plan_request(): void {
+	wutm_dashboard_request_guard('wu_request_advanced_plan');
+	wutm_dashboard_notify('plan', '進階維護方案諮詢', ['網站名稱'=>get_bloginfo('name')]);
+	wp_send_json_success(['message'=>'諮詢申請已送出。']);
+}
+
+function wu_handle_disk_upgrade_request(): void {
+	wutm_dashboard_request_guard('wu_request_disk_upgrade');
+	$disk = wu_get_disk_info();
+	wutm_dashboard_notify('disk', '磁碟升級申請', [
+		'網站名稱'=>get_bloginfo('name'), '目前使用量'=>$disk['used_formatted'], '配額'=>$disk['quota_formatted'],
+	]);
+	wp_send_json_success(['message'=>'磁碟升級申請已送出。']);
+}
 
 function wu_get_ssl_info() {
 	$cache_key = 'wu_ssl_info';
@@ -917,7 +760,7 @@ function wu_get_disk_info() {
 		return $cached;
 	}
 	
-	$quota_mb = get_option('wu_dashboard_disk_quota', 5120);
+	$quota_mb = max(1, (int) get_option('wu_dashboard_disk_quota', 5120));
 	$used_mb = wu_calculate_site_size();
 	$percentage = ($used_mb / $quota_mb) * 100;
 	$remaining_mb = $quota_mb - $used_mb;
@@ -1014,6 +857,12 @@ function wu_dashboard_settings_page() {
 	
 	if (isset($_POST['wu_save'])) {
 		check_admin_referer('wu_dash_settings');
+		$webhook = is_string($_POST['discord_webhook'] ?? null) ? trim(wp_unslash($_POST['discord_webhook'])) : '';
+		if (isset($_POST['clear_discord_webhook'])) delete_option('wutm_dashboard_discord_webhook');
+		elseif ($webhook !== '') {
+			if (!wutm_dashboard_webhook_url($webhook)) wp_die('請填入有效的 Discord Webhook HTTPS 網址。', '', ['response'=>400,'back_link'=>true]);
+			update_option('wutm_dashboard_discord_webhook', $webhook, false);
+		}
 		
 		update_option('wu_dashboard_enabled', isset($_POST['enabled']) ? 1 : 0);
 		update_option('wu_dashboard_basic_services_enabled', isset($_POST['basic_services_enabled']) ? 1 : 0);
@@ -1167,6 +1016,15 @@ function wu_dashboard_settings_page() {
 			<?php wp_nonce_field('wu_dash_settings'); ?>
 			
 			<table class="form-table">
+				<tr>
+					<th><label for="wutm-dashboard-webhook">Discord 通知頻道</label></th>
+					<td>
+						<input type="password" id="wutm-dashboard-webhook" name="discord_webhook" class="regular-text" autocomplete="new-password" placeholder="<?php echo get_option('wutm_dashboard_discord_webhook') ? '已設定，留空保留' : '尚未設定'; ?>">
+						<p class="description">請由頻道管理員建立 Webhook。工單與申請會送到此頻道，可能包含聯絡 Email 和工單內容。</p>
+						<label><input type="checkbox" name="clear_discord_webhook"> 清除已儲存的 Webhook</label>
+					</td>
+				</tr>
+
 				
 				<tr>
 					<th><label>啟用儀表板</label></th>
@@ -1462,6 +1320,7 @@ function wu_dashboard_settings_page() {
 			type: 'POST',
 			data: {
 				action: 'wu_delete_support_ticket',
+				nonce: '<?php echo esc_js(wp_create_nonce('wu_delete_support_ticket')); ?>',
 				ticket_id: ticketId
 			},
 			success: function(response) {

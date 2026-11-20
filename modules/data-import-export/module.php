@@ -56,6 +56,7 @@ class WUTM_Data_Import_Export {
                 <div class="wutm-csv-actions">
                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                         <?php wp_nonce_field('wutm_die_export_users'); ?><input type="hidden" name="action" value="wutm_die_export_users">
+                        <?php $this->export_format_field(); ?>
                         <label>匯出角色 <select name="role"><option value="">所有角色</option><?php foreach (get_editable_roles() as $key => $role): ?><option value="<?php echo esc_attr($key); ?>"><?php echo esc_html(translate_user_role($role['name'])); ?></option><?php endforeach; ?></select></label>
                         <label class="wutm-inline-choice"><input type="checkbox" name="include_meta" value="1" checked> 包含安全的自訂欄位</label>
                         <?php submit_button('下載使用者 CSV', 'secondary', 'submit', false); ?>
@@ -96,6 +97,7 @@ class WUTM_Data_Import_Export {
                 <div class="wutm-csv-actions">
                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                         <?php wp_nonce_field('wutm_die_export_products'); ?><input type="hidden" name="action" value="wutm_die_export_products">
+                        <?php $this->export_format_field(); ?>
                         <label>商品狀態 <select name="status"><option value="">所有狀態</option><option value="publish">已發佈</option><option value="draft">草稿</option><option value="private">私密</option></select></label>
                         <label>商品類型 <select name="type"><option value="">所有類型</option><option value="simple">簡單商品</option><option value="external">外部／聯盟商品</option><option value="grouped">群組商品</option></select></label>
                         <label>商品分類 <select name="category"><option value="">所有分類</option><?php foreach (get_terms(['taxonomy' => 'product_cat', 'hide_empty' => false]) as $category): if (is_wp_error($category)) continue; ?><option value="<?php echo (int) $category->term_id; ?>"><?php echo esc_html($category->name); ?></option><?php endforeach; ?></select></label>
@@ -120,6 +122,7 @@ class WUTM_Data_Import_Export {
                 <div class="wutm-csv-actions">
                     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
                         <?php wp_nonce_field('wutm_die_export_orders'); ?><input type="hidden" name="action" value="wutm_die_export_orders">
+                        <?php $this->export_format_field(); ?>
                         <label>訂單狀態 <select name="status"><option value="">所有狀態</option><?php foreach (wc_get_order_statuses() as $status => $label): ?><option value="<?php echo esc_attr($status); ?>"><?php echo esc_html($label); ?></option><?php endforeach; ?></select></label>
                         <label>起始日期 <input type="date" name="date_from"></label><label>結束日期 <input type="date" name="date_to"></label>
                         <?php submit_button('下載訂單 CSV', 'secondary', 'submit', false); ?>
@@ -168,12 +171,29 @@ class WUTM_Data_Import_Export {
         return in_array($key,['capabilities','user_level','session_tokens','application_passwords','dismissed_wp_pointers'],true) || str_ends_with($key,'capabilities') || str_ends_with($key,'user_level');
     }
 
+    private function export_format_field(): void {
+        echo '<p><label>匯出格式 <select name="csv_format"><option value="spreadsheet">試算表（防止公式執行）</option><option value="raw">原始 CSV（供程式匯入）</option></select></label></p>';
+    }
+
+    private function export_csv_row($out, array $row): void {
+        $raw = ($_REQUEST['csv_format'] ?? '') === 'raw';
+        if (!$raw) {
+            $row = array_map(static function ($cell) {
+                if (!is_string($cell) || $cell === '') return $cell;
+                if (preg_match('/^[\x00-\x20\x{FEFF}\p{Z}]*[=+\-@＝＋－＠]/u', $cell)) return "\t" . $cell;
+                if (preg_match('/^[\t\r\n]/', $cell)) return "'" . $cell;
+                return $cell;
+            }, $row);
+        }
+        fputcsv($out, $row, ',', '"', $raw ? '\\' : '');
+    }
+
     public function export_users(): void {
         $this->guard('wutm_die_export_users'); $args=['fields'=>'ID','number'=>200,'orderby'=>'ID','order'=>'ASC','count_total'=>true];
         $role=sanitize_key(wp_unslash($_POST['role']??'')); if($role && isset(get_editable_roles()[$role])) $args['role']=$role;
         $meta=[]; if(!empty($_POST['include_meta'])) { global $wpdb; $keys=$wpdb->get_col("SELECT DISTINCT meta_key FROM {$wpdb->usermeta} ORDER BY meta_key"); foreach ((array) $keys as $key) { $key=(string)$key; if ($key !== '' && !$this->protected_meta($key)) $meta[]=$key; } }
-        nocache_headers(); header('Content-Type:text/csv;charset=utf-8'); header('Content-Disposition:attachment; filename="wu-users-'.wp_date('Ymd-His').'.csv"'); $out=fopen('php://output','w'); fputs($out,"\xEF\xBB\xBF"); fputcsv($out,array_merge(['ID','user_login','user_email','user_registered','first_name','last_name','nickname','display_name','user_url','description','locale','role'],$meta));
-        $offset=0;$total=null;do{$args['offset']=$offset;$query=new WP_User_Query($args);$ids=(array)$query->get_results();if($total===null)$total=(int)$query->get_total();foreach($ids as $id){$u=get_userdata((int)$id);if(!$u)continue;$row=[$u->ID,$u->user_login,$u->user_email,$u->user_registered,$u->first_name,$u->last_name,$u->nickname,$u->display_name,$u->user_url,$u->description,get_user_locale($u->ID),implode(',',(array)$u->roles)];foreach($meta as $key){$values=get_user_meta($u->ID,$key,false);if(count($values)===1&&is_scalar($values[0]))$row[]=$values[0];else$row[]=wp_json_encode($values,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);}fputcsv($out,$row);clean_user_cache($u);} $offset+=200;}while($ids&&$offset<$total);fclose($out);exit;
+        nocache_headers(); header('Content-Type:text/csv;charset=utf-8'); header('Content-Disposition:attachment; filename="wu-users-'.wp_date('Ymd-His').'.csv"'); $out=fopen('php://output','w'); fputs($out,"\xEF\xBB\xBF"); $this->export_csv_row($out,array_merge(['ID','user_login','user_email','user_registered','first_name','last_name','nickname','display_name','user_url','description','locale','role'],$meta));
+        $offset=0;$total=null;do{$args['offset']=$offset;$query=new WP_User_Query($args);$ids=(array)$query->get_results();if($total===null)$total=(int)$query->get_total();foreach($ids as $id){$u=get_userdata((int)$id);if(!$u)continue;$row=[$u->ID,$u->user_login,$u->user_email,$u->user_registered,$u->first_name,$u->last_name,$u->nickname,$u->display_name,$u->user_url,$u->description,get_user_locale($u->ID),implode(',',(array)$u->roles)];foreach($meta as $key){$values=get_user_meta($u->ID,$key,false);if(count($values)===1&&is_scalar($values[0]))$row[]=$values[0];else$row[]=wp_json_encode($values,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);}$this->export_csv_row($out,$row);clean_user_cache($u);} $offset+=200;}while($ids&&$offset<$total);fclose($out);exit;
     }
 
     public function import_users(): void {
@@ -223,7 +243,7 @@ class WUTM_Data_Import_Export {
         header('Content-Disposition:attachment; filename="wu-products-' . wp_date('Ymd-His') . '.csv"');
         $out = fopen('php://output', 'w');
         fputs($out, "\xEF\xBB\xBF");
-        fputcsv($out, ['id','sku','name','slug','status','type','regular_price','sale_price','stock_status','stock_quantity','manage_stock','backorders','featured','catalog_visibility','tax_status','tax_class','weight','length','width','height','description','short_description','categories','tags','image_urls','gallery_image_urls','external_url','button_text','grouped_product_skus']);
+        $this->export_csv_row($out, ['id','sku','name','slug','status','type','regular_price','sale_price','stock_status','stock_quantity','manage_stock','backorders','featured','catalog_visibility','tax_status','tax_class','weight','length','width','height','description','short_description','categories','tags','image_urls','gallery_image_urls','external_url','button_text','grouped_product_skus']);
         $page = 1;
         do {
             $result = wc_get_products(array_merge($base_args, ['page' => $page]));
@@ -244,7 +264,7 @@ class WUTM_Data_Import_Export {
                     $child = wc_get_product($child_id);
                     if ($child && $child->get_sku()) $grouped_skus[] = $child->get_sku();
                 }
-                fputcsv($out, [$product->get_id(),$product->get_sku(),$product->get_name(),$product->get_slug(),$product->get_status(),$product->get_type(),$product->get_regular_price(),$product->get_sale_price(),$product->get_stock_status(),$product->get_stock_quantity(),$product->get_manage_stock() ? 'yes' : 'no',$product->get_backorders(),$product->is_featured() ? 'yes' : 'no',$product->get_catalog_visibility(),$product->get_tax_status(),$product->get_tax_class(),$product->get_weight(),$product->get_length(),$product->get_width(),$product->get_height(),$product->get_description(),$product->get_short_description(),implode('|', $categories),implode('|', $tags),$image,$gallery,$product->is_type('external') ? $product->get_product_url() : '',$product->is_type('external') ? $product->get_button_text() : '',implode('|', $grouped_skus)]);
+                $this->export_csv_row($out, [$product->get_id(),$product->get_sku(),$product->get_name(),$product->get_slug(),$product->get_status(),$product->get_type(),$product->get_regular_price(),$product->get_sale_price(),$product->get_stock_status(),$product->get_stock_quantity(),$product->get_manage_stock() ? 'yes' : 'no',$product->get_backorders(),$product->is_featured() ? 'yes' : 'no',$product->get_catalog_visibility(),$product->get_tax_status(),$product->get_tax_class(),$product->get_weight(),$product->get_length(),$product->get_width(),$product->get_height(),$product->get_description(),$product->get_short_description(),implode('|', $categories),implode('|', $tags),$image,$gallery,$product->is_type('external') ? $product->get_product_url() : '',$product->is_type('external') ? $product->get_button_text() : '',implode('|', $grouped_skus)]);
             }
             $page++;
         } while (is_object($result) && $page <= (int) $result->max_num_pages);
@@ -378,8 +398,8 @@ class WUTM_Data_Import_Export {
 
     public function export_orders(): void {
         $this->guard('wutm_die_export_orders'); if(!function_exists('wc_get_orders'))wp_die('尚未啟用 WooCommerce。');$args=['limit'=>100,'paginate'=>true,'return'=>'objects','orderby'=>'date','order'=>'ASC'];$status=sanitize_key(wp_unslash($_POST['status']??''));if($status)$args['status']=$status;$from=sanitize_text_field(wp_unslash($_POST['date_from']??''));$to=sanitize_text_field(wp_unslash($_POST['date_to']??''));if($from&&$to)$args['date_created']=$from.'...'.$to.' 23:59:59';elseif($from)$args['date_created']='>='.$from;elseif($to)$args['date_created']='<='.$to.' 23:59:59';
-        nocache_headers();header('Content-Type:text/csv;charset=utf-8');header('Content-Disposition:attachment; filename="wu-orders-'.wp_date('Ymd-His').'.csv"');$out=fopen('php://output','w');fputs($out,"\xEF\xBB\xBF");fputcsv($out,['order_id','status','currency','date_created','date_modified','customer_id','billing_first_name','billing_last_name','billing_company','billing_email','billing_phone','billing_address_1','billing_address_2','billing_city','billing_state','billing_postcode','billing_country','shipping_first_name','shipping_last_name','shipping_company','shipping_address_1','shipping_address_2','shipping_city','shipping_state','shipping_postcode','shipping_country','payment_method','payment_method_title','transaction_id','customer_note','discount_total','discount_tax','shipping_total','shipping_tax','cart_tax','total_tax','total','line_items']);
-        $page=1;do{$result=wc_get_orders(array_merge($args,['page'=>$page]));$orders=is_object($result)?$result->orders:(array)$result;foreach($orders as $o){$items=[];foreach($o->get_items('line_item') as $item){$items[]=['product_id'=>$item->get_product_id(),'variation_id'=>$item->get_variation_id(),'sku'=>($item->get_product()?$item->get_product()->get_sku():''),'name'=>$item->get_name(),'quantity'=>$item->get_quantity(),'subtotal'=>$item->get_subtotal(),'subtotal_tax'=>$item->get_subtotal_tax(),'total'=>$item->get_total(),'total_tax'=>$item->get_total_tax(),'taxes'=>$item->get_taxes()];}$b=$o->get_address('billing');$s=$o->get_address('shipping');fputcsv($out,[$o->get_id(),$o->get_status(),$o->get_currency(),$o->get_date_created()?$o->get_date_created()->date('Y-m-d H:i:s'):'',$o->get_date_modified()?$o->get_date_modified()->date('Y-m-d H:i:s'):'',$o->get_customer_id(),$b['first_name']??'',$b['last_name']??'',$b['company']??'',$b['email']??'',$b['phone']??'',$b['address_1']??'',$b['address_2']??'',$b['city']??'',$b['state']??'',$b['postcode']??'',$b['country']??'',$s['first_name']??'',$s['last_name']??'',$s['company']??'',$s['address_1']??'',$s['address_2']??'',$s['city']??'',$s['state']??'',$s['postcode']??'',$s['country']??'',$o->get_payment_method(),$o->get_payment_method_title(),$o->get_transaction_id(),$o->get_customer_note(),$o->get_discount_total(),$o->get_discount_tax(),$o->get_shipping_total(),$o->get_shipping_tax(),$o->get_cart_tax(),$o->get_total_tax(),$o->get_total(),wp_json_encode($items,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);}$page++;}while(is_object($result)&&$page<=(int)$result->max_num_pages);fclose($out);exit;
+        nocache_headers();header('Content-Type:text/csv;charset=utf-8');header('Content-Disposition:attachment; filename="wu-orders-'.wp_date('Ymd-His').'.csv"');$out=fopen('php://output','w');fputs($out,"\xEF\xBB\xBF");$this->export_csv_row($out,['order_id','status','currency','date_created','date_modified','customer_id','billing_first_name','billing_last_name','billing_company','billing_email','billing_phone','billing_address_1','billing_address_2','billing_city','billing_state','billing_postcode','billing_country','shipping_first_name','shipping_last_name','shipping_company','shipping_address_1','shipping_address_2','shipping_city','shipping_state','shipping_postcode','shipping_country','payment_method','payment_method_title','transaction_id','customer_note','discount_total','discount_tax','shipping_total','shipping_tax','cart_tax','total_tax','total','line_items']);
+        $page=1;do{$result=wc_get_orders(array_merge($args,['page'=>$page]));$orders=is_object($result)?$result->orders:(array)$result;foreach($orders as $o){$items=[];foreach($o->get_items('line_item') as $item){$items[]=['product_id'=>$item->get_product_id(),'variation_id'=>$item->get_variation_id(),'sku'=>($item->get_product()?$item->get_product()->get_sku():''),'name'=>$item->get_name(),'quantity'=>$item->get_quantity(),'subtotal'=>$item->get_subtotal(),'subtotal_tax'=>$item->get_subtotal_tax(),'total'=>$item->get_total(),'total_tax'=>$item->get_total_tax(),'taxes'=>$item->get_taxes()];}$b=$o->get_address('billing');$s=$o->get_address('shipping');$this->export_csv_row($out,[$o->get_id(),$o->get_status(),$o->get_currency(),$o->get_date_created()?$o->get_date_created()->date('Y-m-d H:i:s'):'',$o->get_date_modified()?$o->get_date_modified()->date('Y-m-d H:i:s'):'',$o->get_customer_id(),$b['first_name']??'',$b['last_name']??'',$b['company']??'',$b['email']??'',$b['phone']??'',$b['address_1']??'',$b['address_2']??'',$b['city']??'',$b['state']??'',$b['postcode']??'',$b['country']??'',$s['first_name']??'',$s['last_name']??'',$s['company']??'',$s['address_1']??'',$s['address_2']??'',$s['city']??'',$s['state']??'',$s['postcode']??'',$s['country']??'',$o->get_payment_method(),$o->get_payment_method_title(),$o->get_transaction_id(),$o->get_customer_note(),$o->get_discount_total(),$o->get_discount_tax(),$o->get_shipping_total(),$o->get_shipping_tax(),$o->get_cart_tax(),$o->get_total_tax(),$o->get_total(),wp_json_encode($items,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES)]);}$page++;}while(is_object($result)&&$page<=(int)$result->max_num_pages);fclose($out);exit;
     }
 
     public function import_orders(): void {

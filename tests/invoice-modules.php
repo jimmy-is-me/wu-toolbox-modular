@@ -148,9 +148,7 @@ if ( in_array( $mode, [ 'conflict', 'no-woocommerce', 'official', 'both-active' 
         }
         if ( in_array( 'ezpay', $providers, true ) ) {
             check( class_exists( 'WUTMInvoiceDeps\\InvoicePorter\\EzpayInvoice' ), 'Isolated InvoicePorter missing.' );
-            $client = new WUTMInvoiceDeps\GuzzleHttp\Client();
-            $request = new WUTMInvoiceDeps\GuzzleHttp\Psr7\Request( 'GET', 'https://example.test/' );
-            check( $request->getMethod() === 'GET', 'HTTP dependencies did not load.' );
+            check( !class_exists('WUTMInvoiceDeps\GuzzleHttp\Client'), 'Obsolete HTTP dependencies must not load.' );
         }
         if ( in_array( 'ecpay', $providers, true ) ) {
             check( class_exists( 'WUECPAYINVOICE\\APIs\\ECPay_Woo_EcpayInvoice' ), 'ECPay SDK load order is broken.' );

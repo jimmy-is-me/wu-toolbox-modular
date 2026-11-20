@@ -307,7 +307,11 @@ if ( ! class_exists( 'Wumetax_Quick_Support_AI_v120' ) ) {
 				}
 
 				$start  = microtime( true );
-				$result = self::call_provider( $provider, $question, $history, $context_text, $s );
+				try {
+					$result = self::call_provider( $provider, $question, $history, $context_text, $s );
+				} finally {
+					WUTM_KB_AI_Quota::release($rate['lease']);
+				}
 				$ms = (int) round( ( microtime( true ) - $start ) * 1000 );
 
 				if ( is_wp_error( $result ) ) {
@@ -324,8 +328,7 @@ if ( ! class_exists( 'Wumetax_Quick_Support_AI_v120' ) ) {
 					return self::rest_result( false, [ 'message' => $result->get_error_message() ], 502 );
 				}
 
-				self::rate_commit( $rate, $s );
-				$u = self::usage_today();
+				self::record_success( $provider );
 				$sources = [];
 				foreach ( $context_items as $item ) {
 					$sources[] = [ 'title' => $item['title'], 'url' => $item['url'] ];
@@ -354,9 +357,9 @@ if ( ! class_exists( 'Wumetax_Quick_Support_AI_v120' ) ) {
 				$remaining = max(
 					0,
 					min(
-						absint( $s['session_limit'] ) - ( $rate['session_n'] + 1 ),
-						absint( $s['ip_daily_limit'] ) - ( $rate['ip_n'] + 1 ),
-						absint( $s['site_daily_limit'] ) - $u['total']
+						absint( $s['session_limit'] ) - $rate['session_n'],
+						absint( $s['ip_daily_limit'] ) - $rate['ip_n'],
+						absint( $s['site_daily_limit'] ) - $rate['site_n']
 					)
 				);
 
@@ -769,12 +772,9 @@ if ( ! class_exists( 'Wumetax_Quick_Support_AI_v120' ) ) {
 		 * ===================================================== */
 
 		private static function client_ip() {
-			if ( ! empty( $_SERVER['HTTP_CF_CONNECTING_IP'] ) && ! empty( $_SERVER['HTTP_CF_RAY'] ) ) {
-				$ip = sanitize_text_field( wp_unslash( $_SERVER['HTTP_CF_CONNECTING_IP'] ) );
-			} else {
-				$ip = isset( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : 'unknown';
-			}
-			return filter_var( $ip, FILTER_VALIDATE_IP ) ? $ip : 'unknown';
+			// Only the server's trusted peer address is used. Configure trusted proxies at the web server.
+			$ip = $_SERVER['REMOTE_ADDR'] ?? '';
+			return is_string($ip) && filter_var($ip, FILTER_VALIDATE_IP) ? $ip : 'unknown';
 		}
 
 		private static function key_hash( $value ) {
@@ -782,51 +782,17 @@ if ( ! class_exists( 'Wumetax_Quick_Support_AI_v120' ) ) {
 		}
 
 		private static function rate_check( $session_id, $s ) {
-			$today       = wp_date( 'Ymd' );
-			$session_key = 'wuqsa_s_' . self::key_hash( $session_id );
-			$ip_key      = 'wuqsa_i_' . self::key_hash( self::client_ip() . '|' . $today );
-			$cool_key    = 'wuqsa_c_' . self::key_hash( $session_id . '|' . self::client_ip() );
-			$session_n   = absint( get_transient( $session_key ) );
-			$ip_n        = absint( get_transient( $ip_key ) );
-			$usage       = self::usage_today();
-
-			if ( $usage['total'] >= absint( $s['site_daily_limit'] ) ) {
-				self::bump_usage( 'blocked' );
-				return new WP_Error( 'site_limit', '今日 AI 協助額度已達上限，您仍可以使用內容搜尋或直接聯絡我們。' );
-			}
-			if ( $session_n >= absint( $s['session_limit'] ) ) {
-				self::bump_usage( 'blocked' );
-				return new WP_Error( 'session_limit', '本次瀏覽的 AI 問答次數已使用完畢，您仍可以使用內容搜尋。' );
-			}
-			if ( $ip_n >= absint( $s['ip_daily_limit'] ) ) {
-				self::bump_usage( 'blocked' );
-				return new WP_Error( 'ip_limit', '今日 AI 問答次數已達上限，請稍後再試或直接聯絡我們。' );
-			}
-			if ( absint( $s['cooldown'] ) > 0 && get_transient( $cool_key ) ) {
-				self::bump_usage( 'blocked' );
-				return new WP_Error( 'cooldown', '請稍候幾秒再送出下一個問題。' );
-			}
-
-			return [ 'session_key' => $session_key, 'ip_key' => $ip_key, 'cool_key' => $cool_key, 'session_n' => $session_n, 'ip_n' => $ip_n ];
+			require_once __DIR__ . '/quota.php';
+			return WUTM_KB_AI_Quota::reserve(self::key_hash($session_id), self::key_hash(self::client_ip()), $s);
 		}
 
-		private static function rate_commit( $rate, $s ) {
-			set_transient( $rate['session_key'], $rate['session_n'] + 1, 12 * HOUR_IN_SECONDS );
-			set_transient( $rate['ip_key'], $rate['ip_n'] + 1, DAY_IN_SECONDS + HOUR_IN_SECONDS );
-			if ( absint( $s['cooldown'] ) > 0 ) {
-				set_transient( $rate['cool_key'], 1, absint( $s['cooldown'] ) );
-			}
-			$u = self::bump_usage( 'total' );
-			$provider = $s['provider'];
-			if ( isset( $u[ $provider ] ) ) {
-				$u[ $provider ]++;
-				self::save_usage( $u );
+		private static function record_success( $provider ) {
+			$u = self::bump_usage('total');
+			if (isset($u[$provider])) {
+				$u[$provider]++;
+				self::save_usage($u);
 			}
 		}
-
-		/* =====================================================
-		 * CONTEXT / HISTORY
-		 * ===================================================== */
 
 		private static function sanitize_history( $raw ) {
 			if ( ! is_array( $raw ) ) {
@@ -894,6 +860,8 @@ if ( ! class_exists( 'Wumetax_Quick_Support_AI_v120' ) ) {
 			$url = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode( $model ) . ':generateContent';
 			$response = wp_remote_post( $url, [
 				'timeout' => 40,
+				'redirection' => 0,
+				'limit_response_size' => 1048576,
 				'headers' => [ 'Content-Type' => 'application/json', 'Accept' => 'application/json', 'x-goog-api-key' => $key ],
 				'body'    => wp_json_encode( [
 					'systemInstruction' => [ 'parts' => [ [ 'text' => $s['system_prompt'] ] ] ],
@@ -959,6 +927,8 @@ if ( ! class_exists( 'Wumetax_Quick_Support_AI_v120' ) ) {
 
 			$response = wp_remote_post( 'https://api.perplexity.ai/v1/sonar', [
 				'timeout' => 45,
+				'redirection' => 0,
+				'limit_response_size' => 1048576,
 				'headers' => [ 'Authorization' => 'Bearer ' . $key, 'Content-Type' => 'application/json', 'Accept' => 'application/json' ],
 				'body'    => wp_json_encode( $body ),
 			] );
@@ -1023,6 +993,8 @@ if ( ! class_exists( 'Wumetax_Quick_Support_AI_v120' ) ) {
 
 			$response = wp_remote_post( 'https://api.openai.com/v1/responses', [
 				'timeout' => 45,
+				'redirection' => 0,
+				'limit_response_size' => 1048576,
 				'headers' => [
 					'Authorization' => 'Bearer ' . $key,
 					'Content-Type'  => 'application/json',
@@ -1135,7 +1107,11 @@ if ( ! class_exists( 'Wumetax_Quick_Support_AI_v120' ) ) {
 			}
 
 			$start  = microtime( true );
-			$result = self::call_provider( $provider, $question, $history, $context_text, $s );
+			try {
+				$result = self::call_provider( $provider, $question, $history, $context_text, $s );
+			} finally {
+				WUTM_KB_AI_Quota::release($rate['lease']);
+			}
 			$ms     = (int) round( ( microtime( true ) - $start ) * 1000 );
 
 			if ( is_wp_error( $result ) ) {
@@ -1143,8 +1119,7 @@ if ( ! class_exists( 'Wumetax_Quick_Support_AI_v120' ) ) {
 				wp_send_json_error( [ 'message' => $result->get_error_message() ], 502 );
 			}
 
-			self::rate_commit( $rate, $s );
-			$u = self::usage_today();
+			self::record_success( $provider );
 			$sources = [];
 			foreach ( $context_items as $item ) {
 				$sources[] = [ 'title' => $item['title'], 'url' => $item['url'] ];
@@ -1170,7 +1145,7 @@ if ( ! class_exists( 'Wumetax_Quick_Support_AI_v120' ) ) {
 				'cost'          => $usage['cost'],
 			] );
 
-			$remaining = max( 0, min( absint( $s['session_limit'] ) - ( $rate['session_n'] + 1 ), absint( $s['ip_daily_limit'] ) - ( $rate['ip_n'] + 1 ), absint( $s['site_daily_limit'] ) - $u['total'] ) );
+			$remaining = max( 0, min( absint( $s['session_limit'] ) - $rate['session_n'], absint( $s['ip_daily_limit'] ) - $rate['ip_n'], absint( $s['site_daily_limit'] ) - $rate['site_n'] ) );
 			wp_send_json_success( [ 'answer' => $result['text'], 'sources' => $sources, 'remaining' => $remaining, 'provider' => $provider ] );
 		}
 
