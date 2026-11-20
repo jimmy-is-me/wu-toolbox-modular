@@ -253,23 +253,30 @@ class WUTM_Advanced_Tracking_Manager {
 		if ( strpos( $hook, self::MENU_SLUG ) === false ) {
 			return;
 		}
-		wp_enqueue_script(
-			'atm-admin',
-			plugin_dir_url( WUTM_ATM_FILE ) . 'assets/admin.js',
-			array( 'jquery' ),
-			WUTM_ATM_VERSION,
-			true
-		);
-		wp_localize_script( 'atm-admin', 'atmData', array(
-			'ajax_url' => admin_url( 'admin-ajax.php' ),
-			'nonce'    => wp_create_nonce( 'atm_diagnostics' ),
-		) );
+		if ( ( $_GET['atm_tab'] ?? '' ) === 'diagnostic' ) {
+			wp_enqueue_script(
+				'atm-admin',
+				plugin_dir_url( WUTM_ATM_FILE ) . 'assets/admin.js',
+				array( 'jquery' ),
+				WUTM_ATM_VERSION,
+				true
+			);
+			wp_localize_script( 'atm-admin', 'atmData', array(
+				'ajax_url' => admin_url( 'admin-ajax.php' ),
+				'nonce'    => wp_create_nonce( 'atm_diagnostics' ),
+				'labels'   => self::diagnostic_labels(),
+			) );
+		}
 		wp_enqueue_style(
 			'atm-admin',
 			plugin_dir_url( WUTM_ATM_FILE ) . 'assets/admin.css',
 			array(),
 			WUTM_ATM_VERSION
 		);
+	}
+
+	public static function diagnostic_labels(): array {
+		return array( 'success' => '通過', 'warning' => '警告', 'error' => '錯誤', 'info' => '資訊' );
 	}
 
 	/* ============================================================

@@ -20,10 +20,20 @@ $debug_mode         = (int) get_option( 'atm_debug_mode', 0 );
 $last_saved_at      = get_option( 'atm_last_saved_at', '' );
 $last_saved_by      = get_option( 'atm_last_saved_by', '' );
 $last_diagnostic    = get_option( 'atm_last_diagnostic', array() );
-$active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], ['events','history','privacy'], true) ? $_GET['atm_tab'] : 'tracking';
+$tabs = [
+    'tracking' => '追蹤設定',
+    'events' => '事件、電商與 CAPI',
+    'privacy' => 'Cookie 與隱私同意',
+    'history' => '事件紀錄',
+    'diagnostic' => '自動診斷',
+    'guide' => '操作說明',
+];
+$requested_tab = $_GET['atm_tab'] ?? '';
+$active_tab = is_string($requested_tab) && isset($tabs[$requested_tab]) ? $requested_tab : 'tracking';
+$page_url = admin_url('admin.php?page=wu-advanced-tracking-manager');
 ?>
 <div class="wrap wutm-atm-wrap">
-<h1>🎯 進階追蹤程式碼管理器 <span class="atm-version">v<?php echo esc_html( WUTM_ATM_VERSION ); ?></span></h1>
+<h1>進階追蹤程式碼管理器 <span class="atm-version">v<?php echo esc_html( WUTM_ATM_VERSION ); ?></span></h1>
 
 <?php if ( $last_saved_at ) : ?>
 <div class="atm-meta">
@@ -33,26 +43,26 @@ $active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], 
 <?php endif; ?>
 
 <!-- Tabs -->
-<div class="atm-tabs">
-  <button class="atm-tab <?php echo $active_tab === 'tracking' ? 'active' : ''; ?>" data-tab="tracking">📡 追蹤設定</button>
-  <button class="atm-tab <?php echo $active_tab === 'events' ? 'active' : ''; ?>" data-tab="events">事件、電商與 CAPI</button>
-  <button class="atm-tab <?php echo $active_tab === 'privacy' ? 'active' : ''; ?>" data-tab="privacy">Cookie 與隱私同意</button>
-  <button class="atm-tab <?php echo $active_tab === 'history' ? 'active' : ''; ?>" data-tab="history">事件紀錄</button>
-  <button class="atm-tab" data-tab="diagnostic">🔍 自動診斷</button>
-  <button class="atm-tab" data-tab="guide">📖 操作說明</button>
-</div>
+<nav class="atm-tabs" aria-label="進階追蹤管理分頁">
+  <?php foreach ($tabs as $id => $label) : ?>
+    <a class="atm-tab<?php echo $active_tab === $id ? ' active' : ''; ?>"
+       href="<?php echo esc_url(add_query_arg('atm_tab', $id, $page_url)); ?>"
+       <?php if ($active_tab === $id) echo 'aria-current="page"'; ?>><?php echo esc_html($label); ?></a>
+  <?php endforeach; ?>
+</nav>
 
 <!-- ======================================================
      TAB 1: tracking
      ====================================================== -->
-<div id="atm-tab-tracking" class="atm-tab-content <?php echo $active_tab === 'tracking' ? 'active' : ''; ?>">
+<?php if ($active_tab === 'tracking') : ?>
+<div id="atm-tab-tracking" class="atm-tab-content">
 <form method="post" action="">
   <?php wp_nonce_field( 'atm_save_settings', 'atm_nonce' ); ?>
 
   <!-- GA4 -->
   <div class="atm-card">
     <div class="atm-card-head">
-      <span>📊 Google Analytics 4 (GA4)</span>
+      <span>Google Analytics 4 (GA4)</span>
       <label class="atm-switch">
         <input type="checkbox" name="atm_ga4_enabled" value="1" <?php checked( $ga4_enabled, 1 ); ?>>
         <span class="atm-slider"></span>
@@ -68,7 +78,7 @@ $active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], 
   <!-- Google Ads -->
   <div class="atm-card">
     <div class="atm-card-head">
-      <span>📣 Google Ads 轉換追蹤</span>
+      <span>Google Ads 轉換追蹤</span>
       <label class="atm-switch">
         <input type="checkbox" name="atm_google_ads_enabled" value="1" <?php checked( $google_ads_enabled, 1 ); ?>>
         <span class="atm-slider"></span>
@@ -84,7 +94,7 @@ $active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], 
   <!-- GTM -->
   <div class="atm-card">
     <div class="atm-card-head">
-      <span>🏷️ Google Tag Manager (GTM)</span>
+      <span>Google Tag Manager (GTM)</span>
       <label class="atm-switch">
         <input type="checkbox" name="atm_gtm_enabled" value="1" <?php checked( $gtm_enabled, 1 ); ?>>
         <span class="atm-slider"></span>
@@ -93,14 +103,14 @@ $active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], 
     <div class="atm-card-body">
       <label>GTM Container ID</label>
       <input type="text" name="atm_gtm_id" value="<?php echo esc_attr( $gtm_id ); ?>" placeholder="GTM-XXXXXXX" class="regular-text">
-      <p class="description">格式：<code>GTM-XXXXXXX</code>。在 GTM 後台右上角可以找到。<br>⚠️ 若你已在 GTM 容器裡安裝 GA4，請勿同時啟用上方的 GA4，否則會重複追蹤。</p>
+      <p class="description">格式：<code>GTM-XXXXXXX</code>。在 GTM 後台右上角可以找到。<br>若你已在 GTM 容器裡安裝 GA4，請勿同時啟用上方的 GA4，否則會重複追蹤。</p>
     </div>
   </div>
 
   <!-- Meta Pixel -->
   <div class="atm-card">
     <div class="atm-card-head">
-      <span>📘 Meta Pixel (Facebook / Instagram 廣告)</span>
+      <span>Meta Pixel (Facebook / Instagram 廣告)</span>
       <label class="atm-switch">
         <input type="checkbox" name="atm_fb_pixel_enabled" value="1" <?php checked( $fb_pixel_enabled, 1 ); ?>>
         <span class="atm-slider"></span>
@@ -116,7 +126,7 @@ $active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], 
   <!-- WooCommerce Checkout -->
   <div class="atm-card">
     <div class="atm-card-head">
-      <span>🛒 WooCommerce 結帳成功追蹤碼</span>
+      <span>WooCommerce 結帳成功追蹤碼</span>
       <label class="atm-switch">
         <input type="checkbox" name="atm_checkout_enabled" value="1" <?php checked( $checkout_enabled, 1 ); ?>>
         <span class="atm-slider"></span>
@@ -131,7 +141,7 @@ $active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], 
 
   <!-- General Options -->
   <div class="atm-card">
-    <div class="atm-card-head"><span>⚙️ 一般選項</span></div>
+    <div class="atm-card-head"><span>一般選項</span></div>
     <div class="atm-card-body">
       <label style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
         <input type="checkbox" name="atm_exclude_admin" value="1" <?php checked( $exclude_admin, 1 ); ?>>
@@ -144,46 +154,48 @@ $active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], 
     </div>
   </div>
 
-  <p><input type="submit" name="atm_submit" class="button button-primary button-large" value="💾 儲存設定"></p>
+  <p><input type="submit" name="atm_submit" class="button button-primary button-large" value="儲存設定"></p>
 </form>
 </div>
 
-<div id="atm-tab-events" class="atm-tab-content <?php echo $active_tab === 'events' ? 'active' : ''; ?>">
+<?php elseif ($active_tab === 'events') : ?>
+<div id="atm-tab-events" class="atm-tab-content">
   <?php WUTM_ATM_Event_Admin::render_settings(); ?>
 </div>
-<div id="atm-tab-privacy" class="atm-tab-content <?php echo $active_tab === 'privacy' ? 'active' : ''; ?>">
+<?php elseif ($active_tab === 'privacy') : ?>
+<div id="atm-tab-privacy" class="atm-tab-content">
   <?php WUTM_ATM_Consent_Admin::render(); ?>
 </div>
-<div id="atm-tab-history" class="atm-tab-content <?php echo $active_tab === 'history' ? 'active' : ''; ?>">
-  <?php if ($active_tab === 'history') : WUTM_ATM_Event_Admin::render_log(); else : ?>
-    <p><a class="button" href="<?php echo esc_url(admin_url('admin.php?page=wu-advanced-tracking-manager&atm_tab=history')); ?>">載入事件紀錄</a></p>
-  <?php endif; ?>
+<?php elseif ($active_tab === 'history') : ?>
+<div id="atm-tab-history" class="atm-tab-content">
+  <?php WUTM_ATM_Event_Admin::render_log(); ?>
 </div>
 
 <!-- ======================================================
      TAB 2: diagnostic
      ====================================================== -->
+<?php elseif ($active_tab === 'diagnostic') : ?>
 <div id="atm-tab-diagnostic" class="atm-tab-content">
   <div class="atm-card">
-    <div class="atm-card-head"><span>🔍 自動診斷</span></div>
+    <div class="atm-card-head"><span>自動診斷</span></div>
     <div class="atm-card-body">
       <p>點擊下方按鈕，系統會自動讀取網站前台 HTML，檢查所有已啟用的追蹤碼是否正確輸出。</p>
       <p>
-        <button id="atm-run-diag" class="button button-primary">▶ 開始診斷</button>
-        <button id="atm-clear-diag" class="button" style="margin-left:8px;">🗑 清除結果</button>
-        <span id="atm-diag-spinner" style="display:none;margin-left:10px;">⏳ 診斷中...</span>
+        <button id="atm-run-diag" class="button button-primary">開始診斷</button>
+        <button id="atm-clear-diag" class="button" style="margin-left:8px;">清除結果</button>
+        <span id="atm-diag-spinner" style="display:none;margin-left:10px;">診斷中...</span>
       </p>
       <div id="atm-diagnostic-output">
         <?php
         if ( ! empty( $last_diagnostic ) && ! empty( $last_diagnostic['items'] ) ) {
-          $atm_instance = Advanced_Tracking_Manager::get_instance();
+          $labels = WUTM_Advanced_Tracking_Manager::diagnostic_labels();
           echo '<div class="atm-diag-meta">上次診斷：' . esc_html( $last_diagnostic['checked_at'] ?? '' )
             . '｜前台：' . esc_html( $last_diagnostic['frontend_url'] ?? '' )
             . '｜狀態碼：' . esc_html( (string)($last_diagnostic['status_code'] ?? '') ) . '</div>';
           foreach ( $last_diagnostic['items'] as $item ) {
-            $icon = $item['status'] === 'success' ? '✅' : ( $item['status'] === 'warning' ? '⚠️' : ( $item['status'] === 'error' ? '❌' : 'ℹ️' ) );
+            $label = $labels[$item['status']] ?? $labels['info'];
             echo '<div class="atm-diag-item atm-diag-' . esc_attr( $item['status'] ) . '">';
-            echo '<strong>' . esc_html( $icon . ' ' . $item['title'] ) . '</strong><br>';
+            echo '<strong>' . esc_html( $label . ' · ' . $item['title'] ) . '</strong><br>';
             echo esc_html( $item['message'] );
             if ( ! empty( $item['details'] ) ) echo '<br><span class="atm-diag-detail">' . esc_html( $item['details'] ) . '</span>';
             echo '</div>';
@@ -200,15 +212,16 @@ $active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], 
 <!-- ======================================================
      TAB 3: guide
      ====================================================== -->
+<?php elseif ($active_tab === 'guide') : ?>
 <div id="atm-tab-guide" class="atm-tab-content">
   <div class="atm-card">
-    <div class="atm-card-head"><span>📖 操作說明</span></div>
+    <div class="atm-card-head"><span>操作說明</span></div>
     <div class="atm-card-body atm-guide">
 
       <h3>事件、Cookie 同意及伺服器追蹤</h3>
       <p>請在「Cookie 與隱私同意」開啟內建橫幅，或接上網站既有的同意工具。啟用事件後，可用 Meta 測試事件檢查伺服器連線。<a href="https://github.com/jimmy-is-me/wu-toolbox-modular/blob/main/docs/ADVANCED-TRACKING-MANAGER.md" target="_blank" rel="noopener noreferrer">查看安裝與擴充說明</a></p>
 
-      <h3>📊 GA4 — 適合大多數網站</h3>
+      <h3>GA4 — 適合大多數網站</h3>
       <ol>
         <li>前往 <a href="https://analytics.google.com" target="_blank" rel="noopener">Google Analytics</a>。</li>
         <li>後台左下角 → 管理 → 資料串流 → 點選你的網站串流。</li>
@@ -216,15 +229,15 @@ $active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], 
         <li>貼回此頁面的「GA4 Measurement ID」欄位，開啟開關，儲存。</li>
       </ol>
 
-      <h3>🏷️ GTM — 適合進階多標籤管理</h3>
+      <h3>GTM — 適合進階多標籤管理</h3>
       <ol>
         <li>前往 <a href="https://tagmanager.google.com" target="_blank" rel="noopener">Google Tag Manager</a>。</li>
         <li>選擇容器，右上角找到 <code>GTM-XXXXXXX</code>。</li>
         <li>貼回「GTM Container ID」欄位，開啟開關，儲存。</li>
-        <li>⚠️ 如果你在 GTM 裡也安裝了 GA4，請<strong>不要</strong>同時啟用本外掛的 GA4，以免重複。</li>
+        <li>如果你在 GTM 裡也安裝了 GA4，請<strong>不要</strong>同時啟用本外掛的 GA4，以免重複。</li>
       </ol>
 
-      <h3>📘 Meta Pixel — 投放 FB / IG 廣告必備</h3>
+      <h3>Meta Pixel — 投放 FB / IG 廣告必備</h3>
       <ol>
         <li>前往 <a href="https://www.facebook.com/events_manager" target="_blank" rel="noopener">Meta Events Manager</a>。</li>
         <li>選擇資料來源 → 複製 <strong>Pixel ID</strong>（一串純數字）。</li>
@@ -232,15 +245,15 @@ $active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], 
         <li>使用事件管理時，請開啟 PageView 並確認行銷同意，再使用 <a href="https://chromewebstore.google.com/detail/meta-pixel-helper/fdgfkebogiimcoedlicjlajpkdmockpc" target="_blank" rel="noopener">Meta Pixel Helper</a> 檢查。</li>
       </ol>
 
-      <h3>🔍 診斷工具使用方式</h3>
+      <h3>診斷工具使用方式</h3>
       <ol>
         <li>切換到「自動診斷」分頁。</li>
         <li>點「開始診斷」，等待 10–15 秒。</li>
-        <li>若出現 ❌，請依說明修正；若出現 ⚠️ 排除管理員，請暫時關閉排除設定或改用無痕視窗測試。</li>
+        <li>若顯示錯誤，請依說明修正；若出現排除管理員警告，請暫時關閉排除設定或改用無痕視窗測試。</li>
         <li>修正後重新儲存設定、清除快取，再執行一次診斷。</li>
       </ol>
 
-      <h3>✅ 常見問題</h3>
+      <h3>常見問題</h3>
       <ul>
         <li><strong>找不到追蹤碼</strong>：請先確認「排除管理員」是否已關閉，並清除頁面快取。</li>
         <li><strong>Tag Assistant 看不到 GTM</strong>：確認主題的 header.php 有 <code>&lt;?php wp_head(); ?&gt;</code>，body 開頭有 <code>&lt;?php wp_body_open(); ?&gt;</code>。</li>
@@ -250,4 +263,5 @@ $active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], 
     </div>
   </div>
 </div>
+<?php endif; ?>
 </div><!-- .wutm-atm-wrap -->
