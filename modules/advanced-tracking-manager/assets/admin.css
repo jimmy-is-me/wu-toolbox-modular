@@ -44,3 +44,6 @@
 .wutm-atm-wrap .wutm-atm-event-table{overflow-x:auto}
 .wutm-atm-wrap .wutm-atm-event-table table{min-width:800px}
 .wutm-atm-wrap .wutm-atm-event-table code{overflow-wrap:anywhere}
+.wutm-atm-privacy-options{margin:1rem 0;padding:.75rem 1rem;border:1px solid #dcdcde;border-radius:6px}
+.wutm-atm-privacy-options legend{font-weight:600;padding-inline:.35rem}
+.wutm-atm-privacy-options label{display:inline-block;margin:.25rem 1rem .25rem 0}

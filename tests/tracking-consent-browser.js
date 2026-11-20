@@ -10,11 +10,15 @@ const moduleDir = path.join(__dirname, '../modules/advanced-tracking-manager');
 const endpoint = '/wp-admin/admin-ajax.php?action=wutm_atm_privacy';
 const assets = Object.fromEntries(['consent.css', 'consent.js', 'events.js'].map(file =>
     [file, fs.readFileSync(path.join(moduleDir, 'assets', file), 'utf8')]));
-const render = () => {
+const render = (layout = 'inline', optOut = false) => {
     const result = spawnSync(process.env.WUTM_TEST_PHP || 'php', [], { encoding:'utf8', input:`<?php
         define('ABSPATH', __DIR__);
         function esc_html($s) { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
+        function esc_attr($s) { return esc_html($s); }
         function esc_url($s) { return esc_html($s); }
+        $layout=${JSON.stringify(layout)};
+        $appearance=${JSON.stringify(optOut ? 'dark' : 'light')};
+        $opt_out=${optOut ? 'true' : 'false'};
         $settings=['title'=>'Cookie 與隱私偏好','description'=>'Cookie 分類','reject'=>'拒絕非必要','accept'=>'同意全部','preferences'=>'偏好設定','save'=>'儲存偏好'];
         $url='/privacy';
         require ${JSON.stringify(path.join(moduleDir, 'templates/consent-banner.php').replaceAll('\\', '/'))};
@@ -27,12 +31,13 @@ const render = () => {
         '<script src="/events.js"></script><script src="/consent.js"></script></body></html>';
 };
 
-const fixture = native ? '' : render();
 const external = /www\.googletagmanager\.com|connect\.facebook\.net/;
-async function browserVisitor(browser) {
-    const context = await browser.newContext({ viewport:{width:390,height:844} });
+async function browserVisitor(browser, layout = 'inline', optOut = false, width = 390) {
+    const context = await browser.newContext({ viewport:{width,height:844} });
     const page = await context.newPage();
-    let state = {chosen:false, analytics:false, marketing:false, tags:{}, csrf:'fixture', expires:0};
+    const fixture = native ? '' : render(layout,optOut);
+    let state = {chosen:false, defaults:optOut, analytics:optOut, marketing:optOut,
+        tags:optOut ? {ga4:'G-FIXTURE',ads:'AW-123456',pixel:'123456789',visit:true} : {}, csrf:'fixture', expires:0};
     const scripts = [];
     const api = [];
     await page.route('**/*', async route => {
@@ -47,7 +52,7 @@ async function browserVisitor(browser) {
             const data = route.request().postDataJSON();
             api.push(data.op);
             if (data.op === 'save') {
-                state = {...state, chosen:true, analytics:data.analytics, marketing:data.marketing};
+                state = {...state, chosen:true, defaults:false, analytics:data.analytics, marketing:data.marketing};
                 state.tags = {
                     ga4:state.analytics ? 'G-FIXTURE' : '',
                     ads:state.marketing ? 'AW-123456' : '',
@@ -143,6 +148,31 @@ async function browserVisitor(browser) {
         await two.page.locator('#wutm-atm-privacy button[data-wutm-privacy-choice=reject]').click();
         await two.page.locator('#wutm-atm-privacy').waitFor({state:'hidden'});
         assert.equal(two.scripts.length, 0);
+        if (!native) {
+            for (const layout of ['bar','corner','center','side']) {
+                const visitor = await browserVisitor(browser,layout,true,layout === 'bar' ? 1440 : 390);
+                const {page} = visitor;
+                await page.goto(base.href);
+                const notice = page.locator('#wutm-atm-privacy');
+                await notice.locator('[data-wutm-privacy-default]').waitFor();
+                await page.waitForFunction(() => window.wutmAtmConsent?.marketing === true);
+                assert.equal(await notice.evaluate(el => getComputedStyle(el).position), 'fixed');
+                assert(await notice.evaluate(el => el.getBoundingClientRect().width <= innerWidth));
+                assert(visitor.scripts.some(url => url.includes('fbevents.js')));
+                assert(!visitor.api.includes('save'), 'Defaults do not write consent.');
+                await notice.getByRole('button',{name:'偏好設定'}).click();
+                const prefs = page.locator('#wutm-atm-privacy-dialog');
+                assert(await prefs.locator('[name=marketing]').isChecked());
+                await prefs.getByRole('button',{name:'拒絕非必要'}).click();
+                await prefs.waitFor({state:'hidden'});
+                assert(!(await notice.isVisible()));
+                visitor.scripts.length = 0;
+                await page.reload();
+                await page.waitForFunction(() => window.wutmAtmConsent?.marketing === false);
+                assert.equal(visitor.scripts.length,0,'Saved rejection prevents tracking on return.');
+                await visitor.context.close();
+            }
+        }
         console.log(native ? 'Cookie consent passed with native WordPress, shared page cache and visitor endpoint security.' :
             'Cookie consent browser checks passed at mobile width.');
     } finally { await browser.close(); }

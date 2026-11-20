@@ -10,6 +10,12 @@
 
 ## 內建 Cookie 與隱私同意（v4.1.4）
 
+### v4.1.7 顯示方式與首次訪問
+
+- 在「Cookie 與隱私同意 → 橫幅外觀」可選頁面內橫幅、底部滿版橫幅、角落浮動卡片、中央視窗或右側面板，也可切換淺色與深色。購物車、結帳和會員頁會使用頁面內橫幅。
+- 在「首次訪問的追蹤方式」選擇「預設啟用，可手動拒絕」，再指定分析及行銷的預設值。訪客仍可立即拒絕全部非必要追蹤，或分別調整兩個分類。已儲存的偏好會優先套用。
+- 預設啟用只影響瀏覽器標籤與瀏覽事件。Google 的廣告使用者資料及個人化信號、Meta CAPI、WooCommerce 購買事件仍依明確儲存的同意處理。既有網站升級後會沿用原有的先同意模式。
+
 1. 從「Wu Toolbox → 進階追蹤管理 → Cookie 與隱私同意」啟用。可設定標題、說明、按鈕名稱與隱私權政策網址。網址留空使用 WordPress 的隱私權政策頁。
 2. 訪客可直接同意全部或拒絕非必要，也可個別選擇分析與行銷。必要功能永遠開啟。若要修改，使用頁尾的「Cookie 偏好設定」，或把 `[wu_cookie_preferences]` 放在網站適合的位置。
 3. GA4 依分析同意載入。Google Ads、Meta Pixel 和 CAPI 依行銷同意載入或發送。GTM 預設需兩種同意，純分析或純行銷容器可在分頁調整。GTM 仍須為每個標籤設定對應的同意與觸發條件。 [Google 的同意模式](https://developers.google.com/tag-platform/security/guides/consent) · [GTM Consent API](https://developers.google.com/tag-platform/tag-manager/templates/consent-apis)

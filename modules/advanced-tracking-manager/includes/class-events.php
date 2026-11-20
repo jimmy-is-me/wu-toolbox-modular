@@ -166,7 +166,10 @@ final class WUTM_ATM_Events {
         ];
         $live = self::$allowed ?? self::consent();
         $consent = $context['recorded_consent'] ?? $live;
-        $browser = empty($context['server_only']) && self::browser_active() && !empty($live['granted']) && !self::excluded();
+        $default_visit = empty($live['granted']) && !empty($context['browser_only']) &&
+            in_array($name, ['PageView','Search','ViewContent'], true) &&
+            WUTM_ATM_Consent::collecting() && WUTM_ATM_Consent::allows_default_visit();
+        $browser = empty($context['server_only']) && self::browser_active() && (!empty($live['granted']) || $default_visit) && !self::excluded();
         $server = empty($context['browser_only']) && self::server_active();
         if (!$browser && !$server && (empty($consent['granted']) || (self::browser_active() && empty($live['granted'])))) {
             WUTM_ATM_Queue::record($event, 'consent_blocked');

@@ -9,7 +9,7 @@ function wutm_privacy_assert($condition, string $message): void {
 
 $opts = [
     'wutm_atm_privacy'=>['enabled'=>true,'policy'=>'fixture-policy-1'],
-    'wutm_atm_events'=>['enabled'=>true,'mode'=>'both','woo'=>true,'events'=>['Purchase'],'test_code'=>'TEST123'],
+    'wutm_atm_events'=>['enabled'=>true,'mode'=>'both','woo'=>true,'events'=>['Purchase','PageView'],'test_code'=>'TEST123'],
     'atm_ga4_enabled'=>1, 'atm_ga4_id'=>'G-FIXTURE', 'atm_google_ads_enabled'=>1, 'atm_google_ads_id'=>'AW-123456',
     'atm_gtm_enabled'=>1, 'atm_gtm_id'=>'GTM-FIXTURE',
     'atm_fb_pixel_id'=>'123456789', 'atm_fb_pixel_enabled'=>1, 'atm_fb_capi_enabled'=>1,
@@ -53,6 +53,28 @@ try {
     $state = new ReflectionMethod(WUTM_ATM_Consent::class, 'state');
     $state->setAccessible(true);
     foreach ($visitors as $token) wutm_privacy_assert(WUTM_ATM_Consent_Store::read($token, $policy) === null, 'Unsaved visitors have no record.');
+    $default_token = str_repeat('c', 64);
+    $set_visitor($default_token);
+    update_option(WUTM_ATM_Consent::OPTION, $opts[WUTM_ATM_Consent::OPTION] + ['first_visit'=>'opt_out']);
+    $initial = $state->invoke(null, $default_token);
+    wutm_privacy_assert(!$initial['chosen'] && $initial['defaults'] && $initial['tags']['ga4'] && $initial['tags']['pixel'], 'Opt-out enables the configured browser tags while leaving the choice open.');
+    wutm_privacy_assert($receipt() === '' && WUTM_ATM_Consent_Store::read($default_token, $policy) === null, 'Opt-out never invents a receipt.');
+    $visit = new ReflectionMethod(WUTM_ATM_Consent::class, 'visit');
+    $visit->setAccessible(true);
+    $url = home_url('/');
+    $proof = hash_hmac('sha256', "page|0|$url", wp_salt('nonce'));
+    $events = $visit->invoke(null, ['page'=>['kind'=>'page','product'=>0,'url'=>$url,'proof'=>$proof], 'visit'=>str_repeat('d',32)], $default_token, true);
+    wutm_privacy_assert(count($events) === 1 && $events[0]['name'] === 'PageView', 'Provisional visit starts browser collection.');
+    WUTM_ATM_Queue::work();
+    wutm_privacy_assert(!$requests, 'Provisional visit does not send server events.');
+    WUTM_ATM_Consent_Store::save($default_token, $policy, false, false, $until);
+    WUTM_ATM_Consent::reset_cache();
+    $refused = $state->invoke(null, $default_token);
+    wutm_privacy_assert($refused['chosen'] && !$refused['defaults'] && !$refused['tags']['ga4'] && !$refused['tags']['pixel'] &&
+        !WUTM_ATM_Consent::allows_default_visit(), 'Stored rejection overrides future defaults.');
+    // Expire the extra fixture row before the retention test.
+    WUTM_ATM_Consent_Store::save($default_token, $policy, false, false, time()-5);
+    update_option(WUTM_ATM_Consent::OPTION, $opts[WUTM_ATM_Consent::OPTION]);
     $set_visitor($visitors[0]);
     wutm_privacy_assert(WUTM_ATM_Consent_Store::save($visitors[0], $policy, true, false, $until), 'Analysis-only choice saved.');
     WUTM_ATM_Consent::reset_cache();
@@ -115,7 +137,9 @@ try {
     wutm_privacy_assert(!WUTM_ATM_Consent_Store::read($visitors[1], 'fixture-policy-2'), 'Policy reset requires new consent.');
     WUTM_ATM_Consent_Store::save($visitors[0], $policy, true, true, time()-60);
     WUTM_ATM_Consent_Store::cleanup();
-    wutm_privacy_assert((int) $wpdb->get_var("SELECT COUNT(*) FROM $consent_table") === 1, 'Expired rows removed without affecting active visitors.');
+    $fixture_rows = $wpdb->get_col($wpdb->prepare("SELECT visitor FROM $consent_table WHERE visitor IN (%s,%s,%s)",
+        hash('sha256',$visitors[0]), hash('sha256',$visitors[1]), hash('sha256',$default_token)));
+    wutm_privacy_assert($fixture_rows === [hash('sha256',$visitors[1])], 'Expired fixture rows removed without affecting active visitors.');
     echo "Native Cookie consent checks passed.\n";
 } finally {
     foreach ($orders as $order) $order->delete(true);

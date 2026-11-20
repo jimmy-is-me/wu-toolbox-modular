@@ -39,14 +39,14 @@ final class WUTM_ATM_Woo_Events {
         if (is_checkout() && !is_wc_endpoint_url()) self::start_checkout();
     }
 
-    public static function view_product(int $id, ?string $key = null): void {
+    public static function view_product(int $id, ?string $key = null, bool $browser_only = false): void {
         if (!WUTM_ATM_Events::is_enabled('ViewContent')) return;
         $product = wc_get_product($id);
         if ($product && $product->is_visible() && $product->get_status() === 'publish') {
             WUTM_ATM_Events::track('ViewContent', [
                 'content_ids'=>[(string) $id], 'content_type'=>'product', 'content_name'=>$product->get_name(),
                 'value'=>wc_get_price_to_display($product), 'currency'=>get_woocommerce_currency(),
-            ], ['source'=>'woocommerce','url'=>get_permalink($id),'key'=>$key]);
+            ], ['source'=>'woocommerce','url'=>get_permalink($id),'key'=>$key,'browser_only'=>$browser_only]);
         }
     }
 
