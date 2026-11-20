@@ -156,7 +156,7 @@ final class WUTM_ATM_Event_Admin {
             <p><label>測試事件代碼 <input name="test_code" value="<?php echo esc_attr($settings['test_code']); ?>"></label> <small>僅測試時填寫。新排入的事件會帶此代碼。</small></p>
             <p><label>紀錄保存天數 <input type="number" min="7" max="60" name="retention" value="<?php echo esc_attr($settings['retention']); ?>"></label></p>
             <h2>Cookie 同意</h2>
-            <p>需先串接站上的同意工具。未取得同意時不發送。伺服器事件還需可重新驗證的同意識別碼。請依使用說明設定頁面快取排除。</p>
+            <p>請開啟「Cookie 與隱私同意」的內建橫幅，或接上既有同意工具。伺服器事件需要可重新驗證的同意紀錄。</p>
             <button class="button button-primary">儲存事件設定</button>
             </div>
         </form>

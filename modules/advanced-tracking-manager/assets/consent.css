@@ -1,0 +1,24 @@
+.wutm-atm-privacy,.wutm-atm-privacy-dialog{--wutm-privacy-ink:#142039;--wutm-privacy-muted:#485b6d;--wutm-privacy-line:#d6e0e6;--wutm-privacy-accent:#176052;color:var(--wutm-privacy-ink);background:#f7faf9;box-sizing:border-box;font:400 .9375rem/1.55 system-ui,sans-serif}
+.wutm-atm-privacy[hidden],.wutm-atm-privacy-status[hidden]{display:none!important}
+.wutm-atm-privacy{display:flex;align-items:center;justify-content:space-between;gap:1rem 1.5rem;flex-wrap:wrap;padding:clamp(.9rem,2vw,1.4rem) clamp(1rem,4vw,3.5rem);border-block-end:1px solid var(--wutm-privacy-line)}
+.wutm-atm-privacy-copy{flex:1 1 min(100%,22rem)}
+.wutm-atm-privacy h2,.wutm-atm-privacy-dialog h2{color:inherit;margin:0 0 .35rem;font:650 1.125rem/1.35 system-ui,sans-serif}
+.wutm-atm-privacy p,.wutm-atm-privacy-dialog p{margin:0;color:var(--wutm-privacy-muted)}
+.wutm-atm-privacy a,.wutm-atm-privacy-dialog a{color:var(--wutm-privacy-accent);text-decoration:underline}
+.wutm-atm-privacy-actions{display:flex;flex-wrap:wrap;gap:.55rem}
+.wutm-atm-privacy button,.wutm-atm-privacy-dialog button{min-height:44px;border:1px solid #8d9fa8;border-radius:.55rem;background:#fff;color:var(--wutm-privacy-ink);font:600 .9rem/1.3 system-ui,sans-serif;padding:.55rem .85rem;cursor:pointer}
+.wutm-atm-privacy button:hover,.wutm-atm-privacy-dialog button:hover{border-color:var(--wutm-privacy-accent);background:#eaf5f1}
+.wutm-atm-privacy button:focus-visible,.wutm-atm-privacy-dialog button:focus-visible,.wutm-atm-privacy-link:focus-visible{outline:2px solid #176052;outline-offset:3px}
+.wutm-atm-privacy-dialog button.wutm-atm-privacy-primary{background:#176052;color:#fff;border-color:#176052}
+.wutm-atm-privacy-status{flex-basis:100%;color:#8c2d26!important}
+.wutm-atm-privacy-dialog{border:1px solid var(--wutm-privacy-line);border-radius:1rem;width:min(32rem,calc(100% - 1.5rem));max-height:calc(100% - 1.5rem);margin:auto;padding:clamp(1rem,3vw,1.5rem);overflow:auto}
+.wutm-atm-privacy-dialog:not([open]){display:none}
+.wutm-atm-privacy-dialog::backdrop{background:rgb(12 25 34 / .55)}
+.wutm-atm-privacy-dialog-header,.wutm-atm-privacy-category{display:flex;align-items:center;justify-content:space-between;gap:.3rem 1rem;flex-wrap:wrap}
+.wutm-atm-privacy-category{padding:.75rem 0;border-block-start:1px solid var(--wutm-privacy-line)}
+.wutm-atm-privacy-dialog-header{margin-bottom:.75rem}
+.wutm-atm-privacy-category p,.wutm-atm-privacy-category label,.wutm-atm-privacy-category>strong~span:last-child{flex-basis:100%;font-size:.9rem;color:var(--wutm-privacy-muted)}
+.wutm-atm-privacy-category input{appearance:auto;width:1.15rem;height:1.15rem;accent-color:#176052;margin:0 .4rem}
+.wutm-atm-privacy-footer{margin:0;padding:.6rem max(1rem,4vw);text-align:center}
+.wutm-atm-privacy-link{min-height:44px;background:none!important;border:0!important;color:inherit!important;text-decoration:underline;font:inherit;cursor:pointer}
+@media(max-width:470px){.wutm-atm-privacy-actions{width:100%}.wutm-atm-privacy-actions button{flex:1 1 7rem}}

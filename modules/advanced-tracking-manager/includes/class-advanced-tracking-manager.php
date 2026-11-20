@@ -282,7 +282,7 @@ class WUTM_Advanced_Tracking_Manager {
 		if ( (int) get_option( 'atm_exclude_admin', 1 ) && current_user_can( 'manage_options' ) ) {
 			return false;
 		}
-        if (WUTM_ATM_Events::settings()['enabled'] && empty(WUTM_ATM_Events::consent()['granted'])) return false;
+        if ((WUTM_ATM_Consent::active() || WUTM_ATM_Events::settings()['enabled']) && empty(WUTM_ATM_Events::consent()['granted'])) return false;
 		return true;
 	}
 
@@ -290,6 +290,7 @@ class WUTM_Advanced_Tracking_Manager {
 	 * Frontend output — wp_head
 	 * ============================================================ */
 	public function insert_header_codes() {
+		if (WUTM_ATM_Consent::active()) return;
 		if ( ! $this->should_output() ) {
 			return;
 		}
@@ -366,6 +367,7 @@ class WUTM_Advanced_Tracking_Manager {
 	 * Frontend output — wp_body_open (GTM noscript)
 	 * ============================================================ */
 	public function insert_body_codes() {
+		if (WUTM_ATM_Consent::active()) return;
 		if ( ! $this->should_output() ) {
 			return;
 		}
@@ -389,7 +391,7 @@ class WUTM_Advanced_Tracking_Manager {
 		if ( ! $checkout_enabled || empty( $checkout_code ) ) {
 			return;
 		}
-        if (WUTM_ATM_Events::settings()['enabled']) {
+        if (WUTM_ATM_Consent::active() || WUTM_ATM_Events::settings()['enabled']) {
             $order = wc_get_order($order_id);
             if (!$order || !$order->is_paid() || !$order->get_date_paid() || $order->has_status(['cancelled','failed','refunded'])) return;
         }
@@ -404,6 +406,10 @@ class WUTM_Advanced_Tracking_Manager {
 	 * ============================================================ */
 	public function output_debug_comments() {
 		if ( ! (int) get_option( 'atm_debug_mode', 0 ) ) {
+			return;
+		}
+		if (WUTM_ATM_Consent::active()) {
+			echo "\n<!-- [ATM Debug] 追蹤由 Cookie 偏好決定。偏好經由站內請求載入。-->\n";
 			return;
 		}
 		if ( ! $this->should_output() ) {
@@ -546,7 +552,7 @@ class WUTM_Advanced_Tracking_Manager {
 			}
 		}
 
-        $managed_mode = WUTM_ATM_Events::settings()['enabled'];
+        $managed_mode = WUTM_ATM_Consent::active() || WUTM_ATM_Events::settings()['enabled'];
         if ($managed_mode) {
             $items[] = $this->diagnostic_item('info', '已啟用同意控制', '自動診斷以無同意 Cookie 的訪客身分檢查。請使用同意後的瀏覽器測試事件。');
             if (strpos($html, 'connect.facebook.net/') !== false || strpos($html, 'fbq(') !== false) {

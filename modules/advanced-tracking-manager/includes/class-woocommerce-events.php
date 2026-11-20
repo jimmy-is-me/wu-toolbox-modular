@@ -19,36 +19,48 @@ final class WUTM_ATM_Woo_Events {
             add_action('woocommerce_add_to_cart', [__CLASS__, 'added'], 10, 6);
             if (WUTM_ATM_Events::browser_active()) {
                 add_action('wutm_atm_defer_cart_event', [__CLASS__, 'store_cart_event']);
-                add_action('wp_ajax_wutm_atm_cart', [__CLASS__, 'cart_response']);
-                add_action('wp_ajax_nopriv_wutm_atm_cart', [__CLASS__, 'cart_response']);
-                add_filter('wutm_atm_browser_cart', [__CLASS__, 'browser_cart']);
-                add_action('wp_footer', [__CLASS__, 'flush_cart'], 4);
+                if (!WUTM_ATM_Consent::active()) {
+                    add_action('wp_ajax_wutm_atm_cart', [__CLASS__, 'cart_response']);
+                    add_action('wp_ajax_nopriv_wutm_atm_cart', [__CLASS__, 'cart_response']);
+                    add_filter('wutm_atm_browser_cart', [__CLASS__, 'browser_cart']);
+                    add_action('wp_footer', [__CLASS__, 'flush_cart'], 4);
+                }
             }
         }
     }
 
     public static function page(): void {
-        if (is_product() && WUTM_ATM_Events::is_enabled('ViewContent')) {
-            $product = wc_get_product(get_queried_object_id());
-            if ($product && $product->is_visible()) {
-                WUTM_ATM_Events::track('ViewContent', [
-                    'content_ids'=>[(string) $product->get_id()], 'content_type'=>'product', 'content_name'=>$product->get_name(),
-                    'value'=>wc_get_price_to_display($product), 'currency'=>get_woocommerce_currency(),
-                ], ['source'=>'woocommerce','url'=>get_permalink($product->get_id())]);
-            }
-        }
         if (is_order_received_page()) {
             self::browser_purchase();
             return;
         }
-        if (is_checkout() && !is_wc_endpoint_url() && WC()->cart && !WC()->cart->is_empty() && WUTM_ATM_Events::is_enabled('InitiateCheckout')) {
+        if (WUTM_ATM_Consent::active()) return;
+        if (is_product()) self::view_product(get_queried_object_id());
+        if (is_checkout() && !is_wc_endpoint_url()) self::start_checkout();
+    }
+
+    public static function view_product(int $id, ?string $key = null): void {
+        if (!WUTM_ATM_Events::is_enabled('ViewContent')) return;
+        $product = wc_get_product($id);
+        if ($product && $product->is_visible() && $product->get_status() === 'publish') {
+            WUTM_ATM_Events::track('ViewContent', [
+                'content_ids'=>[(string) $id], 'content_type'=>'product', 'content_name'=>$product->get_name(),
+                'value'=>wc_get_price_to_display($product), 'currency'=>get_woocommerce_currency(),
+            ], ['source'=>'woocommerce','url'=>get_permalink($id),'key'=>$key]);
+        }
+    }
+
+    public static function start_checkout(?string $key = null): void {
+        if (!WUTM_ATM_Events::is_enabled('InitiateCheckout')) return;
+        if (!WC()->cart && function_exists('wc_load_cart')) wc_load_cart();
+        if (WC()->cart && !WC()->cart->is_empty()) {
             $ids = [];
             foreach (WC()->cart->get_cart() as $item) $ids[] = (string) ($item['variation_id'] ?: $item['product_id']);
             WUTM_ATM_Events::track('InitiateCheckout', [
                 'content_ids'=>array_unique($ids), 'content_type'=>'product',
                 'value'=>WC()->cart->get_total('edit'), 'currency'=>get_woocommerce_currency(),
                 'num_items'=>WC()->cart->get_cart_contents_count(),
-            ], ['source'=>'woocommerce','url'=>wc_get_checkout_url()]);
+            ], ['source'=>'woocommerce','url'=>wc_get_checkout_url(),'key'=>$key]);
         }
     }
 
@@ -70,18 +82,22 @@ final class WUTM_ATM_Woo_Events {
         if (!WC()->session) return;
         $queue = (array) WC()->session->get(self::CART, []);
         $queue[$payload['id']] = ['event'=>$payload,'expires'=>time()+300];
+        if (WUTM_ATM_Consent::active()) $queue[$payload['id']]['receipt'] = WUTM_ATM_Consent::marketing()['reference'] ?? '';
         WC()->session->set(self::CART, array_slice($queue, -15, null, true));
     }
 
-    private static function consume_cart(): array {
+    public static function consume_cart(): array {
         if (!WC()->session && function_exists('wc_load_cart')) wc_load_cart();
         if (!WC()->session) return [];
         $queue = (array) WC()->session->get(self::CART, []);
         WC()->session->set(self::CART, null);
-        if (WUTM_ATM_Events::excluded() || empty(WUTM_ATM_Events::consent()['granted'])) return [];
+        $consent = WUTM_ATM_Events::consent();
+        if (WUTM_ATM_Events::excluded() || empty($consent['granted'])) return [];
         $events = [];
         foreach ($queue as $entry) {
-            if ($entry['expires'] >= time()) $events[] = $entry['event'];
+            if ($entry['expires'] < time()) continue;
+            if (WUTM_ATM_Consent::active() && ($entry['receipt'] ?? '') !== $consent['reference']) continue;
+            $events[] = $entry['event'];
         }
         return $events;
     }
@@ -149,6 +165,9 @@ final class WUTM_ATM_Woo_Events {
         foreach ($order->get_items() as $item) $ids[] = (string) ($item->get_variation_id() ?: $item->get_product_id());
         $consent = (array) $order->get_meta(self::META);
         $consent = (array) apply_filters('wutm_atm_order_consent', $consent, $order);
+        if (!$server && WUTM_ATM_Consent::active() &&
+            (!WUTM_ATM_Events::consent_valid($consent) ||
+             ($consent['reference'] ?? '') !== (WUTM_ATM_Consent::marketing()['reference'] ?? ''))) return;
         WUTM_ATM_Events::track('Purchase', [
             'order_id'=>(string) $order->get_id(), 'content_ids'=>array_unique($ids), 'content_type'=>'product',
             'value'=>$order->get_total(), 'currency'=>$order->get_currency(),

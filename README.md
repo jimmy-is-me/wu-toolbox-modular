@@ -29,7 +29,7 @@ SEO 核心的功能、設定順序與發佈後驗證方式見 [SEO 核心使用�
 
 頁面快取的狀態、排除原因及訪客驗證方式見 [頁面快取與網站速度](docs/PAGE-CACHE.md)。
 
-進階追蹤管理的事件、WooCommerce 付款追蹤、Meta CAPI、Cookie 同意與開發介面見 [Advanced Tracking Manager 3.0](docs/ADVANCED-TRACKING-MANAGER.md)。
+進階追蹤管理的內建 Cookie 橫幅、WooCommerce 付款追蹤、Meta CAPI 與開發介面見 [Advanced Tracking Manager](docs/ADVANCED-TRACKING-MANAGER.md)。
 
 後台 Tech Precision 共用呈現架構、驗證與範圍見 [後台外觀](docs/ADMIN-DESIGN.md)。
 
