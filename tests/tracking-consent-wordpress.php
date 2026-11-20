@@ -137,7 +137,9 @@ try {
     wutm_privacy_assert(!WUTM_ATM_Consent_Store::read($visitors[1], 'fixture-policy-2'), 'Policy reset requires new consent.');
     WUTM_ATM_Consent_Store::save($visitors[0], $policy, true, true, time()-60);
     WUTM_ATM_Consent_Store::cleanup();
-    wutm_privacy_assert((int) $wpdb->get_var("SELECT COUNT(*) FROM $consent_table") === 1, 'Expired rows removed without affecting active visitors.');
+    $fixture_rows = $wpdb->get_col($wpdb->prepare("SELECT visitor FROM $consent_table WHERE visitor IN (%s,%s,%s)",
+        hash('sha256',$visitors[0]), hash('sha256',$visitors[1]), hash('sha256',$default_token)));
+    wutm_privacy_assert($fixture_rows === [hash('sha256',$visitors[1])], 'Expired fixture rows removed without affecting active visitors.');
     echo "Native Cookie consent checks passed.\n";
 } finally {
     foreach ($orders as $order) $order->delete(true);

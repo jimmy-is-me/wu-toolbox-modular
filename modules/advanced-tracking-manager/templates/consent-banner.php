@@ -11,7 +11,7 @@ $banner_tag = in_array($layout, ['center','side'], true) ? 'dialog' : 'section';
             <?php if ($url) : ?><a href="<?php echo esc_url($url); ?>">隱私權政策</a><?php endif; ?>
         </p>
         <?php if (!empty($opt_out)) : ?>
-            <p class="wutm-atm-privacy-default" data-wutm-privacy-default hidden>本站預設使用部分非必要 Cookie。您可立即拒絕，或分別調整分析與行銷偏好。</p>
+            <p class="wutm-atm-privacy-default" data-wutm-privacy-default hidden>本站預設允許部分非必要 Cookie。您可立即拒絕，或分別調整分析與行銷偏好。</p>
         <?php endif; ?>
     </div>
     <div class="wutm-atm-privacy-actions">
