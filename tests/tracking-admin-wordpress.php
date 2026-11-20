@@ -13,19 +13,22 @@ update_option('atm_last_diagnostic', ['items'=>[
 ]]);
 
 try {
-    $tabs = ['tracking','events','privacy','history','diagnostic','guide'];
-    foreach (array_merge($tabs, ['invalid']) as $requested) {
-        $_GET['atm_tab'] = $requested;
-        $current = $requested === 'invalid' ? 'tracking' : $requested;
+    $tab_ids = ['tracking','events','privacy','history','diagnostic','guide'];
+    $render = static function () {
         ob_start();
         require WUTM_ATM_DIR . 'templates/admin-page.php';
-        $html = ob_get_clean();
+        return ob_get_clean();
+    };
+    foreach (array_merge($tab_ids, ['invalid']) as $requested) {
+        $_GET['atm_tab'] = $requested;
+        $current = $requested === 'invalid' ? 'tracking' : $requested;
+        $html = $render();
         if (substr_count($html, 'aria-current="page"') !== 1 ||
             strpos($html, 'id="atm-tab-' . $current . '"') === false ||
             substr_count($html, 'class="atm-tab-content"') !== 1) {
             throw new RuntimeException('Incorrect active panel for ' . $requested);
         }
-        foreach ($tabs as $tab) {
+        foreach ($tab_ids as $tab) {
             if (strpos($html, 'atm_tab=' . $tab . '"') === false) {
                 throw new RuntimeException('Missing native navigation link for ' . $tab);
             }
