@@ -40,3 +40,9 @@
 .atm-guide ol, .atm-guide ul { padding-left: 20px; line-height: 1.8; font-size: 13px; }
 .atm-guide li { margin-bottom: 4px; }
 .atm-guide code { background: #f0f0f0; padding: 1px 5px; border-radius: 3px; font-size: 12px; }
+
+
+.wutm-atm-wrap .wutm-atm-event-grid{display:flex;flex-wrap:wrap;align-items:end;gap:12px 18px;margin-block:12px}
+.wutm-atm-wrap .wutm-atm-event-table{overflow-x:auto}
+.wutm-atm-wrap .wutm-atm-event-table table{min-width:800px}
+.wutm-atm-wrap .wutm-atm-event-table code{overflow-wrap:anywhere}

@@ -105,6 +105,12 @@ jobs:
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/license-domain-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-license-domain.log"
           grep -Fq 'Native license domain migration passed:' "$RUNNER_TEMP/wutm-license-domain.log"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/product-unpublish-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
+      - name: Check tracking consent and browser deduplication without WooCommerce
+        env:
+          WUTM_MEDIA_INTEGRATION: '1'
+        run: |
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/tracking-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
+          node tests/tracking-browser.js
       - name: Check native WooCommerce payment, invoice and atomic callback preservation
         env:
           WUTM_MEDIA_INTEGRATION: '1'
@@ -133,7 +139,9 @@ jobs:
           php "$RUNNER_TEMP/wutm-wp-cli.phar" option update woocommerce_custom_orders_table_enabled yes --path="$RUNNER_TEMP/wutm-media-wp"
           WUTM_REPORT_EXPECT_HPOS=1 php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/order-report-export-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-report-export-hpos.log"
           grep -Fq 'Native order report passed:' "$RUNNER_TEMP/wutm-report-export-hpos.log"
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/tracking-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
           php "$RUNNER_TEMP/wutm-wp-cli.phar" option update woocommerce_custom_orders_table_enabled no --path="$RUNNER_TEMP/wutm-media-wp"
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/tracking-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
             php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/payuni-shipping-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-payuni-shipping.log"
             grep -Fq 'Native PAYUNi shipping passed:' "$RUNNER_TEMP/wutm-payuni-shipping.log"
           mkdir -p "$RUNNER_TEMP/wutm-media-wp/wp-content/mu-plugins"

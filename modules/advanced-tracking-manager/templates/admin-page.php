@@ -1,7 +1,7 @@
 <?php
 /**
  * Admin page template
- * Advanced Tracking Manager v2.4.0
+ * Advanced Tracking Manager v3.0.0
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
@@ -13,16 +13,14 @@ $gtm_id             = get_option( 'atm_gtm_id', '' );
 $gtm_enabled        = (int) get_option( 'atm_gtm_enabled', 0 );
 $fb_pixel_id        = get_option( 'atm_fb_pixel_id', '' );
 $fb_pixel_enabled   = (int) get_option( 'atm_fb_pixel_enabled', 0 );
-$fb_capi_token      = get_option( 'atm_fb_capi_token', '' );
-$fb_capi_enabled    = (int) get_option( 'atm_fb_capi_enabled', 0 );
 $checkout_code      = get_option( 'atm_checkout_code', '' );
 $checkout_enabled   = (int) get_option( 'atm_checkout_enabled', 0 );
 $exclude_admin      = (int) get_option( 'atm_exclude_admin', 1 );
 $debug_mode         = (int) get_option( 'atm_debug_mode', 0 );
 $last_saved_at      = get_option( 'atm_last_saved_at', '' );
 $last_saved_by      = get_option( 'atm_last_saved_by', '' );
-$last_saved_ip      = get_option( 'atm_last_saved_ip', '' );
 $last_diagnostic    = get_option( 'atm_last_diagnostic', array() );
+$active_tab = is_string($_GET['atm_tab'] ?? null) && in_array($_GET['atm_tab'], ['events','history'], true) ? $_GET['atm_tab'] : 'tracking';
 ?>
 <div class="wrap wutm-atm-wrap">
 <h1>🎯 進階追蹤程式碼管理器 <span class="atm-version">v<?php echo esc_html( WUTM_ATM_VERSION ); ?></span></h1>
@@ -31,13 +29,14 @@ $last_diagnostic    = get_option( 'atm_last_diagnostic', array() );
 <div class="atm-meta">
   最後儲存：<?php echo esc_html( $last_saved_at ); ?>
   <?php if ( $last_saved_by ) echo '｜管理員 ID：' . esc_html( $last_saved_by ); ?>
-  <?php if ( $last_saved_ip )  echo '｜IP：'       . esc_html( $last_saved_ip );  ?>
 </div>
 <?php endif; ?>
 
 <!-- Tabs -->
 <div class="atm-tabs">
-  <button class="atm-tab active" data-tab="tracking">📡 追蹤設定</button>
+  <button class="atm-tab <?php echo $active_tab === 'tracking' ? 'active' : ''; ?>" data-tab="tracking">📡 追蹤設定</button>
+  <button class="atm-tab <?php echo $active_tab === 'events' ? 'active' : ''; ?>" data-tab="events">事件、電商與 CAPI</button>
+  <button class="atm-tab <?php echo $active_tab === 'history' ? 'active' : ''; ?>" data-tab="history">事件紀錄</button>
   <button class="atm-tab" data-tab="diagnostic">🔍 自動診斷</button>
   <button class="atm-tab" data-tab="guide">📖 操作說明</button>
 </div>
@@ -45,7 +44,7 @@ $last_diagnostic    = get_option( 'atm_last_diagnostic', array() );
 <!-- ======================================================
      TAB 1: tracking
      ====================================================== -->
-<div id="atm-tab-tracking" class="atm-tab-content active">
+<div id="atm-tab-tracking" class="atm-tab-content <?php echo $active_tab === 'tracking' ? 'active' : ''; ?>">
 <form method="post" action="">
   <?php wp_nonce_field( 'atm_save_settings', 'atm_nonce' ); ?>
 
@@ -113,22 +112,6 @@ $last_diagnostic    = get_option( 'atm_last_diagnostic', array() );
     </div>
   </div>
 
-  <!-- Meta CAPI -->
-  <div class="atm-card">
-    <div class="atm-card-head">
-      <span>🔒 Facebook Conversions API (CAPI)</span>
-      <label class="atm-switch">
-        <input type="checkbox" name="atm_fb_capi_enabled" value="1" <?php checked( $fb_capi_enabled, 1 ); ?>>
-        <span class="atm-slider"></span>
-      </label>
-    </div>
-    <div class="atm-card-body">
-      <label>Access Token</label>
-      <input type="password" name="atm_fb_capi_token" value="<?php echo esc_attr( $fb_capi_token ); ?>" placeholder="貼上 CAPI Access Token" class="regular-text">
-      <p class="description">CAPI 讓你從伺服器端傳送事件到 Meta，避免廣告阻擋工具影響資料準確性。<br>在 Events Manager → 設定 → Conversions API → 產生 Access Token。需同時填入上方的 Pixel ID 才能運作。</p>
-    </div>
-  </div>
-
   <!-- WooCommerce Checkout -->
   <div class="atm-card">
     <div class="atm-card-head">
@@ -162,6 +145,15 @@ $last_diagnostic    = get_option( 'atm_last_diagnostic', array() );
 
   <p><input type="submit" name="atm_submit" class="button button-primary button-large" value="💾 儲存設定"></p>
 </form>
+</div>
+
+<div id="atm-tab-events" class="atm-tab-content <?php echo $active_tab === 'events' ? 'active' : ''; ?>">
+  <?php WUTM_ATM_Event_Admin::render_settings(); ?>
+</div>
+<div id="atm-tab-history" class="atm-tab-content <?php echo $active_tab === 'history' ? 'active' : ''; ?>">
+  <?php if ($active_tab === 'history') : WUTM_ATM_Event_Admin::render_log(); else : ?>
+    <p><a class="button" href="<?php echo esc_url(admin_url('admin.php?page=wu-advanced-tracking-manager&atm_tab=history')); ?>">載入事件紀錄</a></p>
+  <?php endif; ?>
 </div>
 
 <!-- ======================================================
@@ -209,6 +201,9 @@ $last_diagnostic    = get_option( 'atm_last_diagnostic', array() );
     <div class="atm-card-head"><span>📖 操作說明</span></div>
     <div class="atm-card-body atm-guide">
 
+      <h3>事件、Cookie 同意及伺服器追蹤</h3>
+      <p>請依序串接網站的 Cookie 同意工具、啟用所需事件，再以 Meta 測試事件檢查伺服器連線。<a href="https://github.com/jimmy-is-me/wu-toolbox-modular/blob/main/docs/ADVANCED-TRACKING-MANAGER.md" target="_blank" rel="noopener noreferrer">查看安裝與擴充說明</a></p>
+
       <h3>📊 GA4 — 適合大多數網站</h3>
       <ol>
         <li>前往 <a href="https://analytics.google.com" target="_blank" rel="noopener">Google Analytics</a>。</li>
@@ -230,7 +225,7 @@ $last_diagnostic    = get_option( 'atm_last_diagnostic', array() );
         <li>前往 <a href="https://www.facebook.com/events_manager" target="_blank" rel="noopener">Meta Events Manager</a>。</li>
         <li>選擇資料來源 → 複製 <strong>Pixel ID</strong>（一串純數字）。</li>
         <li>貼回「Meta Pixel ID」欄位，開啟開關，儲存。</li>
-        <li>安裝後自動送出 PageView，可用 <a href="https://chromewebstore.google.com/detail/meta-pixel-helper/fdgfkebogiimcoedlicjlajpkdmockpc" target="_blank" rel="noopener">Meta Pixel Helper</a> 確認。</li>
+        <li>使用事件管理時，請開啟 PageView 並確認行銷同意，再使用 <a href="https://chromewebstore.google.com/detail/meta-pixel-helper/fdgfkebogiimcoedlicjlajpkdmockpc" target="_blank" rel="noopener">Meta Pixel Helper</a> 檢查。</li>
       </ol>
 
       <h3>🔍 診斷工具使用方式</h3>

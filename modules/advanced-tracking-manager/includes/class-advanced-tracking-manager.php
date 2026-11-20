@@ -169,11 +169,10 @@ class WUTM_Advanced_Tracking_Manager {
 			'atm_google_ads_id' => 'sanitize_google_ads_id',
 			'atm_gtm_id'        => 'sanitize_gtm_id',
 			'atm_fb_pixel_id'   => 'sanitize_fb_pixel_id',
-			'atm_fb_capi_token' => 'sanitize_text_field',
 		);
 
 		foreach ( $text_fields as $field => $callback ) {
-			$raw = isset( $_POST[ $field ] ) ? wp_unslash( $_POST[ $field ] ) : '';
+			$raw = is_string( $_POST[ $field ] ?? null ) ? wp_unslash( $_POST[ $field ] ) : '';
 			$value = method_exists( $this, $callback )
 				? $this->$callback( $raw )
 				: call_user_func( $callback, $raw );
@@ -182,7 +181,7 @@ class WUTM_Advanced_Tracking_Manager {
 
 		$checkboxes = array(
 			'atm_ga4_enabled', 'atm_google_ads_enabled', 'atm_gtm_enabled',
-			'atm_fb_pixel_enabled', 'atm_fb_capi_enabled',
+			'atm_fb_pixel_enabled',
 			'atm_checkout_enabled', 'atm_exclude_admin', 'atm_debug_mode',
 		);
 		foreach ( $checkboxes as $field ) {
@@ -196,8 +195,7 @@ class WUTM_Advanced_Tracking_Manager {
 
 		update_option( 'atm_last_saved_at', current_time( 'mysql' ) );
 		update_option( 'atm_last_saved_by', get_current_user_id() );
-		update_option( 'atm_last_saved_ip',
-			! empty( $_SERVER['REMOTE_ADDR'] ) ? sanitize_text_field( wp_unslash( $_SERVER['REMOTE_ADDR'] ) ) : '' );
+		delete_option( 'atm_last_saved_ip' );
 		update_option( 'atm_initialized',  'yes' );
 		update_option( 'atm_plugin_state', 'active' );
 
@@ -234,7 +232,7 @@ class WUTM_Advanced_Tracking_Manager {
 		if ( $google_ads_enabled && ! get_option( 'atm_google_ads_id', '' ) ) $warnings[] = 'Google Ads 已啟用，但尚未填入 Ads ID。';
 		if ( $gtm_enabled        && ! get_option( 'atm_gtm_id',        '' ) ) $warnings[] = 'GTM 已啟用，但尚未填入 Container ID。';
 		if ( $fb_pixel_enabled   && ! get_option( 'atm_fb_pixel_id',   '' ) ) $warnings[] = 'Meta Pixel 已啟用，但尚未填入 Pixel ID。';
-		if ( $fb_capi_enabled && ( ! get_option( 'atm_fb_pixel_id', '' ) || ! get_option( 'atm_fb_capi_token', '' ) ) )
+		if ( $fb_capi_enabled && ( ! WUTM_ATM_Events::dataset() || ! WUTM_ATM_Events::token() ) )
 			$warnings[] = 'Facebook CAPI 已啟用，但 Pixel ID 或 Access Token 不完整。';
 		if ( $checkout_enabled   && ! get_option( 'atm_checkout_code',  '' ) ) $warnings[] = '結帳追蹤已啟用，但尚未填入程式碼。';
 		if ( $gtm_enabled && ( $ga4_enabled || $google_ads_enabled ) )
@@ -284,6 +282,7 @@ class WUTM_Advanced_Tracking_Manager {
 		if ( (int) get_option( 'atm_exclude_admin', 1 ) && current_user_can( 'manage_options' ) ) {
 			return false;
 		}
+        if (WUTM_ATM_Events::settings()['enabled'] && empty(WUTM_ATM_Events::consent()['granted'])) return false;
 		return true;
 	}
 
@@ -306,12 +305,12 @@ class WUTM_Advanced_Tracking_Manager {
 		$fb_pixel_id   = get_option( 'atm_fb_pixel_id',   '' );
 
 		// GA4
-		if ( $ga4_enabled && ! empty( $ga4_id ) ) {
-			$ga4_id_esc = esc_attr( $ga4_id );
+		if ( ( $ga4_enabled && $ga4_id ) || ( $google_ads_enabled && $google_ads_id ) ) {
+			$ga4_id_esc = esc_attr( $ga4_enabled && $ga4_id ? $ga4_id : strtok($google_ads_id, '/') );
 			$ga4_id_js  = esc_js( $ga4_id );
 			$ads_snippet = '';
 			if ( $google_ads_enabled && ! empty( $google_ads_id ) ) {
-				$ads_snippet = "gtag('config', '" . esc_js( $google_ads_id ) . "');\n";
+				$ads_snippet = "gtag('config', '" . esc_js( strtok($google_ads_id, '/') ) . "');\n";
 			}
 			echo "\n<!-- Advanced Tracking Manager: GA4 -->\n";
 			echo '<script async src="https://www.googletagmanager.com/gtag/js?id=' . $ga4_id_esc . '"></script>' . "\n";
@@ -319,7 +318,7 @@ class WUTM_Advanced_Tracking_Manager {
 			echo "window.dataLayer = window.dataLayer || [];\n";
 			echo "function gtag(){dataLayer.push(arguments);}\n";
 			echo "gtag('js', new Date());\n";
-			echo "gtag('config', '" . $ga4_id_js . "');\n";
+			if ($ga4_enabled && $ga4_id) echo "gtag('config', '" . $ga4_id_js . "');\n";
 			echo $ads_snippet;
 			echo "</script>\n";
 		}
@@ -343,7 +342,7 @@ class WUTM_Advanced_Tracking_Manager {
 		}
 
 		// Meta Pixel
-		if ( $fb_pixel_enabled && ! empty( $fb_pixel_id ) ) {
+		if ( $fb_pixel_enabled && ! empty( $fb_pixel_id ) && !WUTM_ATM_Events::settings()['enabled'] ) {
 			$pixel_esc = esc_attr( $fb_pixel_id );
 			$pixel_js  = esc_js( $fb_pixel_id );
 			echo "\n<!-- Advanced Tracking Manager: Meta Pixel -->\n";
@@ -390,6 +389,10 @@ class WUTM_Advanced_Tracking_Manager {
 		if ( ! $checkout_enabled || empty( $checkout_code ) ) {
 			return;
 		}
+        if (WUTM_ATM_Events::settings()['enabled']) {
+            $order = wc_get_order($order_id);
+            if (!$order || !$order->is_paid() || !$order->get_date_paid() || $order->has_status(['cancelled','failed','refunded'])) return;
+        }
 		// Replace {{order_id}} placeholder
 		$code = str_replace( '{{order_id}}', absint( $order_id ), $checkout_code );
 		echo "\n<!-- Advanced Tracking Manager: Checkout -->\n";
@@ -404,7 +407,7 @@ class WUTM_Advanced_Tracking_Manager {
 			return;
 		}
 		if ( ! $this->should_output() ) {
-			echo "\n<!-- [ATM Debug] 追蹤碼已被排除（管理員或後台）-->\n";
+			echo "\n<!-- [ATM Debug] 追蹤碼未載入（管理員排除或行銷同意限制）-->\n";
 			return;
 		}
 		$lines = array( '<!-- [ATM Debug] v' . WUTM_ATM_VERSION );
@@ -543,8 +546,16 @@ class WUTM_Advanced_Tracking_Manager {
 			}
 		}
 
+        $managed_mode = WUTM_ATM_Events::settings()['enabled'];
+        if ($managed_mode) {
+            $items[] = $this->diagnostic_item('info', '已啟用同意控制', '自動診斷以無同意 Cookie 的訪客身分檢查。請使用同意後的瀏覽器測試事件。');
+            if (strpos($html, 'connect.facebook.net/') !== false || strpos($html, 'fbq(') !== false) {
+                ++$warnings;
+                $items[] = $this->diagnostic_item('warning', '偵測到其他 Meta 程式碼', '未同意的頁面含 Meta 標記，請檢查 GTM、佈景或其他外掛。');
+            }
+        }
 		// Tracking code presence checks
-		if ( ! empty( $html ) ) {
+		if ( ! empty( $html ) && !$managed_mode ) {
 			$checks = array(
 				array(
 					'enabled' => $settings['gtm_enabled'],
@@ -586,7 +597,7 @@ class WUTM_Advanced_Tracking_Manager {
 					$items[] = $this->diagnostic_item( 'error', $check['label'] . ' 已啟用但沒有 ID', '請填入正確格式的 ID。', '' );
 					continue;
 				}
-				if ( strpos( $html, $check['id'] ) !== false ) {
+				if ( strpos( $html, strtok($check['id'], '/') ) !== false ) {
 					$items[] = $this->diagnostic_item( 'success', '找到 ' . $check['label'], '前台 HTML 已包含：' . $check['id'], '' );
 				} else {
 					$errors++;
