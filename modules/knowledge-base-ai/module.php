@@ -860,6 +860,8 @@ if ( ! class_exists( 'Wumetax_Quick_Support_AI_v120' ) ) {
 			$url = 'https://generativelanguage.googleapis.com/v1beta/models/' . rawurlencode( $model ) . ':generateContent';
 			$response = wp_remote_post( $url, [
 				'timeout' => 40,
+				'redirection' => 0,
+				'limit_response_size' => 1048576,
 				'headers' => [ 'Content-Type' => 'application/json', 'Accept' => 'application/json', 'x-goog-api-key' => $key ],
 				'body'    => wp_json_encode( [
 					'systemInstruction' => [ 'parts' => [ [ 'text' => $s['system_prompt'] ] ] ],
@@ -925,6 +927,8 @@ if ( ! class_exists( 'Wumetax_Quick_Support_AI_v120' ) ) {
 
 			$response = wp_remote_post( 'https://api.perplexity.ai/v1/sonar', [
 				'timeout' => 45,
+				'redirection' => 0,
+				'limit_response_size' => 1048576,
 				'headers' => [ 'Authorization' => 'Bearer ' . $key, 'Content-Type' => 'application/json', 'Accept' => 'application/json' ],
 				'body'    => wp_json_encode( $body ),
 			] );
@@ -989,6 +993,8 @@ if ( ! class_exists( 'Wumetax_Quick_Support_AI_v120' ) ) {
 
 			$response = wp_remote_post( 'https://api.openai.com/v1/responses', [
 				'timeout' => 45,
+				'redirection' => 0,
+				'limit_response_size' => 1048576,
 				'headers' => [
 					'Authorization' => 'Bearer ' . $key,
 					'Content-Type'  => 'application/json',

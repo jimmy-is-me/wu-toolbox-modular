@@ -628,13 +628,17 @@ function wutm_dashboard_notify(string $kind, string $title, array $fields): void
 	// One fixed row per request type. Concurrent requests can claim the window only once.
 	global $wpdb;
 	$now = time();
+	$window_key = 'wutm_dashboard_window_' . $kind;
+	$receipt = ($now + MINUTE_IN_SECONDS) . ':' . wp_generate_uuid4();
 	$claimed = $wpdb->query($wpdb->prepare(
 		"INSERT INTO {$wpdb->options} (option_name, option_value, autoload) VALUES (%s,%s,'no')
-		ON DUPLICATE KEY UPDATE option_value=IF(CAST(option_value AS UNSIGNED)<=%d,VALUES(option_value),option_value)",
-		'wutm_dashboard_window_' . $kind, (string) ($now + MINUTE_IN_SECONDS), $now
+		ON DUPLICATE KEY UPDATE option_value=IF(CAST(SUBSTRING_INDEX(option_value,':',1) AS UNSIGNED)<=%d,VALUES(option_value),option_value)",
+		$window_key, $receipt, $now
 	));
 	if ($claimed === false) wp_send_json_error(['message'=>'暫時無法處理申請，請稍後再試。'], 503);
-	if (!$claimed) wp_send_json_error(['message'=>'已接到同類申請，請等一分鐘再送出。'], 429);
+	if ($wpdb->get_var($wpdb->prepare("SELECT option_value FROM {$wpdb->options} WHERE option_name=%s", $window_key)) !== $receipt) {
+		wp_send_json_error(['message'=>'已接到同類申請，請等一分鐘再送出。'], 429);
+	}
 
 	$fields = ['網站'=>home_url('/')] + $fields;
 	$embed = [];
