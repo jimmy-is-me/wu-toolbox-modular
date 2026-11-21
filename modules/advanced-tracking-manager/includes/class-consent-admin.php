@@ -56,7 +56,7 @@ final class WUTM_ATM_Consent_Admin {
         <?php if (($_GET['atm_tab'] ?? '') === 'privacy' && isset($_GET['saved'])) : ?>
             <div class="notice notice-success"><p>已儲存 Cookie 同意設定。若更改橫幅、啟用或停用功能，請清除舊的頁面與 CDN 快取。</p></div>
         <?php endif; ?>
-        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="atm-card">
+        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="atm-card" data-atm-settings>
             <div class="atm-card-body wutm-atm-privacy-admin">
                 <h2>Cookie 與隱私同意</h2>
                 <input type="hidden" name="action" value="<?php echo esc_attr(self::ACTION); ?>">
@@ -88,7 +88,7 @@ final class WUTM_ATM_Consent_Admin {
                     </select></label>
                     <p><label><input type="checkbox" name="default_analytics" <?php checked($s['default_analytics']); ?>> 預設啟用分析</label>
                        <label><input type="checkbox" name="default_marketing" <?php checked($s['default_marketing']); ?>> 預設啟用行銷</label></p>
-                    <p class="description">上方勾選僅用於「預設啟用」模式。此模式可啟用瀏覽器追蹤，CAPI 和 WooCommerce 購買事件仍需取得並儲存訪客的行銷同意。已儲存的偏好會優先套用。</p>
+                    <p class="description">新設定預設先取得同意。預設啟用可能不適用所有法規或網站用途，請依網站的實際需求選擇。上方勾選僅用於「預設啟用」模式。此模式可啟用瀏覽器追蹤，CAPI 和 WooCommerce 購買事件仍需取得並儲存訪客的行銷同意。已儲存的偏好會優先套用。</p>
                 </fieldset>
                 <div class="wutm-atm-event-grid">
                     <?php foreach (self::TEXT as $key=>$label) : ?>

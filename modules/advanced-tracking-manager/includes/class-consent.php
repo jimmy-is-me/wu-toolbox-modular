@@ -10,9 +10,10 @@ final class WUTM_ATM_Consent {
     private static $rendered = false;
 
     public static function settings(): array {
-        return wp_parse_args((array) get_option(self::OPTION, []), [
+        $saved = (array) get_option(self::OPTION, []);
+        return wp_parse_args($saved, [
             'enabled'=>false, 'policy'=>'', 'days'=>180, 'gtm'=>'both', 'url'=>'',
-            'layout'=>'inline', 'appearance'=>'light', 'first_visit'=>'opt_out',
+            'layout'=>'inline', 'appearance'=>'light', 'first_visit'=>!empty($saved['enabled']) ? 'opt_out' : 'opt_in',
             'default_analytics'=>true, 'default_marketing'=>true,
             'title'=>'Cookie 與隱私偏好',
             'description'=>'必要 Cookie 用於網站和購物功能。您可以選擇是否允許分析與行銷 Cookie。',

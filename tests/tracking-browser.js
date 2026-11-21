@@ -8,16 +8,17 @@ const storage = new Map();
 const calls = [];
 const google = [];
 const purchase = {id: 'atm-fixture-order', name: 'Purchase', data: {value: 19.5, currency: 'EUR'}};
-function load(config, fetch) {
+function load(config, fetch, {pixelLoaded = false} = {}) {
     const document = new EventTarget();
     document.body = new EventTarget();
     const window = {wutmAtmConfig: config, fbq: (...args) => calls.push(args), gtag: (...args) => google.push(args)};
+    if (pixelLoaded) window.fbq.callMethod = () => {};
     let classicCart;
     window.jQuery = () => ({on: (name, callback) => {
         assert.equal(name, 'added_to_cart');
         classicCart = callback;
     }});
-    vm.runInNewContext(source, {document, window, fetch, URLSearchParams, localStorage: {
+    vm.runInNewContext(source, {document, window, fetch, setTimeout, URLSearchParams, localStorage: {
         getItem: key => storage.get(key),
         setItem: (key, value) => storage.set(key, value)
     }});
@@ -57,6 +58,16 @@ async function testCart() {
     cart.document.dispatchEvent(new Event('wutm-atm-consent'));
     await cart.classicCart();
     assert.equal(requests, 2);
-    console.log('Tracking browser consent, cart delivery and purchase deduplication passed.');
+    const ticket = {url:'/browser-report', proof:'fixture', expires:100,pixel:'123'};
+    const evidence = {...purchase,id:'atm-evidence',name:'Lead',evidence:ticket};
+    const observed = await new Promise(resolve => {
+        load({...config,events:[evidence]}, async (url, options) => {
+            assert.equal(url, ticket.url);
+            assert.equal(options.headers['X-WUTM-Evidence'], '1');
+            resolve(JSON.parse(options.body));
+        }, {pixelLoaded:true});
+    });
+    assert.deepEqual(observed, [{id:evidence.id,pixel:'123',proof:ticket.proof,expires:ticket.expires,flag:2}]);
+    console.log('Tracking browser consent, cart delivery, purchase deduplication and handoff evidence passed.');
 }
 testCart().catch(error => { console.error(error); process.exitCode = 1; });

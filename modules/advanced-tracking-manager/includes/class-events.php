@@ -10,7 +10,7 @@ final class WUTM_ATM_Events {
     public static function settings(): array {
         return wp_parse_args((array) get_option(self::OPTION, []), [
             'enabled' => false, 'mode' => 'browser', 'woo' => false, 'events' => [],
-            'version' => 'v25.0', 'dataset' => '', 'test_code' => '', 'retention' => 14,
+            'browser_evidence' => false, 'version' => 'v25.0', 'dataset' => '', 'test_code' => '', 'retention' => 14,
         ]);
     }
 
@@ -23,13 +23,13 @@ final class WUTM_ATM_Events {
 
     public static function boot(): void {
         add_action('wutm_module_toggled', static function ($key, $enabled) {
-            if ($key === 'advanced-tracking-manager' && !$enabled && get_option('wutm_atm_event_schema') === '1') {
+            if ($key === 'advanced-tracking-manager' && !$enabled && get_option('wutm_atm_event_schema')) {
                 wp_clear_scheduled_hook('wutm_atm_process_events');
                 wp_clear_scheduled_hook('wutm_atm_maintain_events');
             }
         }, 10, 2);
         if (!self::settings()['enabled']) {
-            if (get_option('wutm_atm_event_schema') === '1') {
+            if (get_option('wutm_atm_event_schema')) {
                 require_once __DIR__ . '/class-event-queue.php';
                 WUTM_ATM_Queue::boot();
             }
@@ -169,14 +169,19 @@ final class WUTM_ATM_Events {
         $default_visit = empty($live['granted']) && !empty($context['browser_only']) &&
             in_array($name, ['PageView','Search','ViewContent'], true) &&
             WUTM_ATM_Consent::collecting() && WUTM_ATM_Consent::allows_default_visit();
-        $browser = empty($context['server_only']) && self::browser_active() && (!empty($live['granted']) || $default_visit) && !self::excluded();
+        $browser_enabled = empty($context['server_only']) && self::browser_active() && !self::excluded();
+        $browser = $browser_enabled && (!empty($live['granted']) || $default_visit);
         $server = empty($context['browser_only']) && self::server_active();
-        if (!$browser && !$server && (empty($consent['granted']) || (self::browser_active() && empty($live['granted'])))) {
+        $event['browser_blocked'] = $browser_enabled && !$browser;
+        if (!$browser && !$server && $browser_enabled) {
             WUTM_ATM_Queue::record($event, 'consent_blocked');
             return null;
         }
         if ($browser) {
             $payload = ['name'=>$name, 'id'=>$id, 'data'=>$data];
+            if (!empty(self::settings()['browser_evidence'])) {
+                $payload['evidence'] = WUTM_ATM_Browser_Evidence::ticket($id);
+            }
             if (!empty($context['cart_session'])) {
                 do_action('wutm_atm_defer_cart_event', $payload);
             } elseif (WUTM_ATM_Consent::active() && !WUTM_ATM_Consent::collecting()) {
@@ -187,16 +192,17 @@ final class WUTM_ATM_Events {
             WUTM_ATM_Queue::record($event, 'browser_prepared', true);
         }
         if ($server) {
+            $event['server_channel'] = true;
             if (!self::consent_valid((array) $consent, $event)) {
                 WUTM_ATM_Queue::record($event, 'consent_blocked');
                 $server = false;
             } else {
                 $user = self::user_data($context);
+                $event['user_data'] = $user;
                 if (empty($user['client_user_agent']) || count($user) < 2) {
                     WUTM_ATM_Queue::record($event, 'failed', false, 'matching_data_missing');
                     $server = false;
                 } else {
-                    $event['user_data'] = $user;
                     $event['consent'] = $consent['reference'];
                     WUTM_ATM_Queue::record($event, 'pending');
                 }
@@ -217,6 +223,8 @@ final class WUTM_ATM_Events {
         if ($ua !== '') $user['client_user_agent'] = substr($ua, 0, 512);
         if (is_email($email)) $user['em'] = [hash('sha256', $email)];
         if (is_string($fbp) && preg_match('/^fb\.\d+\.\d{10,16}\.\d{1,30}$/D', $fbp)) $user['fbp'] = $fbp;
+        $fbc = $provided['fbc'] ?? (empty($context['recorded_consent']) ? wp_unslash($_COOKIE['_fbc'] ?? '') : '');
+        if (is_string($fbc) && preg_match('/^fb\.\d+\.\d{10,16}\.[A-Za-z0-9_-]{1,250}$/D', $fbc)) $user['fbc'] = $fbc;
         $ip = $provided['ip'] ?? ($_SERVER['REMOTE_ADDR'] ?? '');
         if (true === apply_filters('wutm_atm_allow_ip_matching', false) && filter_var($ip, FILTER_VALIDATE_IP)) {
             $user['client_ip_address'] = $ip;

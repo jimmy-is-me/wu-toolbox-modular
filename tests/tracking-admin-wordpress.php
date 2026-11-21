@@ -6,6 +6,9 @@ if (!defined('WP_CLI') || getenv('WUTM_MEDIA_INTEGRATION') !== '1' || DB_NAME !=
 require_once ABSPATH . 'wp-admin/includes/admin.php';
 defined('WP_ADMIN') || define('WP_ADMIN', true);
 require_once dirname(__DIR__) . '/modules/advanced-tracking-manager/module.php';
+foreach (['class-event-queue','class-observability','class-event-admin','class-consent-admin'] as $admin_class) {
+    require_once WUTM_ATM_DIR . 'includes/' . $admin_class . '.php';
+}
 
 $saved = get_option('atm_last_diagnostic');
 update_option('atm_last_diagnostic', ['items'=>[
@@ -13,7 +16,7 @@ update_option('atm_last_diagnostic', ['items'=>[
 ]]);
 
 try {
-    $tab_ids = ['tracking','events','privacy','history','diagnostic','guide'];
+    $tab_ids = ['overview','tracking','events','privacy','history','diagnostic','guide'];
     $render = static function () {
         ob_start();
         require WUTM_ATM_DIR . 'templates/admin-page.php';
@@ -21,7 +24,7 @@ try {
     };
     foreach (array_merge($tab_ids, ['invalid']) as $requested) {
         $_GET['atm_tab'] = $requested;
-        $current = $requested === 'invalid' ? 'tracking' : $requested;
+        $current = $requested === 'invalid' ? 'overview' : $requested;
         $html = $render();
         if (substr_count($html, 'aria-current="page"') !== 1 ||
             strpos($html, 'id="atm-tab-' . $current . '"') === false ||

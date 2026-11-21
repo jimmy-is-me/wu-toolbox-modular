@@ -4,6 +4,35 @@
     let pixel = '';
     const initialized = new Set();
     const seen = new Set();
+    let pendingEvidence = [];
+    let reports = [];
+    let reportTimer;
+    let pixelLoad;
+
+    function report(event, flag) {
+        if (!event.evidence) return;
+        const {url, proof, expires, pixel:issuedPixel} = event.evidence;
+        if (issuedPixel !== pixel) return;
+        reports.push({id:event.id, pixel:issuedPixel, proof, expires, flag});
+        if (reportTimer) return;
+        reportTimer = setTimeout(() => {
+            reportTimer = undefined;
+            const batch = reports;
+            reports = [];
+            for (let i = 0; i < batch.length; i += 20) {
+                fetch(url, {method:'POST', credentials:'same-origin', keepalive:true, cache:'no-store',
+                    headers:{'Content-Type':'application/json','X-WUTM-Evidence':'1'},
+                    body:JSON.stringify(batch.slice(i, i + 20))
+                }).catch(() => {});
+            }
+        }, 100);
+    }
+
+    function finishEvidence(result) {
+        pixelLoad = result;
+        for (const event of pendingEvidence) report(event, result);
+        pendingEvidence = [];
+    }
 
     function loadPixel() {
         if (!window.fbq) {
@@ -19,6 +48,11 @@
             const script = document.createElement('script');
             script.async = true;
             script.src = 'https://connect.facebook.net/en_US/fbevents.js';
+            script.addEventListener('load', () => {
+                if (window.fbq?.callMethod) finishEvidence(2);
+                else pendingEvidence = [];
+            }, {once:true});
+            script.addEventListener('error', () => finishEvidence(4), {once:true});
             document.head.append(script);
         }
         if (!initialized.has(pixel)) {
@@ -33,6 +67,7 @@
         const previous = pixel;
         pixel = next;
         if (previous && !pixel && initialized.has(previous) && window.fbq) {
+            pendingEvidence = [];
             if (!window.fbq.callMethod && Array.isArray(window.fbq.queue)) {
                 window.fbq.queue = window.fbq.queue.filter(args => !['trackSingle','trackSingleCustom'].includes(args[0]) || args[1] !== previous);
             }
@@ -62,6 +97,14 @@
         const standard = ['PageView','ViewContent','Search','AddToCart','InitiateCheckout','Purchase','Lead','CompleteRegistration','Contact'];
         window.fbq(standard.includes(event.name) ? 'trackSingle' : 'trackSingleCustom', pixel, event.name, event.data, { eventID: event.id });
         seen.add(event.id);
+        if (event.evidence) {
+            if (window.fbq.callMethod) report(event, 2);
+            else if (pixelLoad === 4) report(event, 4);
+            else {
+                report(event, 1);
+                if (pendingEvidence.length < 50 && pixelLoad !== 2) pendingEvidence.push(event);
+            }
+        }
     }
 
     window.wutmAtmPixel = {setPixel, send};
