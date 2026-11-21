@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+            <h4>4.1.8</h4><ul><li>移除 Cookie 頁尾區塊，預設追蹤模式改用精簡的左下角設定入口。</li><li>首次訪問預設允許分析與行銷，沿用已儲存的管理員模式和訪客偏好；加快偏好視窗開啟並改善儲存回饋。</li></ul>
             <h4>4.1.7</h4><ul><li>Cookie 通知新增底部滿版、角落卡片、中央視窗及右側面板，支援淺色與深色。</li><li>新增可選的瀏覽器預設追蹤與手動拒絕，保留已儲存偏好及伺服器事件的同意查驗。</li></ul>
             <h4>4.1.6</h4><ul><li>移除儀表板固定 Discord 憑證，改由網站管理員設定通知。申請及刪除工單補上權限、Nonce 與重複送出限制。</li><li>AI 問答先保留額度並限制同時請求。CSV 新增試算表保護及原始格式。</li><li>EZPAY 改用 WordPress HTTP，移除舊 HTTP 函式庫，發布包排除金流範例。</li></ul>
             <h4>4.1.5</h4><ul><li>修正進階追蹤管理分頁與歷史診斷顯示，分頁可直接開啟及使用瀏覽器上一頁。</li><li>移除進階追蹤管理介面表情符號，診斷狀態改用文字。</li></ul>

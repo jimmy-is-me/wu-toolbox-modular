@@ -19,11 +19,16 @@
 .wutm-atm-privacy-dialog-header{margin-bottom:.75rem}
 .wutm-atm-privacy-category p,.wutm-atm-privacy-category label,.wutm-atm-privacy-category>strong~span:last-child{flex-basis:100%;font-size:.9rem;color:var(--wutm-privacy-muted)}
 .wutm-atm-privacy-category input{appearance:auto;width:1.15rem;height:1.15rem;accent-color:#176052;margin:0 .4rem}
-.wutm-atm-privacy-footer{margin:0;padding:.6rem max(1rem,4vw);text-align:center}
+.wutm-atm-privacy-launcher{position:fixed;inset:auto auto max(.5rem,env(safe-area-inset-bottom)) max(.5rem,env(safe-area-inset-left));z-index:99990;min-height:44px;padding:0 .7rem;border:1px solid #9ba9b2;border-radius:.5rem;background:#f7faf9;color:#142039;font:600 .8125rem/1.2 system-ui,sans-serif;cursor:pointer;touch-action:manipulation}
+.wutm-atm-privacy-launcher.wutm-atm-privacy--dark{background:#1c2736;color:#f3f6fa}
+.wutm-atm-privacy-launcher[hidden]{display:none!important}
+.wutm-atm-privacy-launcher:focus-visible{outline:2px solid #176052;outline-offset:3px}
+.wutm-atm-privacy-dialog .wutm-atm-privacy-description,.wutm-atm-privacy-dialog .wutm-atm-privacy-default{margin:0 0 .65rem}
+.wutm-atm-privacy-dialog .wutm-atm-privacy-status{margin-top:.65rem}
+.wutm-atm-privacy-actions button{touch-action:manipulation}
 .wutm-atm-privacy-link{min-height:44px;background:none!important;border:0!important;color:inherit!important;text-decoration:underline;font:inherit;cursor:pointer}
 @media(max-width:470px){.wutm-atm-privacy-actions{width:100%}.wutm-atm-privacy-actions button{flex:1 1 7rem}}
 
-.wutm-atm-privacy .wutm-atm-privacy-default{margin-top:.45rem;font-size:.875rem;color:var(--wutm-privacy-ink)}
 .wutm-atm-privacy--bar,.wutm-atm-privacy--corner,.wutm-atm-privacy--center,.wutm-atm-privacy--side{
   position:fixed;z-index:100000;box-shadow:0 10px 38px rgb(20 32 57 / .18);border:1px solid var(--wutm-privacy-line);overflow:auto;
   max-height:min(80vh,80dvh);

@@ -55,7 +55,10 @@ try {
     foreach ($visitors as $token) wutm_privacy_assert(WUTM_ATM_Consent_Store::read($token, $policy) === null, 'Unsaved visitors have no record.');
     $default_token = str_repeat('c', 64);
     $set_visitor($default_token);
-    update_option(WUTM_ATM_Consent::OPTION, $opts[WUTM_ATM_Consent::OPTION] + ['first_visit'=>'opt_out']);
+    update_option(WUTM_ATM_Consent::OPTION, $opts[WUTM_ATM_Consent::OPTION] + ['first_visit'=>'opt_in']);
+    $opt_in = $state->invoke(null, $default_token);
+    wutm_privacy_assert(!$opt_in['defaults'] && !$opt_in['tags']['ga4'] && !$opt_in['tags']['pixel'], 'Explicit opt-in keeps waiting for a choice.');
+    update_option(WUTM_ATM_Consent::OPTION, $opts[WUTM_ATM_Consent::OPTION]);
     $initial = $state->invoke(null, $default_token);
     wutm_privacy_assert(!$initial['chosen'] && $initial['defaults'] && $initial['tags']['ga4'] && $initial['tags']['pixel'], 'Opt-out enables the configured browser tags while leaving the choice open.');
     wutm_privacy_assert($receipt() === '' && WUTM_ATM_Consent_Store::read($default_token, $policy) === null, 'Opt-out never invents a receipt.');
