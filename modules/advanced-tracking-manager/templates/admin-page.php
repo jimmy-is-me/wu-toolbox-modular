@@ -21,6 +21,7 @@ $last_saved_at      = get_option( 'atm_last_saved_at', '' );
 $last_saved_by      = get_option( 'atm_last_saved_by', '' );
 $last_diagnostic    = get_option( 'atm_last_diagnostic', array() );
 $tabs = [
+    'overview' => '總覽與驗收',
     'tracking' => '追蹤設定',
     'events' => '事件、電商與 CAPI',
     'privacy' => 'Cookie 與隱私同意',
@@ -29,7 +30,7 @@ $tabs = [
     'guide' => '操作說明',
 ];
 $requested_tab = $_GET['atm_tab'] ?? '';
-$active_tab = is_string($requested_tab) && isset($tabs[$requested_tab]) ? $requested_tab : 'tracking';
+$active_tab = is_string($requested_tab) && isset($tabs[$requested_tab]) ? $requested_tab : 'overview';
 $page_url = admin_url('admin.php?page=wu-advanced-tracking-manager');
 ?>
 <div class="wrap wutm-atm-wrap">
@@ -54,9 +55,11 @@ $page_url = admin_url('admin.php?page=wu-advanced-tracking-manager');
 <!-- ======================================================
      TAB 1: tracking
      ====================================================== -->
-<?php if ($active_tab === 'tracking') : ?>
+<?php if ($active_tab === 'overview') : ?>
+<div id="atm-tab-overview" class="atm-tab-content"><?php WUTM_ATM_Event_Admin::render_overview(); ?></div>
+<?php elseif ($active_tab === 'tracking') : ?>
 <div id="atm-tab-tracking" class="atm-tab-content">
-<form method="post" action="">
+<form method="post" action="" data-atm-settings>
   <?php wp_nonce_field( 'atm_save_settings', 'atm_nonce' ); ?>
 
   <!-- GA4 -->

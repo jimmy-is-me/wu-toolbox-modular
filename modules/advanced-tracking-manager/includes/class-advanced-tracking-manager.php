@@ -253,6 +253,7 @@ class WUTM_Advanced_Tracking_Manager {
 		if ( strpos( $hook, self::MENU_SLUG ) === false ) {
 			return;
 		}
+		wp_enqueue_script('wutm-atm-controls', plugin_dir_url(WUTM_ATM_FILE) . 'assets/admin-controls.js', [], WUTM_ATM_VERSION, true);
 		if ( ( $_GET['atm_tab'] ?? '' ) === 'diagnostic' ) {
 			wp_enqueue_script(
 				'atm-admin',

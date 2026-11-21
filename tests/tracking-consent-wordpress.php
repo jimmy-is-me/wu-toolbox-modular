@@ -46,6 +46,9 @@ $set_visitor = static function ($token) use ($cookie) {
 };
 $receipt = static function () { return WUTM_ATM_Events::consent()['reference'] ?? ''; };
 try {
+    delete_option(WUTM_ATM_Consent::OPTION);
+    wutm_privacy_assert(WUTM_ATM_Consent::settings()['first_visit'] === 'opt_in', 'New sites default to explicit consent.');
+    update_option(WUTM_ATM_Consent::OPTION, $opts[WUTM_ATM_Consent::OPTION]);
     wutm_privacy_assert(WUTM_ATM_Consent_Store::install(), 'Consent table installed.');
     WUTM_ATM_Queue::ensure();
     wutm_privacy_assert(false === has_action('template_redirect', ['WUTM_ATM_Events','protect_cache']), 'Built-in consent leaves public pages cacheable.');
