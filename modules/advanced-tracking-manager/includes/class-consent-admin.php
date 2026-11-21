@@ -61,7 +61,7 @@ final class WUTM_ATM_Consent_Admin {
                 <h2>Cookie 與隱私同意</h2>
                 <input type="hidden" name="action" value="<?php echo esc_attr(self::ACTION); ?>">
                 <?php wp_nonce_field(self::ACTION); ?>
-                <p><label><input type="checkbox" name="enabled" <?php checked($s['enabled']); ?>> 啟用內建 Cookie 同意橫幅</label></p>
+                <p><label><input type="checkbox" name="enabled" <?php checked($s['enabled']); ?>> 啟用內建 Cookie 與隱私同意</label></p>
                 <p>啟用後，本模組會以訪客的站內偏好判斷追蹤。必要功能永遠可用。請關閉其他同意橫幅，並確認其他外掛獨立載入的追蹤標籤已納入同意管理。</p>
                 <fieldset class="wutm-atm-privacy-options">
                     <legend>橫幅外觀</legend>
@@ -78,7 +78,7 @@ final class WUTM_ATM_Consent_Admin {
                             <option value="dark" <?php selected($s['appearance'], 'dark'); ?>>深色</option>
                         </select>
                     </label>
-                    <p class="description">購物車、結帳與會員頁使用頁面內橫幅，讓訂單操作保持可見。</p>
+                    <p class="description">「取得同意後啟用」會使用選定的橫幅，購物車、結帳與會員頁改用頁面內橫幅。「預設啟用，可手動拒絕」只顯示左下角的 Cookie 設定。</p>
                 </fieldset>
                 <fieldset class="wutm-atm-privacy-options">
                     <legend>首次訪問的追蹤方式</legend>
@@ -112,7 +112,7 @@ final class WUTM_ATM_Consent_Admin {
                 </label></p>
                 <p>GA4 依分析偏好載入，Google Ads 和 Meta Pixel 依行銷偏好載入。GTM 內的標籤仍應各自設定同意條件。</p>
                 <p><label><input type="checkbox" name="renew"> 使現有偏好失效，下次訪問重新詢問</label></p>
-                <p class="description">僅在政策或用途變更時勾選。使用舊同意紀錄的待發行銷事件也會停止。訪客可在網站頁尾修改偏好，或在適合的位置加入 <code>[wu_cookie_preferences]</code>。</p>
+                <p class="description">僅在政策或用途變更時勾選。使用舊同意紀錄的待發行銷事件也會停止。訪客可在網站左下角修改偏好，或在適合的位置加入 <code>[wu_cookie_preferences]</code>。</p>
                 <button class="button button-primary">儲存 Cookie 同意設定</button>
             </div>
         </form>

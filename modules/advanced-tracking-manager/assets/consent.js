@@ -10,13 +10,16 @@
     const marketing = dialog.querySelector('[name="marketing"]');
     const buttons = document.querySelectorAll('[data-wutm-privacy-choice]');
     const reminders = [banner, dialog].map(el => el.querySelector('.wutm-atm-privacy-status'));
-    const defaultNotice = banner.querySelector('[data-wutm-privacy-default]');
+    const launcher = document.querySelector('.wutm-atm-privacy-launcher');
+    const compact = banner.hasAttribute('data-wutm-privacy-compact');
+    const defaultNotice = dialog.querySelector('[data-wutm-privacy-default]');
     const modalBanner = banner.tagName === 'DIALOG';
     const denied = {analytics:false, marketing:false, tags:{}};
     let state = null;
     let effective = denied;
     let busy = false;
-    let resolving = false;
+    let stateRequest;
+    let edited = false;
     let applying = 0;
     let pendingVisit = false;
     let visited = false;
@@ -93,14 +96,25 @@
     }
 
     async function call(op, data = {}, csrf = '') {
-        const response = await fetch(config.url, {
-            method:'POST', credentials:'same-origin', cache:'no-store',
-            headers:{'Content-Type':'application/json', 'X-WUTM-Consent':'1'},
-            body:JSON.stringify({op, csrf, ...data})
-        });
-        const result = await response.json();
-        if (!response.ok || !result.success) throw new Error('Privacy request failed');
-        return result.data;
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        try {
+            const response = await fetch(config.url, {
+                method:'POST', credentials:'same-origin', cache:'no-store', signal:controller.signal,
+                headers:{'Content-Type':'application/json', 'X-WUTM-Consent':'1'},
+                body:JSON.stringify({op, csrf, ...data})
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error('Privacy request failed');
+            return result.data;
+        } finally {
+            clearTimeout(timeout);
+        }
+    }
+
+    function readState() {
+        if (!stateRequest) stateRequest = call('state').finally(() => { stateRequest = null; });
+        return stateRequest;
     }
 
     async function trackVisit() {
@@ -154,8 +168,9 @@
     }
 
     function setBanner(visible) {
-        visible = visible && !bannerDismissed;
+        visible = visible && !compact && !bannerDismissed;
         banner.hidden = !visible;
+        launcher.hidden = visible;
         if (!modalBanner) return;
         if (visible && !banner.open) {
             if (typeof banner.showModal === 'function') banner.showModal();
@@ -168,9 +183,9 @@
 
     function display(next) {
         state = next;
-        if (defaultNotice) defaultNotice.hidden = !next.defaults;
+        defaultNotice.hidden = !next.defaults;
         setBanner(!next.chosen && !(modalBanner && dialog.open));
-        if (!dialog.open) {
+        if (!dialog.open || !edited) {
             analytics.checked = next.analytics;
             marketing.checked = next.marketing;
         }
@@ -185,33 +200,37 @@
     }
 
     async function refresh(pause = false) {
-        if (busy || resolving) return;
-        if (pause) apply(denied);
-        resolving = true;
-        try {
-            display(await call('state'));
-        } catch (_) {
+        if (busy || stateRequest) return;
+        if (pause) {
+            state = null;
             apply(denied);
-            if (defaultNotice) defaultNotice.hidden = true;
+        }
+        try {
+            const next = await readState();
+            if (!busy) display(next);
+        } catch (_) {
+            if (busy) return;
+            state = null;
+            apply(denied);
+            defaultNotice.hidden = true;
             setBanner(!(modalBanner && dialog.open));
             message('暫時無法確認 Cookie 偏好。非必要追蹤已暫停，請稍後再試。');
-        } finally {
-            resolving = false;
         }
     }
 
     async function save(choice) {
-        if (busy || resolving) return;
+        if (busy) return;
         const next = {
             analytics:choice === 'accept' || (choice === 'custom' && analytics.checked),
             marketing:choice === 'accept' || (choice === 'custom' && marketing.checked)
         };
         busy = true;
         buttons.forEach(button => { button.disabled = true; });
+        message('正在儲存 Cookie 偏好…');
         // Local tracking stops immediately. A new grant waits for the server to save it.
         if ((effective.analytics && !next.analytics) || (effective.marketing && !next.marketing)) apply(denied);
         try {
-            if (!state) state = await call('state');
+            if (!state) state = await readState();
             display(await call('save', next, state.csrf));
             if (dialog.open) dialog.close();
             if (channel) channel.postMessage('changed');
@@ -229,6 +248,7 @@
         if (!button) return;
         if (button.hasAttribute('data-wutm-privacy-open')) {
             opener = button;
+            edited = false;
             analytics.checked = !!(state && state.analytics);
             marketing.checked = !!(state && state.marketing);
             if (!dialog.open) {
@@ -241,16 +261,17 @@
             else dialog.removeAttribute('open');
         } else if (button.dataset.wutmPrivacyChoice) save(button.dataset.wutmPrivacyChoice);
     });
+    dialog.addEventListener('change', () => { edited = true; });
     banner.addEventListener('cancel', event => {
         event.preventDefault();
         bannerDismissed = true;
         setBanner(false);
-        document.querySelector('.wutm-atm-privacy-footer button')?.focus();
+        launcher.focus();
     });
     dialog.addEventListener('close', () => {
         if (modalBanner && !state?.chosen && !bannerDismissed) setBanner(true);
         if (opener && opener.getClientRects().length) opener.focus();
-        else document.querySelector('.wutm-atm-privacy-footer button')?.focus();
+        else launcher.focus();
     });
     if (channel) channel.addEventListener('message', () => refresh(true));
     window.addEventListener('pageshow', event => { if (event.persisted) refresh(true); });
@@ -259,5 +280,6 @@
     });
     if (window.jQuery) window.jQuery(document.body).on('added_to_cart', trackCart);
     document.body.addEventListener('wc-blocks_added_to_cart', trackCart);
+    launcher.hidden = false;
     refresh();
 })();

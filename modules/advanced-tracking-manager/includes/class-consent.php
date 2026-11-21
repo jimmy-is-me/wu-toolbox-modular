@@ -12,7 +12,7 @@ final class WUTM_ATM_Consent {
     public static function settings(): array {
         return wp_parse_args((array) get_option(self::OPTION, []), [
             'enabled'=>false, 'policy'=>'', 'days'=>180, 'gtm'=>'both', 'url'=>'',
-            'layout'=>'inline', 'appearance'=>'light', 'first_visit'=>'opt_in',
+            'layout'=>'inline', 'appearance'=>'light', 'first_visit'=>'opt_out',
             'default_analytics'=>true, 'default_marketing'=>true,
             'title'=>'Cookie 與隱私偏好',
             'description'=>'必要 Cookie 用於網站和購物功能。您可以選擇是否允許分析與行銷 Cookie。',
@@ -60,7 +60,7 @@ final class WUTM_ATM_Consent {
         add_action('template_redirect', [__CLASS__, 'protect_receipt'], -100);
         add_action('wp_enqueue_scripts', [__CLASS__, 'assets']);
         add_action('wp_body_open', [__CLASS__, 'banner'], 20);
-        add_action('wp_footer', [__CLASS__, 'footer'], 1);
+        add_action('wp_footer', [__CLASS__, 'banner'], 1);
         add_shortcode('wu_cookie_preferences', [__CLASS__, 'preferences']);
     }
 
@@ -306,13 +306,9 @@ final class WUTM_ATM_Consent {
         if ((function_exists('is_cart') && is_cart()) || (function_exists('is_checkout') && is_checkout()) ||
             (function_exists('is_account_page') && is_account_page())) $layout = 'inline';
         $appearance = $settings['appearance'] === 'dark' ? 'dark' : 'light';
-        $opt_out = $settings['first_visit'] === 'opt_out' && ($settings['default_analytics'] || $settings['default_marketing']);
+        $compact = $settings['first_visit'] === 'opt_out';
         $url = $settings['url'] ?: get_privacy_policy_url();
         require WUTM_ATM_DIR . 'templates/consent-banner.php';
     }
 
-    public static function footer(): void {
-        self::banner();
-        echo '<div class="wutm-atm-privacy-footer">' . self::preferences() . '</div>';
-    }
 }
