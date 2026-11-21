@@ -49,7 +49,9 @@ final class WUTM_ATM_Observability {
             $start = (new DateTimeImmutable('@' . $now))->setTimezone(wp_timezone())->setTime(0, 0)->getTimestamp();
             $sent_today = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $table WHERE status='sent' AND updated >= %d", $start));
             $daily = $wpdb->get_results($wpdb->prepare(
-                "SELECT event_name,COUNT(*) AS total,SUM(status='sent') AS confirmed FROM $table
+                "SELECT event_name,COUNT(*) AS total,SUM(status='sent') AS confirmed,
+                   SUM(status='sent' AND test_mode=1) AS test_confirmed,
+                   SUM((browser_result & 2)<>0) AS browser_handoff FROM $table
                  WHERE event_time >= %d GROUP BY event_name ORDER BY total DESC LIMIT 100", $start
             ), ARRAY_A);
         }

@@ -210,6 +210,7 @@ try {
     delete_option(WUTM_ATM_Observability::META_RESULTS);
     delete_option(WUTM_ATM_Queue::LAST_RUN);
     delete_option(WUTM_ATM_Queue::LAST_CRON);
+    delete_option(WUTM_ATM_Queue::CAPACITY_CHECK);
     delete_transient('wutm_atm_meta_connection');
     delete_transient('wutm_atm_meta_test');
     foreach ($previous as $name => $value) {

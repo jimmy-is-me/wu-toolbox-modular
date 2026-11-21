@@ -20,7 +20,7 @@ $check = $order_id ? WUTM_ATM_Observability::order($order_id) : [];
     </div>
     <p>今天的事件依網站時區統計。最近一次 CAPI 確認接收 <?php echo esc_html(WUTM_ATM_Observability::date($queue['last_success'])); ?></p>
     <?php foreach ($queue['today'] as $row) : ?>
-        <span class="wutm-atm-metric"><?php echo esc_html($row['event_name'] . ' ' . $row['total']); ?></span>
+        <span class="wutm-atm-metric"><?php echo esc_html($row['event_name'] . ' ' . $row['total'] . ' · 測試接收 ' . $row['test_confirmed']); ?></span>
     <?php endforeach; ?>
     <?php if (!$queue['today']) : ?><p>今日尚無事件紀錄。</p><?php endif; ?>
     <p>今日 CAPI 確認接收 <?php echo (int) $queue['sent_today']; ?> 筆</p>

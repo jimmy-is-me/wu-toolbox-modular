@@ -9,6 +9,7 @@ final class WUTM_ATM_Queue {
     const LOCK = 'wutm_atm_worker_lease';
     const LAST_CRON = 'wutm_atm_last_cron';
     const LAST_RUN = 'wutm_atm_worker_result';
+    const CAPACITY_CHECK = 'wutm_atm_capacity_check';
     const STATES = ['browser_prepared','pending','sending','retry','sent','failed','consent_blocked'];
 
     public static function table(): string {
@@ -177,6 +178,21 @@ final class WUTM_ATM_Queue {
         ));
         if ($removed === false || $expired === false) { $result['result'] = 'error'; return; }
         $result['removed'] = $removed;
+        if ($now - (int) get_option(self::CAPACITY_CHECK, 0) >= HOUR_IN_SECONDS) {
+            // Bound archived history without deleting outstanding events or active Purchase keys.
+            $archived = "status IN ('browser_prepared','sent','failed','consent_blocked')";
+            $cutoff = (int) $wpdb->get_var("SELECT updated FROM $table WHERE $archived ORDER BY updated DESC LIMIT 1 OFFSET 49999");
+            if ($wpdb->last_error !== '') { $result['result'] = 'error'; return; }
+            if ($cutoff) {
+                $trimmed = $wpdb->query($wpdb->prepare(
+                    "DELETE FROM $table WHERE $archived AND updated < %d AND (event_name <> 'Purchase' OR event_time < %d)
+                     ORDER BY updated LIMIT 1000", $cutoff, $now - 2 * DAY_IN_SECONDS
+                ));
+                if ($trimmed === false) { $result['result'] = 'error'; return; }
+                $result['removed'] += $trimmed;
+            }
+            update_option(self::CAPACITY_CHECK, $now, false);
+        }
         $result['expired'] = $expired;
         $result['result'] = 'inactive';
         if (!$settings['enabled'] || !WUTM_ATM_Events::server_active()) return;
