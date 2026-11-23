@@ -55,7 +55,7 @@ final class WUTM_Chunk_Upload_Storage {
         return $size;
     }
 
-    private function lock(string $path, string $mode) {
+    private static function lock(string $path, string $mode) {
         if (is_link($path)) return null;
         $handle = @fopen($path, $mode);
         if (!$handle) return null;
@@ -67,9 +67,20 @@ final class WUTM_Chunk_Upload_Storage {
     }
 
     private function root_lock() {
-        $handle = $this->lock($this->root . '/.lock', 'c+b');
+        $handle = self::lock($this->root . '/.lock', 'c+b');
         if (!$handle) throw new WUTM_Chunk_Upload_Error('上傳儲存區忙碌或無法鎖定，請稍後再試。', 409);
         return $handle;
+    }
+
+    public static function publish(string $dir, callable $operation) {
+        // Keep WordPress filename selection and the file move together across different jobs.
+        $lock = self::lock(dirname($dir) . '/.publish', 'c+b');
+        if (!$lock) throw new WUTM_Chunk_Upload_Error('媒體庫正在保存另一支影片，請稍候。', 409);
+        try {
+            return $operation();
+        } finally {
+            fclose($lock);
+        }
     }
 
     private static function read_meta(string $dir): ?array {
@@ -148,7 +159,7 @@ final class WUTM_Chunk_Upload_Storage {
         $root = $this->root_lock();
         try {
             if (!is_dir($dir) || is_link($dir)) throw new WUTM_Chunk_Upload_Error('找不到上傳工作，請重新開始。', 404);
-            $lock = $this->lock($dir . '/.lock', 'r+b');
+            $lock = self::lock($dir . '/.lock', 'r+b');
             if (!$lock) throw new WUTM_Chunk_Upload_Error('工作正在處理，請稍後再試。', 409);
         } finally {
             fclose($root);
@@ -195,7 +206,7 @@ final class WUTM_Chunk_Upload_Storage {
         try {
             foreach ($this->directories() as $dir) {
                 if (is_link($dir) || !preg_match('/^job-[a-f0-9]{64}$/D', basename($dir))) continue;
-                $lock = $this->lock($dir . '/.lock', 'r+b');
+                $lock = self::lock($dir . '/.lock', 'r+b');
                 if (!$lock && is_file($dir . '/.lock')) continue;
                 $meta = self::read_meta($dir);
                 $expired = $meta ? self::expired($meta) || !empty($meta['cancelled']) : filemtime($dir) < time() - self::TTL;

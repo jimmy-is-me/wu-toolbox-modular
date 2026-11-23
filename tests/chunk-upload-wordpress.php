@@ -53,6 +53,13 @@ try {
     });
     $resume = $store->begin($owner, $key, 'chunk-video-fixture.mp4', strlen($clip), $digest);
     chunk_fixture_assert($resume['id'] === $id && count($resume['received']) === $init['total'], 'Resume preserves received chunks.');
+    $store->session($owner, $id, static function ($dir) {
+        WUTM_Chunk_Upload_Storage::publish($dir, static function () use ($dir) {
+            chunk_fixture_error(static function () use ($dir) {
+                WUTM_Chunk_Upload_Storage::publish($dir, '__return_true');
+            }, 409);
+        });
+    });
     $upload = $store->session($owner, $id, static function ($dir,$meta) use ($id) {
         return WUTM_Chunk_Uploader::finish($dir, $meta, $id);
     });
@@ -104,6 +111,7 @@ try {
     }
     $store->cleanup();
     foreach (glob($fixture_root . '/wutm-chunks-*', GLOB_ONLYDIR) ?: [] as $dir) {
+        if (is_file($dir . '/.publish')) unlink($dir . '/.publish');
         unlink($dir . '/.lock');
         rmdir($dir);
     }

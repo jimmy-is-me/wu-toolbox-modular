@@ -198,21 +198,24 @@ final class WUTM_Chunk_Uploader {
             if (!self::mp4_video($path, $video)) {
                 throw new WUTM_Chunk_Upload_Error('檔案內容不是可辨識的 MP4 影片。', 422);
             }
-            $staged = ['name'=>$meta['name'],'type'=>'video/mp4','tmp_name'=>$path,
-                'error'=>UPLOAD_ERR_OK,'size'=>$meta['size']];
-            $file = wp_handle_sideload($staged, ['test_form'=>false,'mimes'=>$types]);
-            if (empty($file['file']) || empty($file['url']) || !empty($file['error'])) {
-                throw new WUTM_Chunk_Upload_Error('WordPress 無法保存影片，請檢查媒體目錄與主機空間。', 500);
-            }
-            $attachment = wp_insert_attachment([
-                'post_mime_type'=>'video/mp4','post_title'=>pathinfo(wp_basename($file['file']), PATHINFO_FILENAME),
-                'post_status'=>'inherit','post_author'=>$meta['owner'],'guid'=>$file['url'],
-                'meta_input'=>[self::MARKER=>$id],
-            ], $file['file'], 0, true);
-            if (!$attachment || is_wp_error($attachment)) {
-                wp_delete_file($file['file']);
-                throw new WUTM_Chunk_Upload_Error('無法註冊媒體庫。', 500);
-            }
+            [$attachment, $file] = WUTM_Chunk_Upload_Storage::publish($dir, static function () use ($meta, $path, $types, $id) {
+                $staged = ['name'=>$meta['name'],'type'=>'video/mp4','tmp_name'=>$path,
+                    'error'=>UPLOAD_ERR_OK,'size'=>$meta['size']];
+                $file = wp_handle_sideload($staged, ['test_form'=>false,'mimes'=>$types]);
+                if (empty($file['file']) || empty($file['url']) || !empty($file['error'])) {
+                    throw new WUTM_Chunk_Upload_Error('WordPress 無法保存影片，請檢查媒體目錄與主機空間。', 500);
+                }
+                $attachment = wp_insert_attachment([
+                    'post_mime_type'=>'video/mp4','post_title'=>pathinfo(wp_basename($file['file']), PATHINFO_FILENAME),
+                    'post_status'=>'inherit','post_author'=>$meta['owner'],'guid'=>$file['url'],
+                    'meta_input'=>[self::MARKER=>$id],
+                ], $file['file'], 0, true);
+                if (!$attachment || is_wp_error($attachment)) {
+                    wp_delete_file($file['file']);
+                    throw new WUTM_Chunk_Upload_Error('無法註冊媒體庫。', 500);
+                }
+                return [$attachment, $file];
+            });
             $result = self::complete($dir, $meta, $attachment);
             $metadata = wp_generate_attachment_metadata($attachment, $file['file']);
             if (is_array($metadata) && $metadata) {
