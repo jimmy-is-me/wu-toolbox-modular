@@ -4,6 +4,8 @@
 
 PAYUNi 物流工具（`payuni-shipping`）位於「電商第三方金物流」分類的 PAYUNi 付款工具後方；設定入口為 Toolbox → PAYUNi 物流工具。提供 ZIP 的完整功能與整合說明見 [v3.8.3](RELEASE-3.8.3.md)。
 
+分段上傳（`chunk-upload`）位於「媒體工具」，可在 Toolbox 子選單使用。見 [分段上傳操作與主機設定](CHUNK-UPLOAD.md)。
+
 Every module is self-contained at `modules/<slug>/module.php`. The bootstrap only loads files whose switch is enabled.
 
 | Group | Module | Dependency |

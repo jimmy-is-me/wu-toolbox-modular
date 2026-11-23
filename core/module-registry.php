@@ -42,6 +42,7 @@ function wutm_modules(): array {
         'media-library-manager' => ['name' => '媒體庫管理', 'description' => '在 WordPress 媒體庫內以資料夾側欄建立、篩選與拖放整理媒體檔案。', 'group' => '媒體工具', 'icon' => '🗂️', 'settings_page' => 'wu-media-library-manager'],
         'clean-youtube-player' => ['name' => '極簡 YT 播放器', 'description' => 'YouTube 縮圖點擊播放、Plyr 極簡控制列、延遲資源、品牌色與隱私強化參數；保留播放清單與起始時間。', 'group' => '媒體工具', 'icon' => '▶️', 'settings_page' => 'wu-clean-youtube-player'],
         'media-safe-cleaner' => ['name' => '媒體安全清理', 'description' => '依年月、日期、檔名與格式預覽圖片，提供網格／清單、CSV 匯出、引用保護及可暫停的分批永久清理；刪除前請先備份。', 'group' => '媒體工具', 'icon' => '🧹', 'settings_page' => 'wu-media-safe-cleaner'],
+        'chunk-upload' => ['name' => '分段上傳', 'description' => '分段上傳 MP4，支援暫停、續傳、重試與取消，驗證完成後自動加入媒體庫。', 'group' => '媒體工具', 'settings_page' => 'wu-chunk-upload'],
         'media-sync' => ['name' => '媒體掃描匯入', 'description' => '掃描 uploads 中未登錄的檔案，再選擇匯入媒體庫。', 'group' => '媒體工具', 'icon' => '🔍', 'settings_page' => 'wu-media-sync'],
         'disable-wordpress-updates' => ['name' => '停用所有更新', 'description' => '停止 WordPress 核心、外掛與佈景主題的更新檢查及自動更新。', 'group' => '特殊工具', 'icon' => '⏸️', 'settings_page' => 'wu-disable-wordpress-updates'],
         'captcha' => ['name' => '驗證碼', 'description' => '以驗證碼保護登入、註冊與留言表單，降低機器人、垃圾留言與暴力登入。', 'group' => '安全性', 'icon' => '🤖'],
