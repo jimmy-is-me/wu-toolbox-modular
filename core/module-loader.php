@@ -44,6 +44,19 @@ add_action('plugins_loaded', function () use ($wutm_early_module_keys): void {
 
 unset($wutm_early_module_key, $wutm_early_module_file);
 
+// Finish expiring private upload jobs even if the dashboard module is disabled.
+add_action('wutm_chunk_upload_cleanup', static function (): void {
+    require_once WUTM_PATH . 'modules/chunk-upload/includes/class-upload-storage.php';
+    try {
+        $remaining = (new WUTM_Chunk_Upload_Storage(false))->cleanup();
+    } catch (WUTM_Chunk_Upload_Error $error) {
+        $remaining = $error->getCode() === 409;
+    }
+    if ($remaining && !wp_next_scheduled('wutm_chunk_upload_cleanup')) {
+        wp_schedule_single_event(time() + 15 * MINUTE_IN_SECONDS, 'wutm_chunk_upload_cleanup');
+    }
+});
+
 /** Keep the Transients cleanup event aligned with both Toolbox and module settings. */
 function wutm_sync_transients_cleanup_schedule(bool $module_enabled, ?array $settings = null): void {
     $defaults = [

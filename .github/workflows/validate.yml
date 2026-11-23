@@ -101,6 +101,7 @@ jobs:
           php "$RUNNER_TEMP/wutm-wp-cli.phar" core install --path="$RUNNER_TEMP/wutm-media-wp" --url=https://media.example.test --title="Media fixture" --admin_user=fixture --admin_password=fixture-only --admin_email=fixture@example.test --skip-email
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/media-encoder-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/media-safe-cleaner-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/chunk-upload-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/module-access-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/license-domain-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-license-domain.log"
           grep -Fq 'Native license domain migration passed:' "$RUNNER_TEMP/wutm-license-domain.log"

@@ -27,6 +27,8 @@ SEO 核心的功能、設定順序與發佈後驗證方式見 [SEO 核心使用�
 
 商品規格表的後台操作及商品編輯隱藏開關見 [電商後台介面](docs/COMMERCE-ADMIN.md)。
 
+上傳 MP4 可使用「媒體工具 → 分段上傳」。支援續傳、取消及自動加入媒體庫，主機相容性見 [分段上傳](docs/CHUNK-UPLOAD.md)。
+
 頁面快取的狀態、排除原因及訪客驗證方式見 [頁面快取與網站速度](docs/PAGE-CACHE.md)。
 
 v4.1.9 新增追蹤總覽、WP-Cron 佇列診斷、唯讀訂單檢查及驗收報告。進階追蹤管理的首次訪問預設、WooCommerce 付款追蹤、Meta CAPI 與開發介面見 [Advanced Tracking Manager](docs/ADVANCED-TRACKING-MANAGER.md)。

@@ -1,0 +1,11 @@
+#wutm-chunk-upload{max-width:760px}
+#wutm-chunk-upload [hidden]{display:none!important}
+#wutm-chunk-upload .wutm-chunk-file{display:grid;gap:.45rem;margin:1.25rem 0}
+#wutm-chunk-upload .wutm-chunk-file label{font-weight:600}
+#wutm-chunk-upload input[type=file]{max-width:100%;min-width:0}
+#wutm-chunk-upload .wutm-chunk-actions{display:flex;flex-wrap:wrap;gap:.5rem}
+#wutm-chunk-upload .wutm-chunk-progress{display:flex;align-items:center;gap:.75rem;margin-top:1rem}
+#wutm-chunk-upload progress{width:100%;min-width:0;height:12px;accent-color:var(--wutm-accent,#185abc)}
+#wutm-chunk-upload [data-percent]{font-variant-numeric:tabular-nums;min-width:3.4em;text-align:end}
+#wutm-chunk-upload [data-status]:empty{display:none}
+#wutm-chunk-upload [data-status][data-error=true]{color:#9d251e}
