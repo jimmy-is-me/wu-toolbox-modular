@@ -104,7 +104,8 @@ try {
     $check($default['product'] === $variations['Small'], 'The default displayed variation resolves.');
     $_GET['attribute_size'] = 'Large';
     $selected = $use_page($variable->get_id(), 'product', '/fixture-variable/?attribute_size=Large');
-    $check($selected['product'] === $variations['Large'] && $selected['url'] === home_url('/fixture-variable/'), 'A selected variation uses its own ID and clean source URL.');
+    $check($selected['product'] === $variations['Large'], 'A selected variation uses its own ID. Got ' . $selected['product'] . '; expected ' . $variations['Large']);
+    $check($selected['url'] === home_url('/fixture-variable/'), 'A variation does not expose its query parameters. Got ' . $selected['url']);
     unset($_GET['attribute_size']);
 
     $course = $make_post($course_type, 'WooCommerce course fixture');
