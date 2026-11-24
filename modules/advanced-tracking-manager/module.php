@@ -5,7 +5,7 @@
  */
 defined('ABSPATH') || exit;
 
-define('WUTM_ATM_VERSION', '3.3.2');
+define('WUTM_ATM_VERSION', '3.3.3');
 define('WUTM_ATM_FILE', __FILE__);
 define('WUTM_ATM_DIR', plugin_dir_path(__FILE__));
 
@@ -13,6 +13,7 @@ require_once WUTM_ATM_DIR . 'includes/class-advanced-tracking-manager.php';
 WUTM_Advanced_Tracking_Manager::get_instance();
 
 require_once WUTM_ATM_DIR . 'includes/class-events.php';
+require_once WUTM_ATM_DIR . 'includes/class-content.php';
 require_once WUTM_ATM_DIR . 'includes/class-browser-evidence.php';
 require_once WUTM_ATM_DIR . 'includes/class-consent-store.php';
 require_once WUTM_ATM_DIR . 'includes/class-consent.php';

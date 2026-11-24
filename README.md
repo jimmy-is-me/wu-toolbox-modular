@@ -21,6 +21,8 @@ License: GPL-2.0-or-later.
 
 v4.0.1 新增 SEO 列表、快速編輯、批次預覽、修改歷史、CSV 與按需技術診斷，完整操作與驗證界線見 [SEO 管理與診斷](docs/SEO-4.0.1.md)。
 
+v4.2.4 新增 [課程與自訂內容的商品瀏覽追蹤](docs/ADVANCED-TRACKING-MANAGER.md#內容商品對應與首次同意-333)，並改善首次行銷同意後的 Browser／Server 配對。
+
 v4.2.3 將 [Meta 追蹤測試與驗收](docs/ADVANCED-TRACKING-MANAGER.md#追蹤測試與驗收-332) 集中到 WU Toolbox，並簡化 WooCommerce 訂單介面。
 
 v4.2.2 新增 [WooCommerce Meta 購買事件管理與模擬測試](docs/ADVANCED-TRACKING-MANAGER.md#woocommerce-訂單)。

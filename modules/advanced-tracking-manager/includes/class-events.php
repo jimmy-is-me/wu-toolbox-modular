@@ -226,6 +226,9 @@ final class WUTM_ATM_Events {
         $browser_enabled = empty($context['server_only']) && self::browser_active() && !self::excluded();
         $browser = $browser_enabled && (!empty($live['granted']) || $default_visit);
         $server = empty($context['browser_only']) && self::server_active();
+        $retry_matching = !empty($context['retry_matching']) && !empty($context['server_only']) && WUTM_ATM_Consent::collecting() &&
+            in_array($name, ['PageView','ViewContent','Search','InitiateCheckout'], true);
+        $event['retry_matching'] = $retry_matching;
         $event['browser_blocked'] = $browser_enabled && !$browser;
         if (!$browser && !$server && $browser_enabled) {
             WUTM_ATM_Queue::record($event, 'consent_blocked');
@@ -249,22 +252,26 @@ final class WUTM_ATM_Events {
         if ($server) {
             $event['server_channel'] = true;
             if (!self::consent_valid((array) $consent, $event)) {
-                WUTM_ATM_Queue::record($event, 'consent_blocked');
+                if (!$retry_matching) WUTM_ATM_Queue::record($event, 'consent_blocked');
                 $server = false;
             } else {
                 $user = self::user_data($context);
                 $event['user_data'] = $user;
                 if (empty($user['client_user_agent']) || count($user) < 2) {
-                    WUTM_ATM_Queue::record($event, 'failed', false, 'matching_data_missing');
+                    if (!$retry_matching) WUTM_ATM_Queue::record($event, 'failed', false, 'matching_data_missing');
                     $server = false;
                 } else {
                     $event['consent'] = $consent['reference'];
                     $recorded = WUTM_ATM_Queue::record($event, 'pending');
-                    if ($purchase) $server = $recorded;
+                    if ($purchase || $retry_matching) $server = $recorded;
                 }
             }
         }
         return $browser || $server ? $id : null;
+    }
+
+    public static function valid_browser_id($value): bool {
+        return is_string($value) && (bool) preg_match('/^fb\.\d+\.\d{10,16}\.\d{1,30}$/D', $value);
     }
 
     private static function user_data(array $context): array {
@@ -282,7 +289,7 @@ final class WUTM_ATM_Events {
             is_string($provided['external_id'] ?? null) && preg_match('/^[a-f0-9]{64}$/D', $provided['external_id'])) {
             $user['external_id'] = [$provided['external_id']];
         }
-        if (is_string($fbp) && preg_match('/^fb\.\d+\.\d{10,16}\.\d{1,30}$/D', $fbp)) $user['fbp'] = $fbp;
+        if (self::valid_browser_id($fbp)) $user['fbp'] = $fbp;
         $fbc = $provided['fbc'] ?? (empty($context['recorded_consent']) ? wp_unslash($_COOKIE['_fbc'] ?? '') : '');
         if (is_string($fbc) && preg_match('/^fb\.\d+\.\d{10,16}\.[A-Za-z0-9_-]{1,250}$/D', $fbc)) $user['fbc'] = $fbc;
         $ip = $provided['ip'] ?? ($_SERVER['REMOTE_ADDR'] ?? '');

@@ -150,6 +150,7 @@ jobs:
           php "$RUNNER_TEMP/wutm-wp-cli.phar" option update woocommerce_custom_orders_table_enabled no --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/tracking-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/tracking-purchase-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/tracking-content-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
             php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/payuni-shipping-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture | tee "$RUNNER_TEMP/wutm-payuni-shipping.log"
             grep -Fq 'Native PAYUNi shipping passed:' "$RUNNER_TEMP/wutm-payuni-shipping.log"
           mkdir -p "$RUNNER_TEMP/wutm-media-wp/wp-content/mu-plugins"

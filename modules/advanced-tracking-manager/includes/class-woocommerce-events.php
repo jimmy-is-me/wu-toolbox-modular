@@ -45,22 +45,23 @@ final class WUTM_ATM_Woo_Events {
             return;
         }
         if (WUTM_ATM_Consent::active()) return;
-        if (is_product()) self::view_product(get_queried_object_id(), null, false, WUTM_ATM_Events::request_url());
-        if (is_checkout() && !is_wc_endpoint_url()) self::start_checkout();
+        $page = WUTM_ATM_Content::page();
+        if ($page['kind'] === 'product') self::view_product($page['product'], null, false, $page['url']);
+        if ($page['kind'] === 'checkout') self::start_checkout(null, $page['url']);
     }
 
-    public static function view_product(int $id, ?string $key = null, bool $browser_only = false, string $url = ''): void {
+    public static function view_product(int $id, ?string $key = null, bool $browser_only = false, string $url = '', bool $match = false): void {
         if (!WUTM_ATM_Events::is_enabled('ViewContent')) return;
-        $product = wc_get_product($id);
-        if ($product && $product->is_visible() && $product->get_status() === 'publish') {
-            WUTM_ATM_Events::track('ViewContent', [
-                'content_ids'=>[(string) $id], 'content_type'=>'product', 'content_name'=>$product->get_name(),
-                'value'=>wc_get_price_to_display($product), 'currency'=>get_woocommerce_currency(),
-            ], ['source'=>'woocommerce','url'=>$url ?: get_permalink($id),'key'=>$key,'browser_only'=>$browser_only]);
-        }
+        $product = WUTM_ATM_Content::product($id);
+        if (!$product || ($price = WUTM_ATM_Content::price($product)) === null) return;
+        WUTM_ATM_Events::track('ViewContent', [
+            'content_ids'=>[(string) $id], 'content_type'=>'product', 'content_name'=>$product->get_name(),
+            'value'=>$price, 'currency'=>get_woocommerce_currency(),
+        ], ['source'=>'woocommerce','url'=>$url ?: (string) get_permalink($id),'key'=>$key,'browser_only'=>$browser_only,
+            'server_only'=>$match,'retry_matching'=>$match]);
     }
 
-    public static function start_checkout(?string $key = null, string $url = ''): void {
+    public static function start_checkout(?string $key = null, string $url = '', bool $match = false): void {
         if (!WUTM_ATM_Events::is_enabled('InitiateCheckout')) return;
         if (!WC()->cart && function_exists('wc_load_cart')) wc_load_cart();
         if (WC()->cart && !WC()->cart->is_empty()) {
@@ -70,7 +71,8 @@ final class WUTM_ATM_Woo_Events {
                 'content_ids'=>array_unique($ids), 'content_type'=>'product',
                 'value'=>WC()->cart->get_total('edit'), 'currency'=>get_woocommerce_currency(),
                 'num_items'=>WC()->cart->get_cart_contents_count(),
-            ], ['source'=>'woocommerce','url'=>$url ?: wc_get_checkout_url(),'key'=>$key]);
+            ], ['source'=>'woocommerce','url'=>$url ?: wc_get_checkout_url(),'key'=>$key,
+                'server_only'=>$match,'retry_matching'=>$match]);
         }
     }
 

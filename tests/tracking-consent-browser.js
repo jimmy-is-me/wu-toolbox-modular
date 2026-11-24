@@ -31,7 +31,7 @@ const render = (layout = 'inline', optOut = false) => {
 };
 
 const external = /www\.googletagmanager\.com|connect\.facebook\.net/;
-async function browserVisitor(browser, layout = 'inline', optOut = false, width = 390, delay = 0) {
+async function browserVisitor(browser, layout = 'inline', optOut = false, width = 390, delay = 0, matching = false) {
     const context = await browser.newContext({ viewport:{width,height:844} });
     const page = await context.newPage();
     const fixture = native ? '' : render(layout,optOut);
@@ -39,6 +39,7 @@ async function browserVisitor(browser, layout = 'inline', optOut = false, width 
         tags:optOut ? {ga4:'G-FIXTURE',ads:'AW-123456',pixel:'123456789',visit:true} : {}, csrf:'fixture', expires:0};
     const scripts = [];
     const api = [];
+    const visitRequests = [];
     await page.route('**/*', async route => {
         const url = new URL(route.request().url());
         if (external.test(url.hostname)) {
@@ -50,6 +51,7 @@ async function browserVisitor(browser, layout = 'inline', optOut = false, width 
         if (url.pathname.endsWith('/admin-ajax.php')) {
             const data = route.request().postDataJSON();
             api.push(data.op);
+            if (['visit','visit_match'].includes(data.op)) visitRequests.push(data);
             if (delay) await new Promise(resolve => setTimeout(resolve, delay));
             if (data.op === 'save') {
                 state = {...state, chosen:true, defaults:false, analytics:data.analytics, marketing:data.marketing};
@@ -57,7 +59,7 @@ async function browserVisitor(browser, layout = 'inline', optOut = false, width 
                     ga4:state.analytics ? 'G-FIXTURE' : '',
                     ads:state.marketing ? 'AW-123456' : '',
                     gtm:state.analytics && state.marketing ? 'GTM-FIXTURE' : '',
-                    pixel:state.marketing ? '123456789' : '', visit:state.marketing
+                    pixel:state.marketing ? '123456789' : '', visit:state.marketing, match:state.marketing && matching
                 };
             }
             return route.fulfill({json:{success:true,data:data.op === 'visit' ?
@@ -67,12 +69,49 @@ async function browserVisitor(browser, layout = 'inline', optOut = false, width 
         if (asset) return route.fulfill({body:asset,contentType:url.pathname.endsWith('.css') ? 'text/css' : 'text/javascript'});
         return route.fulfill({body:fixture,contentType:'text/html; charset=utf-8'});
     });
-    return {context,page,scripts,api};
+    return {context,page,scripts,api,visitRequests};
 }
 
 (async () => {
     const browser = await chromium.launch({executablePath:process.env.WUTM_TEST_CHROME,headless:true});
     try {
+        if (!native) {
+            const matching = await browserVisitor(browser, 'inline', false, 390, 0, true);
+            const guest = matching.page;
+            const writeCookie = () => {
+                document.cookie = '_fbp=fb.1.1712345678901.1234567890; path=/; SameSite=Lax';
+            };
+            await guest.goto(base.href);
+            await guest.locator('#wutm-atm-privacy button[data-wutm-privacy-choice=accept]').click();
+            await guest.waitForFunction(() => window.fbq?.queue?.some(entry => entry[0] === 'trackSingle'));
+            assert.deepEqual(matching.api.filter(op => op.startsWith('visit')), ['visit'],
+                'A conversion is sent to the Browser before waiting for the Pixel cookie.');
+            await Promise.all([
+                guest.waitForResponse(response => response.request().method() === 'POST' && response.request().postDataJSON()?.op === 'visit_match'),
+                guest.evaluate(writeCookie)
+            ]);
+            const [initial, retry] = matching.visitRequests;
+            assert.equal(initial.visit, retry.visit);
+            assert.deepEqual(initial.page, retry.page);
+            assert(!Object.hasOwn(retry, 'fbp'), 'The retry uses the real cookie header and does not post an identifier.');
+            const count = matching.visitRequests.length;
+            await guest.reload();
+            await guest.waitForFunction(() => window.fbq?.queue?.some(entry => entry[0] === 'trackSingle'));
+            assert.equal(matching.visitRequests.length, count + 1, 'A returning visitor with the cookie does not retry matching.');
+            await matching.context.close();
+
+            const revoked = await browserVisitor(browser, 'inline', false, 390, 0, true);
+            await revoked.page.goto(base.href);
+            await revoked.page.locator('#wutm-atm-privacy button[data-wutm-privacy-choice=accept]').click();
+            await revoked.page.waitForFunction(() => window.fbq?.queue?.some(entry => entry[0] === 'trackSingle'));
+            await revoked.page.locator('.wutm-atm-privacy-launcher').click();
+            await revoked.page.locator('#wutm-atm-privacy-dialog').getByRole('button',{name:'拒絕非必要'}).click();
+            await revoked.page.waitForFunction(() => window.wutmAtmConsent?.marketing === false);
+            await revoked.page.evaluate(writeCookie);
+            await revoked.page.waitForTimeout(180);
+            assert(!revoked.api.includes('visit_match'), 'A late Pixel cookie after revocation does not cause a matching request.');
+            await revoked.context.close();
+        }
         const one = await browserVisitor(browser);
         const two = await browserVisitor(browser);
         const {page, scripts} = one;

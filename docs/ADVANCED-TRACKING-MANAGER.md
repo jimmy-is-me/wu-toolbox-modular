@@ -42,6 +42,25 @@
 
 內建模式直接使用既有行銷同意與收據驗證介面。關閉後回到原有設定及第三方同意 Filters，先前的內建收據會失效。
 
+## 內容商品對應與首次同意 3.3.3
+
+1. 在「事件、電商與 CAPI」啟用事件管理、WooCommerce 接點和 ViewContent。一般商品自動辨識。變化商品頁依初始選用的規格或商店預設規格使用變化商品 ID 與售價；尚無完整規格時使用母商品 ID 與 WooCommerce 的起始顯示價格。頁面載入後改選規格會留在同一次瀏覽。
+2. Tutor LMS 已啟用 WooCommerce 銷售時，公開的付費課程可用 Tutor 的原生商品對應。事件採用 WooCommerce 商品名稱、ID、顯示價格及幣別，來源保留課程頁。已發布但在商品目錄隱藏的對應商品也可使用。未發布、密碼保護、未定價或未對應商品的內容不會建立 ViewContent。[Tutor LMS WooCommerce 整合](https://docs.themeum.com/tutor-lms/third-party-integration/woocommerce/)
+3. 其他外掛可以使用 **wutm_atm_content_product_id** Filter。第一個參數是已解析的商品 ID 或 0，第二個參數是公開內容的 WP_Post。可回傳一個 WooCommerce 商品或變化商品 ID，回傳 0 可略過事件。商品金額與幣別仍由 WooCommerce 讀取。
+
+```php
+add_filter('wutm_atm_content_product_id', static function ($product_id, WP_Post $post) {
+    if ($post->post_type !== 'example_course' || $product_id) {
+        return $product_id;
+    }
+    return (int) get_post_meta($post->ID, '_example_woocommerce_product_id', true);
+}, 10, 2);
+```
+
+內建同意模式把公開頁面的簽章與訪客選擇分開處理。行銷同意儲存後，如果 Pixel 與 CAPI 同時啟用，瀏覽器會先處理事件，再最多等待約 1.5 秒取得 Pixel 實際建立的 _fbp。Cookie 到達時只會嘗試補入已有的伺服器事件，沿用原 event_id。拒絕或撤回後停止補送；若瀏覽器封鎖 Cookie，且沒有其他已允許的配對資訊，事件會保留配對不足的診斷。[Meta CAPI 參數](https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/v25.0/)
+
+更新後清除 WP Rocket、Cloudflare 或其他頁面快取中的舊 HTML，再用兩個無痕工作階段檢查允許與拒絕。公開頁面可以繼續快取。請確認同意 AJAX、購物車、結帳及訂單確認頁維持既有排除規則；如果網站透過規格查詢參數決定初始變化商品，快取應依該規格區分頁面或略過該 URL。以普通商品和一個已對應商品的課程核對事件來源、商品 ID、價格及雙通道 event_id，再在 Meta 後台核對實際接收。
+
 ## 追蹤測試與驗收 3.3.2
 
 ### WooCommerce 訂單
