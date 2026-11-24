@@ -10,6 +10,7 @@ final class WUTM_ATM_Queue {
     const LAST_CRON = 'wutm_atm_last_cron';
     const LAST_RUN = 'wutm_atm_worker_result';
     const CAPACITY_CHECK = 'wutm_atm_capacity_check';
+    const HISTORY_CLEARED = 'wutm_atm_history_cleared';
     const STATES = ['browser_prepared','pending','sending','retry','sent','failed','consent_blocked'];
 
     public static function table(): string {
@@ -21,6 +22,7 @@ final class WUTM_ATM_Queue {
         add_action('init', [__CLASS__, 'ensure'], 5);
         add_action(self::HOOK, [__CLASS__, 'work']);
         add_action(self::SCHEDULE, [__CLASS__, 'work']);
+        add_action('woocommerce_delete_order', [__CLASS__, 'delete_order']);
     }
 
     public static function ensure(): void {
@@ -70,27 +72,47 @@ final class WUTM_ATM_Queue {
         if (!wp_next_scheduled(self::SCHEDULE)) wp_schedule_event(time() + 300, 'hourly', self::SCHEDULE);
     }
 
-    public static function record(array $event, string $status, bool $browser = false, string $reason = ''): void {
-        if (get_option(self::SCHEMA) !== self::VERSION) return;
+    public static function durable_purchase(): string {
+        return "(event_name='Purchase' AND source='woocommerce' AND order_id > 0 AND (COALESCE(test_mode,0)=0 OR browser=1))";
+    }
+
+    public static function delete_order($id): void {
+        if (!(int) $id || get_option(self::SCHEMA) !== self::VERSION) return;
+        global $wpdb;
+        $wpdb->delete(self::table(), ['order_id'=>(int) $id,'event_name'=>'Purchase','source'=>'woocommerce']);
+    }
+
+    public static function record(array $event, string $status, bool $browser = false, string $reason = ''): bool {
+        if (get_option(self::SCHEMA) !== self::VERSION) return false;
         global $wpdb;
         $table = self::table();
         $time = time();
         $payload = '';
-        $server_dataset = !empty($event['server_channel']) || $status === 'pending' ? WUTM_ATM_Events::dataset() : '';
+        $retry_purchase = !empty($event['retry_purchase']);
+        $config = $event['test_configuration'] ?? ['code'=>WUTM_ATM_Events::settings()['test_code'],'dataset'=>WUTM_ATM_Events::dataset()];
+        $server_dataset = !empty($event['server_channel']) || $status === 'pending' ? $config['dataset'] : '';
         $browser_pixel = $browser ? WUTM_ATM_Events::pixel() : '';
-        $test = (int) (WUTM_ATM_Events::settings()['test_code'] !== '');
+        $test = (int) ($config['code'] !== '');
         $products = array_filter((array) ($event['custom_data']['content_ids'] ?? []), static function ($id) {
             return ctype_digit((string) $id) && strlen((string) $id) <= 18;
         });
         $matching = self::matching($event['user_data'] ?? []);
         if ($status === 'pending') {
-            $event['dataset'] = WUTM_ATM_Events::dataset();
-            $event['test_code'] = WUTM_ATM_Events::settings()['test_code'];
+            $event['dataset'] = $config['dataset'];
+            $event['test_code'] = $config['code'];
+            unset($event['test_configuration'], $event['retry_purchase']);
             $payload = wp_json_encode($event, JSON_INVALID_UTF8_SUBSTITUTE);
-            if (!is_string($payload)) return;
+            if (!is_string($payload)) return false;
         }
-        // One row for both channels. Repeated callbacks cannot reset a server attempt.
-        $wpdb->query($wpdb->prepare(
+        // A reviewed retry can only move the original failed row back to the queue.
+        if ($status === 'pending' && !empty($retry_purchase)) {
+            $written = $wpdb->query($wpdb->prepare(
+                "UPDATE $table SET status='pending',reason='',payload=%s,due=%d,updated=%d
+                 WHERE event_id=%s AND status='failed' AND tries < 4 AND server_dataset=%s AND test_mode=0",
+                $payload, $time, $time, $event['event_id'], $server_dataset
+            ));
+        } else {
+            $written = $wpdb->query($wpdb->prepare(
             "INSERT INTO $table (event_id,event_name,source,event_time,order_id,amount,currency,status,browser,due,updated,reason,payload,test_mode,matching,products,browser_pixel,server_dataset,created,browser_blocked)
              VALUES (%s,%s,%s,%d,%d,%s,%s,%s,%d,%d,%d,%s,%s,%d,%d,%s,%s,%s,%d,%d)
              ON DUPLICATE KEY UPDATE
@@ -108,8 +130,11 @@ final class WUTM_ATM_Queue {
             (string) ($event['custom_data']['value'] ?? ''), $event['custom_data']['currency'] ?? '',
             $status, (int) $browser, $status === 'pending' ? $time : 0, $time, $reason, $payload,
             $test, $matching, implode(',', $products), $browser_pixel, $server_dataset, $time, (int) !empty($event['browser_blocked'])
-        ));
+            ));
+        }
+        if (!$written) return false;
         if ($status === 'pending' && !wp_next_scheduled(self::HOOK)) wp_schedule_single_event($time + 10, self::HOOK);
+        return true;
     }
 
     public static function matching(array $data): int {
@@ -120,25 +145,25 @@ final class WUTM_ATM_Queue {
         return $mask;
     }
 
-    public static function lock(): string {
+    public static function lock(string $key = self::LOCK): string {
         global $wpdb;
         $lease = (time() + 300) . ':' . wp_generate_uuid4();
         $acquired = $wpdb->query($wpdb->prepare(
             "INSERT IGNORE INTO {$wpdb->options} (option_name,option_value,autoload) VALUES (%s,%s,'no')",
-            self::LOCK, $lease
+            $key, $lease
         ));
         if ($acquired !== 1) {
             $acquired = $wpdb->query($wpdb->prepare(
                 "UPDATE {$wpdb->options} SET option_value=%s WHERE option_name=%s AND CAST(SUBSTRING_INDEX(option_value, ':', 1) AS UNSIGNED) <= %d",
-                $lease, self::LOCK, time()
+                $lease, $key, time()
             ));
         }
         return $acquired === 1 ? $lease : '';
     }
 
-    public static function unlock(string $lease): void {
+    public static function unlock(string $lease, string $key = self::LOCK): void {
         global $wpdb;
-        $wpdb->delete($wpdb->options, ['option_name'=>self::LOCK,'option_value'=>$lease]);
+        $wpdb->delete($wpdb->options, ['option_name'=>$key,'option_value'=>$lease]);
     }
 
     public static function work(string $trigger = 'cron'): array {
@@ -169,7 +194,17 @@ final class WUTM_ATM_Queue {
         $deadline = microtime(true) + 18;
         $settings = WUTM_ATM_Events::settings();
         $retention = max(7, min(60, (int) $settings['retention']));
-        $removed = $wpdb->query($wpdb->prepare("DELETE FROM $table WHERE updated < %d ORDER BY updated LIMIT 1000", $now - $retention * DAY_IN_SECONDS));
+        $durable = self::durable_purchase();
+        // Keep one compact, unique receipt per tracked order after log retention.
+        $removed = $wpdb->query($wpdb->prepare(
+            "DELETE FROM $table WHERE updated < %d AND NOT $durable ORDER BY updated LIMIT 1000", $now - $retention * DAY_IN_SECONDS
+        ));
+        $wpdb->query($wpdb->prepare(
+            "UPDATE $table SET products='',matching=0 WHERE updated < %d AND $durable
+             AND status IN ('browser_prepared','sent','failed','consent_blocked')
+             AND (products<>'' OR matching<>0) ORDER BY updated LIMIT 1000",
+            $now - $retention * DAY_IN_SECONDS
+        ));
         $expired = $wpdb->query($wpdb->prepare(
             "UPDATE $table SET status='failed', reason='expired', payload='', updated=%d
              WHERE status IN ('pending','retry','sending') AND (status <> 'sending' OR due <= %d)
@@ -180,7 +215,7 @@ final class WUTM_ATM_Queue {
         $result['removed'] = $removed;
         if ($now - (int) get_option(self::CAPACITY_CHECK, 0) >= HOUR_IN_SECONDS) {
             // Bound archived history without deleting outstanding events or active Purchase keys.
-            $archived = "status IN ('browser_prepared','sent','failed','consent_blocked')";
+            $archived = "status IN ('browser_prepared','sent','failed','consent_blocked') AND NOT $durable";
             $cutoff = (int) $wpdb->get_var("SELECT updated FROM $table WHERE $archived ORDER BY updated DESC LIMIT 1 OFFSET 49999");
             if ($wpdb->last_error !== '') { $result['result'] = 'error'; return; }
             if ($cutoff) {
@@ -236,20 +271,29 @@ final class WUTM_ATM_Queue {
     }
 
     private static function send(?array $event, array $settings): array {
-        if (!$event || $event['dataset'] !== WUTM_ATM_Events::dataset() || !WUTM_ATM_Events::is_enabled($event['event_name'])) {
+        if (!$event || !WUTM_ATM_Events::is_enabled($event['event_name'])) return ['failed','configuration_changed'];
+        $test_code = $event['test_code'] ?? '';
+        $purchase_test = $event['purchase_test'] ?? '';
+        if ($purchase_test !== '' && (!is_string($test_code) || !preg_match('/^[A-Za-z0-9_-]{1,64}$/D', $test_code))) {
             return ['failed','configuration_changed'];
         }
+        $expected = $purchase_test !== '' ? ($settings['purchase_test_dataset'] ?: WUTM_ATM_Events::dataset()) : WUTM_ATM_Events::dataset();
+        if ($event['dataset'] !== $expected) return ['failed','configuration_changed'];
         if (!WUTM_ATM_Events::consent_valid(['granted'=>true,'reference'=>$event['consent']], $event)) {
             return ['consent_blocked','consent_revoked_or_unknown'];
         }
         if (!empty($event['order_id']) && $event['source'] === 'woocommerce') {
-            if (!class_exists('WUTM_ATM_Woo_Events') || !WUTM_ATM_Woo_Events::paid(wc_get_order($event['order_id']))) return ['failed','order_no_longer_paid'];
+            if (!class_exists('WUTM_ATM_Purchase')) return ['failed','configuration_changed'];
+            $order = wc_get_order($event['order_id']);
+            if (!$order instanceof WC_Order || !WUTM_ATM_Purchase::valid_at_delivery($event, $order)) {
+                return ['failed','order_no_longer_eligible'];
+            }
         }
         $version = preg_match('/^v[0-9]{1,2}\.0$/D', $settings['version']) ? $settings['version'] : 'v25.0';
         $data = array_intersect_key($event, array_flip(['event_id','event_name','event_time','event_source_url','custom_data','user_data']));
         $data['action_source'] = 'website';
         $body = ['data'=>[$data]];
-        if ($event['test_code'] !== '') $body['test_event_code'] = $event['test_code'];
+        if ($test_code !== '') $body['test_event_code'] = $test_code;
         $response = wp_remote_post('https://graph.facebook.com/' . $version . '/' . $event['dataset'] . '/events', [
             'timeout'=>8, 'redirection'=>0, 'limit_response_size'=>16384,
             'headers'=>['Content-Type'=>'application/json', 'Authorization'=>'Bearer ' . WUTM_ATM_Events::token()],

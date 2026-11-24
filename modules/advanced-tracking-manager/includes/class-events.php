@@ -10,6 +10,8 @@ final class WUTM_ATM_Events {
     public static function settings(): array {
         return wp_parse_args((array) get_option(self::OPTION, []), [
             'enabled' => false, 'mode' => 'browser', 'woo' => false, 'events' => [],
+            'purchase_mode' => 'standard', 'purchase_gateways' => [], 'purchase_transitions' => [],
+            'purchase_test_dataset' => '', 'purchase_column' => false,
             'browser_evidence' => false, 'version' => 'v25.0', 'dataset' => '', 'test_code' => '', 'retention' => 14,
         ]);
     }
@@ -123,15 +125,48 @@ final class WUTM_ATM_Events {
             ($settings['mode'] !== 'both' || self::dataset() === self::pixel());
     }
 
-    public static function source_url(string $url = ''): string {
+    public static function request_url(): string {
         $home = wp_parse_url(home_url('/'));
-        if ($url === '') {
-            $candidate = wp_parse_url(wp_unslash($_SERVER['REQUEST_URI'] ?? '/'), PHP_URL_PATH);
-            $url = $home['scheme'] . '://' . $home['host'] . (isset($home['port']) ? ':' . $home['port'] : '') . '/' . ltrim(is_string($candidate) ? $candidate : '/', '/');
-        }
+        $uri = is_string($_SERVER['REQUEST_URI'] ?? null) ? wp_unslash($_SERVER['REQUEST_URI']) : '/';
+        $origin = $home['scheme'] . '://' . $home['host'] . (isset($home['port']) ? ':' . $home['port'] : '');
+        return self::verified_url($origin . '/' . ltrim($uri, '/'));
+    }
+
+    public static function verified_url(string $url): string {
+        if ($url === '' || strlen($url) > 8192 || strpos($url, chr(92)) !== false ||
+            preg_match('/[[:cntrl:][:space:]]/', $url)) return '';
+        $home = wp_parse_url(home_url('/'));
         $parts = wp_parse_url($url);
-        if (!is_array($parts) || ($parts['host'] ?? '') !== $home['host'] || ($parts['scheme'] ?? '') !== $home['scheme'] || ($parts['port'] ?? null) !== ($home['port'] ?? null)) return home_url('/');
-        return substr(esc_url_raw(preg_split('/[?#]/', $url, 2)[0], ['http','https']), 0, 512);
+        if (!is_array($parts) || isset($parts['user']) || isset($parts['pass']) ||
+            ($parts['host'] ?? '') !== $home['host'] || ($parts['scheme'] ?? '') !== $home['scheme'] ||
+            ($parts['port'] ?? null) !== ($home['port'] ?? null)) return '';
+        $path = $parts['path'] ?? '/';
+        $decoded = rawurldecode($path);
+        if (function_exists('WC') && isset(WC()->query)) {
+            $endpoints = WC()->query->get_query_vars();
+            foreach (['order-pay','order-received'] as $endpoint) {
+                $part = $endpoints[$endpoint] ?? '';
+                if ($part !== '' && in_array($part, explode('/', $decoded), true)) return '';
+            }
+        }
+        if (strlen($path) > 460 || strpos($decoded, chr(92)) !== false ||
+            preg_match('~(?:^|/)(?:wp-admin|wp-json|wp-login\.php|order-pay|order-received)(?:/|$)~i', $decoded) ||
+            preg_match('~(?:^|/)wc_order_[^/]+|@|[[:cntrl:]]~i', $decoded)) return '';
+        parse_str($parts['query'] ?? '', $query);
+        foreach (['rest_route','wc-ajax','order-pay','order-received'] as $private) {
+            if (isset($query[$private])) return '';
+        }
+        $route = [];
+        foreach (['p','page_id','product_id','paged','cat'] as $field) {
+            if (is_string($query[$field] ?? null) && preg_match('/^[0-9]{1,12}$/D', $query[$field])) $route[$field] = $query[$field];
+        }
+        $result = $home['scheme'] . '://' . $home['host'] . (isset($home['port']) ? ':' . $home['port'] : '') . $path;
+        if ($route) $result = add_query_arg($route, $result);
+        return strlen($result) <= 512 ? esc_url_raw($result, ['http','https']) : '';
+    }
+
+    public static function source_url(string $url = ''): string {
+        return ($url === '' ? self::request_url() : self::verified_url($url)) ?: home_url('/');
     }
 
     public static function event_id(string $name, string $key): string {
@@ -153,6 +188,8 @@ final class WUTM_ATM_Events {
         $source = sanitize_key(is_string($context['source'] ?? null) ? $context['source'] : 'custom');
         $key = is_scalar($context['key'] ?? null) ? (string) $context['key'] : wp_generate_uuid4();
         $id = self::event_id($name, $source === 'woocommerce' ? $key : $source . ':' . $key);
+        $purchase = $name === 'Purchase' && $source === 'woocommerce' && isset($context['purchase_id']);
+        if ($purchase) $id = $context['purchase_id'];
         // Only the order adapter can supply order-derived monetary fields for its Purchase.
         $data = self::parameters((array) apply_filters('wutm_atm_event_parameters', $params, $name, $context));
         if ($name === 'Purchase' && $source === 'woocommerce') {
@@ -164,6 +201,11 @@ final class WUTM_ATM_Events {
             'event_source_url' => self::source_url((string) ($context['url'] ?? '')),
             'custom_data' => $data, 'order_id' => absint($context['order_id'] ?? 0),
         ];
+        if ($purchase) {
+            $event['purchase_test'] = $context['purchase_test'];
+            $event['test_configuration'] = $context['test_configuration'];
+            $event['retry_purchase'] = $context['retry_purchase'];
+        }
         $live = self::$allowed ?? self::consent();
         $consent = $context['recorded_consent'] ?? $live;
         $default_visit = empty($live['granted']) && !empty($context['browser_only']) &&
@@ -177,6 +219,7 @@ final class WUTM_ATM_Events {
             WUTM_ATM_Queue::record($event, 'consent_blocked');
             return null;
         }
+        if ($browser && $purchase && !WUTM_ATM_Queue::record($event, 'browser_prepared', true)) return null;
         if ($browser) {
             $payload = ['name'=>$name, 'id'=>$id, 'data'=>$data];
             if (!empty(self::settings()['browser_evidence'])) {
@@ -189,7 +232,7 @@ final class WUTM_ATM_Events {
             } else {
                 self::$browser[$id] = $payload;
             }
-            WUTM_ATM_Queue::record($event, 'browser_prepared', true);
+            if (!$purchase) WUTM_ATM_Queue::record($event, 'browser_prepared', true);
         }
         if ($server) {
             $event['server_channel'] = true;
@@ -204,7 +247,7 @@ final class WUTM_ATM_Events {
                     $server = false;
                 } else {
                     $event['consent'] = $consent['reference'];
-                    WUTM_ATM_Queue::record($event, 'pending');
+                    $server = WUTM_ATM_Queue::record($event, 'pending');
                 }
             }
         }
@@ -222,6 +265,9 @@ final class WUTM_ATM_Events {
         $user = [];
         if ($ua !== '') $user['client_user_agent'] = substr($ua, 0, 512);
         if (is_email($email)) $user['em'] = [hash('sha256', $email)];
+        if (is_string($provided['external_id'] ?? null) && preg_match('/^[a-f0-9]{64}$/D', $provided['external_id'])) {
+            $user['external_id'] = [$provided['external_id']];
+        }
         if (is_string($fbp) && preg_match('/^fb\.\d+\.\d{10,16}\.\d{1,30}$/D', $fbp)) $user['fbp'] = $fbp;
         $fbc = $provided['fbc'] ?? (empty($context['recorded_consent']) ? wp_unslash($_COOKIE['_fbc'] ?? '') : '');
         if (is_string($fbc) && preg_match('/^fb\.\d+\.\d{10,16}\.[A-Za-z0-9_-]{1,250}$/D', $fbc)) $user['fbc'] = $fbc;

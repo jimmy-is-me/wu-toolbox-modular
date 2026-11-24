@@ -11,9 +11,19 @@ final class WUTM_ATM_Woo_Events {
             add_action('woocommerce_checkout_create_order', [__CLASS__, 'capture_checkout']);
             add_action('woocommerce_store_api_checkout_order_processed', [__CLASS__, 'capture_and_save']);
             add_action('woocommerce_before_pay_action', [__CLASS__, 'capture_and_save']);
-            add_action('woocommerce_payment_complete', [__CLASS__, 'purchase']);
-            // Also handles manual and asynchronous gateways using WC paid statuses.
+            require_once __DIR__ . '/class-purchase.php';
+            add_action('woocommerce_pre_payment_complete', ['WUTM_ATM_Purchase', 'pre_payment']);
+            add_action('woocommerce_before_order_object_save', ['WUTM_ATM_Purchase', 'observe_payment_save']);
+            add_action('woocommerce_payment_complete', ['WUTM_ATM_Purchase', 'standard_complete']);
             add_action('woocommerce_order_payment_status_changed', [__CLASS__, 'purchase']);
+            add_action('woocommerce_order_status_changed', ['WUTM_ATM_Purchase', 'status_changed'], 10, 3);
+            add_action('wutm_atm_retry_payment_complete', ['WUTM_ATM_Purchase', 'standard_complete']);
+            add_action('wutm_atm_retry_payment_status', ['WUTM_ATM_Purchase', 'status_changed'], 10, 3);
+            add_action('wutm_atm_retry_purchase_check', [__CLASS__, 'purchase']);
+            if (is_admin() && WUTM_ATM_Purchase::active()) {
+                require_once __DIR__ . '/class-purchase-admin.php';
+                WUTM_ATM_Purchase_Admin::boot();
+            }
         }
         if (WUTM_ATM_Events::is_enabled('AddToCart')) {
             add_action('woocommerce_add_to_cart', [__CLASS__, 'added'], 10, 6);
@@ -35,22 +45,22 @@ final class WUTM_ATM_Woo_Events {
             return;
         }
         if (WUTM_ATM_Consent::active()) return;
-        if (is_product()) self::view_product(get_queried_object_id());
+        if (is_product()) self::view_product(get_queried_object_id(), null, false, WUTM_ATM_Events::request_url());
         if (is_checkout() && !is_wc_endpoint_url()) self::start_checkout();
     }
 
-    public static function view_product(int $id, ?string $key = null, bool $browser_only = false): void {
+    public static function view_product(int $id, ?string $key = null, bool $browser_only = false, string $url = ''): void {
         if (!WUTM_ATM_Events::is_enabled('ViewContent')) return;
         $product = wc_get_product($id);
         if ($product && $product->is_visible() && $product->get_status() === 'publish') {
             WUTM_ATM_Events::track('ViewContent', [
                 'content_ids'=>[(string) $id], 'content_type'=>'product', 'content_name'=>$product->get_name(),
                 'value'=>wc_get_price_to_display($product), 'currency'=>get_woocommerce_currency(),
-            ], ['source'=>'woocommerce','url'=>get_permalink($id),'key'=>$key,'browser_only'=>$browser_only]);
+            ], ['source'=>'woocommerce','url'=>$url ?: get_permalink($id),'key'=>$key,'browser_only'=>$browser_only]);
         }
     }
 
-    public static function start_checkout(?string $key = null): void {
+    public static function start_checkout(?string $key = null, string $url = ''): void {
         if (!WUTM_ATM_Events::is_enabled('InitiateCheckout')) return;
         if (!WC()->cart && function_exists('wc_load_cart')) wc_load_cart();
         if (WC()->cart && !WC()->cart->is_empty()) {
@@ -60,7 +70,7 @@ final class WUTM_ATM_Woo_Events {
                 'content_ids'=>array_unique($ids), 'content_type'=>'product',
                 'value'=>WC()->cart->get_total('edit'), 'currency'=>get_woocommerce_currency(),
                 'num_items'=>WC()->cart->get_cart_contents_count(),
-            ], ['source'=>'woocommerce','url'=>wc_get_checkout_url(),'key'=>$key]);
+            ], ['source'=>'woocommerce','url'=>$url ?: wc_get_checkout_url(),'key'=>$key]);
         }
     }
 
@@ -71,7 +81,18 @@ final class WUTM_ATM_Woo_Events {
         WUTM_ATM_Events::track('AddToCart', [
             'content_ids'=>[(string) $product->get_id()], 'content_type'=>'product',
             'value'=>wc_get_price_to_display($product, ['qty'=>$quantity]), 'currency'=>get_woocommerce_currency(), 'num_items'=>$quantity,
-        ], ['source'=>'woocommerce','url'=>get_permalink($product->get_id()),'cart_session'=>true]);
+        ], ['source'=>'woocommerce','url'=>self::cart_source((int) $product_id),'cart_session'=>true]);
+    }
+
+    public static function cart_source(int $product_id): string {
+        $referrer = is_string($_SERVER['HTTP_REFERER'] ?? null) ? wp_unslash($_SERVER['HTTP_REFERER']) : '';
+        $source = WUTM_ATM_Events::verified_url($referrer);
+        if ($source !== '') return $source;
+        if (!wp_doing_ajax() && !wp_is_json_request() && !is_admin() &&
+            !(defined('REST_REQUEST') && REST_REQUEST) && !(defined('WC_DOING_AJAX') && WC_DOING_AJAX)) {
+            $source = WUTM_ATM_Events::request_url();
+        }
+        return $source ?: (string) get_permalink($product_id);
     }
 
     public static function browser_cart(): bool {
@@ -117,6 +138,8 @@ final class WUTM_ATM_Woo_Events {
         if (!$order instanceof WC_Order || self::paid($order)) return;
         $consent = WUTM_ATM_Events::excluded() ? [] : WUTM_ATM_Events::consent();
         $order->update_meta_data(self::META, $consent ?: ['granted'=>false]);
+        $url = WUTM_ATM_Events::verified_url((string) wc_get_checkout_url());
+        if ($url !== '') $order->update_meta_data(WUTM_ATM_Purchase::CHECKOUT_URL, $url);
     }
 
     public static function capture_and_save($order): void {
@@ -130,52 +153,30 @@ final class WUTM_ATM_Woo_Events {
     }
 
     public static function paid($order): bool {
-        if (!$order instanceof WC_Order || $order->has_status(['cancelled','failed','refunded','pending','checkout-draft'])) return false;
-        $confirmed = $order->is_paid() && $order->get_date_paid();
-        try {
-            return true === apply_filters('wutm_atm_order_paid', (bool) $confirmed, $order);
-        } catch (Throwable $error) {
-            return false;
-        }
+        require_once __DIR__ . '/class-purchase.php';
+        return (bool) WUTM_ATM_Purchase::payment($order);
     }
 
     public static function purchase($order_id): void {
         if (!WUTM_ATM_Events::server_active()) return;
-        try {
-            $order = wc_get_order($order_id);
-            if (self::paid($order)) self::emit_purchase($order, true);
-        } catch (Throwable $error) {
-            // Payment state is owned by WooCommerce.
-        }
+        WUTM_ATM_Purchase::locked((int) $order_id, static function (WC_Order $order) {
+            return WUTM_ATM_Purchase::emit($order, true);
+        }, static function () use ($order_id) {
+            WUTM_ATM_Purchase::schedule_retry('wutm_atm_retry_purchase_check', [(int) $order_id]);
+        });
     }
 
     private static function browser_purchase(): void {
         if (!WUTM_ATM_Events::is_enabled('Purchase') || !WUTM_ATM_Events::browser_active() || WUTM_ATM_Events::excluded()) return;
-        $order = wc_get_order(absint(get_query_var('order-received')));
+        $id = absint(get_query_var('order-received'));
         $key = is_string($_GET['key'] ?? null) ? wp_unslash($_GET['key']) : '';
-        if (!self::paid($order) || $key === '' || !hash_equals($order->get_order_key(), $key)) return;
-        if ($order->get_customer_id() && (int) $order->get_customer_id() !== get_current_user_id()) return;
-        self::emit_purchase($order, false);
-    }
-
-    private static function emit_purchase(WC_Order $order, bool $server): void {
-        $paid = $order->get_date_paid() ?: $order->get_date_created();
-        if (!$paid || $paid->getTimestamp() < time() - 2 * DAY_IN_SECONDS) return;
-        $ids = [];
-        foreach ($order->get_items() as $item) $ids[] = (string) ($item->get_variation_id() ?: $item->get_product_id());
-        $consent = (array) $order->get_meta(self::META);
-        $consent = (array) apply_filters('wutm_atm_order_consent', $consent, $order);
-        if (!$server && WUTM_ATM_Consent::active() &&
-            (!WUTM_ATM_Events::consent_valid($consent) ||
-             ($consent['reference'] ?? '') !== (WUTM_ATM_Consent::marketing()['reference'] ?? ''))) return;
-        WUTM_ATM_Events::track('Purchase', [
-            'order_id'=>(string) $order->get_id(), 'content_ids'=>array_unique($ids), 'content_type'=>'product',
-            'value'=>$order->get_total(), 'currency'=>$order->get_currency(),
-        ], [
-            'source'=>'woocommerce','key'=>'order:' . $order->get_id(), 'order_id'=>$order->get_id(),
-            'time'=>$paid->getTimestamp(), 'url'=>wc_get_checkout_url(), 'recorded_consent'=>$consent,
-            'server_only'=>$server, 'browser_only'=>!$server,
-            'user'=>['email'=>$order->get_billing_email(), 'user_agent'=>$order->get_customer_user_agent(), 'ip'=>$order->get_customer_ip_address(), 'fbp'=>''],
-        ]);
+        if ($key === '') return;
+        WUTM_ATM_Purchase::locked($id, static function (WC_Order $order) use ($key) {
+            if (!hash_equals($order->get_order_key(), $key)) return;
+            if ($order->get_customer_id() && (int) $order->get_customer_id() !== get_current_user_id()) return;
+            $consent = WUTM_ATM_Events::consent();
+            if (empty($consent['granted']) || ($consent['reference'] ?? '') !== (WUTM_ATM_Purchase::consent($order)['reference'] ?? '')) return;
+            return WUTM_ATM_Purchase::emit($order, false);
+        });
     }
 }
