@@ -22,7 +22,7 @@ final class WUTM_ATM_Purchase_Admin {
         $orders_screen = function_exists('wc_get_page_screen_id') ? wc_get_page_screen_id('shop-order') : 'woocommerce_page_wc-orders';
         if (!WUTM_ATM_Purchase::active() || !in_array($screen, ['shop_order', $orders_screen], true) ||
             !current_user_can('edit_shop_orders')) return;
-        add_meta_box('wutm-atm-purchase', 'Meta 購買事件（Purchase）', [__CLASS__, 'render'], $screen, 'side', 'default');
+        add_meta_box('wutm-atm-purchase', 'Meta 購買事件', [__CLASS__, 'render'], $screen, 'side', 'default');
     }
 
     public static function post(): void {
@@ -34,8 +34,8 @@ final class WUTM_ATM_Purchase_Admin {
         $order = wc_get_order($id);
         if (!$order instanceof WC_Order || $order->get_type() !== 'shop_order') wp_die('找不到此訂單。', '', ['response'=>404]);
         $action = is_string($_POST['operation'] ?? null) ? sanitize_key($_POST['operation']) : '';
-        if (!in_array($action, ['confirm','send','retry','test'], true) ||
-            (in_array($action, ['confirm','test'], true) && ($_POST['verified'] ?? '') !== 'yes')) {
+        if (!in_array($action, ['confirm','send'], true) ||
+            ($action === 'confirm' && ($_POST['verified'] ?? '') !== 'yes')) {
             wp_die('請在訂單頁確認操作。', '', ['response'=>400]);
         }
         $result = WUTM_ATM_Purchase::act($id, $action);
@@ -51,57 +51,48 @@ final class WUTM_ATM_Purchase_Admin {
         [$row, $tests] = WUTM_ATM_Purchase::channels($order);
         $paid = WUTM_ATM_Purchase::payment($order);
         $consent = WUTM_ATM_Purchase::consent_valid($order);
-        $details = WUTM_ATM_Purchase::details($order, $row, $tests, $paid, $consent);
+        $status = self::order_status($order, $row, $tests, $paid, $consent);
         $messages = [
-            'queued'=>'購買事件已建立，等待伺服器發送。','confirmed'=>'已記錄收款確認。請檢查下方的發送狀態。',
-            'test'=>'模擬測試已排入佇列。','existing'=>'此訂單已建立此事件，請查看狀態。',
-            'consent'=>'此訂單未具備有效的行銷追蹤同意，無法發送 Meta 購買事件。',
-            'invalid_total'=>'請確認訂單金額及幣別。','unpaid'=>'訂單目前未符合付款條件或已超過發送期限。',
-            'unavailable'=>'設定或訂單狀態已變更，請重新檢查。','busy'=>'暫時無法處理，請重新整理後再試。',
+            'queued'=>'購買事件正在等待回傳。','confirmed'=>'已記錄收款確認。',
+            'existing'=>'此訂單已有購買事件。','consent'=>'未取得追蹤同意。',
+            'invalid_total'=>'請確認訂單金額及幣別。','unpaid'=>'訂單目前無法回傳。',
+            'unavailable'=>'請重新檢查訂單狀態。','busy'=>'請重新整理後再試。',
         ];
         $result = is_string($_GET['wutm_purchase_result'] ?? null) ? sanitize_key($_GET['wutm_purchase_result']) : '';
-        if (isset($messages[$result])) echo '<p role="status"><strong>' . esc_html($messages[$result]) . '</strong></p>';
-        echo '<p><strong>' . esc_html($details['購買事件狀態']) . '</strong></p><dl>';
-        foreach (['訂單總額','訂單狀態','付款完成時間','Purchase 付款條件','付款確認來源','交易同意收據','瀏覽器狀態','伺服器狀態','最近發送時間','Meta 接收結果'] as $label) {
-            echo '<dt><strong>' . esc_html($label) . '</strong></dt><dd>' . esc_html($details[$label]) . '</dd>';
-        }
-        echo '</dl><details><summary>事件識別與驗證詳情</summary><dl>';
-        foreach (['人工收款紀錄','Purchase event_id','已紀錄的事件金額','原因','測試事件','防重複觀察'] as $label) {
-            echo '<dt><strong>' . esc_html($label) . '</strong></dt><dd>' . esc_html($details[$label]) . '</dd>';
-        }
-        echo '</dl></details>';
-
-        if ($row && $row->status === 'sent' && (int) $row->received > 0) {
-            echo '<p>此訂單已成功回傳 Meta 購買事件，無須再次發送。</p>';
-        } elseif ($row && in_array($row->status, ['pending','sending','retry'], true)) {
-            echo '<p>購買事件已建立，等待伺服器發送。</p>';
-        }
-        if (!$consent) {
-            echo '<p>此訂單未具備有效的行銷追蹤同意，無法發送 Meta 購買事件。</p>';
+        if (isset($messages[$result])) echo '<p role="status">' . esc_html($messages[$result]) . '</p>';
+        echo '<p><strong>' . esc_html($status) . '</strong></p>';
+        echo '<p>訂單金額 ' . wp_kses_post(wc_price($order->get_total(), ['currency'=>$order->get_currency()])) . '</p>';
+        if ($status === '已回傳') {
+            echo '<p>已回傳金額 ' . wp_kses_post(wc_price($row->amount, ['currency'=>$row->currency])) . '<br>回傳時間 ' .
+                esc_html(wp_date('Y-m-d H:i:s', (int) $row->updated)) . '</p>';
             return;
         }
-        if (!WUTM_ATM_Purchase::valid_total($order)) return;
-        $testing = WUTM_ATM_Events::settings()['test_code'] !== '';
-        if (!$testing && !WUTM_ATM_Purchase::has_legacy_browser($tests)) {
-            if (!$paid && !$row && WUTM_ATM_Purchase::manual_available($order)) {
-                if ($order->has_status(['pending','on-hold'])) echo '<p>訂單目前待付款。可先循 WooCommerce 收款流程處理，或依本站人工收款規則記錄確認。</p>';
-                $label = WUTM_ATM_Events::server_active() ? '確認收款並送出購買事件' : '確認收款';
-                self::button($order, 'confirm', $label, '請確認此筆訂單已實際收到款項。此操作將記錄人工收款確認，並依目前追蹤設定建立 Meta 購買事件。');
-            } elseif (WUTM_ATM_Purchase::fresh($paid) && WUTM_ATM_Events::server_active()) {
-                if (!$row || $row->status === 'browser_prepared') self::button($order, 'send', '送出購買事件（Purchase）');
-                elseif (WUTM_ATM_Purchase::retryable($row, $order)) self::button($order, 'retry', '重試原有事件');
-            }
+        if ($status === '待技術確認') {
+            echo '<p>此狀態僅涉及 Meta 廣告追蹤，不影響訂單付款及出貨流程。</p>';
+            return;
         }
-        if ($row && in_array($row->status, ['pending','sending','retry','failed'], true)) {
-            echo '<p><a href="' . esc_url($order->get_edit_order_url() . '#wutm-atm-purchase') . '">檢查發送狀態</a></p>';
+        if (!$consent || !WUTM_ATM_Purchase::valid_total($order) || WUTM_ATM_Purchase::has_legacy_browser($tests)) return;
+        if (!$paid && !$row && WUTM_ATM_Purchase::manual_available($order)) {
+            $label = WUTM_ATM_Events::server_active() ? '確認收款並回傳購買事件' : '確認收款';
+            self::button($order, 'confirm', $label, '我確認此筆訂單已實際收到款項。');
+        } elseif (WUTM_ATM_Purchase::fresh($paid) && (!$row || $row->status === 'browser_prepared') && WUTM_ATM_Events::server_active()) {
+            self::button($order, 'send', '回傳購買事件');
         }
-        if (current_user_can('manage_woocommerce') && ($test = WUTM_ATM_Purchase::test_config())) {
-            echo '<hr><h4>模擬測試</h4><p>此為模擬 Purchase 測試，只驗證事件參數及追蹤發送，不代表實際金流付款成功。</p>';
-            if ($test['dataset'] === WUTM_ATM_Events::dataset()) {
-                echo '<p>目前使用正式資料集搭配測試代碼。Meta 仍可能接收或使用此事件，可能影響報表。</p>';
-            }
-            self::button($order, 'test', '模擬 Purchase 測試', '我已指定本訂單供測試使用。');
+    }
+
+    private static function order_status(WC_Order $order, $row, array $tests, array $paid, bool $consent): string {
+        if ($row && $row->status === 'sent' && (int) $row->received > 0) return '已回傳';
+        if (($row && in_array($row->status, ['failed','sent'], true)) || WUTM_ATM_Purchase::has_legacy_browser($tests)) return '待技術確認';
+        if ($order->has_status(['cancelled','failed','refunded','trash','checkout-draft']) || $order->get_total_refunded() > 0) return '不需回傳';
+        if ($paid && !$consent) return '未取得追蹤同意';
+        if (!$paid) return WUTM_ATM_Purchase::manual_available($order) ? '等待確認收款' : '尚未付款';
+        if (!WUTM_ATM_Purchase::fresh($paid) && !$row) return '不需回傳';
+        if ($row && $row->status === 'consent_blocked') return '未取得追蹤同意';
+        if ($row && $row->status === 'browser_prepared' && ((int) $row->browser_result & WUTM_ATM_Browser_Evidence::HANDOFF)) {
+            return '已交由瀏覽器處理，接收待確認';
         }
+        if ($row && in_array($row->status, ['retry','sending'], true)) return '系統處理中';
+        return '等待回傳';
     }
 
     private static function button(WC_Order $order, string $operation, string $label, string $confirm = ''): void {
@@ -153,11 +144,11 @@ final class WUTM_ATM_Purchase_Admin {
     }
 
     private static function label(int $id, string $status, string $link): void {
-        $label = in_array($status, wc_get_is_paid_statuses(), true) ? '未發送' : '未付款';
+        $label = in_array($status, wc_get_is_paid_statuses(), true) ? '待確認' : '尚未付款';
         foreach (self::$list_rows ?? [] as $row) {
             if ((int) $row->order_id !== $id || $row->test_mode == 1) continue;
-            $labels = ['sent'=>'已接收','failed'=>'發送失敗','consent_blocked'=>'同意限制','browser_prepared'=>'瀏覽器待驗證'];
-            $label = $labels[$row->status] ?? '等待發送';
+            $labels = ['sent'=>'已回傳','failed'=>'待技術確認','consent_blocked'=>'未取得追蹤同意','browser_prepared'=>'接收待確認'];
+            $label = $labels[$row->status] ?? '等待回傳';
             if ($row->status === 'sent' && !(int) $row->received) $label = '待確認接收';
             break;
         }

@@ -76,7 +76,7 @@ try {
         $next_http = $diagnostic === 'connection' ?
             ['body'=>'{"error":{"code":100,"message":"fixture-only"}}','response'=>['code'=>400]] :
             ['body'=>'{"events_received":1}','response'=>['code'=>200]];
-        WUTM_ATM_Event_Admin::check_meta($diagnostic);
+        WUTM_ATM_Event_Admin::check_meta($diagnostic, true);
     }
     $report = WUTM_ATM_Observability::report();
     wutm_tracking_assert(empty($report['meta']['connection']['confirmed']) && !empty($report['meta']['test']['confirmed']) &&

@@ -89,7 +89,7 @@ final class WUTM_ATM_Queue {
         $time = time();
         $payload = '';
         $retry_purchase = !empty($event['retry_purchase']);
-        $config = $event['test_configuration'] ?? ['code'=>WUTM_ATM_Events::settings()['test_code'],'dataset'=>WUTM_ATM_Events::dataset()];
+        $config = $event['test_configuration'] ?? ['code'=>'','dataset'=>WUTM_ATM_Events::dataset()];
         $server_dataset = !empty($event['server_channel']) || $status === 'pending' ? $config['dataset'] : '';
         $browser_pixel = $browser ? WUTM_ATM_Events::pixel() : '';
         $test = (int) ($config['code'] !== '');
@@ -133,8 +133,19 @@ final class WUTM_ATM_Queue {
             ));
         }
         if (!$written) return false;
-        if ($status === 'pending' && !wp_next_scheduled(self::HOOK)) wp_schedule_single_event($time + 10, self::HOOK);
+        if ($status === 'pending') self::schedule($time + 10);
         return true;
+    }
+
+    public static function diagnostic_result(array $config, array $result): void {
+        $now = time();
+        $status = $result['confirmed'] ? 'sent' : 'failed';
+        $event = ['event_id'=>$result['event_id'],'event_name'=>'PageView','source'=>'diagnostic','event_time'=>$now,
+            'order_id'=>0,'custom_data'=>[],'test_configuration'=>$config,'server_channel'=>true];
+        if (!self::record($event, $status, false, $result['error'])) return;
+        global $wpdb;
+        $wpdb->update(self::table(), ['attempted'=>$now,'http_code'=>$result['http'],'received'=>$result['received'],'tries'=>1],
+            ['event_id'=>$event['event_id']]);
     }
 
     public static function matching(array $data): int {
@@ -233,7 +244,7 @@ final class WUTM_ATM_Queue {
         if (!$settings['enabled'] || !WUTM_ATM_Events::server_active()) return;
         $result['result'] = 'ok';
         $rows = $wpdb->get_results($wpdb->prepare(
-            "SELECT event_id,tries,payload FROM $table WHERE status IN ('pending','retry','sending') AND due <= %d AND tries < 4 ORDER BY due LIMIT 10",
+            "SELECT event_id,tries,payload,test_mode FROM $table WHERE status IN ('pending','retry','sending') AND due <= %d AND tries < 4 ORDER BY due LIMIT 10",
             $now
         ));
         if ($wpdb->last_error !== '') { $result['result'] = 'error'; return; }
@@ -249,7 +260,8 @@ final class WUTM_ATM_Queue {
             $result['processed']++;
             $event = json_decode($row->payload, true);
             try {
-                $outcome = self::send($event, $settings);
+                $outcome = (int) $row->test_mode === 1 && empty($event['test_code'])
+                    ? ['failed','test_snapshot_missing'] : self::send($event, $settings);
             } catch (Throwable $error) {
                 $outcome = ['retry','local_error'];
             }
@@ -267,14 +279,22 @@ final class WUTM_ATM_Queue {
             else $result['result'] = 'error';
         }
         $next = $wpdb->get_var("SELECT MIN(due) FROM $table WHERE status IN ('pending','retry','sending')");
-        if ($next && !wp_next_scheduled(self::HOOK)) wp_schedule_single_event(max(time() + 10, (int) $next), self::HOOK);
+        if ($next) self::schedule(max(time() + 10, (int) $next));
+    }
+
+    private static function schedule(int $due): void {
+        $next = wp_next_scheduled(self::HOOK);
+        if ($next && $next <= $due) return;
+        if ($next && !wp_unschedule_event($next, self::HOOK)) return;
+        wp_schedule_single_event($due, self::HOOK);
     }
 
     private static function send(?array $event, array $settings): array {
         if (!$event || !WUTM_ATM_Events::is_enabled($event['event_name'])) return ['failed','configuration_changed'];
         $test_code = $event['test_code'] ?? '';
         $purchase_test = $event['purchase_test'] ?? '';
-        if ($purchase_test !== '' && (!is_string($test_code) || !preg_match('/^[A-Za-z0-9_-]{1,64}$/D', $test_code))) {
+        if (($purchase_test !== '' || $test_code !== '') &&
+            (!is_string($test_code) || !preg_match('/^[A-Za-z0-9_-]{1,64}$/D', $test_code))) {
             return ['failed','configuration_changed'];
         }
         $expected = $purchase_test !== '' ? ($settings['purchase_test_dataset'] ?: WUTM_ATM_Events::dataset()) : WUTM_ATM_Events::dataset();
