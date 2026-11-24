@@ -253,10 +253,41 @@ try {
     $expect(WUTM_ATM_Events::verified_url($url) === home_url('/catalog/?page_id=32') &&
         WUTM_ATM_Events::verified_url('https://outside.invalid/catalog/') === '' &&
         WUTM_ATM_Events::verified_url(home_url('/wp-json/wc/store/v1/cart')) === '', 'Source URL strips private data and rejects API/external sources.');
+    $original_server = array_intersect_key($_SERVER, array_flip(['HTTP_REFERER','REQUEST_URI','HTTP_USER_AGENT']));
     $_SERVER['HTTP_REFERER'] = $url;
     $_SERVER['REQUEST_URI'] = '/wp-json/wc/store/v1/cart/add-item';
     $expect(WUTM_ATM_Woo_Events::cart_source($product->get_id()) === home_url('/catalog/?page_id=32'), 'Cart source is the same-site page which invoked the REST endpoint.');
-    unset($_SERVER['HTTP_REFERER'], $_SERVER['REQUEST_URI']);
+    $_SERVER['HTTP_USER_AGENT'] = 'Tracking source fixture';
+    WC()->session = new WC_Session_Handler();
+    WC()->cart = new WC_Cart();
+    WC()->cart->set_cart_contents(['fixture'=>[
+        'product_id'=>$product->get_id(),'variation_id'=>0,'quantity'=>1,'data'=>$product,
+    ]]);
+    WUTM_ATM_Woo_Events::added('fixture', $product->get_id(), 1, 0, [], []);
+    $visit = new ReflectionMethod(WUTM_ATM_Consent::class, 'visit');
+    $source_visit = static function ($kind, $id, $url) use ($visit) {
+        $proof = hash_hmac('sha256', "$kind|$id|$url", wp_salt('nonce'));
+        $visit->invoke(null, ['visit'=>wp_generate_uuid4(),'page'=>[
+            'kind'=>$kind,'product'=>$id,'url'=>$url,'proof'=>$proof,
+        ]], 'source-fixture');
+    };
+    $product_url = home_url('/catalog/product/?p=' . $product->get_id());
+    $checkout_url = home_url('/checkout-fixture/?page_id=52');
+    $source_visit('page', 0, home_url('/campaign/'));
+    $source_visit('product', $product->get_id(), $product_url);
+    $source_visit('checkout', 0, $checkout_url);
+    WUTM_ATM_Queue::work();
+    $sources = [];
+    foreach ($requests as $request) {
+        $event = $request[1]['data'][0];
+        $sources[$event['event_name']][] = $event['event_source_url'];
+    }
+    foreach (['PageView'=>home_url('/campaign/'),'ViewContent'=>$product_url,'AddToCart'=>home_url('/catalog/?page_id=32'),
+        'InitiateCheckout'=>$checkout_url] as $event=>$destination) {
+        $expect(in_array($destination, $sources[$event] ?? [], true), $event . ' keeps its verified source after queueing.');
+    }
+    unset($_SERVER['HTTP_USER_AGENT'], $_SERVER['HTTP_REFERER'], $_SERVER['REQUEST_URI']);
+    $_SERVER += $original_server;
     $set(['events'=>['PageView']]);
     $expect(!WUTM_ATM_Purchase::active(), 'Disabling Purchase also disables its action gate.');
     echo 'Purchase operations passed (' . (\Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled() ? 'HPOS' : 'legacy') . ").\n";
