@@ -78,39 +78,9 @@ final class WUTM_ATM_Observability {
         $order = wc_get_order($id);
         if (!$order instanceof WC_Order) return [];
         require_once __DIR__ . '/class-woocommerce-events.php';
-        global $wpdb;
-        $rows = [];
-        if (self::table_ready()) {
-            $rows = $wpdb->get_results($wpdb->prepare(
-                "SELECT event_id,status,reason,browser,browser_result,browser_blocked,amount,currency,updated FROM " . WUTM_ATM_Queue::table() .
-                " WHERE order_id=%d AND event_name='Purchase' AND source='woocommerce' ORDER BY updated DESC LIMIT 10", $id
-            ));
-        }
-        $key = WUTM_ATM_Events::event_id('Purchase', 'order:' . $id);
-        $row = reset($rows) ?: null;
-        foreach ($rows as $candidate) if ($candidate->event_id === $key) { $row = $candidate; break; }
-        $paid = $order->get_date_paid();
-        $consent = (array) apply_filters('wutm_atm_order_consent', (array) $order->get_meta(WUTM_ATM_Woo_Events::META), $order);
-        $valid = WUTM_ATM_Events::consent_valid($consent, ['event_name'=>'Purchase','order_id'=>$id,'source'=>'woocommerce']);
-        $products = [];
-        foreach ($order->get_items() as $item) $products[] = $item->get_variation_id() ?: $item->get_product_id();
-        $server = $row && $row->status !== 'browser_prepared';
-        return [
-            '訂單狀態'=>wc_get_order_status_name($order->get_status()),
-            'WooCommerce 付款狀態'=>$order->is_paid() ? '已付款' : '未付款',
-            'Purchase 付款條件'=>WUTM_ATM_Woo_Events::paid($order) ? '符合' : '不符合',
-            '付款完成時間'=>self::date($paid ? $paid->getTimestamp() : 0),
-            '訂單總額'=>$order->get_currency() . ' ' . $order->get_total(),
-            '商品／變化商品 ID'=>implode(', ', array_unique($products)) ?: '—',
-            '交易同意收據'=>$valid ? '目前可驗證' : '無有效紀錄',
-            'Purchase event_id'=>$row ? $row->event_id : '尚無保留的事件紀錄',
-            '伺服器狀態'=>$server ? (WUTM_ATM_Event_Admin::labels()[$row->status] ?? '尚未確認') : '尚無伺服器紀錄',
-            '瀏覽器狀態'=>$row && ($row->browser || $row->browser_blocked) ? self::browser_label($row) : ($valid ? '尚無瀏覽器紀錄' : '無有效交易同意或尚無瀏覽器紀錄'),
-            '已紀錄的事件金額'=>$row && $row->amount !== '' ? $row->currency . ' ' . $row->amount : '—',
-            '原因'=>$row ? self::reason($row->reason) : '—',
-            '防重複觀察'=>count($rows) > 1 ? '找到同訂單的多個事件 ID，請核對歷史設定與來源。' :
-                '同一訂單使用固定事件 ID；其他外掛、不同帳戶或已清理的歷史請另行核對。',
-        ];
+        require_once __DIR__ . '/class-purchase.php';
+        [$row, $tests] = WUTM_ATM_Purchase::channels($order);
+        return WUTM_ATM_Purchase::details($order, $row, $tests, WUTM_ATM_Purchase::payment($order), WUTM_ATM_Purchase::consent_valid($order));
     }
 
     public static function version_warning(string $version): string {
@@ -192,6 +162,7 @@ final class WUTM_ATM_Observability {
     public static function reason(string $reason): string {
         $known = ['expired'=>'事件超過發送期限或嘗試上限','configuration_changed'=>'資料集或事件設定已變更',
             'consent_revoked_or_unknown'=>'同意收據已撤回、逾期或無法驗證','order_no_longer_paid'=>'訂單目前不符合付款條件',
+            'order_no_longer_eligible'=>'訂單付款、金額、幣別或同意證明已變更',
             'matching_data_missing'=>'缺少瀏覽器識別資訊或其他可用配對欄位','transport_error'=>'無法取得 API 回應',
             'dataset_unconfirmed'=>'回應無法確認指定資料集','local_error'=>'本機處理暫時失敗','no_event_acknowledgement'=>'回應未包含接收確認',
             'cleared_by_admin'=>'管理員已取消待送事件'];

@@ -102,6 +102,7 @@ try {
     wutm_privacy_assert($state->invoke(null,$visitors[1])['tags']['gtm'] === 'GTM-FIXTURE', 'Mixed GTM requires both.');
 
     if (class_exists('WooCommerce')) {
+        update_option(WUTM_ATM_Events::OPTION, array_replace(WUTM_ATM_Events::settings(), ['test_code'=>'']));
         $make_order = static function (bool $blocks) use (&$orders) {
             $order = wc_create_order(['status'=>'pending']);
             $orders[] = $order;

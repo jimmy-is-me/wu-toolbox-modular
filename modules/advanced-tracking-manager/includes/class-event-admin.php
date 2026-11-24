@@ -31,7 +31,29 @@ final class WUTM_ATM_Event_Admin {
         self::guard('wutm_atm_event_settings');
         $version = self::posted('graph_version');
         $mode = self::posted('event_mode');
+        require_once __DIR__ . '/class-purchase.php';
+        $previous = WUTM_ATM_Events::settings();
         $events = array_values(array_intersect(WUTM_ATM_Events::names(), array_filter((array) ($_POST['events'] ?? []), 'is_string')));
+        $purchase = in_array('Purchase', $events, true) ? self::posted('purchase_mode') : '';
+        $purchase_settings = [
+            'purchase_mode'=>in_array($purchase, ['standard','manual','transition'], true) ? $purchase : $previous['purchase_mode'],
+            'purchase_gateways'=>$previous['purchase_gateways'], 'purchase_transitions'=>$previous['purchase_transitions'],
+            'purchase_column'=>$previous['purchase_column'],'purchase_test_dataset'=>$previous['purchase_test_dataset'],
+        ];
+        if ($purchase !== '') {
+            $purchase_settings['purchase_gateways'] = array_values(array_intersect(
+                array_keys(WUTM_ATM_Purchase::gateways()), array_filter((array) ($_POST['purchase_gateways'] ?? []), 'is_string')
+            ));
+            $purchase_settings['purchase_transitions'] = array_values(array_intersect(
+                WUTM_ATM_Purchase::RULES, array_filter((array) ($_POST['purchase_transitions'] ?? []), 'is_string')
+            ));
+            $purchase_settings['purchase_column'] = isset($_POST['purchase_column']);
+            $dataset = self::posted('purchase_test_dataset');
+            if ($dataset !== '' && !preg_match('/^[1-9][0-9]{0,39}$/D', $dataset)) {
+                wp_die('請輸入有效的 Purchase 測試資料集 ID。', '', ['response'=>400]);
+            }
+            $purchase_settings['purchase_test_dataset'] = $dataset;
+        }
         $settings = [
             'enabled'=>isset($_POST['enabled']), 'woo'=>isset($_POST['woo']),
             'browser_evidence'=>isset($_POST['browser_evidence']),
@@ -47,7 +69,7 @@ final class WUTM_ATM_Event_Admin {
         }
         if (function_exists('wp_set_option_autoload')) wp_set_option_autoload('atm_fb_capi_token', false);
         update_option('atm_fb_capi_enabled', isset($_POST['capi']) ? 1 : 0);
-        update_option(WUTM_ATM_Events::OPTION, $settings, false);
+        update_option(WUTM_ATM_Events::OPTION, $settings + $purchase_settings, false);
         if ($settings['enabled']) {
             require_once __DIR__ . '/class-event-queue.php';
             WUTM_ATM_Queue::ensure();
@@ -67,17 +89,16 @@ final class WUTM_ATM_Event_Admin {
             $lease = WUTM_ATM_Queue::lock();
             if ($lease === '') wp_die('佇列正在處理，請稍後再試。', '', ['response'=>409]);
             try {
-                // Keep recent Purchase keys during the window in which payment hooks can run again.
                 $table = WUTM_ATM_Queue::table();
-                $deleted = $wpdb->query($wpdb->prepare(
-                    "DELETE FROM $table WHERE event_name <> 'Purchase' OR event_time < %d", time() - 2 * DAY_IN_SECONDS
-                ));
+                $durable = WUTM_ATM_Queue::durable_purchase();
+                $deleted = $wpdb->query("DELETE FROM $table WHERE NOT $durable");
                 $discarded = $wpdb->query("UPDATE $table SET status='failed',reason='cleared_by_admin',payload='',due=0
-                    WHERE event_name='Purchase' AND status IN ('pending','retry','sending')");
+                    WHERE $durable AND status IN ('pending','retry','sending')");
             } finally {
                 WUTM_ATM_Queue::unlock($lease);
             }
             if ($deleted === false || $discarded === false) wp_die('無法清除事件紀錄。');
+            update_option(WUTM_ATM_Queue::HISTORY_CLEARED, time(), false);
         }
         delete_option('wutm_atm_last_connection');
         delete_option(WUTM_ATM_Observability::META_RESULTS);
@@ -95,7 +116,7 @@ final class WUTM_ATM_Event_Admin {
         self::guard('wutm_atm_clear_test_code');
         $settings = (array) get_option(WUTM_ATM_Events::OPTION, []);
         $settings['test_code'] = '';
-        update_option(WUTM_ATM_Events::OPTION, $settings, false);
+        update_option(WUTM_ATM_Events::OPTION, $settings + $purchase_settings, false);
         set_transient('wutm_atm_admin_result_' . get_current_user_id(), '已清除設定中的測試代碼。既有待送事件保留原本的發送模式。', 120);
         self::redirect('overview');
     }
@@ -229,6 +250,33 @@ final class WUTM_ATM_Event_Admin {
                 <label><input type="checkbox" name="events[]" value="<?php echo esc_attr($name); ?>" <?php checked(in_array($name,$settings['events'],true)); ?>> <?php echo esc_html($name); ?></label>
                 <?php endforeach; ?>
             </div></fieldset>
+            <fieldset data-atm-purchase-settings <?php echo in_array('Purchase', $settings['events'], true) ? '' : 'hidden'; ?>>
+                <legend>Purchase 付款觸發設定</legend>
+                <?php require_once __DIR__ . '/class-purchase.php'; ?>
+                <p><label>付款規則 <select name="purchase_mode">
+                <?php foreach (['standard'=>'金流付款成功（預設）','manual'=>'金流付款成功＋人工收款確認','transition'=>'金流付款成功＋指定付款方式的狀態轉換'] as $key=>$label) : ?>
+                    <option value="<?php echo esc_attr($key); ?>" <?php selected($settings['purchase_mode'], $key); ?>><?php echo esc_html($label); ?></option>
+                <?php endforeach; ?>
+                </select></label></p>
+                <p>預設採用 WooCommerce 付款完成紀錄。選擇人工確認時，請在訂單頁確認實際收款。</p>
+                <details <?php echo $settings['purchase_mode'] === 'transition' ? 'open' : ''; ?>><summary>指定付款方式及狀態轉換</summary>
+                    <p>只有選取的付款方式與轉換組合會被視為收款。請選擇確實代表收款的狀態流程。</p>
+                    <fieldset><legend>已啟用的付款方式（可複選）</legend>
+                    <?php foreach (WUTM_ATM_Purchase::gateways() as $id=>$label) : ?>
+                        <label><input type="checkbox" name="purchase_gateways[]" value="<?php echo esc_attr($id); ?>" <?php checked(in_array($id,$settings['purchase_gateways'],true)); ?>> <?php echo esc_html($label); ?></label><br>
+                    <?php endforeach; ?>
+                    </fieldset>
+                    <fieldset><legend>視為收款的狀態轉換（可複選）</legend>
+                    <?php foreach (WUTM_ATM_Purchase::RULES as $rule) : [$from, $to] = explode(':', $rule); ?>
+                        <label><input type="checkbox" name="purchase_transitions[]" value="<?php echo esc_attr($rule); ?>" <?php checked(in_array($rule,$settings['purchase_transitions'],true)); ?>>
+                            <?php echo esc_html((['pending'=>'等待付款','on-hold'=>'保留中'][$from]) . ' → ' . (['processing'=>'處理中','completed'=>'已完成'][$to])); ?></label><br>
+                    <?php endforeach; ?>
+                    </fieldset>
+                </details>
+                <p><label><input type="checkbox" name="purchase_column" <?php checked($settings['purchase_column']); ?>> 在 WooCommerce 訂單列表顯示 Meta 購買事件</label></p>
+                <p><label>獨立 Purchase 測試資料集 ID <input name="purchase_test_dataset" inputmode="numeric" pattern="[1-9][0-9]{0,39}" value="<?php echo esc_attr($settings['purchase_test_dataset']); ?>"></label><br>
+                <small>填寫已授權的測試資料集最清楚。留空會使用正式資料集，Meta 仍可能接收或使用測試事件。</small></p>
+            </fieldset>
             <h2>Meta Conversions API</h2>
             <p><label><input type="checkbox" name="capi" <?php checked((bool) get_option('atm_fb_capi_enabled',0)); ?>> 啟用 CAPI</label></p>
             <p><label>資料集 ID <input type="text" inputmode="numeric" name="dataset" value="<?php echo esc_attr($settings['dataset']); ?>" placeholder="沿用 Meta Pixel ID"></label></p>
@@ -323,8 +371,10 @@ final class WUTM_ATM_Event_Admin {
         $event_id = $field('event_id');
         $since = $field('event_since');
         $until = $field('event_until');
-        $where = ['1=1'];
-        $args = [];
+        $since_clear = (int) get_option(WUTM_ATM_Queue::HISTORY_CLEARED, 0);
+        $retention = max(7, min(60, (int) WUTM_ATM_Events::settings()['retention']));
+        $where = ['updated > %d'];
+        $args = [max($since_clear, time() - $retention * DAY_IN_SECONDS)];
         if ($search !== '') {
             $where[] = '(event_id LIKE %s OR event_name LIKE %s OR order_id = %d)';
             $pattern = '%' . $wpdb->esc_like($search) . '%';
@@ -386,7 +436,7 @@ final class WUTM_ATM_Event_Admin {
         </tbody></table></div>
         <?php if ($detail !== '' && $rows) self::render_event_evidence(reset($rows)); ?>
         <?php if (!WUTM_ATM_Events::settings()['enabled']) : ?>
-            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" onsubmit="return confirm('確定清除紀錄及取消待送事件？近期 Purchase 防重複識別會暫時保留。');">
+            <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" onsubmit="return confirm('確定清除紀錄及取消待送事件？訂單的正式 Purchase 防重複識別會保留。');">
                 <input type="hidden" name="action" value="wutm_atm_clear_events"><?php wp_nonce_field('wutm_atm_clear_events'); ?>
                 <p><button class="button">清除所有事件紀錄及佇列</button></p>
             </form>

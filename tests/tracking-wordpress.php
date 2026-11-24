@@ -120,6 +120,9 @@ try {
         echo "Native tracking without WooCommerce passed.\n";
         return;
     }
+    // Production Purchase and simulations have separate identifiers.
+    $options['wutm_atm_events']['test_code'] = '';
+    update_option(WUTM_ATM_Events::OPTION, $options['wutm_atm_events']);
     $product = new WC_Product_Simple();
     $product->set_name('Tracking fixture');
     $product->set_regular_price('25');
@@ -170,8 +173,9 @@ try {
     $order->payment_complete('fixture-payment');
     WUTM_ATM_Woo_Events::purchase($order->get_id());
     wutm_tracking_assert($read($id)->status === 'pending' && !$requests, 'Payment schedules one deferred event.');
-    $browser = new ReflectionMethod(WUTM_ATM_Woo_Events::class, 'emit_purchase');
-    $browser->invoke(null, $order, false);
+    WUTM_ATM_Purchase::locked($order->get_id(), static function (WC_Order $order) {
+        WUTM_ATM_Purchase::emit($order, false);
+    });
     wutm_tracking_assert((int) $read($id)->browser === 1, 'Browser and server use the same order row.');
     $inspected = WUTM_ATM_Observability::order($order->get_id());
     wutm_tracking_assert($inspected['Purchase event_id'] === $id && $inspected['訂單總額'] === 'EUR 19.50' &&
@@ -183,7 +187,7 @@ try {
     WUTM_ATM_Queue::work();
     $data = $requests[1][2]['data'][0] ?? [];
     wutm_tracking_assert($read($id)->status === 'sent' && $read($id)->payload === '', 'Acknowledgement clears server payload.');
-    wutm_tracking_assert($data['event_id'] === $id && $requests[0][2] === $requests[1][2], 'Retry preserves test code and ID.');
+    wutm_tracking_assert($data['event_id'] === $id && $requests[0][2] === $requests[1][2], 'Retry preserves the production payload and ID.');
     wutm_tracking_assert($data['custom_data']['value'] === 19.5 && $data['custom_data']['currency'] === 'EUR', 'Actual discounted order amount and currency.');
     wutm_tracking_assert($data['user_data']['em'] === [hash('sha256','fixture@example.test')] && strpos(wp_json_encode($data), 'fixture@example.test') === false, 'Email normalized and hashed.');
     WUTM_ATM_Woo_Events::purchase($order->get_id());

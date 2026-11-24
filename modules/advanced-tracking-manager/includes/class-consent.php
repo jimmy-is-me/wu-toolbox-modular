@@ -239,8 +239,8 @@ final class WUTM_ATM_Consent {
                 if ($kind === 'search') WUTM_ATM_Events::track('Search', [], $context);
             }
             if (class_exists('WUTM_ATM_Woo_Events')) {
-                if ($kind === 'product') WUTM_ATM_Woo_Events::view_product($product, $key, $browser_only);
-                if (!$browser_only && $kind === 'checkout') WUTM_ATM_Woo_Events::start_checkout($key);
+                if ($kind === 'product') WUTM_ATM_Woo_Events::view_product($product, $key, $browser_only, $url);
+                if (!$browser_only && $kind === 'checkout') WUTM_ATM_Woo_Events::start_checkout($key, $url);
             }
             if ($browser_only) return WUTM_ATM_Events::take_browser();
             return array_merge(WUTM_ATM_Events::take_browser(), self::deferred(), $kind === 'receipt' ? [] : self::cart());
