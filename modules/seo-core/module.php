@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Wumetax SEO Core
  * Description: 專注搜尋優化的繁中 SEO 核心：內容與分類 SEO、品牌作者 Schema、內容品質檢查、標題範本、社群分享及 Sitemap 索引控制。
- * Version: 1.3.0
+ * Version: 1.4.0
  * Author: Wumetax
  * Author URI: https://wumetax.com/
  * Plugin URI: https://wumetax.com/
@@ -20,14 +20,22 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 	require_once __DIR__ . '/sitemap-review.php';
 	require_once __DIR__ . '/management.php';
 	require_once __DIR__ . '/search-console.php';
+	require_once __DIR__ . '/dashboard-data.php';
+	require_once __DIR__ . '/dashboard-jobs.php';
+	require_once __DIR__ . '/dashboard.php';
+	require_once __DIR__ . '/legacy-import.php';
 
 	final class Wumetax_SEO_Core_v120 {
 		use WUTM_SEO_Enhancements;
 		use WUTM_SEO_Technical;
 		use WUTM_SEO_Management;
 		use WUTM_SEO_Search_Console;
+		use WUTM_SEO_Dashboard_Data;
+		use WUTM_SEO_Dashboard_Jobs;
+		use WUTM_SEO_Dashboard;
+		use WUTM_SEO_Legacy_Import;
 
-		const VERSION        = '1.3.0';
+		const VERSION        = '1.4.0';
 		const OPTION_KEY     = 'wumetax_seo_core_settings_v100';
 		const META_NONCE_KEY = 'wumetax_seo_core_nonce_v100';
 		const META_NONCE_ACT = 'wumetax_seo_core_save_v100';
@@ -42,6 +50,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 			self::technical_init();
 			self::management_init();
 			self::search_console_init();
+			self::dashboard_init();
 			add_action( 'admin_menu', [ __CLASS__, 'admin_menu' ] );
 			add_action( 'admin_init', [ __CLASS__, 'register_settings' ] );
 			add_action( 'admin_enqueue_scripts', [ __CLASS__, 'admin_assets' ] );
@@ -184,136 +193,6 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 
 			self::$settings = null;
 			return array_merge( $out, self::sanitize_enhancements( $input ) );
-		}
-
-		/** Return installed legacy SEO sources that can safely be imported on demand. */
-		private static function legacy_import_sources() {
-			return [
-				'yoast' => [
-					'label'     => 'Yoast SEO',
-					'available' => defined( 'WPSEO_VERSION' ) || is_array( get_option( 'wpseo_titles', false ) ),
-				],
-				'rank-math' => [
-					'label'     => 'Rank Math',
-					'available' => defined( 'RANK_MATH_VERSION' ) || is_array( get_option( 'rank-math-options-general', false ) ) || is_array( get_option( 'rank-math-options-titles', false ) ),
-				],
-			];
-		}
-
-		/**
-		 * Copy the commonly used global and per-content SEO values from a legacy plugin.
-		 * Existing legacy data is never deleted, so the import can be reviewed or repeated safely.
-		 */
-		private static function import_legacy_seo( $source ) {
-			$sources = self::legacy_import_sources();
-			if ( empty( $sources[ $source ]['available'] ) ) {
-				return new WP_Error( 'wumetax_seo_import_unavailable', '找不到可匯入的舊 SEO 設定。' );
-			}
-
-			$settings = self::settings();
-			$source_options = [];
-			$meta_map = [];
-			if ( 'yoast' === $source ) {
-				$source_options = (array) get_option( 'wpseo_titles', [] );
-				$global_map = [
-					'google_verify'      => [ 'googleverify' ],
-					'bing_verify'        => [ 'bingverify' ],
-					'organization_name'  => [ 'company_name', 'website_name' ],
-					'organization_alt_name' => [ 'alternate_website_name' ],
-				];
-				$meta_map = [
-					'_wu_seo_title'       => '_yoast_wpseo_title',
-					'_wu_seo_description' => '_yoast_wpseo_metadesc',
-					'_wu_seo_canonical'   => '_yoast_wpseo_canonical',
-					'_wu_seo_og_title'    => '_yoast_wpseo_opengraph-title',
-					'_wu_seo_og_desc'     => '_yoast_wpseo_opengraph-description',
-					'_wu_seo_og_image'    => '_yoast_wpseo_opengraph-image-id',
-				];
-			} else {
-				$source_options = array_merge( (array) get_option( 'rank-math-options-general', [] ), (array) get_option( 'rank-math-options-titles', [] ) );
-				$global_map = [
-					'google_verify'       => [ 'google_verify' ],
-					'bing_verify'         => [ 'bing_verify' ],
-					'organization_name'   => [ 'knowledgegraph_name', 'website_name' ],
-					'organization_alt_name' => [ 'knowledgegraph_alt_name' ],
-					'default_og_image'    => [ 'knowledgegraph_logo' ],
-				];
-				$meta_map = [
-					'_wu_seo_title'       => 'rank_math_title',
-					'_wu_seo_description' => 'rank_math_description',
-					'_wu_seo_canonical'   => 'rank_math_canonical_url',
-					'_wu_seo_og_title'    => 'rank_math_facebook_title',
-					'_wu_seo_og_desc'     => 'rank_math_facebook_description',
-					'_wu_seo_og_image'    => 'rank_math_facebook_image_id',
-				];
-			}
-
-			$imported_settings = 0;
-			foreach ( $global_map as $target => $keys ) {
-				foreach ( $keys as $key ) {
-					if ( ! empty( $source_options[ $key ] ) && is_scalar( $source_options[ $key ] ) ) {
-						$settings[ $target ] = 'default_og_image' === $target ? absint( $source_options[ $key ] ) : sanitize_text_field( $source_options[ $key ] );
-						$imported_settings++;
-						break;
-					}
-				}
-			}
-			update_option( self::OPTION_KEY, $settings );
-			self::$settings = null;
-
-			$posts = 0;
-			$fields = 0;
-			$page = 1;
-			do {
-				$query = new WP_Query( [
-					'post_type'      => self::supported_post_types(),
-					'post_status'    => 'any',
-					'posts_per_page' => 200,
-					'paged'          => $page,
-					'fields'         => 'ids',
-					'no_found_rows'  => false,
-				] );
-				foreach ( $query->posts as $post_id ) {
-					$post_fields = 0;
-					foreach ( $meta_map as $target => $legacy_key ) {
-						$value = get_post_meta( $post_id, $legacy_key, true );
-						if ( '' === $value || null === $value ) {
-							continue;
-						}
-						if ( '_wu_seo_canonical' === $target ) {
-							$value = esc_url_raw( $value );
-						} elseif ( '_wu_seo_og_image' === $target ) {
-							$value = absint( $value );
-						} else {
-							$value = sanitize_text_field( $value );
-						}
-						if ( '' === $value || 0 === $value ) {
-							continue;
-						}
-						update_post_meta( $post_id, $target, $value );
-						$post_fields++;
-					}
-
-					$robots = get_post_meta( $post_id, 'yoast' === $source ? '_yoast_wpseo_meta-robots-noindex' : 'rank_math_robots', true );
-					$robots = is_array( $robots ) ? $robots : [ $robots ];
-					if ( in_array( 'noindex', $robots, true ) || in_array( '1', $robots, true ) ) {
-						update_post_meta( $post_id, '_wu_seo_noindex', 1 );
-						$post_fields++;
-					}
-					if ( 'yoast' === $source && in_array( '1', [ get_post_meta( $post_id, '_yoast_wpseo_meta-robots-nofollow', true ) ], true ) ) {
-						update_post_meta( $post_id, '_wu_seo_nofollow', 1 );
-						$post_fields++;
-					} elseif ( 'rank-math' === $source && in_array( 'nofollow', $robots, true ) ) {
-						update_post_meta( $post_id, '_wu_seo_nofollow', 1 );
-						$post_fields++;
-					}
-					if ( $post_fields ) { $posts++; $fields += $post_fields; }
-				}
-				$page++;
-			} while ( $page <= (int) $query->max_num_pages );
-
-			wp_reset_postdata();
-			return [ 'label' => $sources[ $source ]['label'], 'settings' => $imported_settings, 'posts' => $posts, 'fields' => $fields ];
 		}
 
 		public static function admin_menu() {
@@ -637,7 +516,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
             $result = get_option('wu_seo_simple_result', []);
             $fresh = $result && ($result['site'] ?? '') === home_url('/') && time() - ($result['time'] ?? 0) < 86400;
             $message = $fresh ? $result['message'] . '（僅 Sitemap 索引；子檔與 Google 收錄尚未驗證）' : '請按一鍵檢查與安全優化；不需自行判讀技術數據。';
-            $checks[] = self::audit_check('sitemap', 'XML Sitemap 索引檢查', $message, $fresh ? (!empty($result['ok']) ? 'pass' : 'fail') : 'partial', 0, admin_url('admin.php?page=wu-seo-tools'), '一鍵檢查與安全優化');
+            $checks[] = self::audit_check('sitemap', 'XML Sitemap 索引檢查', $message, $fresh ? (!empty($result['ok']) ? 'pass' : 'fail') : 'partial', 0, admin_url('admin.php?page=wu-seo-tools&seo_tab=technical'), '一鍵檢查與安全優化');
 
 			$org_ok = '' !== trim( (string) $s['organization_name'] );
 			$checks[] = self::audit_check( 'organization', 'Organization 資訊', $org_ok ? '組織名稱已設定：' . $s['organization_name'] : '尚未設定組織名稱。', $org_ok ? 'pass' : 'partial', 3, $settings_url, '補充組織資料' );
@@ -684,7 +563,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 					.wu-seo-health{max-width:1240px;margin-top:24px}.wu-seo-health *{box-sizing:border-box}.wu-seo-health h1{font-size:28px;margin:0 0 7px}.wu-seo-health .lead{margin:0;color:#646970;line-height:1.7;max-width:980px}.wu-seo-top{display:grid;grid-template-columns:270px minmax(0,1fr);gap:18px;margin:24px 0}.wu-seo-card{background:#fff;border:1px solid #dcdcde;border-radius:14px;padding:22px;box-shadow:0 5px 22px rgba(0,0,0,.025)}.wu-animate{opacity:0;transform:translateY(8px);transition:opacity .28s ease,transform .28s ease}.wu-animate.is-visible{opacity:1;transform:translateY(0)}.wu-score-card{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;min-height:240px}.wu-score-ring{width:132px;height:132px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:conic-gradient(#4fa567 0%,#e8ece9 0);position:relative;box-shadow:0 12px 34px rgba(52,124,75,.08)}.wu-score-ring:before{content:"";position:absolute;inset:10px;background:#fff;border-radius:50%}.wu-score-number{position:relative;z-index:2;font-size:36px;font-weight:800;color:#171b19}.wu-score-card strong{font-size:16px;margin-top:14px}.wu-score-card small{display:block;color:#72777c;line-height:1.6;margin-top:5px}.wu-overview{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px}.wu-metric{background:#f7f9f8;border:1px solid transparent;border-radius:11px;padding:15px;transition:border-color .2s ease,transform .2s ease}.wu-metric:hover{border-color:#dce6df;transform:translateY(-1px)}.wu-metric b{display:block;font-size:25px;color:#171b19}.wu-metric span{font-size:12px;color:#646970}.wu-note{margin-top:16px;padding:12px 14px;border-radius:10px;background:#f0f7f2;color:#355441;line-height:1.65}.wu-conflict{margin:18px 0;padding:14px 16px;border-left:4px solid #d63638;background:#fff2f2;border-radius:8px}.wu-checks{overflow:hidden;padding:0}.wu-check{display:grid;grid-template-columns:112px minmax(0,1fr) auto;gap:15px;align-items:center;padding:17px 20px;border-bottom:1px solid #eee;transition:background .18s ease}.wu-check:hover{background:#fbfcfb}.wu-check:last-child{border-bottom:0}.wu-pill{display:inline-flex;justify-content:center;min-width:78px;padding:5px 10px;border-radius:999px;font-size:12px;font-weight:700}.wu-pill.pass{background:#edf8f0;color:#24733d}.wu-pill.partial{background:#fff7e5;color:#8b5e00}.wu-pill.fail{background:#fff0f0;color:#b32d2e}.wu-check h3{font-size:14px;margin:0 0 4px}.wu-check p{margin:0;color:#646970;line-height:1.55}.wu-content-head{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-top:28px}.wu-content-head h2{margin-bottom:5px}.wu-content-head p{margin:0;color:#646970}.wu-type-filters{display:flex;flex-wrap:wrap;gap:7px;justify-content:flex-end}.wu-type-filter{appearance:none;border:1px solid #d7ddd9;background:#fff;color:#425048;padding:6px 10px;border-radius:999px;font-size:12px;cursor:pointer;transition:.18s ease}.wu-type-filter:hover,.wu-type-filter.is-active{border-color:#4fa567;background:#edf8f0;color:#24733d}.wu-content-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px;margin:16px 0 12px}.wu-stat{background:#fff;border:1px solid #dcdcde;border-radius:12px;padding:17px;min-height:92px;transition:transform .2s ease,border-color .2s ease}.wu-stat:hover{transform:translateY(-2px);border-color:#cfdad3}.wu-stat b{display:block;font-size:25px;margin-bottom:4px}.wu-stat span{color:#646970;font-size:12px}.wu-scope-note{margin:0 0 22px;color:#646970;font-size:12px;line-height:1.6}.wu-issues{width:100%;border-collapse:collapse}.wu-issues th,.wu-issues td{text-align:left;padding:13px 14px;border-bottom:1px solid #eee;vertical-align:top}.wu-issues th{background:#f7f8f7;font-size:12px}.wu-issues td{background:#fff}.wu-issues tr{transition:opacity .16s ease}.wu-issues .wu-type-badge{display:inline-flex;margin-top:4px;padding:2px 7px;border-radius:999px;background:#f1f4f2;color:#66716b;font-size:10px}.wu-empty-filter{display:none;padding:22px;text-align:center;color:#72777c;background:#fff}.wu-help{display:grid;grid-template-columns:repeat(3,1fr);gap:15px}.wu-help h3{margin:0 0 8px;font-size:15px}.wu-help p{margin:0;color:#646970;line-height:1.7}.wu-help code{font-size:12px}@media(max-width:1050px){.wu-content-grid{grid-template-columns:repeat(3,1fr)}}@media(max-width:900px){.wu-seo-top{grid-template-columns:1fr}.wu-overview,.wu-help{grid-template-columns:1fr}.wu-content-head{align-items:flex-start;flex-direction:column}.wu-type-filters{justify-content:flex-start}.wu-check{grid-template-columns:90px 1fr}.wu-check .button{grid-column:2}.wu-issues{display:block;overflow-x:auto}}@media(max-width:620px){.wu-content-grid{grid-template-columns:repeat(2,1fr)}}@media(prefers-reduced-motion:reduce){.wu-animate,.wu-stat,.wu-metric,.wu-check{transition:none!important;transform:none!important}}
 				</style>
 
-				<h1>SEO 核心</h1><p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=wu-seo-tools' ) ); ?>">SEO 列表管理、批次修改與技術診斷</a></p>
+				<h1>SEO 核心</h1><p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=wu-seo-tools' ) ); ?>">WU SEO 視覺化儀表板</a></p>
 				<p class="wutm-module-subtitle lead">依目前網站的實際 SEO 設定檢查，不做「關鍵字塞越多分數越高」的玩法。分數代表站內 SEO 設定完整度，不代表 Google 官方排名，也不是流量預測。</p>
 
 				<?php if ( ! empty( $audit['conflicts'] ) ) : ?>
@@ -806,11 +685,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 			}
 			wp_enqueue_media();
 
-			$import_result = null;
-			if ( isset( $_POST['wumetax_seo_import_source'] ) ) {
-				check_admin_referer( 'wumetax_seo_import', 'wumetax_seo_import_nonce' );
-				$import_result = self::import_legacy_seo( sanitize_key( wp_unslash( $_POST['wumetax_seo_import_source'] ) ) );
-			}
+			$import_result = self::legacy_import_request();
 
 			$s = self::settings();
 			$default_img = self::attachment_url( absint( $s['default_og_image'] ) );
@@ -831,26 +706,35 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 					@media(max-width:760px){.wu-seo-grid{grid-template-columns:1fr}}
 				</style>
 
-				<h1>SEO 核心</h1><p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=wu-seo-tools' ) ); ?>">SEO 列表管理、批次修改與技術診斷</a></p>
+				<h1>SEO 核心</h1><p><a class="button button-primary" href="<?php echo esc_url( admin_url( 'admin.php?page=wu-seo-tools' ) ); ?>">WU SEO 視覺化儀表板</a></p>
 				<p class="wutm-module-subtitle">適用不同網站的通用 SEO 核心。前台不載入 JavaScript 或 CSS；設定完成度請至 <a href="<?php echo esc_url( admin_url( 'admin.php?page=' . self::DASHBOARD_PAGE ) ); ?>">SEO 健檢</a> 查看。</p>
 
 				<?php if ( is_wp_error( $import_result ) ) : ?>
 					<div class="notice notice-error inline"><p><?php echo esc_html( $import_result->get_error_message() ); ?></p></div>
+				<?php elseif ( is_array( $import_result ) && isset( $import_result['rows'] ) ) : ?>
+					<?php self::render_legacy_preview( $import_result ); ?>
 				<?php elseif ( is_array( $import_result ) ) : ?>
 					<div class="notice notice-success inline"><p><?php echo esc_html( sprintf( '已從 %1$s 匯入 %2$d 項全站設定，以及 %3$d 篇內容的 %4$d 個 SEO 欄位。原外掛資料未被刪除。', $import_result['label'], $import_result['settings'], $import_result['posts'], $import_result['fields'] ) ); ?></p></div>
+				<?php endif; ?>
+				<?php if ( is_array( $import_result ) && ! empty( $import_result['next'] ) && ! isset( $import_result['rows'] ) ) : ?>
+					<form method="post">
+						<?php wp_nonce_field( 'wumetax_seo_import', 'wumetax_seo_import_nonce' ); ?>
+						<input type="hidden" name="wumetax_seo_import_source" value="<?php echo esc_attr( $import_result['source'] ); ?>">
+						<button class="button" name="import_page" value="<?php echo (int) $import_result['page'] + 1; ?>">預覽下一批</button>
+					</form>
 				<?php endif; ?>
 
 				<div class="wu-seo-card">
 					<h2>匯入既有 SEO 設定</h2>
-					<p>若之前使用 Yoast SEO 或 Rank Math，可按一次將可對應的全站驗證、組織資料與文章／頁面的 SEO 欄位複製到 SEO 核心。只覆蓋來源已有值的欄位，原外掛與原資料都會保留。</p>
+					<p>預覽 Yoast SEO 或 Rank Math 的可匯入欄位。預設只填空白欄位；Canonical 與 noindex 需分別確認。</p>
 					<?php $has_legacy_source = false; foreach ( $legacy_sources as $source_key => $source ) : if ( empty( $source['available'] ) ) { continue; } $has_legacy_source = true; ?>
 						<div class="wu-seo-import-source">
 							<strong><?php echo esc_html( $source['label'] ); ?></strong>
-							<p>偵測到既有資料，可立即匯入並於完成後顯示筆數。</p>
+							<p>每批預覽 50 篇內容。</p>
 							<form method="post">
 								<?php wp_nonce_field( 'wumetax_seo_import', 'wumetax_seo_import_nonce' ); ?>
 								<input type="hidden" name="wumetax_seo_import_source" value="<?php echo esc_attr( $source_key ); ?>">
-								<button type="submit" class="button button-secondary">從 <?php echo esc_html( $source['label'] ); ?> 匯入</button>
+								<button type="submit" class="button button-secondary">預覽 <?php echo esc_html( $source['label'] ); ?> 差異</button>
 							</form>
 						</div>
 					<?php endforeach; if ( ! $has_legacy_source ) : ?>
@@ -1438,6 +1322,13 @@ JS;
 			return is_singular() ? get_queried_object_id() : 0;
 		}
 
+		private static function metadata_post_id() {
+			if ( is_home() && ! is_front_page() ) {
+				return (int) get_option( 'page_for_posts' );
+			}
+			return self::current_post_id();
+		}
+
 		private static function site_name() {
 			return wp_strip_all_tags( get_bloginfo( 'name' ) );
 		}
@@ -1462,13 +1353,13 @@ JS;
 
 		private static function seo_title() {
 			$site = self::site_name();
-			$post_id = self::current_post_id();
+			$post_id = self::metadata_post_id();
 			$paged = max( 1, (int) get_query_var( 'paged' ), (int) get_query_var( 'page' ) );
 
 			if ( $post_id ) {
 				$manual = trim( (string) get_post_meta( $post_id, '_wu_seo_title', true ) );
 				if ( '' !== $manual ) {
-					return $manual;
+					return $manual . ( is_home() && $paged > 1 ? '｜第 ' . $paged . ' 頁' : '' );
 				}
 				$title = get_the_title( $post_id );
 				$type = get_post_type( $post_id );
@@ -1510,7 +1401,7 @@ JS;
 		}
 
 		private static function seo_description() {
-			$post_id = self::current_post_id();
+			$post_id = self::metadata_post_id();
 			if ( $post_id ) {
 				if ( post_password_required( $post_id ) ) { return ''; }
 				$manual = trim( (string) get_post_meta( $post_id, '_wu_seo_description', true ) );
@@ -1541,7 +1432,10 @@ JS;
 		}
 
 		private static function canonical_url() {
-			$post_id = self::current_post_id();
+			if ( is_home() && (int) get_query_var( 'paged' ) > 1 ) {
+				return get_pagenum_link( (int) get_query_var( 'paged' ), false );
+			}
+			$post_id = self::metadata_post_id();
 			if ( $post_id ) {
 				$manual = trim( (string) get_post_meta( $post_id, '_wu_seo_canonical', true ) );
 				if ( $manual ) {
@@ -1676,7 +1570,7 @@ JS;
 				$robots['noindex'] = true;
 			}
 
-			$post_id = self::current_post_id();
+			$post_id = self::metadata_post_id();
 			if ( $post_id ) {
 				if ( (int) get_post_meta( $post_id, '_wu_seo_noindex', true ) === 1 ) {
 					$robots['noindex'] = true;

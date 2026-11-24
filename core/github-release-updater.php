@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+            <h4>4.2.1</h4><ul><li>新增 WU SEO 視覺化儀表板，包含 Search Console 趨勢、索引狀態、Sitemap、關鍵字及技術診斷。</li><li>修正指定文章列表頁的 SEO、Cloudflare 挑戰判讀及舊 SEO 欄位匯入預覽。</li></ul>
             <h4>4.2.0</h4><ul><li>媒體工具新增「分段上傳」卡片與 Toolbox 子選單。MP4 上限 50 MB，顯示進度，合併驗證後自動加入媒體庫。</li><li>支援暫停、續傳、重試及取消，使用私人暫存區、分段驗證與逾期清理。</li></ul>
             <h4>4.1.9</h4><ul><li>進階追蹤管理新增排程總覽、到期待送檢查、唯讀訂單核對及驗收報告。</li><li>分開顯示 Meta 資料集讀取、合成事件接收及瀏覽器交接證據。</li></ul>
             <h4>4.1.8</h4><ul><li>移除 Cookie 頁尾區塊，預設追蹤模式改用精簡的左下角設定入口。</li><li>首次訪問預設允許分析與行銷，沿用已儲存的管理員模式和訪客偏好；加快偏好視窗開啟並改善儲存回饋。</li></ul>
