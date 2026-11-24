@@ -89,6 +89,8 @@ final class WUTM_ATM_Queue {
         $time = time();
         $payload = '';
         $retry_purchase = !empty($event['retry_purchase']);
+        $retry_matching = !empty($event['retry_matching']);
+        if ($retry_matching && $status !== 'pending') return false;
         $config = $event['test_configuration'] ?? ['code'=>'','dataset'=>WUTM_ATM_Events::dataset()];
         $server_dataset = !empty($event['server_channel']) || $status === 'pending' ? $config['dataset'] : '';
         $browser_pixel = $browser ? WUTM_ATM_Events::pixel() : '';
@@ -100,12 +102,21 @@ final class WUTM_ATM_Queue {
         if ($status === 'pending') {
             $event['dataset'] = $config['dataset'];
             $event['test_code'] = $config['code'];
-            unset($event['test_configuration'], $event['retry_purchase']);
+            unset($event['test_configuration'], $event['retry_purchase'], $event['retry_matching']);
             $payload = wp_json_encode($event, JSON_INVALID_UTF8_SUBSTITUTE);
             if (!is_string($payload)) return false;
         }
         // A reviewed retry can only move the original failed row back to the queue.
-        if ($status === 'pending' && !empty($retry_purchase)) {
+        if ($retry_matching) {
+            $written = $wpdb->query($wpdb->prepare(
+                "UPDATE $table SET status='pending',reason='',payload=%s,due=%d,updated=%d,matching=%d
+                 WHERE event_id=%s AND status='failed' AND reason='matching_data_missing' AND browser=1 AND tries=0
+                   AND order_id=0 AND created >= %d AND server_dataset=%s AND browser_pixel=%s AND test_mode=0
+                   AND amount=%s AND currency=%s AND products=%s",
+                $payload, $time, $time, $matching, $event['event_id'], $time - 120, $server_dataset, $server_dataset,
+                (string) ($event['custom_data']['value'] ?? ''), $event['custom_data']['currency'] ?? '', implode(',', $products)
+            ));
+        } elseif ($status === 'pending' && !empty($retry_purchase)) {
             $written = $wpdb->query($wpdb->prepare(
                 "UPDATE $table SET status='pending',reason='',payload=%s,due=%d,updated=%d
                  WHERE event_id=%s AND status='failed' AND tries < 4 AND server_dataset=%s AND test_mode=0",

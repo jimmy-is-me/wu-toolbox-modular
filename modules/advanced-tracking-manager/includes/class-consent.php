@@ -164,10 +164,13 @@ final class WUTM_ATM_Consent {
             self::set_token($token, $expires);
             wp_send_json_success(self::state($token));
         }
-        if ($operation === 'visit' || $operation === 'cart') {
+        if (in_array($operation, ['visit','visit_match','cart'], true)) {
             $browser_only = !self::marketing() && $operation === 'visit' && self::allows_default_visit();
             if ((!$browser_only && !self::marketing()) || WUTM_ATM_Events::excluded()) wp_send_json_error(null, 403);
-            $events = $operation === 'visit' ? self::visit($input, $token, $browser_only) : self::cart();
+            $match = $operation === 'visit_match';
+            if ($match && (!WUTM_ATM_Events::browser_active() || !WUTM_ATM_Events::server_active() ||
+                !WUTM_ATM_Events::valid_browser_id($_COOKIE['_fbp'] ?? ''))) wp_send_json_error(null, 403);
+            $events = $operation === 'cart' ? self::cart() : self::visit($input, $token, $browser_only, $match);
             wp_send_json_success($events);
         }
         wp_send_json_error(null, 400);
@@ -197,6 +200,7 @@ final class WUTM_ATM_Consent {
                 'gtm'=>$tag('gtm', !$excluded && $gtm),
                 'pixel'=>!$excluded && $marketing && (!$managed || WUTM_ATM_Events::browser_active()) ? $tag('fb_pixel', true) : '',
                 'legacy'=>!$managed,
+                'match'=>!$excluded && $marketing && $preferences['chosen'] && WUTM_ATM_Events::browser_active() && WUTM_ATM_Events::server_active(),
                 'visit'=>!$excluded && $marketing && $managed && (!$preferences['defaults'] || WUTM_ATM_Events::browser_active()),
                 'cart'=>!$excluded && $marketing && $preferences['chosen'] && $managed && class_exists('WUTM_ATM_Woo_Events') && WUTM_ATM_Events::is_enabled('AddToCart'),
             ],
@@ -204,22 +208,14 @@ final class WUTM_ATM_Consent {
     }
 
     private static function descriptor(): array {
-        $kind = is_search() ? 'search' : 'page';
-        $product = 0;
-        if (class_exists('WUTM_ATM_Woo_Events')) {
-            if (is_wc_endpoint_url('order-received') || is_wc_endpoint_url('order-pay')) $kind = 'receipt';
-            elseif (is_checkout() && !is_wc_endpoint_url()) $kind = 'checkout';
-            elseif (is_product()) { $kind = 'product'; $product = get_queried_object_id(); }
-        }
-        if (is_404() || is_feed() || is_preview()) $kind = 'ignore';
-        $url = WUTM_ATM_Events::source_url();
+        ['kind'=>$kind,'product'=>$product,'url'=>$url] = WUTM_ATM_Content::page();
         return [
             'kind'=>$kind, 'product'=>$product, 'url'=>$url,
             'proof'=>hash_hmac('sha256', "$kind|$product|$url", wp_salt('nonce')),
         ];
     }
 
-    private static function visit(array $input, string $token, bool $browser_only = false): array {
+    private static function visit(array $input, string $token, bool $browser_only = false, bool $match = false): array {
         $page = $input['page'] ?? [];
         $id = $input['visit'] ?? '';
         if (!is_array($page) || !is_string($id) || !preg_match('/^[a-f0-9-]{32,40}$/D', $id)) return [];
@@ -234,14 +230,16 @@ final class WUTM_ATM_Consent {
         self::$collecting = true;
         try {
             if (!in_array($kind, ['receipt','ignore'], true)) {
-                $context = ['source'=>'wordpress','key'=>$key,'url'=>$url,'browser_only'=>$browser_only];
+                $context = ['source'=>'wordpress','key'=>$key,'url'=>$url,'browser_only'=>$browser_only,
+                    'server_only'=>$match,'retry_matching'=>$match];
                 WUTM_ATM_Events::track('PageView', [], $context);
                 if ($kind === 'search') WUTM_ATM_Events::track('Search', [], $context);
             }
             if (class_exists('WUTM_ATM_Woo_Events')) {
-                if ($kind === 'product') WUTM_ATM_Woo_Events::view_product($product, $key, $browser_only, $url);
-                if (!$browser_only && $kind === 'checkout') WUTM_ATM_Woo_Events::start_checkout($key, $url);
+                if ($kind === 'product') WUTM_ATM_Woo_Events::view_product($product, $key, $browser_only, $url, $match);
+                if (!$browser_only && $kind === 'checkout') WUTM_ATM_Woo_Events::start_checkout($key, $url, $match);
             }
+            if ($match) return [];
             if ($browser_only) return WUTM_ATM_Events::take_browser();
             return array_merge(WUTM_ATM_Events::take_browser(), self::deferred(), $kind === 'receipt' ? [] : self::cart());
         } finally {

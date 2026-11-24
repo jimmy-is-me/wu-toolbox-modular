@@ -22,7 +22,8 @@
     let edited = false;
     let applying = 0;
     let pendingVisit = false;
-    let visited = false;
+    let visitLevel = 0;
+    let matchSent = false;
     let cartPending = false;
     let fetchingCart = false;
     let expiryTimer;
@@ -117,27 +118,49 @@
         return stateRequest;
     }
 
+    function hasBrowserId() {
+        return document.cookie.split(';').some(cookie => /^_fbp=fb\.\d+\.\d{10,16}\.\d{1,30}$/.test(cookie.trim()));
+    }
+
+    async function waitForBrowserId(version) {
+        // Pixel can set the cookie only after handling its first event. Never set or transmit it here.
+        const deadline = Date.now() + 1500;
+        while (version === applying && effective.chosen && effective.marketing && !matchSent) {
+            if (hasBrowserId()) {
+                matchSent = true;
+                try { await call('visit_match', {page:config.page, visit}, state.csrf); }
+                catch (_) { /* Keep the original diagnosis when matching is unavailable. */ }
+                return;
+            }
+            if (Date.now() >= deadline) return;
+            await new Promise(resolve => setTimeout(resolve, 80));
+        }
+    }
+
     async function trackVisit() {
         const tags = tagsFor(effective);
-        if (visited || pendingVisit || !effective.marketing) return;
+        const level = effective.chosen ? 2 : 1;
+        if (visitLevel >= level || pendingVisit || !effective.marketing) return;
         if (tags.legacy && tags.pixel && meta) {
-            visited = true;
+            visitLevel = level;
             meta.send({id:'legacy-' + visit, name:'PageView', data:{}});
         }
         if (!tags.visit) return;
         const version = applying;
+        const shouldMatch = !!(effective.chosen && tags.match && meta && !hasBrowserId());
         pendingVisit = true;
         try {
             const items = await call('visit', {page:config.page, visit}, state.csrf);
             if (version === applying && effective.marketing) {
-                visited = true;
+                visitLevel = level;
                 if (meta) items.forEach(meta.send);
+                if (shouldMatch && items.length) waitForBrowserId(version);
             }
         } catch (_) {
             // Event collection must not affect page and checkout behavior.
         } finally {
             pendingVisit = false;
-            if (version !== applying && !visited && effective.marketing) trackVisit();
+            if (version !== applying && effective.marketing) trackVisit();
         }
     }
 
