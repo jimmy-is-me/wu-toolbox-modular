@@ -283,10 +283,13 @@ final class WUTM_ATM_Queue {
             return ['consent_blocked','consent_revoked_or_unknown'];
         }
         if (!empty($event['order_id']) && $event['source'] === 'woocommerce') {
-            if (!class_exists('WUTM_ATM_Purchase')) return ['failed','configuration_changed'];
+            if (!class_exists('WUTM_ATM_Woo_Events')) return ['failed','configuration_changed'];
             $order = wc_get_order($event['order_id']);
-            if (!$order instanceof WC_Order || !WUTM_ATM_Purchase::valid_at_delivery($event, $order)) {
-                return ['failed','order_no_longer_eligible'];
+            if ($event['event_name'] === 'Purchase') {
+                if (!class_exists('WUTM_ATM_Purchase') || !$order instanceof WC_Order ||
+                    !WUTM_ATM_Purchase::valid_at_delivery($event, $order)) return ['failed','order_no_longer_eligible'];
+            } elseif (!WUTM_ATM_Woo_Events::paid($order)) {
+                return ['failed','order_no_longer_paid'];
             }
         }
         $version = preg_match('/^v[0-9]{1,2}\.0$/D', $settings['version']) ? $settings['version'] : 'v25.0';

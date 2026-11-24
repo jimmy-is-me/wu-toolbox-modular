@@ -28,6 +28,9 @@ final class WUTM_ATM_Events {
             if ($key === 'advanced-tracking-manager' && !$enabled && get_option('wutm_atm_event_schema')) {
                 wp_clear_scheduled_hook('wutm_atm_process_events');
                 wp_clear_scheduled_hook('wutm_atm_maintain_events');
+                foreach (['wutm_atm_retry_payment_complete','wutm_atm_retry_payment_status','wutm_atm_retry_purchase_check'] as $hook) {
+                    wp_unschedule_hook($hook);
+                }
             }
         }, 10, 2);
         if (!self::settings()['enabled']) {
@@ -247,7 +250,8 @@ final class WUTM_ATM_Events {
                     $server = false;
                 } else {
                     $event['consent'] = $consent['reference'];
-                    $server = WUTM_ATM_Queue::record($event, 'pending');
+                    $recorded = WUTM_ATM_Queue::record($event, 'pending');
+                    if ($purchase) $server = $recorded;
                 }
             }
         }
@@ -265,7 +269,8 @@ final class WUTM_ATM_Events {
         $user = [];
         if ($ua !== '') $user['client_user_agent'] = substr($ua, 0, 512);
         if (is_email($email)) $user['em'] = [hash('sha256', $email)];
-        if (is_string($provided['external_id'] ?? null) && preg_match('/^[a-f0-9]{64}$/D', $provided['external_id'])) {
+        if (($context['purchase_test'] ?? '') === 'simulation' &&
+            is_string($provided['external_id'] ?? null) && preg_match('/^[a-f0-9]{64}$/D', $provided['external_id'])) {
             $user['external_id'] = [$provided['external_id']];
         }
         if (is_string($fbp) && preg_match('/^fb\.\d+\.\d{10,16}\.\d{1,30}$/D', $fbp)) $user['fbp'] = $fbp;

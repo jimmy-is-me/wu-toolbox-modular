@@ -33,7 +33,8 @@ final class WUTM_ATM_Event_Admin {
         $mode = self::posted('event_mode');
         require_once __DIR__ . '/class-purchase.php';
         $previous = WUTM_ATM_Events::settings();
-        $purchase = self::posted('purchase_mode');
+        $events = array_values(array_intersect(WUTM_ATM_Events::names(), array_filter((array) ($_POST['events'] ?? []), 'is_string')));
+        $purchase = in_array('Purchase', $events, true) ? self::posted('purchase_mode') : '';
         $purchase_settings = [
             'purchase_mode'=>in_array($purchase, ['standard','manual','transition'], true) ? $purchase : $previous['purchase_mode'],
             'purchase_gateways'=>$previous['purchase_gateways'], 'purchase_transitions'=>$previous['purchase_transitions'],
@@ -53,7 +54,6 @@ final class WUTM_ATM_Event_Admin {
             }
             $purchase_settings['purchase_test_dataset'] = $dataset;
         }
-        $events = array_values(array_intersect(WUTM_ATM_Events::names(), array_filter((array) ($_POST['events'] ?? []), 'is_string')));
         $settings = [
             'enabled'=>isset($_POST['enabled']), 'woo'=>isset($_POST['woo']),
             'browser_evidence'=>isset($_POST['browser_evidence']),
