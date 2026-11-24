@@ -21,6 +21,8 @@ License: GPL-2.0-or-later.
 
 v4.0.1 新增 SEO 列表、快速編輯、批次預覽、修改歷史、CSV 與按需技術診斷，完整操作與驗證界線見 [SEO 管理與診斷](docs/SEO-4.0.1.md)。
 
+v4.2.1 新增 [WU SEO 視覺化儀表板](docs/SEO-DASHBOARD.md)，集中查看搜尋成效、Google 索引狀態、Sitemap 與關鍵字。
+
 SEO 核心的功能、設定順序與發佈後驗證方式見 [SEO 核心使用說明](docs/SEO-CORE.md)。
 
 商品預計時間、不同訂單批次及客人查詢頁的設定見 [出貨進度與通知信](docs/SHIPPING-PROGRESS.md)。

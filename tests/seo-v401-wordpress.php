@@ -14,7 +14,8 @@ $mock = static function( $pre, $args, $url ) use ( &$requests, &$mode ) {
     $requests[] = $url;
     if ( 'loop' === $mode ) { return [ 'headers' => [ 'location' => $url ], 'body' => '', 'response' => [ 'code' => 302 ] ]; }
     if ( 'foreign' === $mode ) { return [ 'headers' => [ 'location' => 'https://attacker.invalid/' ], 'body' => '', 'response' => [ 'code' => 301 ] ]; }
-    if ( 'challenge' === $mode ) { return [ 'headers' => [ 'content-type' => 'text/html', 'cf-ray' => 'fixture' ], 'body' => '<html>challenge-platform</html>', 'response' => [ 'code' => 403 ] ]; }
+    if ( 'challenge' === $mode ) { return [ 'headers' => [ 'content-type' => 'text/html', 'cf-ray' => 'fixture', 'cf-mitigated' => 'challenge' ], 'body' => '<html>challenge-platform</html>', 'response' => [ 'code' => 403 ] ]; }
+    if ( 'captcha_copy' === $mode ) { return [ 'headers'=>['content-type'=>'text/html','cf-ray'=>'fixture'], 'body'=>'<p>CAPTCHA 說明</p><link rel="canonical" href="https://example.test/"><meta name="robots" content="noindex">', 'response'=>['code'=>200] ]; }
     return [ 'headers' => [ 'content-type' => 'application/xml; charset=UTF-8' ], 'body' => '<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><sitemap><loc>' . esc_xml( home_url( '/wp-sitemap-posts-page-1.xml' ) ) . '</loc></sitemap></sitemapindex>', 'response' => [ 'code' => 200 ] ];
 };
 try {
@@ -76,13 +77,15 @@ try {
     $mode = 'loop'; $r = Wumetax_SEO_Core_v120::diagnostic_request( home_url( '/loop/' ) ); seo401_assert( isset( $r['error'] ) && count( $r['chain'] ) === 1, 'Redirect cycle stopped' );
     $mode = 'foreign'; $r = Wumetax_SEO_Core_v120::diagnostic_request( home_url( '/foreign/' ) ); seo401_assert( isset( $r['error'] ) && ! in_array( 'https://attacker.invalid/', $requests ), 'External redirect not requested' );
     $mode = 'challenge'; $r = Wumetax_SEO_Core_v120::diagnostic_request( home_url( '/challenge/' ) ); seo401_assert( $r['status'] === 403 && $r['challenge'] && $r['cloudflare'], 'Challenge/403 reported as failure, not SEO success' );
+    $mode = 'captcha_copy'; $r = Wumetax_SEO_Core_v120::diagnostic_request( home_url( '/captcha-copy/' ) );
+    seo401_assert( !$r['challenge'] && count(WUTM_SEO_Sitemap_Review::evidence($r)['issues']) >= 2, 'Ordinary CAPTCHA text does not stop robots or canonical analysis' );
     update_option( 'permalink_structure', '' ); $GLOBALS['wp_rewrite']->init(); seo401_assert( strpos( Wumetax_SEO_Core_v120::sitemap_url(), 'sitemap=index' ) !== false, 'Plain permalink uses native query sitemap URL' );
     update_option( 'home', 'https://subdirectory.example.test/site' ); seo401_assert( strpos( Wumetax_SEO_Core_v120::sitemap_url(), '/site/' ) !== false, 'Subdirectory sitemap uses current home URL' );
     update_option( 'permalink_structure', '/%postname%/' ); $GLOBALS['wp_rewrite']->init(); seo401_assert( Wumetax_SEO_Core_v120::sitemap_url() === 'https://subdirectory.example.test/site/wp-sitemap.xml', 'Pretty subdirectory URL' );
     $mode = 'xml'; $before_count = count( $requests ); $provider->get_url_list( 1, 'seo401_item' ); seo401_assert( count( $requests ) === $before_count, 'Generating sitemap performs zero HTTP requests' );
     $cipher = seo401_private( 'google_secret', 'sensitive-fixture' ); seo401_assert( $cipher && strpos( $cipher, 'sensitive' ) === false && seo401_private( 'google_secret', $cipher, true ) === 'sensitive-fixture', 'OAuth secrets encrypted with site-bound authenticated cipher' );
     seo401_assert( seo401_private( 'google_secret', substr( $cipher, 0, -4 ) . 'xxxx', true ) === '', 'Tampered OAuth ciphertext rejected' );
-    $_POST = []; ob_start(); Wumetax_SEO_Core_v120::seo_tools_page(); $html = ob_get_clean(); seo401_assert( strpos( $html, 'wutm-ui-root' ) !== false && strpos( $html, '尚未驗證' ) !== false, 'Management page renders shared UI and truthful external status' );
+    $_POST = []; ob_start(); Wumetax_SEO_Core_v120::seo_tools_page(); $html = ob_get_clean(); seo401_assert( strpos( $html, 'wutm-ui-root' ) !== false && strpos( $html, '尚未連結 Search Console' ) !== false, 'Management page renders shared UI and truthful external status' );
     update_post_meta( $ids['noindex'], '_wu_seo_title', 'Custom title on a noindex page' );
     ob_start(); seo401_private( 'content_batch_report', 1 ); $report = ob_get_clean();
     $snapshot = get_option( 'wu_seo_analysis_snapshot' ); seo401_assert( $snapshot['complete'] && $snapshot['counts']['已自訂'] >= 2 && $snapshot['counts']['noindex'] >= 1, 'Batch analysis counts explicit SEO independently of indexing policy' );

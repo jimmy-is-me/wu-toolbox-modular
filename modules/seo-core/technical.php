@@ -70,7 +70,7 @@ trait WUTM_SEO_Technical {
     }
 
     public static function seo_tools_menu() {
-        add_submenu_page( 'wu-toolbox-modular', 'SEO 管理與診斷', 'SEO 管理與診斷', 'manage_options', 'wu-seo-tools', [ __CLASS__, 'seo_tools_page' ] );
+        add_submenu_page( 'wu-toolbox-modular', 'WU SEO 視覺化儀表板', 'WU SEO 視覺化儀表板', 'manage_options', 'wu-seo-tools', [ __CLASS__, 'seo_tools_page' ] );
     }
 
     /** Same-origin only, WP safe HTTP transport, redirects validated individually. */
@@ -95,7 +95,7 @@ trait WUTM_SEO_Technical {
             }
             $body = wp_remote_retrieve_body( $response );
             $result = [ 'url' => $url, 'status' => $status, 'chain' => $chain, 'type' => (string) wp_remote_retrieve_header( $response, 'content-type' ), 'body' => $body, 'robots' => (string) wp_remote_retrieve_header( $response, 'x-robots-tag' ) ];
-            $result['challenge'] = (bool) preg_match( '/cf-chl-|challenge-platform|captcha|verify you are human/i', $body );
+            $result['challenge'] = 'challenge' === strtolower( trim( (string) wp_remote_retrieve_header( $response, 'cf-mitigated' ) ) );
             $result['cloudflare'] = (bool) wp_remote_retrieve_header( $response, 'cf-ray' );
             if ( strlen( $body ) >= 2097152 ) { $result['error'] = '回應超過 2 MB 診斷上限，未驗證完整內容；請另用伺服器工具驗證。'; }
             return $result;
@@ -145,6 +145,9 @@ trait WUTM_SEO_Technical {
         }
         $result['checked_at'] = time();
         set_transient( $key, $result, 300 );
+        if ( $url === self::sitemap_url() ) {
+            update_option( 'wu_seo_dashboard_local_sitemap', [ 'url'=>$url,'data'=>self::dashboard_sitemap_health( $result ) ], false );
+        }
         return $result;
     }
 
@@ -177,8 +180,17 @@ trait WUTM_SEO_Technical {
     public static function seo_tools_page() {
         if ( ! current_user_can( 'manage_options' ) ) { return; }
         if ( ! empty( $_POST ) ) { check_admin_referer( 'wu_seo_tools' ); }
-        wutm_admin_page_open( 'SEO 管理與技術診斷', '網站設定、內容、技術檢查、Sitemap 一致性與外部搜尋狀態分別呈現。所有網路診斷皆由您手動啟動。' );
-        echo '<p><a class="button" href="' . esc_url( admin_url( 'admin.php?page=' . self::SETTINGS_PAGE ) ) . '">全站 SEO 設定</a></p>';
+        $tab = isset( $_GET['seo_tab'] ) && is_string( $_GET['seo_tab'] ) ? sanitize_key( $_GET['seo_tab'] ) : 'performance';
+        if ( ! empty( $_POST ) ) {
+            $tab = isset( $_POST['google_settings'] ) || isset( $_POST['google_disconnect'] ) ? 'performance' : 'technical';
+        }
+        $focused = isset( $_GET['seo_post'] ) && is_string( $_GET['seo_post'] ) ? absint( $_GET['seo_post'] ) : 0;
+        wutm_admin_page_open( 'WU SEO 視覺化儀表板', '' );
+        self::render_seo_dashboard( $tab, $focused );
+        wutm_admin_page_close();
+    }
+
+    private static function dashboard_technical_tools(): void {
         self::simple_optimization_panel();
         echo '<details id="wu-seo-advanced"><summary>進階工具：技術數據、批次修改與 Google 授權</summary>';
         echo '<script>(function(){const d=document.getElementById("wu-seo-advanced"),k=location.pathname+":wu-seo-tools:advanced";try{d.open=sessionStorage.getItem(k)==="1";}catch(e){}d.addEventListener("toggle",function(){try{sessionStorage.setItem(k,d.open?"1":"0");}catch(e){}});d.addEventListener("submit",function(){try{sessionStorage.setItem(k,"1");}catch(e){}},true);})();</script>';
@@ -198,9 +210,7 @@ trait WUTM_SEO_Technical {
         if ( isset( $_POST['inspect_url'] ) && is_string( $_POST['inspect_url'] ) ) { self::inspect_page_report( esc_url_raw( wp_unslash( $_POST['inspect_url'] ) ) ); }
         if ( isset( $_POST['robots_check'] ) ) { self::robots_report(); }
         self::management_forms();
-        self::search_console_page();
         echo '</details>';
-        wutm_admin_page_close();
     }
 
     private static function simple_optimization_panel() {
@@ -237,10 +247,11 @@ trait WUTM_SEO_Technical {
 
     private static function inspect_page_report( $url ) {
         $key = 'wu_seo_page_' . md5( $url ); $r = get_transient( $key );
-        if ( false === $r ) { $r = self::diagnostic_request( $url ); set_transient( $key, $r, 300 ); }
+        if ( false === $r ) { $r = self::diagnostic_request( $url ); $r['checked_at'] = time(); set_transient( $key, $r, 300 ); }
         $body = $r['body'] ?? ''; $warnings = [];
         if ( isset( $r['error'] ) ) { $warnings[] = $r['error']; }
         echo '<p>一般 HTTP：' . esc_html( $r['status'] ?? '尚未驗證' ) . '；最終網址：' . esc_html( $r['url'] ) . '</p>';
+        if ( ! empty( $r['challenge'] ) ) { echo '<p>Cloudflare 驗證挑戰，未檢查公開 HTML 的 Canonical 或 Robots。</p>'; return; }
         if ( ! class_exists( 'DOMDocument' ) || ! $body ) { echo '<p>沒有可解析的 HTML，內容檢查尚未驗證。</p>'; return; }
         $old = libxml_use_internal_errors( true ); $dom = new DOMDocument(); $dom->loadHTML( '<?xml encoding="utf-8" ?>' . $body, LIBXML_NONET ); libxml_clear_errors(); libxml_use_internal_errors( $old );
         $xp = new DOMXPath( $dom );
@@ -271,7 +282,6 @@ trait WUTM_SEO_Technical {
             if ( false === $check ) { $check = self::diagnostic_request( $target ); unset( $check['body'] ); set_transient( $link_key, $check, 300 ); }
             $warnings[] = '內連抽樣 ' . $target . '：' . ( $check['status'] ?? $check['error'] ?? '尚未驗證' ) . ( count( $check['chain'] ?? [] ) > 1 ? '（有轉址，建議改成最終正式網址）' : '' );
         }
-        if ( ! empty( $r['challenge'] ) ) { $warnings[] = '發現驗證挑戰；此內容分析可能是挑戰頁，請先處理存取限制。'; }
         echo '<p>' . esc_html( implode( ' ', $warnings ) ) . '</p><p>僅分析本次伺服器 HTML 及最多 3 個內連；JavaScript 動態內容、全站失效內連及真正 Googlebot 存取尚未驗證。外部索引狀態尚未驗證。</p>';
     }
 }

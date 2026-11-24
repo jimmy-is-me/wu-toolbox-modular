@@ -46,22 +46,56 @@ trait WUTM_SEO_Search_Console {
         wp_safe_redirect( admin_url( 'admin.php?page=wu-seo-tools' ) ); exit;
     }
 
-    private static function google_analytics( $config, $days_ago = 3 ) {
-        $cache_key = 'wu_seo_gsc_' . md5( $config['property'] . $config['refresh'] . $days_ago ); $cache = get_transient( $cache_key );
-        if ( false !== $cache ) { return $cache; }
-        $response = wp_remote_post( 'https://oauth2.googleapis.com/token', [ 'timeout' => 15, 'redirection' => 0, 'body' => [ 'client_id' => $config['client_id'], 'client_secret' => self::google_secret( $config['secret'], true ), 'refresh_token' => self::google_secret( $config['refresh'], true ), 'grant_type' => 'refresh_token' ] ] );
-        if ( is_wp_error( $response ) ) { return new WP_Error( 'google', '無法連接 Google，請稍後重試。' ); }
-        $token = json_decode( wp_remote_retrieve_body( $response ), true );
-        if ( empty( $token['access_token'] ) ) { return new WP_Error( 'google', '授權已失效或未完成，請重新連線。' ); }
-        $output = [];
-        foreach ( [ 'query', 'page' ] as $dimension ) {
-            $body = [ 'startDate' => gmdate( 'Y-m-d', time() - ( $days_ago + 27 ) * 86400 ), 'endDate' => gmdate( 'Y-m-d', time() - $days_ago * 86400 ), 'dimensions' => [ $dimension ], 'rowLimit' => 25 ];
-            $response = wp_remote_post( 'https://www.googleapis.com/webmasters/v3/sites/' . rawurlencode( $config['property'] ) . '/searchAnalytics/query', [ 'timeout' => 15, 'redirection' => 0, 'headers' => [ 'Authorization' => 'Bearer ' . $token['access_token'], 'Content-Type' => 'application/json' ], 'body' => wp_json_encode( $body ) ] );
-            if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) { return new WP_Error( 'google', '無法讀取資源。請確認 Search Console 資源網址與目前授權帳號權限。' ); }
-            $result = json_decode( wp_remote_retrieve_body( $response ), true );
-            $output[ $dimension ] = [ 'dates' => [ $body['startDate'], $body['endDate'] ], 'rows' => $result['rows'] ?? [] ];
+    private static function google_scope() {
+        $config = (array) get_option( 'wu_seo_google', [] );
+        return empty( $config['refresh'] ) || empty( $config['property'] ) ? '' : hash( 'sha256', $config['property'] . '|' . $config['refresh'] );
+    }
+
+    private static function google_problem( $response, $data, $oauth = false ) {
+        $http = is_wp_error( $response ) ? 0 : (int) wp_remote_retrieve_response_code( $response );
+        $error = is_array( $data['error'] ?? null ) ? $data['error'] : [];
+        $reason = $error['errors'][0]['reason'] ?? $error['status'] ?? '';
+        $reason = is_string( $reason ) ? sanitize_key( $reason ) : '';
+        if ( 429 === $http || in_array( $reason, [ 'ratelimitexceeded','userratelimitexceeded','quotaexceeded','dailylimitexceeded','resource_exhausted' ], true ) ) {
+            return new WP_Error( 'quota', 'Google 查詢配額或頻率達上限。', [ 'http'=>$http, 'reason'=>$reason, 'retry'=>true ] );
         }
-        set_transient( $cache_key, $output, 900 ); return $output;
+        if ( ( $oauth || 401 === $http ) && $http && $http < 500 && 408 !== $http ) {
+            return new WP_Error( 'auth', 'Google 授權已失效或設定不完整，請重新連線。', [ 'http'=>$http, 'reason'=>$reason ] );
+        }
+        if ( 403 === $http ) return new WP_Error( 'permission', '此 Google 帳號無法讀取該資源，請確認屬性與權限。', [ 'http'=>$http, 'reason'=>$reason ] );
+        return new WP_Error( 'google', 'Google 查詢失敗，請稍後重試。', [ 'http'=>$http, 'reason'=>$reason, 'retry'=>!$http || 408 === $http || $http >= 500 ] );
+    }
+
+    private static function google_call( $path, $body = null, $inspection = false ) {
+        $config = (array) get_option( 'wu_seo_google', [] );
+        $scope = self::google_scope();
+        if ( ! $scope ) return new WP_Error( 'auth', '尚未連結 Search Console。' );
+        $key = 'wu_seo_token_' . substr( $scope, 0, 40 );
+        $cached = get_transient( $key );
+        $token = is_string( $cached ) ? self::google_secret( $cached, true ) : '';
+        if ( ! $token ) {
+            $response = wp_remote_post( 'https://oauth2.googleapis.com/token', [ 'timeout'=>6, 'redirection'=>0, 'limit_response_size'=>32768, 'body'=>[
+                'client_id'=>$config['client_id'] ?? '', 'client_secret'=>self::google_secret( $config['secret'] ?? '', true ),
+                'refresh_token'=>self::google_secret( $config['refresh'], true ), 'grant_type'=>'refresh_token',
+            ] ] );
+            $data = is_wp_error( $response ) ? [] : json_decode( wp_remote_retrieve_body( $response ), true );
+            if ( empty( $data['access_token'] ) || 200 !== (int) wp_remote_retrieve_response_code( $response ) ) return self::google_problem( $response, $data, true );
+            $token = (string) $data['access_token'];
+            set_transient( $key, self::google_secret( $token ), max( 1, min( 3300, (int) ( $data['expires_in'] ?? 3600 ) - 60 ) ) );
+        }
+        $url = $inspection ? 'https://searchconsole.googleapis.com/v1/urlInspection/index:inspect' :
+            'https://www.googleapis.com/webmasters/v3/sites/' . rawurlencode( $config['property'] ) . $path;
+        $args = [ 'timeout'=>6,'redirection'=>0,'limit_response_size'=>1048576,'headers'=>[ 'Authorization'=>'Bearer ' . $token ] ];
+        if ( null !== $body ) {
+            $args['body'] = wp_json_encode( $body );
+            $args['headers']['Content-Type'] = 'application/json';
+        }
+        $response = null === $body ? wp_remote_get( $url, $args ) : wp_remote_post( $url, $args );
+        $status = (int) wp_remote_retrieve_response_code( $response );
+        $data = is_wp_error( $response ) ? [] : json_decode( wp_remote_retrieve_body( $response ), true );
+        if ( 401 === $status ) delete_transient( $key );
+        if ( 200 !== $status || ! is_array( $data ) ) return self::google_problem( $response, $data );
+        return $data;
     }
 
     private static function search_console_page() {
@@ -83,18 +117,7 @@ trait WUTM_SEO_Search_Console {
         echo '<p><label>用戶端 ID <input name="google_client" value="' . esc_attr( $config['client_id'] ?? '' ) . '" class="large-text"></label></p><p><label>用戶端密鑰（留空保留）<input type="password" name="google_secret" autocomplete="new-password"></label></p><p><label>Search Console 資源（完整 URL 或 sc-domain:網域）<input class="large-text" name="google_property" value="' . esc_attr( $config['property'] ?? '' ) . '"></label></p><button class="button" name="google_settings" value="1">儲存</button></form></details>';
         echo '<form method="post" action="' . esc_url( admin_url( 'admin-post.php' ) ) . '">'; wp_nonce_field( 'wu_seo_google_connect' ); echo '<input name="action" type="hidden" value="wu_seo_google_connect"><p><button class="button">使用 Google 帳號授權</button></p></form>';
         if ( empty( $config['refresh'] ) ) { echo '<p>尚未授權，外部搜尋數據尚未驗證。</p>'; return; }
-        echo '<form method="post">'; wp_nonce_field( 'wu_seo_tools' ); echo '<button class="button" name="google_read" value="1">讀取近 28 天與前期成效（各前 25 筆）</button> <button class="button" name="google_disconnect" value="1">中斷本機授權</button></form>';
-        if ( isset( $_POST['google_read'] ) && ! empty( $config['property'] ) ) {
-            foreach ( [ 3 => '最近 28 天（截至 3 天前）', 31 => '前 28 天' ] as $ago => $label ) {
-                $data = self::google_analytics( $config, $ago );
-                echo '<h3>' . esc_html( $label ) . '</h3>';
-                if ( is_wp_error( $data ) ) { echo '<p>' . esc_html( $data->get_error_message() ) . '</p>'; continue; }
-                foreach ( $data as $dimension => $group ) {
-                    echo '<h4>' . esc_html( 'query' === $dimension ? '熱門查詢' : '熱門頁面' ) . '</h4><table class="widefat"><thead><tr><th>項目</th><th>點擊</th><th>曝光</th><th>CTR</th><th>平均排名</th></tr></thead><tbody>';
-                    foreach ( $group['rows'] as $row ) { echo '<tr><td>' . esc_html( implode( ' / ', $row['keys'] ) ) . '</td><td>' . esc_html( $row['clicks'] ) . '</td><td>' . esc_html( $row['impressions'] ) . '</td><td>' . esc_html( round( $row['ctr'] * 100, 2 ) . '%' ) . '</td><td>' . esc_html( round( $row['position'], 2 ) ) . '</td></tr>'; }
-                    echo '</tbody></table><p>僅回傳的前 25 筆，非全站總計。結果快取 15 分鐘。</p>';
-                }
-            }
-        }
+        echo '<form method="post">'; wp_nonce_field( 'wu_seo_tools' );
+        echo '<button class="button" name="google_disconnect" value="1">中斷本機授權</button></form>';
     }
 }
