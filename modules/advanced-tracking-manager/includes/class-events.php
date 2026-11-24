@@ -10,7 +10,7 @@ final class WUTM_ATM_Events {
     public static function settings(): array {
         return wp_parse_args((array) get_option(self::OPTION, []), [
             'enabled' => false, 'mode' => 'browser', 'woo' => false, 'events' => [],
-            'purchase_mode' => 'standard', 'purchase_gateways' => [], 'purchase_transitions' => [],
+            'purchase_mode' => 'standard', 'purchase_manual_gateways' => null, 'purchase_gateways' => [], 'purchase_transitions' => [],
             'purchase_test_dataset' => '', 'purchase_column' => false,
             'browser_evidence' => false, 'version' => 'v25.0', 'dataset' => '', 'test_code' => '', 'retention' => 14,
         ]);
@@ -166,6 +166,15 @@ final class WUTM_ATM_Events {
         $result = $home['scheme'] . '://' . $home['host'] . (isset($home['port']) ? ':' . $home['port'] : '') . $path;
         if ($route) $result = add_query_arg($route, $result);
         return strlen($result) <= 512 ? esc_url_raw($result, ['http','https']) : '';
+    }
+
+    public static function test_configuration(): array {
+        $settings = self::settings();
+        $code = $settings['test_code'];
+        $dataset = $settings['purchase_test_dataset'] ?: self::dataset();
+        if (!self::server_active() || !preg_match('/^[A-Za-z0-9_-]{1,64}$/D', $code) ||
+            !preg_match('/^[1-9][0-9]{0,39}$/D', $dataset)) return [];
+        return ['code'=>$code,'dataset'=>$dataset,'shared'=>$dataset === self::dataset()];
     }
 
     public static function source_url(string $url = ''): string {

@@ -28,10 +28,12 @@ final class WUTM_ATM_Observability {
         $counts = array_fill_keys(WUTM_ATM_Queue::STATES, 0);
         $oldest = $stale = $test = $unknown = $last_success = 0;
         $daily = [];
+        $latest_attempt = [];
+        $next_due = 0;
         $sent_today = 0;
         if ($ready) {
             $table = WUTM_ATM_Queue::table();
-            $rows = $wpdb->get_results("SELECT status,COUNT(*) AS total,MIN(event_time) AS oldest,
+            $rows = $wpdb->get_results("SELECT status,COUNT(*) AS total,MIN(IF(created > 0,created,event_time)) AS oldest,
                 MAX(updated) AS latest FROM $table GROUP BY status");
             foreach ((array) $rows as $row) {
                 if (isset($counts[$row->status])) $counts[$row->status] = (int) $row->total;
@@ -42,14 +44,17 @@ final class WUTM_ATM_Observability {
             }
             $active = "status IN ('pending','retry','sending')";
             $waiting = $wpdb->get_row($wpdb->prepare("SELECT SUM(status='sending' AND due<=%d) AS stale,
-                SUM(test_mode=1) AS tests,SUM(test_mode IS NULL) AS unknown FROM $table WHERE $active", $now));
+                SUM(test_mode=1) AS tests,SUM(test_mode IS NULL) AS unknown,MIN(due) AS next_due FROM $table WHERE $active", $now));
             $stale = (int) ($waiting->stale ?? 0);
+            $next_due = (int) ($waiting->next_due ?? 0);
+            $latest_attempt = (array) $wpdb->get_row("SELECT event_name,status,attempted,http_code,received,reason,test_mode
+                FROM $table WHERE attempted > 0 ORDER BY attempted DESC LIMIT 1", ARRAY_A);
             $test = (int) ($waiting->tests ?? 0);
             $unknown = (int) ($waiting->unknown ?? 0);
             $start = (new DateTimeImmutable('@' . $now))->setTimezone(wp_timezone())->setTime(0, 0)->getTimestamp();
-            $sent_today = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $table WHERE status='sent' AND updated >= %d", $start));
+            $sent_today = (int) $wpdb->get_var($wpdb->prepare("SELECT COUNT(*) FROM $table WHERE status='sent' AND test_mode=0 AND updated >= %d", $start));
             $daily = $wpdb->get_results($wpdb->prepare(
-                "SELECT event_name,COUNT(*) AS total,SUM(status='sent') AS confirmed,
+                "SELECT event_name,SUM(test_mode=0) AS total,SUM(status='sent' AND test_mode=0) AS confirmed,
                    SUM(status='sent' AND test_mode=1) AS test_confirmed,
                    SUM((browser_result & 2)<>0) AS browser_handoff FROM $table
                  WHERE event_time >= %d GROUP BY event_name ORDER BY total DESC LIMIT 100", $start
@@ -60,14 +65,24 @@ final class WUTM_ATM_Observability {
         $waiting = $counts['pending'] + $counts['retry'] + $counts['sending'];
         $status = 'normal';
         if (!$ready || !$maintenance || max($hooks) > 1 || ($waiting && (!WUTM_ATM_Events::server_active() || !$process))) $status = 'check';
-        if (($next < $now - 90) || $stale) $status = 'overdue';
+        if (($next < $now - 90) || $stale || ($next_due > 0 && $next_due < $now - 90)) $status = 'overdue';
         if (!$waiting && !WUTM_ATM_Events::settings()['enabled']) $status = 'inactive';
+
+        $waiting_reason = '目前無待送事件';
+        if ($waiting) {
+            if (!$ready || !WUTM_ATM_Events::server_active()) $waiting_reason = '伺服器傳送目前無法執行';
+            elseif ($stale) $waiting_reason = '工作鎖定已逾期';
+            elseif (!$process) $waiting_reason = '未排入專用排程，請核對維護排程';
+            elseif ($next_due > $now) $waiting_reason = '尚未到指定時間或正在等待重試';
+            else $waiting_reason = '等待排程處理';
+        }
 
         return [
             'engine'=>'WordPress WP-Cron','spawn_disabled'=>$disabled,'table_ready'=>$ready,'status'=>$status,
             'process'=>$process ?: 0,'maintenance'=>$maintenance ?: 0,'next'=>$next === PHP_INT_MAX ? 0 : $next,
             'hook_counts'=>$hooks,'counts'=>$counts,'oldest'=>$oldest,'stale'=>$stale,'waiting_test'=>$test,
-            'waiting_unknown_mode'=>$unknown,'last_success'=>$last_success,'today'=>$daily,'sent_today'=>$sent_today,
+            'waiting_unknown_mode'=>$unknown,'next_due'=>$next_due,'latest_attempt'=>$latest_attempt,
+            'waiting_reason'=>$waiting_reason,'last_success'=>$last_success,'today'=>$daily,'sent_today'=>$sent_today,
             'last_run'=>(array) get_option(WUTM_ATM_Queue::LAST_RUN, []),
             'last_cron'=>(array) get_option(WUTM_ATM_Queue::LAST_CRON, []),
         ];
@@ -76,7 +91,7 @@ final class WUTM_ATM_Observability {
     public static function order(int $id): array {
         if (!function_exists('wc_get_order') || !current_user_can('manage_options')) return [];
         $order = wc_get_order($id);
-        if (!$order instanceof WC_Order) return [];
+        if (!$order instanceof WC_Order || $order->get_type() !== 'shop_order') return [];
         require_once __DIR__ . '/class-woocommerce-events.php';
         require_once __DIR__ . '/class-purchase.php';
         [$row, $tests] = WUTM_ATM_Purchase::channels($order);
@@ -102,10 +117,11 @@ final class WUTM_ATM_Observability {
         }
         $platforms['Meta CAPI'] = WUTM_ATM_Events::server_active() ? '已設定' : '未啟用或設定未完成';
         $meta = (array) get_option(self::META_RESULTS, []);
-        foreach ($meta as &$result) {
-            $result['current_config'] = ($result['dataset'] ?? '') === WUTM_ATM_Events::dataset() &&
+        foreach ($meta as $kind=>&$result) {
+            $dataset = $kind === 'test' ? ($event['purchase_test_dataset'] ?: WUTM_ATM_Events::dataset()) : WUTM_ATM_Events::dataset();
+            $result['current_config'] = ($result['dataset'] ?? '') === $dataset &&
                 ($result['version'] ?? '') === $event['version'] && !empty($result['config_marker']) &&
-                hash_equals(self::meta_marker(), $result['config_marker']);
+                hash_equals(self::meta_marker($kind), $result['config_marker']);
             unset($result['config_marker']);
         }
         unset($result);
@@ -125,6 +141,7 @@ final class WUTM_ATM_Observability {
             'version_warning'=>self::version_warning($event['version']),'mode'=>$event['mode'],
             'events_enabled'=>$event['enabled'],'woo_events'=>$event['woo'],'events'=>array_values(array_intersect(WUTM_ATM_Events::names(), (array) $event['events'])),
             'test_mode'=>$event['test_code'] !== '',
+            'test_dataset'=>$event['purchase_test_dataset'] ?: WUTM_ATM_Events::dataset(),
             'privacy'=>[
                 'built_in'=>(bool) $privacy['enabled'],'mode'=>$privacy['enabled'] ? $privacy['first_visit'] : 'external',
                 'analytics_default'=>$privacy['enabled'] && $privacy['first_visit'] === 'opt_out' && $privacy['default_analytics'],
@@ -143,8 +160,9 @@ final class WUTM_ATM_Observability {
         ];
     }
 
-    public static function meta_marker(): string {
-        return hash_hmac('sha256', WUTM_ATM_Events::token(), wp_salt('auth'));
+    public static function meta_marker(string $kind = 'connection'): string {
+        $suffix = $kind === 'test' ? '|' . WUTM_ATM_Events::settings()['test_code'] : '';
+        return hash_hmac('sha256', WUTM_ATM_Events::token() . $suffix, wp_salt('auth'));
     }
 
     public static function run_summary(array $run): string {
@@ -165,7 +183,7 @@ final class WUTM_ATM_Observability {
             'order_no_longer_eligible'=>'訂單付款、金額、幣別或同意證明已變更',
             'matching_data_missing'=>'缺少瀏覽器識別資訊或其他可用配對欄位','transport_error'=>'無法取得 API 回應',
             'dataset_unconfirmed'=>'回應無法確認指定資料集','local_error'=>'本機處理暫時失敗','no_event_acknowledgement'=>'回應未包含接收確認',
-            'cleared_by_admin'=>'管理員已取消待送事件'];
+            'test_snapshot_missing'=>'測試事件缺少原始測試識別，已停止發送','cleared_by_admin'=>'管理員已取消待送事件'];
         if (isset($known[$reason])) return $known[$reason];
         if (!preg_match('/^http_(\d{3})(?:_meta_(\d+))?$/D', $reason, $match)) return '—';
         $summary = ['400'=>'請檢查參數、版本或授權範圍','401'=>'請檢查憑證','403'=>'目前憑證無法執行此操作','429'=>'API 請求超過限制'];

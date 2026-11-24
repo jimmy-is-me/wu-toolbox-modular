@@ -10,20 +10,22 @@ final class WUTM_ATM_Event_Admin {
         add_action('admin_post_wutm_atm_export_audit', [__CLASS__, 'export']);
         add_action('admin_post_wutm_atm_clear_test_code', [__CLASS__, 'clear_test_code']);
         add_action('admin_post_wutm_atm_mark_dedup', [__CLASS__, 'mark_dedup']);
+        require_once __DIR__ . '/class-acceptance.php';
+        WUTM_ATM_Acceptance::boot();
     }
 
-    private static function guard(string $action): void {
+    public static function guard(string $action): void {
         if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') wp_die('此操作需要 POST。', '', ['response'=>405]);
         if (!current_user_can('manage_options')) wp_die('權限不足。', '', ['response'=>403]);
         check_admin_referer($action);
     }
 
-    private static function posted(string $key): string {
+    public static function posted(string $key): string {
         return is_string($_POST[$key] ?? null) ? sanitize_text_field(wp_unslash($_POST[$key])) : '';
     }
 
-    private static function redirect(string $tab): void {
-        wp_safe_redirect(add_query_arg(['page'=>'wu-advanced-tracking-manager','atm_tab'=>$tab], admin_url('admin.php')));
+    public static function redirect(string $tab, array $args = []): void {
+        wp_safe_redirect(add_query_arg(['page'=>'wu-advanced-tracking-manager','atm_tab'=>$tab] + $args, admin_url('admin.php')));
         exit;
     }
 
@@ -37,22 +39,31 @@ final class WUTM_ATM_Event_Admin {
         $purchase = in_array('Purchase', $events, true) ? self::posted('purchase_mode') : '';
         $purchase_settings = [
             'purchase_mode'=>in_array($purchase, ['standard','manual','transition'], true) ? $purchase : $previous['purchase_mode'],
-            'purchase_gateways'=>$previous['purchase_gateways'], 'purchase_transitions'=>$previous['purchase_transitions'],
+            'purchase_gateways'=>$previous['purchase_gateways'],'purchase_manual_gateways'=>$previous['purchase_manual_gateways'], 'purchase_transitions'=>$previous['purchase_transitions'],
             'purchase_column'=>$previous['purchase_column'],'purchase_test_dataset'=>$previous['purchase_test_dataset'],
         ];
         if ($purchase !== '') {
             $purchase_settings['purchase_gateways'] = array_values(array_intersect(
                 array_keys(WUTM_ATM_Purchase::gateways()), array_filter((array) ($_POST['purchase_gateways'] ?? []), 'is_string')
             ));
+            if ($purchase === 'manual' && self::posted('manual_method_scope') === 'selected') {
+                $purchase_settings['purchase_manual_gateways'] = array_values(array_intersect(
+                    array_keys(WUTM_ATM_Purchase::gateways()), array_filter((array) ($_POST['purchase_manual_gateways'] ?? []), 'is_string')
+                ));
+            }
             $purchase_settings['purchase_transitions'] = array_values(array_intersect(
                 WUTM_ATM_Purchase::RULES, array_filter((array) ($_POST['purchase_transitions'] ?? []), 'is_string')
             ));
             $purchase_settings['purchase_column'] = isset($_POST['purchase_column']);
-            $dataset = self::posted('purchase_test_dataset');
-            if ($dataset !== '' && !preg_match('/^[1-9][0-9]{0,39}$/D', $dataset)) {
-                wp_die('請輸入有效的 Purchase 測試資料集 ID。', '', ['response'=>400]);
-            }
-            $purchase_settings['purchase_test_dataset'] = $dataset;
+        }
+        $dataset = self::posted('purchase_test_dataset');
+        if ($dataset !== '' && !preg_match('/^[1-9][0-9]{0,39}$/D', $dataset)) {
+            wp_die('請輸入有效的測試資料集 ID。', '', ['response'=>400]);
+        }
+        if (isset($_POST['purchase_test_dataset'])) $purchase_settings['purchase_test_dataset'] = $dataset;
+        $code = self::posted('test_code');
+        if ($code !== '' && !preg_match('/^[A-Za-z0-9_-]{1,64}$/D', $code)) {
+            wp_die('測試事件代碼的格式無效。', '', ['response'=>400]);
         }
         $settings = [
             'enabled'=>isset($_POST['enabled']), 'woo'=>isset($_POST['woo']),
@@ -60,7 +71,7 @@ final class WUTM_ATM_Event_Admin {
             'mode'=>in_array($mode, ['browser','server','both'], true) ? $mode : 'browser',
             'events'=>$events, 'dataset'=>preg_replace('/\D/', '', self::posted('dataset')),
             'version'=>preg_match('/^v[0-9]{1,2}\.0$/D', $version) ? $version : 'v25.0',
-            'test_code'=>substr(preg_replace('/[^A-Za-z0-9_-]/', '', self::posted('test_code')), 0, 64),
+            'test_code'=>isset($_POST['test_code']) ? $code : $previous['test_code'],
             'retention'=>max(7,min(60,absint(self::posted('retention')) ?: 14)),
         ];
         if (!defined('WUTM_ATM_CAPI_TOKEN')) {
@@ -69,7 +80,7 @@ final class WUTM_ATM_Event_Admin {
         }
         if (function_exists('wp_set_option_autoload')) wp_set_option_autoload('atm_fb_capi_token', false);
         update_option('atm_fb_capi_enabled', isset($_POST['capi']) ? 1 : 0);
-        update_option(WUTM_ATM_Events::OPTION, $settings + $purchase_settings, false);
+        update_option(WUTM_ATM_Events::OPTION, $settings + $purchase_settings + $previous, false);
         if ($settings['enabled']) {
             require_once __DIR__ . '/class-event-queue.php';
             WUTM_ATM_Queue::ensure();
@@ -109,16 +120,24 @@ final class WUTM_ATM_Event_Admin {
         self::guard('wutm_atm_process_due');
         $run = WUTM_ATM_Queue::work('manual');
         set_transient('wutm_atm_admin_result_' . get_current_user_id(), WUTM_ATM_Observability::run_summary($run), 120);
-        self::redirect('overview');
+        $order = absint(self::posted('atm_order'));
+        $test = self::posted('atm_test');
+        $args = $order ? ['atm_order'=>$order] : [];
+        if (preg_match('/^atm-[a-f0-9]{64}$/D', $test)) $args['atm_test'] = $test;
+        self::redirect('overview', $args);
     }
 
     public static function clear_test_code(): void {
         self::guard('wutm_atm_clear_test_code');
+        self::remove_test_code();
+        set_transient('wutm_atm_admin_result_' . get_current_user_id(), '已清除測試代碼。待送事件保留排入時的模式。', 120);
+        self::redirect('overview');
+    }
+
+    public static function remove_test_code(): void {
         $settings = (array) get_option(WUTM_ATM_Events::OPTION, []);
         $settings['test_code'] = '';
-        update_option(WUTM_ATM_Events::OPTION, $settings + $purchase_settings, false);
-        set_transient('wutm_atm_admin_result_' . get_current_user_id(), '已清除設定中的測試代碼。既有待送事件保留原本的發送模式。', 120);
-        self::redirect('overview');
+        update_option(WUTM_ATM_Events::OPTION, $settings, false);
     }
 
     public static function mark_dedup(): void {
@@ -141,6 +160,12 @@ final class WUTM_ATM_Event_Admin {
     public static function export(): void {
         self::guard('wutm_atm_export_audit');
         nocache_headers();
+        require_once __DIR__ . '/class-acceptance.php';
+        $format = self::posted('format');
+        if ($format === 'csv') WUTM_ATM_Acceptance::export_csv();
+        if (in_array($format, ['client','technical'], true)) {
+            WUTM_ATM_Acceptance::export_html($format === 'technical', absint(self::posted('atm_order')));
+        }
         header('Content-Type: application/json; charset=utf-8');
         header('Content-Disposition: attachment; filename="wu-tracking-audit.json"');
         echo wp_json_encode(WUTM_ATM_Observability::report(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
@@ -151,18 +176,28 @@ final class WUTM_ATM_Event_Admin {
         self::guard('wutm_atm_event_diagnostic');
         $kind = self::posted('diagnostic');
         if (!in_array($kind, ['connection','test'], true)) wp_die('無效的診斷動作。', '', ['response'=>400]);
-        $message = self::check_meta($kind);
+        $test = WUTM_ATM_Events::test_configuration();
+        if ($kind === 'test' && (!$test || self::posted('reviewed_dataset') !== $test['dataset'])) {
+            wp_die('測試資料集已變更，請重新確認。', '', ['response'=>409]);
+        }
+        $message = self::check_meta($kind, self::posted('shared_target') === 'yes');
         set_transient('wutm_atm_admin_result_' . get_current_user_id(), $message, 60);
         self::redirect('overview');
     }
 
-    public static function check_meta(string $kind): string {
+    public static function check_meta(string $kind, bool $shared_consent = false): string {
         $settings = WUTM_ATM_Events::settings();
         $dataset = WUTM_ATM_Events::dataset();
         $token = WUTM_ATM_Events::token();
         if (!current_user_can('manage_options') || !in_array($kind, ['connection','test'], true)) return '權限或操作無效。';
         if (!WUTM_ATM_Events::server_active()) return '請先開啟事件管理與伺服器傳送，並設定資料集和 Token。';
-        if ($kind === 'test' && $settings['test_code'] === '') return '請先儲存 Meta 測試事件代碼。';
+        $test = [];
+        if ($kind === 'test') {
+            $test = WUTM_ATM_Events::test_configuration();
+            if (!$test) return '請先儲存有效的 Meta 測試事件代碼與資料集。';
+            if ($test['shared'] && !$shared_consent) return '請先確認使用正式資料集進行測試。';
+            $dataset = $test['dataset'];
+        }
         $details = ['http'=>0,'received'=>0,'confirmed'=>false,'error'=>'not_configured'];
         $lease = WUTM_ATM_Queue::lock();
         if ($lease === '') return '已有佇列或診斷正在執行，請稍後再試。';
@@ -177,7 +212,7 @@ final class WUTM_ATM_Event_Admin {
                 $id = WUTM_ATM_Events::event_id('PageView', 'test:' . wp_generate_uuid4());
                 $response = wp_remote_post($base . '/events', array_merge($args, [
                     'headers'=>array_merge($args['headers'], ['Content-Type'=>'application/json']),
-                    'body'=>wp_json_encode(['test_event_code'=>$settings['test_code'], 'data'=>[[
+                    'body'=>wp_json_encode(['test_event_code'=>$test['code'], 'data'=>[[
                         'event_name'=>'PageView', 'event_id'=>$id, 'event_time'=>time(), 'action_source'=>'website',
                         'event_source_url'=>home_url('/'), 'user_data'=>['client_user_agent'=>'WUTM Synthetic Diagnostic', 'em'=>[hash('sha256', 'wutm-test@example.invalid')]],
                     ]]]),
@@ -199,9 +234,10 @@ final class WUTM_ATM_Event_Admin {
             $message = $kind === 'test'
                 ? ($details['confirmed'] ? 'Meta API 已確認接收合成 PageView。請在 Meta 測試事件核對。' : 'Meta API 尚未確認接收合成 PageView。')
                 : ($details['confirmed'] ? '已讀取指定資料集。' : '目前無法讀取資料集資訊。事件寫入權限請看獨立的發送測試。');
+            if ($kind === 'test') WUTM_ATM_Queue::diagnostic_result($test, $details);
             $results = (array) get_option(WUTM_ATM_Observability::META_RESULTS, []);
             $results[$kind] = $details + ['time'=>time(),'message'=>$message,'dataset'=>$dataset,'version'=>$version,
-                'config_marker'=>WUTM_ATM_Observability::meta_marker()];
+                'config_marker'=>WUTM_ATM_Observability::meta_marker($kind)];
             update_option(WUTM_ATM_Observability::META_RESULTS, $results, false);
             return $message;
         } finally {
@@ -259,6 +295,17 @@ final class WUTM_ATM_Event_Admin {
                 <?php endforeach; ?>
                 </select></label></p>
                 <p>預設採用 WooCommerce 付款完成紀錄。選擇人工確認時，請在訂單頁確認實際收款。</p>
+                <details <?php echo $settings['purchase_mode'] === 'manual' ? 'open' : ''; ?>><summary>可人工確認收款的付款方式</summary>
+                    <?php $legacy_manual = $settings['purchase_mode'] === 'manual' && $settings['purchase_manual_gateways'] === null; ?>
+                    <?php if ($legacy_manual) : ?><p>目前沿用舊版人工收款範圍。改用指定清單時，請只勾選有人工核對流程的付款方式。</p><?php endif; ?>
+                    <label>適用範圍 <select name="manual_method_scope">
+                        <?php if ($legacy_manual) : ?><option value="legacy">沿用舊版設定</option><?php endif; ?>
+                        <option value="selected">只允許已選付款方式</option>
+                    </select></label><br>
+                    <?php foreach (WUTM_ATM_Purchase::gateways() as $id=>$label) : ?>
+                        <label><input type="checkbox" name="purchase_manual_gateways[]" value="<?php echo esc_attr($id); ?>" <?php checked(in_array($id,(array) $settings['purchase_manual_gateways'],true)); ?>> <?php echo esc_html($label); ?></label><br>
+                    <?php endforeach; ?>
+                </details>
                 <details <?php echo $settings['purchase_mode'] === 'transition' ? 'open' : ''; ?>><summary>指定付款方式及狀態轉換</summary>
                     <p>只有選取的付款方式與轉換組合會被視為收款。請選擇確實代表收款的狀態流程。</p>
                     <fieldset><legend>已啟用的付款方式（可複選）</legend>
@@ -274,8 +321,6 @@ final class WUTM_ATM_Event_Admin {
                     </fieldset>
                 </details>
                 <p><label><input type="checkbox" name="purchase_column" <?php checked($settings['purchase_column']); ?>> 在 WooCommerce 訂單列表顯示 Meta 購買事件</label></p>
-                <p><label>獨立 Purchase 測試資料集 ID <input name="purchase_test_dataset" inputmode="numeric" pattern="[1-9][0-9]{0,39}" value="<?php echo esc_attr($settings['purchase_test_dataset']); ?>"></label><br>
-                <small>填寫已授權的測試資料集最清楚。留空會使用正式資料集，Meta 仍可能接收或使用測試事件。</small></p>
             </fieldset>
             <h2>Meta Conversions API</h2>
             <p><label><input type="checkbox" name="capi" <?php checked((bool) get_option('atm_fb_capi_enabled',0)); ?>> 啟用 CAPI</label></p>
@@ -283,19 +328,15 @@ final class WUTM_ATM_Event_Admin {
             <p><label>Graph API 版本 <input name="graph_version" value="<?php echo esc_attr($settings['version']); ?>" pattern="v[0-9]{1,2}\.0"></label></p>
             <p><label>Access Token <input type="password" autocomplete="new-password" name="token" placeholder="<?php echo WUTM_ATM_Events::token() ? '已設定，留空保留' : '尚未設定'; ?>" <?php disabled(defined('WUTM_ATM_CAPI_TOKEN')); ?>></label></p>
             <?php if (!defined('WUTM_ATM_CAPI_TOKEN')) : ?><p><label><input type="checkbox" name="clear_token"> 移除已儲存 Token</label></p><?php endif; ?>
-            <p><label>測試事件代碼 <input name="test_code" value="<?php echo esc_attr($settings['test_code']); ?>"></label> <small>僅測試時填寫。新排入的事件會帶此代碼。</small></p>
+            <p><label>獨立測試資料集 ID <input name="purchase_test_dataset" inputmode="numeric" pattern="[1-9][0-9]{0,39}" value="<?php echo esc_attr($settings['purchase_test_dataset']); ?>"></label></p>
+            <p><label>測試事件代碼 <input name="test_code" autocomplete="off" value="<?php echo esc_attr($settings['test_code']); ?>"></label></p>
+            <p>測試設定僅供「總覽與驗收」內手動啟動的測試。建議使用已授權的獨立測試資料集。</p>
             <p><label>紀錄保存天數 <input type="number" min="7" max="60" name="retention" value="<?php echo esc_attr($settings['retention']); ?>"></label></p>
             <h2>Cookie 同意</h2>
             <p>請開啟「Cookie 與隱私同意」的內建橫幅，或接上既有同意工具。伺服器事件需要可重新驗證的同意紀錄。</p>
             <button class="button button-primary">儲存事件設定</button>
             </div>
         </form>
-        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" class="atm-card"><div class="atm-card-body">
-            <input type="hidden" name="action" value="wutm_atm_event_diagnostic">
-            <?php wp_nonce_field('wutm_atm_event_diagnostic'); ?>
-            <button class="button" name="diagnostic" value="connection">檢查資料集連線</button>
-            <button class="button" name="diagnostic" value="test">發送測試 PageView</button>
-        </div></form>
         <?php
     }
 
@@ -304,6 +345,7 @@ final class WUTM_ATM_Event_Admin {
     }
 
     public static function render_overview(): void {
+        require_once __DIR__ . '/class-acceptance.php';
         $report = WUTM_ATM_Observability::report();
         $result = get_transient('wutm_atm_admin_result_' . get_current_user_id());
         delete_transient('wutm_atm_admin_result_' . get_current_user_id());
@@ -366,7 +408,7 @@ final class WUTM_ATM_Event_Admin {
         $status = $field('event_status');
         $detail = $field('event_detail');
         $channel = $field('event_channel');
-        $test_mode = $field('event_mode');
+        $test_mode = isset($_GET['event_mode']) ? $field('event_mode') : 'live';
         $order = absint($field('event_order'));
         $event_id = $field('event_id');
         $since = $field('event_since');
@@ -386,6 +428,7 @@ final class WUTM_ATM_Event_Admin {
         if ($channel === 'server') $where[] = "(server_dataset<>'' OR tries>0 OR status IN ('pending','sending','retry','sent'))";
         if ($test_mode === 'test') $where[] = 'test_mode=1';
         if ($test_mode === 'live') $where[] = 'test_mode=0';
+        if ($test_mode === 'unknown') $where[] = 'test_mode IS NULL';
         if ($order) { $where[] = 'order_id=%d'; $args[] = $order; }
         if ($event_id !== '') { $where[] = 'event_id=%s'; $args[] = $event_id; }
         foreach ([$since,$until] as $index=>$input) {
@@ -410,7 +453,7 @@ final class WUTM_ATM_Event_Admin {
             <label>事件類型 <select name="event_type"><option value="">全部</option><?php foreach (WUTM_ATM_Events::names() as $name) : ?><option <?php selected($type,$name); ?>><?php echo esc_html($name); ?></option><?php endforeach; ?></select></label>
             <label>狀態 <select name="event_status"><option value="">全部</option><?php foreach ($labels as $value=>$label) : ?><option value="<?php echo esc_attr($value); ?>" <?php selected($status,$value); ?>><?php echo esc_html($label); ?></option><?php endforeach; ?></select></label>
             <label>通道 <select name="event_channel"><option value="">全部</option><option value="browser" <?php selected($channel,'browser'); ?>>瀏覽器</option><option value="server" <?php selected($channel,'server'); ?>>伺服器</option></select></label>
-            <label>模式 <select name="event_mode"><option value="">全部</option><option value="test" <?php selected($test_mode,'test'); ?>>測試</option><option value="live" <?php selected($test_mode,'live'); ?>>正式</option></select></label>
+            <label>模式 <select name="event_mode"><option value="">全部</option><option value="test" <?php selected($test_mode,'test'); ?>>測試</option><option value="live" <?php selected($test_mode,'live'); ?>>正式</option><option value="unknown" <?php selected($test_mode,'unknown'); ?>>舊版模式未知</option></select></label>
             <label>起日 <input name="event_since" type="date" value="<?php echo esc_attr($since); ?>"></label>
             <label>迄日 <input name="event_until" type="date" value="<?php echo esc_attr($until); ?>"></label>
             <label>訂單 ID <input name="event_order" type="number" min="1" value="<?php echo esc_attr($order ?: ''); ?>"></label>

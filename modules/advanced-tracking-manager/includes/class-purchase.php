@@ -127,7 +127,12 @@ final class WUTM_ATM_Purchase {
     }
 
     public static function manual_available(WC_Order $order): bool {
-        return self::mode() === 'manual' && $order->has_status(['pending','on-hold','processing','completed']) &&
+        if (self::mode() !== 'manual') return false;
+        $methods = WUTM_ATM_Events::settings()['purchase_manual_gateways'];
+        // An existing manual-mode site keeps its policy until it saves a payment-method selection.
+        $eligible = $methods === null || (in_array($order->get_payment_method(), (array) $methods, true) &&
+            isset(self::gateways()[$order->get_payment_method()]));
+        return $eligible && $order->has_status(['pending','on-hold','processing','completed']) &&
             $order->get_total_refunded() <= 0;
     }
 
@@ -135,11 +140,39 @@ final class WUTM_ATM_Purchase {
         return ($payment['time'] ?? 0) >= time() - 2 * DAY_IN_SECONDS;
     }
 
-    public static function test_config(): array {
-        $settings = WUTM_ATM_Events::settings();
-        if (!WUTM_ATM_Events::server_active() || !preg_match('/^[A-Za-z0-9_-]{1,64}$/D', $settings['test_code'])) return [];
-        $dataset = $settings['purchase_test_dataset'] ?: WUTM_ATM_Events::dataset();
-        return preg_match('/^[1-9][0-9]{0,39}$/D', $dataset) ? ['code'=>$settings['test_code'], 'dataset'=>$dataset] : [];
+    public static function simulation_id(int $id, array $config): string {
+        return WUTM_ATM_Events::event_id('Purchase', 'order-test:' . $id . ':simulation:' . $config['dataset'] . ':' . $config['code']);
+    }
+
+    public static function review_key(WC_Order $order, array $config): string {
+        return hash_hmac('sha256', wp_json_encode([
+            self::simulation_id($order->get_id(), $config), $order->get_total(), $order->get_currency(),
+            self::items($order),
+        ]), wp_salt('nonce'));
+    }
+
+    public static function items(WC_Order $order): array {
+        $items = [];
+        foreach ($order->get_items() as $item) {
+            $items[] = ['id'=>$item->get_variation_id() ?: $item->get_product_id(), 'quantity'=>$item->get_quantity()];
+        }
+        return $items;
+    }
+
+    public static function simulate(int $id, bool $shared_consent, string $reviewed_settings): array {
+        if (!current_user_can('manage_options')) return ['result'=>'unavailable'];
+        return self::locked($id, static function (WC_Order $order) use ($shared_consent, $reviewed_settings) {
+            $config = WUTM_ATM_Events::test_configuration();
+            if (!$config || !hash_equals(self::review_key($order, $config), $reviewed_settings) ||
+                ($config['shared'] && !$shared_consent)) return ['result'=>'unavailable'];
+            if (!self::consent_valid($order)) return ['result'=>'consent'];
+            if (!self::valid_total($order)) return ['result'=>'invalid_total'];
+            $id = self::simulation_id($order->get_id(), $config);
+            foreach (self::channels($order)[1] as $row) {
+                if ($row->event_id === $id) return ['result'=>'existing','id'=>$id];
+            }
+            return self::emit($order, true, $config) ? ['result'=>'test','id'=>$id] : ['result'=>'unavailable'];
+        }) ?? ['result'=>'busy'];
     }
 
     public static function rows(array $ids, bool $include_tests = true): array {
@@ -151,7 +184,7 @@ final class WUTM_ATM_Purchase {
         $test_check = $include_tests ? '' : ' AND COALESCE(test_mode,0)=0';
         $rows = $wpdb->get_results($wpdb->prepare(
             "SELECT event_id,order_id,amount,currency,status,browser,browser_result,browser_blocked,reason,
-                updated,event_time,attempted,tries,http_code,received,test_mode,server_dataset
+                updated,event_time,attempted,due,tries,http_code,received,test_mode,server_dataset,browser_pixel,dedup_reviewed
              FROM $table WHERE order_id IN ($placeholders) AND event_name='Purchase' AND source='woocommerce'$test_check
              ORDER BY updated DESC,event_id", ...$ids
         ));
@@ -223,11 +256,6 @@ final class WUTM_ATM_Purchase {
             if (!current_user_can('edit_shop_orders') || !current_user_can('edit_shop_order', $order->get_id())) return 'unavailable';
             if (!self::consent_valid($order)) return 'consent';
             if (!self::valid_total($order)) return 'invalid_total';
-            if ($action === 'test') {
-                if (!current_user_can('manage_woocommerce') || !self::test_config()) return 'unavailable';
-                return self::emit($order, true, 'simulation') ? 'test' : 'existing';
-            }
-            if (WUTM_ATM_Events::settings()['test_code'] !== '') return 'unavailable';
             [$row, $tests] = self::channels($order);
             if (self::has_legacy_browser($tests)) return 'existing';
             if ($action === 'confirm') {
@@ -238,7 +266,7 @@ final class WUTM_ATM_Purchase {
             if (!WUTM_ATM_Events::server_active()) return 'unavailable';
             if (!self::fresh(self::payment($order))) return 'unpaid';
             if ($action === 'retry' && self::retryable($row, $order)) {
-                return self::emit($order, true, '', $row) ? 'queued' : 'unavailable';
+                return self::emit($order, true, [], $row) ? 'queued' : 'unavailable';
             }
             if ($action !== 'send' || ($row && $row->status !== 'browser_prepared')) return 'existing';
             return self::emit($order, true) ? 'queued' : 'unavailable';
@@ -257,23 +285,14 @@ final class WUTM_ATM_Purchase {
             (float) $record->amount === (float) $order->get_total() && $record->currency === $order->get_currency();
     }
 
-    public static function emit(WC_Order $order, bool $server, string $kind = '', $retry = null): ?string {
+    public static function emit(WC_Order $order, bool $server, array $test = [], $retry = null): ?string {
         if (!self::active() || !self::valid_total($order) || !self::consent_valid($order)) return null;
         $payment = self::payment($order);
-        if ($kind !== 'simulation' && !self::fresh($payment)) return null;
-        if (WUTM_ATM_Events::settings()['test_code'] !== '') {
-            if (!$server || !self::test_config()) return null;
-            $kind = $kind ?: 'automatic';
-        }
-        if ($kind !== '' && (!$server || !($test = self::test_config()))) return null;
+        $simulation = (bool) $test;
+        if (!$simulation && !self::fresh($payment)) return null;
         [$row, $tests] = self::channels($order);
-        if ($kind !== '') {
-            $key = 'order-test:' . $order->get_id() . ':' . $kind . ':' . $test['dataset'] . ':' . $test['code'];
-            $id = WUTM_ATM_Events::event_id('Purchase', $key);
-            foreach ($tests as $previous) {
-                if ($previous->event_id === $id || ($kind === 'automatic' &&
-                    $previous->event_id === WUTM_ATM_Events::event_id('Purchase', 'order:' . $order->get_id()))) return null;
-            }
+        if ($simulation) {
+            $id = self::simulation_id($order->get_id(), $test);
         } else {
             if ($row && (!self::matches_total($row, $order) ||
                 (!$retry && ($server ? $row->status !== 'browser_prepared' : $row->browser)))) return null;
@@ -288,12 +307,12 @@ final class WUTM_ATM_Purchase {
         }
         $ids = [];
         $quantity = 0;
-        foreach ($order->get_items() as $item) {
-            $ids[] = (string) ($item->get_variation_id() ?: $item->get_product_id());
-            $quantity += $item->get_quantity();
+        foreach (self::items($order) as $item) {
+            $ids[] = (string) $item['id'];
+            $quantity += $item['quantity'];
         }
-        $time = $retry ? (int) $retry->event_time : ($kind === 'simulation' ? time() : $payment['time']);
-        $user = $kind === 'simulation'
+        $time = $retry ? (int) $retry->event_time : ($simulation ? time() : $payment['time']);
+        $user = $simulation
             ? ['email'=>'','user_agent'=>'WU Toolbox Purchase Test','ip'=>'','fbp'=>'',
                 'external_id'=>hash_hmac('sha256', $id, wp_salt('auth'))]
             : ['email'=>$order->get_billing_email(),'user_agent'=>$order->get_customer_user_agent(),
@@ -305,7 +324,8 @@ final class WUTM_ATM_Purchase {
             'source'=>'woocommerce','key'=>'order:' . $order->get_id(),'purchase_id'=>$id,
             'order_id'=>$order->get_id(),'time'=>$time,'url'=>$order->get_meta(self::CHECKOUT_URL) ?: wc_get_checkout_url(),
             'recorded_consent'=>self::consent($order),'server_only'=>$server,'browser_only'=>!$server,
-            'purchase_test'=>$kind,'test_configuration'=>$test ?? ['code'=>'','dataset'=>WUTM_ATM_Events::dataset()],
+            'purchase_test'=>$simulation ? 'simulation' : '',
+            'test_configuration'=>$simulation ? $test : ['code'=>'','dataset'=>WUTM_ATM_Events::dataset()],
             'retry_purchase'=>(bool) $retry,'user'=>$user,
         ]);
     }
@@ -345,6 +365,10 @@ final class WUTM_ATM_Purchase {
                 ? ($row->status === 'sent' && !$confirmed ? '尚無 Meta 接收確認' : ($statuses[$row->status] ?? '尚未確認'))
                 : '尚無伺服器紀錄',
             '最近發送時間'=>WUTM_ATM_Observability::date($row->attempted ?? 0),
+            'HTTP 與接收數'=>$row && $row->http_code ? 'HTTP ' . $row->http_code . ' · ' . $row->received . ' 筆' : '尚無回應',
+            '商品 ID 與數量'=>implode('、', array_map(static function ($item) {
+                return '#' . $item['id'] . ' × ' . $item['quantity'];
+            }, self::items($order))) ?: '—',
             'Meta 接收結果'=>$confirmed ? '已接收 · ' . WUTM_ATM_Observability::date($row->updated) : '尚無 Meta 接收確認',
             'Purchase event_id'=>$row->event_id ?? ($order->get_meta(self::ID) ?: '尚未建立正式事件'),
             '已紀錄的事件金額'=>isset($row->amount) && $row->amount !== '' ? $row->currency . ' ' . $row->amount : '—',

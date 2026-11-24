@@ -26,7 +26,7 @@ $set = static function (array $changes) use ($settings) {
 
 require_once ABSPATH . 'wp-admin/includes/admin.php';
 require_once dirname(__DIR__) . '/modules/advanced-tracking-manager/module.php';
-foreach (['class-observability','class-event-admin','class-purchase-admin'] as $file) {
+foreach (['class-observability','class-event-admin','class-purchase-admin','class-acceptance'] as $file) {
     require_once WUTM_ATM_DIR . 'includes/' . $file . '.php';
 }
 $consent = true;
@@ -121,7 +121,7 @@ try {
     ob_start();
     WUTM_ATM_Purchase_Admin::render($unpaid);
     $box = ob_get_clean();
-    $expect(strpos($box, '確認收款並送出購買事件') !== false && strpos($box, 'required') !== false, 'Manual order view requires explicit acknowledgement.');
+    $expect(strpos($box, '確認收款並回傳購買事件') !== false && strpos($box, 'required') !== false, 'Manual order view requires explicit acknowledgement.');
     $before = $unpaid->get_date_paid();
     $lease = WUTM_ATM_Queue::lock('wutm_atm_purchase_lease_' . $unpaid->get_id());
     $expect(WUTM_ATM_Purchase::act($unpaid->get_id(), 'confirm') === 'busy', 'Competing order action cannot reserve the same Purchase.');
@@ -171,31 +171,123 @@ try {
     $set(['test_code'=>'TEST_FIXTURE', 'purchase_test_dataset'=>'987654321']);
     $simulation = $make();
     $saved = [$simulation->get_status(),$simulation->get_date_paid(),$simulation->get_transaction_id(),$mail,$payments];
-    $expect(WUTM_ATM_Purchase::act($simulation->get_id(),'test') === 'test' &&
-        WUTM_ATM_Purchase::act($simulation->get_id(),'test') === 'existing', 'Explicit simulation creates one isolated test.');
+    $config = WUTM_ATM_Events::test_configuration();
+    $key = WUTM_ATM_Purchase::review_key($simulation, $config);
+    $admin = get_current_user_id();
+    $shop_manager = wp_insert_user(['user_login'=>'purchase-test-' . wp_generate_password(10,false),
+        'user_pass'=>wp_generate_password(),'role'=>'shop_manager']);
+    wp_set_current_user($shop_manager);
+    try {
+        $expect(current_user_can('edit_shop_orders') && WUTM_ATM_Purchase::simulate($simulation->get_id(), true, $key)['result'] === 'unavailable',
+            'A shop manager cannot start a simulation.');
+    } finally {
+        wp_set_current_user($admin);
+        require_once ABSPATH . 'wp-admin/includes/user.php';
+        wp_delete_user($shop_manager);
+    }
+    ob_start();
+    WUTM_ATM_Purchase_Admin::render($simulation);
+    $simple = ob_get_clean();
+    $expect(strpos($simple, '模擬') === false && strpos($simple, 'event_id') === false &&
+        strpos($simple, '訂單金額') !== false, 'Even administrators see only the simplified order panel.');
+    $expect(WUTM_ATM_Purchase::simulate($simulation->get_id(), false, 'stale')['result'] === 'unavailable',
+        'A changed or unreviewed order cannot be queued.');
+    $expect(WUTM_ATM_Purchase::simulate($simulation->get_id(), false, $key)['result'] === 'test' &&
+        WUTM_ATM_Purchase::simulate($simulation->get_id(), false, $key)['result'] === 'existing', 'Explicit simulation creates one isolated test.');
+    $expect($payments === $saved[4] && $mail === $saved[3], 'A simulation calls neither payment hooks nor email.');
     $test = WUTM_ATM_Purchase::channels($simulation)[1][0];
     $expect(!$official($simulation) && $test->test_mode == 1, 'Test cannot reserve a production event ID.');
-    $set(['purchase_test_dataset'=>'987654321']);
+    $live = $make();
+    $live->payment_complete('production-with-test-settings');
+    $live_id = $official($live)->event_id;
+    WUTM_ATM_Purchase::locked($live->get_id(), static function (WC_Order $stored) {
+        WUTM_ATM_Purchase::emit($stored, false);
+    });
+    $live_payload = json_decode($wpdb->get_var($wpdb->prepare("SELECT payload FROM $table WHERE event_id=%s", $live_id)), true);
+    $expect($live_payload['test_code'] === '' && $live_payload['dataset'] === WUTM_ATM_Events::dataset() && (int) $official($live)->browser === 1,
+        'Test settings leave live CAPI and Pixel behavior intact.');
+    $set(['purchase_mode'=>'manual','purchase_manual_gateways'=>['bacs'],'test_code'=>'TEST_FIXTURE','purchase_test_dataset'=>'987654321']);
+    $manual_live = $make('on-hold','bacs');
+    $blocked = $make('on-hold','cod');
+    $expect(!WUTM_ATM_Purchase::manual_available($blocked) && WUTM_ATM_Purchase::act($manual_live->get_id(),'confirm') === 'queued',
+        'Only selected methods can confirm receipt, and configured tests cannot block production.');
+    $before_clear = (array) get_option(WUTM_ATM_Events::OPTION);
+    WUTM_ATM_Event_Admin::remove_test_code();
+    $expect((array) get_option(WUTM_ATM_Events::OPTION) === array_replace($before_clear,['test_code'=>'']) &&
+        WUTM_ATM_Events::token() === 'fixture-only', 'Removing the test code preserves payment rules, dataset and token.');
     WUTM_ATM_Queue::work();
-    [$target,$test_data] = end($requests);
+    $matched = array_values(array_filter($requests, static function ($request) use ($test) {
+        return $request[1]['data'][0]['event_id'] === $test->event_id;
+    }));
+    [$target,$test_data] = $matched[0];
     $expect(substr($target, -16) === '987654321/events' && ($test_data['test_event_code'] ?? '') === 'TEST_FIXTURE' &&
         $test_data['data'][0]['event_id'] === $test->event_id && !isset($test_data['data'][0]['user_data']['em']),
         'Configured test destination and code are preserved after removing the active test code, without sending the customer email.');
     $simulation = wc_get_order($simulation->get_id());
-    $expect($saved === [$simulation->get_status(),$simulation->get_date_paid(),$simulation->get_transaction_id(),$mail,$payments],
+    $expect(array_slice($saved, 0, 3) === [$simulation->get_status(),$simulation->get_date_paid(),$simulation->get_transaction_id()] &&
+        $payments === $saved[4] + 1,
         'Test hits no WooCommerce payment or email path and leaves the order unchanged.');
-    $expect(WUTM_ATM_Purchase::act($simulation->get_id(),'test') === 'unavailable', 'Missing current test code prevents new simulations.');
+    $expect(WUTM_ATM_Purchase::simulate($simulation->get_id(), false, $key)['result'] === 'unavailable', 'Missing current test code prevents new simulations.');
     $simulation->payment_complete('fixture-later-production');
     $expect($official($simulation)->event_id !== $test->event_id, 'Later valid payment can create its own production event.');
+
+    $report = WUTM_ATM_Observability::report();
+    $checklist = WUTM_ATM_Acceptance::checklist($report, WUTM_ATM_Purchase::rows([$simulation->get_id()]));
+    $expect(count($checklist) === 17 && $checklist['dedup']['state'] === 'manual' &&
+        $checklist['purchase']['state'] === 'not_tested', 'A server-only successful test cannot certify Purchase or Meta deduplication.');
+    $labels = WUTM_ATM_Acceptance::labels();
+    $list = $checklist;
+    $rows = WUTM_ATM_Purchase::rows([$simulation->get_id()]);
+    $order = WUTM_ATM_Observability::order($simulation->get_id());
+    $title = 'Fixture report';
+    foreach ([false,true] as $technical) {
+        ob_start();
+        require WUTM_ATM_DIR . 'templates/acceptance-report.php';
+        $html = ob_get_clean();
+        $expect(strpos($html, '@media print') !== false && strpos($html, 'fixture-only') === false &&
+            strpos($html, 'fixture@example.test') === false && ((strpos($html, $test->event_id) !== false) === $technical),
+            'Both reports are printable and omit secrets and customer fields; only the technical report shows raw IDs.');
+    }
 
     $url = home_url('/catalog/?page_id=32&key=wc_order_example&email=buyer@example.test#details');
     $expect(WUTM_ATM_Events::verified_url($url) === home_url('/catalog/?page_id=32') &&
         WUTM_ATM_Events::verified_url('https://outside.invalid/catalog/') === '' &&
         WUTM_ATM_Events::verified_url(home_url('/wp-json/wc/store/v1/cart')) === '', 'Source URL strips private data and rejects API/external sources.');
+    $original_server = array_intersect_key($_SERVER, array_flip(['HTTP_REFERER','REQUEST_URI','HTTP_USER_AGENT']));
     $_SERVER['HTTP_REFERER'] = $url;
     $_SERVER['REQUEST_URI'] = '/wp-json/wc/store/v1/cart/add-item';
     $expect(WUTM_ATM_Woo_Events::cart_source($product->get_id()) === home_url('/catalog/?page_id=32'), 'Cart source is the same-site page which invoked the REST endpoint.');
-    unset($_SERVER['HTTP_REFERER'], $_SERVER['REQUEST_URI']);
+    $_SERVER['HTTP_USER_AGENT'] = 'Tracking source fixture';
+    WC()->session = new WC_Session_Handler();
+    WC()->cart = new WC_Cart();
+    WC()->cart->set_cart_contents(['fixture'=>[
+        'product_id'=>$product->get_id(),'variation_id'=>0,'quantity'=>1,'data'=>$product,
+    ]]);
+    WUTM_ATM_Woo_Events::added('fixture', $product->get_id(), 1, 0, [], []);
+    $visit = new ReflectionMethod(WUTM_ATM_Consent::class, 'visit');
+    $source_visit = static function ($kind, $id, $url) use ($visit) {
+        $proof = hash_hmac('sha256', "$kind|$id|$url", wp_salt('nonce'));
+        $visit->invoke(null, ['visit'=>wp_generate_uuid4(),'page'=>[
+            'kind'=>$kind,'product'=>$id,'url'=>$url,'proof'=>$proof,
+        ]], 'source-fixture');
+    };
+    $product_url = home_url('/catalog/product/?p=' . $product->get_id());
+    $checkout_url = home_url('/checkout-fixture/?page_id=52');
+    $source_visit('page', 0, home_url('/campaign/'));
+    $source_visit('product', $product->get_id(), $product_url);
+    $source_visit('checkout', 0, $checkout_url);
+    WUTM_ATM_Queue::work();
+    $sources = [];
+    foreach ($requests as $request) {
+        $event = $request[1]['data'][0];
+        $sources[$event['event_name']][] = $event['event_source_url'];
+    }
+    foreach (['PageView'=>home_url('/campaign/'),'ViewContent'=>$product_url,'AddToCart'=>home_url('/catalog/?page_id=32'),
+        'InitiateCheckout'=>$checkout_url] as $event=>$destination) {
+        $expect(in_array($destination, $sources[$event] ?? [], true), $event . ' keeps its verified source after queueing.');
+    }
+    unset($_SERVER['HTTP_USER_AGENT'], $_SERVER['HTTP_REFERER'], $_SERVER['REQUEST_URI']);
+    $_SERVER += $original_server;
     $set(['events'=>['PageView']]);
     $expect(!WUTM_ATM_Purchase::active(), 'Disabling Purchase also disables its action gate.');
     echo 'Purchase operations passed (' . (\Automattic\WooCommerce\Utilities\OrderUtil::custom_orders_table_usage_is_enabled() ? 'HPOS' : 'legacy') . ").\n";
