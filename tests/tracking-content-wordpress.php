@@ -65,6 +65,15 @@ $use_page = static function ($id, $type, $url): array {
     return WUTM_ATM_Content::page();
 };
 
+$clean_source = static function (string $url, string $request_path): bool {
+    $parts = wp_parse_url($url);
+    $site = wp_parse_url(home_url('/'));
+    // Validate the URL of the captured request. Home URL filters can prefix URLs generated for a different path.
+    return is_array($parts) && ($parts['scheme'] ?? '') === $site['scheme'] && ($parts['host'] ?? '') === $site['host'] &&
+        ($parts['port'] ?? null) === ($site['port'] ?? null) && ($parts['path'] ?? '') === $request_path &&
+        !array_key_exists('query', $parts) && !array_key_exists('fragment', $parts);
+};
+
 try {
     WUTM_ATM_Queue::ensure();
     $check(WUTM_ATM_Consent_Store::install(), 'The consent store is ready.');
@@ -105,14 +114,15 @@ try {
     $_GET['attribute_size'] = 'Large';
     $selected = $use_page($variable->get_id(), 'product', '/fixture-variable/?attribute_size=Large');
     $check($selected['product'] === $variations['Large'], 'A selected variation uses its own ID. Got ' . $selected['product'] . '; expected ' . $variations['Large']);
-    $check($selected['url'] === home_url('/fixture-variable/'), 'A variation does not expose its query parameters. Got ' . $selected['url']);
+    $check($clean_source($selected['url'], '/fixture-variable/'), 'A variation does not expose its query parameters. Got ' . $selected['url']);
     unset($_GET['attribute_size']);
 
     $course = $make_post($course_type, 'WooCommerce course fixture');
     update_post_meta($course, '_tutor_course_product_id', $product->get_id());
     update_post_meta($course, '_tutor_course_price_type', 'paid');
     $course_page = $use_page($course, $course_type, '/fixture-course/?key=wc_order_private&email=guest@example.test');
-    $check($course_page === ['kind'=>'product','product'=>$product->get_id(),'url'=>home_url('/fixture-course/')],
+    $check($course_page['kind'] === 'product' && $course_page['product'] === $product->get_id() &&
+        $clean_source($course_page['url'], '/fixture-course/'),
         'A paid Tutor course resolves its WooCommerce mapping and retains the course URL.');
     update_option('tutor_option', ['monetize_by'=>'tutor']);
     $check($use_page($course, $course_type, '/fixture-course/')['kind'] === 'page', 'Other Tutor monetization does not reuse an old WooCommerce mapping.');
@@ -177,7 +187,7 @@ try {
     WUTM_ATM_Queue::work();
     $deliveries = array_values(array_filter($requests, static function ($event) use ($id) { return $event['event_id'] === $id; }));
     $check(count($deliveries) === 1 && $deliveries[0]['custom_data'] === $view['data'] &&
-        $deliveries[0]['event_source_url'] === home_url('/fixture-course/') && $deliveries[0]['user_data']['fbp'] === $_COOKIE['_fbp'],
+        $deliveries[0]['event_source_url'] === $descriptor['url'] && $deliveries[0]['user_data']['fbp'] === $_COOKIE['_fbp'],
         'The queued server event keeps the Browser event ID, product data, verified course URL and the supplied fixture cookie.');
 
     $subsequent = array_replace($packet, ['visit'=>str_repeat('c',32)]);
