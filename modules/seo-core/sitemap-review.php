@@ -18,17 +18,14 @@ final class WUTM_SEO_Sitemap_Review {
             $previous = libxml_use_internal_errors( true ); $dom = new DOMDocument();
             $dom->loadHTML( '<?xml encoding="utf-8" ?>' . $body, LIBXML_NONET );
             libxml_clear_errors(); libxml_use_internal_errors( $previous );
-            $head = $dom->getElementsByTagName( 'head' )->item( 0 );
-            $canonicals = [];
-            if ( $head ) {
-                foreach ( $head->getElementsByTagName( 'meta' ) as $meta ) {
-                    $name = strtolower( trim( $meta->getAttribute( 'name' ) ) );
-                    if ( in_array( $name, ['robots','googlebot','bingbot'], true ) ) {
-                        $meta_robots[] = $name . ': ' . $meta->getAttribute( 'content' );
-                    }
+            foreach ( $dom->getElementsByTagName( 'meta' ) as $meta ) {
+                $name = strtolower( trim( $meta->getAttribute( 'name' ) ) );
+                if ( in_array( $name, ['robots','googlebot','bingbot'], true ) ) {
+                    $meta_robots[] = $name . ': ' . $meta->getAttribute( 'content' );
                 }
             }
-            foreach ( $head ? $head->getElementsByTagName( 'link' ) : [] as $link ) {
+            $canonicals = [];
+            foreach ( $dom->getElementsByTagName( 'link' ) as $link ) {
                 if ( in_array( 'canonical', preg_split( '/\s+/', strtolower( trim( $link->getAttribute( 'rel' ) ) ) ), true ) ) { $canonicals[] = $link->getAttribute( 'href' ); }
             }
             $href = trim( $canonicals[0] ?? '' );
