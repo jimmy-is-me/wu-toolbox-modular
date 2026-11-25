@@ -31,7 +31,7 @@ const render = (layout = 'inline', optOut = false) => {
 };
 
 const external = /www\.googletagmanager\.com|connect\.facebook\.net/;
-async function browserVisitor(browser, layout = 'inline', optOut = false, width = 390, delay = 0, matching = false) {
+async function browserVisitor(browser, layout = 'inline', optOut = false, width = 390, delay = 0, matching = false, gtmMode = 'both', failGtm = false) {
     const context = await browser.newContext({ viewport:{width,height:844} });
     const page = await context.newPage();
     const fixture = native ? '' : render(layout,optOut);
@@ -44,6 +44,10 @@ async function browserVisitor(browser, layout = 'inline', optOut = false, width 
         const url = new URL(route.request().url());
         if (external.test(url.hostname)) {
             scripts.push(url.href);
+            if (failGtm && url.pathname === '/gtm.js') {
+                failGtm = false;
+                return route.abort('failed');
+            }
             return route.fulfill({contentType:'application/javascript',body:''});
         }
         if (url.origin !== base.origin) return route.abort();
@@ -58,7 +62,7 @@ async function browserVisitor(browser, layout = 'inline', optOut = false, width 
                 state.tags = {
                     ga4:state.analytics ? 'G-FIXTURE' : '',
                     ads:state.marketing ? 'AW-123456' : '',
-                    gtm:state.analytics && state.marketing ? 'GTM-FIXTURE' : '',
+                    gtm:(gtmMode === 'analytics' ? state.analytics : state.analytics && state.marketing) ? 'GTM-FIXTURE' : '',
                     pixel:state.marketing ? '123456789' : '', visit:state.marketing, match:state.marketing && matching
                 };
             }
@@ -124,6 +128,14 @@ async function browserVisitor(browser, layout = 'inline', optOut = false, width 
         assert.equal(await banner.evaluate(el => getComputedStyle(el).position), 'static');
         await banner.getByRole('button', {name:'偏好設定'}).click();
         await dialog.waitFor();
+        const surface = await dialog.evaluate(el => ({
+            border:getComputedStyle(el).borderTopWidth,
+            shadow:getComputedStyle(el).boxShadow,
+            width:el.getBoundingClientRect().width
+        }));
+        assert.equal(surface.border, '0px');
+        assert.notEqual(surface.shadow, 'none');
+        assert(surface.width < 390, 'The preferences dialog keeps a margin at mobile width.');
         await dialog.locator('[name=analytics]').check();
         await Promise.all([
             page.waitForRequest(request => request.url().includes('gtag/js?id=G-FIXTURE')),
@@ -188,6 +200,30 @@ async function browserVisitor(browser, layout = 'inline', optOut = false, width 
         await two.page.locator('#wutm-atm-privacy').waitFor({state:'hidden'});
         assert.equal(two.scripts.length, 0);
         if (!native) {
+            const gtmVisitor = await browserVisitor(browser,'inline',false,1440,0,false,'analytics',true);
+            const gtmPage = gtmVisitor.page;
+            const container = 'script[src*="gtm.js?id=GTM-FIXTURE"]';
+            const gtmRequest = request => request.url().includes('gtm.js?id=GTM-FIXTURE');
+            await gtmPage.goto(base.href);
+            await gtmPage.locator('#wutm-atm-privacy').getByRole('button',{name:'偏好設定'}).click();
+            const prefs = gtmPage.locator('#wutm-atm-privacy-dialog');
+            const save = prefs.getByRole('button',{name:'儲存偏好'});
+            await prefs.locator('[name=analytics]').check();
+            await Promise.all([gtmPage.waitForEvent('requestfailed',{predicate:gtmRequest}), save.click()]);
+            await gtmPage.waitForFunction(selector => !document.querySelector(selector), container);
+            const launcher = gtmPage.getByRole('button',{name:'Cookie 設定'});
+            await launcher.click();
+            await Promise.all([gtmPage.waitForEvent('requestfinished',{predicate:gtmRequest}), save.click()]);
+            await launcher.click();
+            await save.click();
+            await prefs.waitFor({state:'hidden'});
+            assert.equal(await gtmPage.locator(container).count(), 1);
+            assert.equal(gtmVisitor.scripts.filter(url => url.includes('gtm.js?id=GTM-FIXTURE')).length, 2);
+            assert.equal(await gtmPage.evaluate(() => window.dataLayer.filter(item => item.event === 'gtm.js').length), 1);
+            assert.equal(await gtmPage.evaluate(() => window.wutmAtmConsent.marketing), false);
+            assert(gtmVisitor.scripts.some(url => url.includes('gtag/js?id=G-FIXTURE')));
+            await gtmVisitor.context.close();
+
             for (const layout of ['inline','bar','corner','center','side']) {
                 const visitor = await browserVisitor(browser,layout,true,layout === 'bar' ? 1440 : 390);
                 const {page} = visitor;
@@ -219,7 +255,10 @@ async function browserVisitor(browser, layout = 'inline', optOut = false, width 
             await slow.page.getByRole('button',{name:'Cookie 設定'}).click();
             const slowDialog = slow.page.locator('#wutm-atm-privacy-dialog');
             await slowDialog.getByRole('button',{name:'拒絕非必要'}).click();
-            await slowDialog.getByRole('status').filter({hasText:'正在儲存 Cookie 偏好'}).waitFor();
+            await slow.page.locator('#wutm-atm-privacy-dialog[aria-busy="true"]').waitFor();
+            assert(await slowDialog.getByRole('button',{name:'拒絕非必要'}).isDisabled());
+            assert(!(await slowDialog.locator('.wutm-atm-privacy-status').isVisible()));
+            assert(!((await slowDialog.textContent()).includes('正在儲存')));
             await slowDialog.waitFor({state:'hidden'});
             assert.deepEqual(slow.api,['state','save'], 'A click during initial loading must save exactly once.');
             assert.equal(slow.scripts.length,0,'Early refusal must not start tracking while its save is pending.');

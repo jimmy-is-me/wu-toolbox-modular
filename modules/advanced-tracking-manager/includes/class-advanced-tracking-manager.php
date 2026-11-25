@@ -230,7 +230,7 @@ class WUTM_Advanced_Tracking_Manager {
 
 		if ( $ga4_enabled        && ! get_option( 'atm_ga4_id',        '' ) ) $warnings[] = 'GA4 已啟用，但尚未填入 GA4 ID。';
 		if ( $google_ads_enabled && ! get_option( 'atm_google_ads_id', '' ) ) $warnings[] = 'Google Ads 已啟用，但尚未填入 Ads ID。';
-		if ( $gtm_enabled        && ! get_option( 'atm_gtm_id',        '' ) ) $warnings[] = 'GTM 已啟用，但尚未填入 Container ID。';
+		if ( $gtm_enabled        && ! WUTM_ATM_Consent::gtm_id() ) $warnings[] = 'GTM 已啟用，請填入正確格式的 Container ID。';
 		if ( $fb_pixel_enabled   && ! get_option( 'atm_fb_pixel_id',   '' ) ) $warnings[] = 'Meta Pixel 已啟用，但尚未填入 Pixel ID。';
 		if ( $fb_capi_enabled && ( ! WUTM_ATM_Events::dataset() || ! WUTM_ATM_Events::token() ) )
 			$warnings[] = 'Facebook CAPI 已啟用，但 Pixel ID 或 Access Token 不完整。';
@@ -310,7 +310,7 @@ class WUTM_Advanced_Tracking_Manager {
 
 		$ga4_id        = get_option( 'atm_ga4_id',        '' );
 		$google_ads_id = get_option( 'atm_google_ads_id', '' );
-		$gtm_id        = get_option( 'atm_gtm_id',        '' );
+		$gtm_id        = WUTM_ATM_Consent::gtm_id();
 		$fb_pixel_id   = get_option( 'atm_fb_pixel_id',   '' );
 
 		// GA4
@@ -334,7 +334,6 @@ class WUTM_Advanced_Tracking_Manager {
 
 		// GTM head
 		if ( $gtm_enabled && ! empty( $gtm_id ) ) {
-			$gtm_id_esc = esc_attr( $gtm_id );
 			$gtm_id_js  = esc_js( $gtm_id );
 			echo "\n<!-- Advanced Tracking Manager: GTM -->\n";
 			echo "<script>\n";
@@ -380,7 +379,7 @@ class WUTM_Advanced_Tracking_Manager {
 			return;
 		}
 		$gtm_enabled = (int) get_option( 'atm_gtm_enabled', 0 );
-		$gtm_id      = get_option( 'atm_gtm_id', '' );
+		$gtm_id      = WUTM_ATM_Consent::gtm_id();
 		if ( $gtm_enabled && ! empty( $gtm_id ) ) {
 			echo "\n<!-- Advanced Tracking Manager: GTM noscript -->\n";
 			echo '<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=' . esc_attr( $gtm_id ) . '" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>' . "\n";
@@ -458,7 +457,7 @@ class WUTM_Advanced_Tracking_Manager {
 			'ga4_enabled'        => (int) get_option( 'atm_ga4_enabled',        0 ),
 			'google_ads_id'      => $this->sanitize_google_ads_id( get_option( 'atm_google_ads_id', '' ) ),
 			'google_ads_enabled' => (int) get_option( 'atm_google_ads_enabled', 0 ),
-			'gtm_id'             => $this->sanitize_gtm_id(        get_option( 'atm_gtm_id',        '' ) ),
+			'gtm_id'             => WUTM_ATM_Consent::gtm_id(),
 			'gtm_enabled'        => (int) get_option( 'atm_gtm_enabled',        0 ),
 			'fb_pixel_id'        => $this->sanitize_fb_pixel_id(   get_option( 'atm_fb_pixel_id',   '' ) ),
 			'fb_pixel_enabled'   => (int) get_option( 'atm_fb_pixel_enabled',   0 ),
@@ -560,9 +559,23 @@ class WUTM_Advanced_Tracking_Manager {
 			}
 		}
 
-        $managed_mode = WUTM_ATM_Consent::active() || WUTM_ATM_Events::settings()['enabled'];
+        $native_consent = WUTM_ATM_Consent::active();
+        $managed_mode = $native_consent || WUTM_ATM_Events::settings()['enabled'];
         if ($managed_mode) {
             $items[] = $this->diagnostic_item('info', '已啟用同意控制', '自動診斷以無同意 Cookie 的訪客身分檢查。請使用同意後的瀏覽器測試事件。');
+            if ($settings['gtm_enabled']) {
+                if (!$settings['gtm_id']) {
+                    ++$errors;
+                    $items[] = $this->diagnostic_item('error', 'GTM 已啟用但容器 ID 無效', '請填入格式正確的 GTM Container ID。');
+                } else {
+                    $requirement = $native_consent
+                        ? WUTM_ATM_Consent::gtm_categories()[WUTM_ATM_Consent::settings()['gtm']]
+                        : '外部行銷同意';
+                    $items[] = $this->diagnostic_item('info', 'GTM 容器載入條件',
+                        $settings['gtm_id'] . ' · ' . $requirement,
+                        '以訪客身分允許所需分類後，查看瀏覽器的 gtm.js 網路請求，並用 Tag Assistant 核對已發布的容器。');
+                }
+            }
             if (strpos($html, 'connect.facebook.net/') !== false || strpos($html, 'fbq(') !== false) {
                 ++$warnings;
                 $items[] = $this->diagnostic_item('warning', '偵測到其他 Meta 程式碼', '未同意的頁面含 Meta 標記，請檢查 GTM、佈景或其他外掛。');

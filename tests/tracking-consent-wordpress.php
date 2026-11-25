@@ -101,6 +101,20 @@ try {
     wutm_privacy_assert($receipt() === $original, 'Updating analytics preserves an uninterrupted marketing receipt.');
     wutm_privacy_assert($state->invoke(null,$visitors[1])['tags']['gtm'] === 'GTM-FIXTURE', 'Mixed GTM requires both.');
 
+    $privacy = get_option(WUTM_ATM_Consent::OPTION);
+    update_option(WUTM_ATM_Consent::OPTION, array_replace($privacy, ['gtm'=>'analytics']));
+    $set_visitor($visitors[0]);
+    $tags = $state->invoke(null,$visitors[0])['tags'];
+    wutm_privacy_assert($tags['gtm'] === 'GTM-FIXTURE' && $tags['ga4'] && !$tags['ads'], 'Analytics GTM may load alongside GA4 without marketing.');
+    update_option(WUTM_ATM_Consent::OPTION, array_replace($privacy, ['gtm'=>'marketing']));
+    wutm_privacy_assert(!$state->invoke(null,$visitors[0])['tags']['gtm'], 'Marketing GTM stays off with analytics only.');
+    $set_visitor($visitors[1]);
+    wutm_privacy_assert($state->invoke(null,$visitors[1])['tags']['gtm'] === 'GTM-FIXTURE', 'Marketing consent may start marketing GTM.');
+    update_option('atm_gtm_id', 'G-FIXTURE');
+    wutm_privacy_assert(!$state->invoke(null,$visitors[1])['tags']['gtm'], 'GA4 ID is rejected as a GTM container.');
+    update_option('atm_gtm_id', 'GTM-FIXTURE');
+    update_option(WUTM_ATM_Consent::OPTION, $privacy);
+
     if (class_exists('WooCommerce')) {
         update_option(WUTM_ATM_Events::OPTION, array_replace(WUTM_ATM_Events::settings(), ['test_code'=>'']));
         $make_order = static function (bool $blocks) use (&$orders) {

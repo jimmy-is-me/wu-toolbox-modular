@@ -32,7 +32,7 @@
     const visit = Array.from(crypto.getRandomValues(new Uint8Array(16)), byte => byte.toString(16).padStart(2, '0')).join('');
     const channel = 'BroadcastChannel' in window ? new BroadcastChannel('wutm-atm-privacy:' + config.url) : null;
     const configured = new Set();
-    const containers = new Set();
+    const containers = new Map();
     let googleLoaded = false;
     let ga4Id = '';
     // Basic Consent Mode. Defaults are queued locally before any external tag can load.
@@ -47,9 +47,13 @@
     });
     gtag('consent', 'default', googleConsent(false, false));
 
-    function script(url) {
+    function script(url, onError) {
         const tag = document.createElement('script');
         tag.async = true;
+        if (onError) tag.addEventListener('error', () => {
+            tag.remove();
+            onError();
+        }, {once:true});
         tag.src = url;
         document.head.append(tag);
     }
@@ -85,10 +89,11 @@
         }
         window.wutmAtmConsent = Object.freeze({necessary:true, analytics:next.analytics, marketing:next.marketing});
         window.dataLayer.push({event:'wutm_atm_consent_changed', wutm_atm_consent:consent});
-        if (gtm && !containers.has(gtm)) {
-            containers.add(gtm);
-            window.dataLayer.push({'gtm.start':Date.now(), event:'gtm.js'});
-            script('https://www.googletagmanager.com/gtm.js?id=' + encodeURIComponent(gtm));
+        if (gtm && !containers.get(gtm)) {
+            // Retrying a failed download reuses the existing GTM bootstrap event.
+            if (!containers.has(gtm)) window.dataLayer.push({'gtm.start':Date.now(), event:'gtm.js'});
+            containers.set(gtm, true);
+            script('https://www.googletagmanager.com/gtm.js?id=' + encodeURIComponent(gtm), () => containers.set(gtm, false));
         }
         if (meta) meta.setPixel(tags.pixel || '');
         document.dispatchEvent(new CustomEvent('wutm-atm-consent', {detail:{
@@ -249,7 +254,8 @@
         };
         busy = true;
         buttons.forEach(button => { button.disabled = true; });
-        message('正在儲存 Cookie 偏好…');
+        [banner, dialog].forEach(el => el.setAttribute('aria-busy', 'true'));
+        message('');
         // Local tracking stops immediately. A new grant waits for the server to save it.
         if ((effective.analytics && !next.analytics) || (effective.marketing && !next.marketing)) apply(denied);
         try {
@@ -262,6 +268,7 @@
             message('偏好尚未儲存。請再試一次。');
         } finally {
             busy = false;
+            [banner, dialog].forEach(el => el.removeAttribute('aria-busy'));
             buttons.forEach(button => { button.disabled = false; });
         }
     }

@@ -64,34 +64,4 @@ $check = $order_id ? WUTM_ATM_Observability::order($order_id) : [];
     </form>
 </div></div>
 
-<?php require WUTM_ATM_DIR . 'templates/acceptance-tools.php'; ?>
-
-<div class="atm-card"><div class="atm-card-body">
-    <h2>驗收報告</h2>
-    <?php if ($report['test_mode']) : ?>
-        <form method="post" action="<?php echo esc_url($post); ?>" data-atm-confirm="清除後，已排入的測試仍使用其原始代碼。">
-            <?php wp_nonce_field('wutm_atm_clear_test_code'); ?><input type="hidden" name="action" value="wutm_atm_clear_test_code">
-            <p><button class="button">清除測試代碼</button></p>
-        </form>
-    <?php endif; ?>
-    <p>包含站內設定、排程、檢測時間與待人工確認項目。請在 Meta 核對真實接收與去重。</p>
-    <form method="post" action="<?php echo esc_url($post); ?>">
-        <?php wp_nonce_field('wutm_atm_export_audit'); ?><input type="hidden" name="action" value="wutm_atm_export_audit">
-        <input type="hidden" name="atm_order" value="<?php echo (int) $order_id; ?>">
-        <button class="button" name="format" value="client" formtarget="_blank">客戶交付版（可列印）</button>
-        <button class="button" name="format" value="technical" formtarget="_blank">技術維護版（可列印）</button>
-        <button class="button" name="format" value="csv">下載事件 CSV</button>
-        <button class="button" name="format" value="json">下載 JSON</button>
-        <button class="button" type="button" data-atm-copy>複製摘要</button>
-        <span role="status" data-atm-copy-status></span>
-    </form>
-    <textarea id="wutm-atm-audit-summary" class="large-text" rows="4" readonly aria-label="驗收摘要"><?php
-        $summary = ['WU Toolbox · 追蹤驗收',get_bloginfo('name') . ' · ' . home_url('/'),
-            $report['date'] . ' · Advanced Tracking Manager ' . $report['module'],
-            '資料集 ' . ($report['dataset'] ?: '尚未設定') . ' · 排程 ' . $status];
-        foreach (WUTM_ATM_Acceptance::items() as $key=>$item) {
-            $summary[] = $item[0] . ' · ' . $labels[$checks[$key]['state']];
-        }
-        echo esc_textarea(implode("\n", $summary));
-    ?></textarea>
-</div></div>
+<?php require WUTM_ATM_DIR . 'templates/testing-tools.php'; ?>

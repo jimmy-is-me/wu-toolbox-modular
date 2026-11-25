@@ -21,7 +21,7 @@ $last_saved_at      = get_option( 'atm_last_saved_at', '' );
 $last_saved_by      = get_option( 'atm_last_saved_by', '' );
 $last_diagnostic    = get_option( 'atm_last_diagnostic', array() );
 $tabs = [
-    'overview' => '總覽與驗收',
+    'overview' => '總覽',
     'tracking' => '追蹤設定',
     'events' => '事件、電商與 CAPI',
     'privacy' => 'Cookie 與隱私同意',
@@ -104,9 +104,14 @@ $page_url = admin_url('admin.php?page=wu-advanced-tracking-manager');
       </label>
     </div>
     <div class="atm-card-body">
-      <label>GTM Container ID</label>
-      <input type="text" name="atm_gtm_id" value="<?php echo esc_attr( $gtm_id ); ?>" placeholder="GTM-XXXXXXX" class="regular-text">
+      <label for="wutm-atm-gtm-id">GTM Container ID</label>
+      <input type="text" id="wutm-atm-gtm-id" name="atm_gtm_id" value="<?php echo esc_attr( $gtm_id ); ?>" placeholder="GTM-XXXXXXX" class="regular-text">
       <p class="description">格式：<code>GTM-XXXXXXX</code>。在 GTM 後台右上角可以找到。<br>若你已在 GTM 容器裡安裝 GA4，請勿同時啟用上方的 GA4，否則會重複追蹤。</p>
+      <?php if (WUTM_ATM_Consent::active()) : ?>
+        <p class="description">目前容器載入條件為 <strong><?php echo esc_html(WUTM_ATM_Consent::gtm_categories()[WUTM_ATM_Consent::settings()['gtm']]); ?></strong>。
+          <a href="<?php echo esc_url(add_query_arg('atm_tab', 'privacy', admin_url('admin.php?page=wu-advanced-tracking-manager')) . '#wutm-atm-gtm-consent'); ?>">調整 Cookie 同意條件</a>
+        </p>
+      <?php endif; ?>
     </div>
   </div>
 
@@ -171,6 +176,11 @@ $page_url = admin_url('admin.php?page=wu-advanced-tracking-manager');
 </div>
 <?php elseif ($active_tab === 'history') : ?>
 <div id="atm-tab-history" class="atm-tab-content">
+  <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
+    <?php wp_nonce_field('wutm_atm_export_event_csv'); ?>
+    <input type="hidden" name="action" value="wutm_atm_export_event_csv">
+    <p><button class="button">下載近期事件 CSV</button></p>
+  </form>
   <?php WUTM_ATM_Event_Admin::render_log(); ?>
 </div>
 
@@ -182,7 +192,7 @@ $page_url = admin_url('admin.php?page=wu-advanced-tracking-manager');
   <div class="atm-card">
     <div class="atm-card-head"><span>自動診斷</span></div>
     <div class="atm-card-body">
-      <p>點擊下方按鈕，系統會自動讀取網站前台 HTML，檢查所有已啟用的追蹤碼是否正確輸出。</p>
+      <p>自動診斷會讀取訪客看到的前台 HTML。受 Cookie 同意控制的標籤可依診斷指引，在瀏覽器確認實際載入。</p>
       <p>
         <button id="atm-run-diag" class="button button-primary">開始診斷</button>
         <button id="atm-clear-diag" class="button" style="margin-left:8px;">清除結果</button>
@@ -259,7 +269,7 @@ $page_url = admin_url('admin.php?page=wu-advanced-tracking-manager');
       <h3>常見問題</h3>
       <ul>
         <li><strong>找不到追蹤碼</strong>：請先確認「排除管理員」是否已關閉，並清除頁面快取。</li>
-        <li><strong>Tag Assistant 看不到 GTM</strong>：確認主題的 header.php 有 <code>&lt;?php wp_head(); ?&gt;</code>，body 開頭有 <code>&lt;?php wp_body_open(); ?&gt;</code>。</li>
+        <li><strong>Tag Assistant 看不到 GTM</strong>：使用訪客視窗並允許容器所需的 Cookie 分類。確認容器已發布，再於瀏覽器的「網路」面板查看 <code>gtm.js</code> 是否以設定的容器 ID 載入。</li>
         <li><strong>GTM 在 Tag Assistant 顯示多個容器</strong>：前往瀏覽器 DevTools → Network → 搜尋 gtm.js，確認載入次數。</li>
         <li><strong>Meta Pixel 偵測不到</strong>：部分廣告阻擋外掛會阻止 Pixel 載入，請用無痕模式測試。</li>
       </ul>

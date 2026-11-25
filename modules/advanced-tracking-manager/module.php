@@ -5,7 +5,7 @@
  */
 defined('ABSPATH') || exit;
 
-define('WUTM_ATM_VERSION', '3.3.3');
+define('WUTM_ATM_VERSION', '3.3.4');
 define('WUTM_ATM_FILE', __FILE__);
 define('WUTM_ATM_DIR', plugin_dir_path(__FILE__));
 

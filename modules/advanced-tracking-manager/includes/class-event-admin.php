@@ -7,11 +7,11 @@ final class WUTM_ATM_Event_Admin {
         add_action('admin_post_wutm_atm_event_diagnostic', [__CLASS__, 'diagnose']);
         add_action('admin_post_wutm_atm_clear_events', [__CLASS__, 'clear']);
         add_action('admin_post_wutm_atm_process_due', [__CLASS__, 'process_due']);
-        add_action('admin_post_wutm_atm_export_audit', [__CLASS__, 'export']);
+        add_action('admin_post_wutm_atm_export_event_csv', [__CLASS__, 'export_csv']);
         add_action('admin_post_wutm_atm_clear_test_code', [__CLASS__, 'clear_test_code']);
         add_action('admin_post_wutm_atm_mark_dedup', [__CLASS__, 'mark_dedup']);
-        require_once __DIR__ . '/class-acceptance.php';
-        WUTM_ATM_Acceptance::boot();
+        require_once __DIR__ . '/class-testing-tools.php';
+        WUTM_ATM_Testing_Tools::boot();
     }
 
     public static function guard(string $action): void {
@@ -157,18 +157,36 @@ final class WUTM_ATM_Event_Admin {
         exit;
     }
 
-    public static function export(): void {
-        self::guard('wutm_atm_export_audit');
+    private static function csv_rows(int $limit = 200): array {
+        if (!WUTM_ATM_Observability::table_ready()) return [];
+        global $wpdb;
+        $cutoff = max((int) get_option(WUTM_ATM_Queue::HISTORY_CLEARED, 0),
+            time() - (int) WUTM_ATM_Events::settings()['retention'] * DAY_IN_SECONDS);
+        return (array) $wpdb->get_results($wpdb->prepare(
+            'SELECT event_id,event_name,source,order_id,status,event_time,attempted,due,updated,amount,currency,test_mode,
+                browser_pixel,browser_result,server_dataset,http_code,received,tries,reason,dedup_reviewed FROM ' . WUTM_ATM_Queue::table() .
+            ' WHERE updated > %d ORDER BY updated DESC LIMIT %d', $cutoff, $limit
+        ), ARRAY_A);
+    }
+
+    public static function export_csv(): void {
+        self::guard('wutm_atm_export_event_csv');
         nocache_headers();
-        require_once __DIR__ . '/class-acceptance.php';
-        $format = self::posted('format');
-        if ($format === 'csv') WUTM_ATM_Acceptance::export_csv();
-        if (in_array($format, ['client','technical'], true)) {
-            WUTM_ATM_Acceptance::export_html($format === 'technical', absint(self::posted('atm_order')));
+        $rows = self::csv_rows(1000);
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="wu-tracking-events.csv"');
+        $stream = fopen('php://output', 'w');
+        fwrite($stream, "\xEF\xBB\xBF");
+        fputcsv($stream, ['事件識別','事件','來源','訂單 ID','狀態','事件時間','最近發送','下次發送','更新','金額','幣別','測試',
+            'Pixel','瀏覽器交接','資料集','HTTP','接收數','嘗試次數','原因','去重核對時間'], ',', '"', '');
+        foreach ($rows as $row) {
+            $cells = array_map(static function ($value) {
+                $cell = (string) $value;
+                return preg_match('/^[\x00-\x20]*[=+\-@\x09\x0D\x0A]/', $cell) ? "'" . $cell : $cell;
+            }, array_values($row));
+            fputcsv($stream, $cells, ',', '"', '');
         }
-        header('Content-Type: application/json; charset=utf-8');
-        header('Content-Disposition: attachment; filename="wu-tracking-audit.json"');
-        echo wp_json_encode(WUTM_ATM_Observability::report(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE);
+        fclose($stream);
         exit;
     }
 
@@ -330,7 +348,7 @@ final class WUTM_ATM_Event_Admin {
             <?php if (!defined('WUTM_ATM_CAPI_TOKEN')) : ?><p><label><input type="checkbox" name="clear_token"> 移除已儲存 Token</label></p><?php endif; ?>
             <p><label>獨立測試資料集 ID <input name="purchase_test_dataset" inputmode="numeric" pattern="[1-9][0-9]{0,39}" value="<?php echo esc_attr($settings['purchase_test_dataset']); ?>"></label></p>
             <p><label>測試事件代碼 <input name="test_code" autocomplete="off" value="<?php echo esc_attr($settings['test_code']); ?>"></label></p>
-            <p>測試設定僅供「總覽與驗收」內手動啟動的測試。建議使用已授權的獨立測試資料集。</p>
+            <p>測試設定僅供「總覽」內手動啟動的測試。建議使用已授權的獨立測試資料集。</p>
             <p><label>紀錄保存天數 <input type="number" min="7" max="60" name="retention" value="<?php echo esc_attr($settings['retention']); ?>"></label></p>
             <h2>Cookie 同意</h2>
             <p>請開啟「Cookie 與隱私同意」的內建橫幅，或接上既有同意工具。伺服器事件需要可重新驗證的同意紀錄。</p>
@@ -345,7 +363,7 @@ final class WUTM_ATM_Event_Admin {
     }
 
     public static function render_overview(): void {
-        require_once __DIR__ . '/class-acceptance.php';
+        require_once __DIR__ . '/class-testing-tools.php';
         $report = WUTM_ATM_Observability::report();
         $result = get_transient('wutm_atm_admin_result_' . get_current_user_id());
         delete_transient('wutm_atm_admin_result_' . get_current_user_id());

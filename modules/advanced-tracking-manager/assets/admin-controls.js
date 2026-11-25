@@ -32,15 +32,4 @@
         event.preventDefault();
         event.returnValue = '';
     });
-    root.querySelector('[data-atm-copy]')?.addEventListener('click', async () => {
-        const text = root.querySelector('#wutm-atm-audit-summary');
-        const status = root.querySelector('[data-atm-copy-status]');
-        try {
-            await navigator.clipboard.writeText(text.value);
-            status.textContent = '已複製';
-        } catch (_) {
-            text.select();
-            status.textContent = '已選取摘要，請使用複製快捷鍵。';
-        }
-    });
 })();
