@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Wumetax SEO Core
  * Description: 專注搜尋優化的繁中 SEO 核心：內容與分類 SEO、品牌作者 Schema、內容品質檢查、標題範本、社群分享及 Sitemap 索引控制。
- * Version: 1.4.0
+ * Version: 1.5.0
  * Author: Wumetax
  * Author URI: https://wumetax.com/
  * Plugin URI: https://wumetax.com/
@@ -24,6 +24,9 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 	require_once __DIR__ . '/dashboard-jobs.php';
 	require_once __DIR__ . '/dashboard.php';
 	require_once __DIR__ . '/legacy-import.php';
+	require_once __DIR__ . '/indexnow.php';
+	require_once __DIR__ . '/indexnow-jobs.php';
+	require_once __DIR__ . '/indexnow-admin.php';
 
 	final class Wumetax_SEO_Core_v120 {
 		use WUTM_SEO_Enhancements;
@@ -34,8 +37,11 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 		use WUTM_SEO_Dashboard_Jobs;
 		use WUTM_SEO_Dashboard;
 		use WUTM_SEO_Legacy_Import;
+		use WUTM_SEO_IndexNow;
+		use WUTM_SEO_IndexNow_Jobs;
+		use WUTM_SEO_IndexNow_Admin;
 
-		const VERSION        = '1.4.0';
+		const VERSION        = '1.5.0';
 		const OPTION_KEY     = 'wumetax_seo_core_settings_v100';
 		const META_NONCE_KEY = 'wumetax_seo_core_nonce_v100';
 		const META_NONCE_ACT = 'wumetax_seo_core_save_v100';
@@ -51,6 +57,7 @@ if ( ! class_exists( 'Wumetax_SEO_Core_v120' ) ) {
 			self::management_init();
 			self::search_console_init();
 			self::dashboard_init();
+			self::indexnow_init();
 			add_action( 'admin_menu', [ __CLASS__, 'admin_menu' ] );
 			add_action( 'admin_init', [ __CLASS__, 'register_settings' ] );
 			add_action( 'admin_enqueue_scripts', [ __CLASS__, 'admin_assets' ] );

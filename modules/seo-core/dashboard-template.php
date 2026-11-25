@@ -1,6 +1,6 @@
 <?php
 defined( 'ABSPATH' ) || exit;
-$tabs = ['performance'=>'搜尋成效','index'=>'索引狀態','sitemap'=>'Sitemap','keywords'=>'關鍵字追蹤','technical'=>'技術診斷'];
+$tabs = ['performance'=>'搜尋成效','index'=>'索引狀態','sitemap'=>'Sitemap','keywords'=>'關鍵字追蹤','technical'=>'技術診斷','indexnow'=>'IndexNow'];
 if ( ! isset( $tabs[$tab] ) ) $tab = 'performance';
 ?>
 <div id="wu-seo-dashboard" data-ajax="<?php echo esc_url( admin_url( 'admin-ajax.php', 'relative' ) ); ?>"
@@ -8,7 +8,7 @@ if ( ! isset( $tabs[$tab] ) ) $tab = 'performance';
     data-post="<?php echo esc_attr( $target ? $target->ID : 0 ); ?>"
     data-page="<?php echo esc_url( $target ? get_permalink( $target ) : '' ); ?>"
     data-analytics="<?php echo $scope ? '1' : '0'; ?>">
-    <?php if ( $tab !== 'technical' ) : ?>
+    <?php if ( ! in_array( $tab, ['technical','indexnow'], true ) ) : ?>
     <form class="wus-toolbar wutm-ui-panel" data-filters>
         <label>起日 <input type="date" name="start" value="<?php echo esc_attr( $start->format( 'Y-m-d' ) ); ?>" required></label>
         <label>迄日 <input type="date" name="end" value="<?php echo esc_attr( $end->format( 'Y-m-d' ) ); ?>" required></label>
@@ -45,6 +45,8 @@ if ( ! isset( $tabs[$tab] ) ) $tab = 'performance';
     </nav>
     <?php if ( $tab === 'technical' ) : ?>
         <?php self::dashboard_technical_tools(); ?>
+    <?php elseif ( $tab === 'indexnow' ) : ?>
+        <?php self::indexnow_panel(); ?>
     <?php else : ?>
     <section class="wutm-ui-panel wus-card" data-panel="performance" <?php if ($tab !== 'performance') echo 'hidden'; ?>>
         <div class="wus-row"><h2>搜尋成效明細</h2><button type="button" class="button" data-reset hidden>回到全站</button></div>

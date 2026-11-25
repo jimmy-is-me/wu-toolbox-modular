@@ -6,6 +6,9 @@ trait WUTM_SEO_Dashboard {
         if ( ( $_GET['page'] ?? '' ) !== 'wu-seo-tools' || ! current_user_can( 'manage_options' ) ) return;
         wp_enqueue_style( 'wu-seo-dashboard', WUTM_URL . 'modules/seo-core/assets/dashboard.css', [], self::VERSION );
         wp_enqueue_script( 'wu-seo-dashboard', WUTM_URL . 'modules/seo-core/assets/dashboard.js', [], self::VERSION, true );
+        if ( ( $_GET['seo_tab'] ?? '' ) === 'indexnow' ) {
+            wp_enqueue_style( 'wu-seo-indexnow', WUTM_URL . 'modules/seo-core/assets/indexnow.css', ['wu-seo-dashboard'], self::VERSION );
+        }
     }
 
     public static function dashboard_row_action( array $actions, $post ): array {

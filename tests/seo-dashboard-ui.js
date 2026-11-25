@@ -40,6 +40,7 @@ const metric = (key, im, click, ctr, pos) => ({key,impressions:im,clicks:click,c
             return route.fulfill({json:{success:true,data:output}});
         });
         await page.goto(site);
+        await page.locator('.wus-tabs a[data-tab=indexnow]').waitFor();
         await page.addStyleTag({content:asset('css')});
         await page.addScriptTag({content:asset('js')});
         await page.getByText('2,300',{exact:true}).first().waitFor();
