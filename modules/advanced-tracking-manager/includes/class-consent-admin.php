@@ -33,7 +33,7 @@ final class WUTM_ATM_Consent_Admin {
         $s['days'] = max(7, min(365, absint(self::posted('days')) ?: 180));
         $s['url'] = esc_url_raw(self::posted('url'), ['http','https']);
         $gtm = self::posted('gtm');
-        $s['gtm'] = in_array($gtm, ['both','analytics','marketing'], true) ? $gtm : 'both';
+        $s['gtm'] = isset(WUTM_ATM_Consent::gtm_categories()[$gtm]) ? $gtm : 'both';
         foreach (self::TEXT as $key=>$label) {
             $value = $key === 'description' ? sanitize_textarea_field(self::posted($key)) : sanitize_text_field(self::posted($key));
             if ($value !== '') $s[$key] = wp_html_excerpt($value, $key === 'description' ? 700 : 80);
@@ -103,9 +103,9 @@ final class WUTM_ATM_Consent_Admin {
                     <label>隱私權政策網址<input type="url" name="url" value="<?php echo esc_attr($s['url']); ?>" placeholder="留空使用 WordPress 隱私權政策"></label>
                     <label>同意保存天數<input type="number" name="days" min="7" max="365" value="<?php echo esc_attr($s['days']); ?>" required></label>
                 </div>
-                <p><label>GTM 容器的同意條件
+                <p id="wutm-atm-gtm-consent"><label>GTM 容器的同意條件
                     <select name="gtm">
-                        <?php foreach (['both'=>'分析及行銷皆允許','analytics'=>'分析（限純分析容器）','marketing'=>'行銷（限純行銷容器）'] as $id=>$label) : ?>
+                        <?php foreach (WUTM_ATM_Consent::gtm_categories() as $id=>$label) : ?>
                             <option value="<?php echo esc_attr($id); ?>" <?php selected($s['gtm'], $id); ?>><?php echo esc_html($label); ?></option>
                         <?php endforeach; ?>
                     </select>

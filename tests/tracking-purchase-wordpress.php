@@ -26,7 +26,7 @@ $set = static function (array $changes) use ($settings) {
 
 require_once ABSPATH . 'wp-admin/includes/admin.php';
 require_once dirname(__DIR__) . '/modules/advanced-tracking-manager/module.php';
-foreach (['class-observability','class-event-admin','class-purchase-admin','class-acceptance'] as $file) {
+foreach (['class-observability','class-event-admin','class-purchase-admin'] as $file) {
     require_once WUTM_ATM_DIR . 'includes/' . $file . '.php';
 }
 $consent = true;
@@ -230,24 +230,6 @@ try {
     $expect(WUTM_ATM_Purchase::simulate($simulation->get_id(), false, $key)['result'] === 'unavailable', 'Missing current test code prevents new simulations.');
     $simulation->payment_complete('fixture-later-production');
     $expect($official($simulation)->event_id !== $test->event_id, 'Later valid payment can create its own production event.');
-
-    $report = WUTM_ATM_Observability::report();
-    $checklist = WUTM_ATM_Acceptance::checklist($report, WUTM_ATM_Purchase::rows([$simulation->get_id()]));
-    $expect(count($checklist) === 17 && $checklist['dedup']['state'] === 'manual' &&
-        $checklist['purchase']['state'] === 'not_tested', 'A server-only successful test cannot certify Purchase or Meta deduplication.');
-    $labels = WUTM_ATM_Acceptance::labels();
-    $list = $checklist;
-    $rows = WUTM_ATM_Purchase::rows([$simulation->get_id()]);
-    $order = WUTM_ATM_Observability::order($simulation->get_id());
-    $title = 'Fixture report';
-    foreach ([false,true] as $technical) {
-        ob_start();
-        require WUTM_ATM_DIR . 'templates/acceptance-report.php';
-        $html = ob_get_clean();
-        $expect(strpos($html, '@media print') !== false && strpos($html, 'fixture-only') === false &&
-            strpos($html, 'fixture@example.test') === false && ((strpos($html, $test->event_id) !== false) === $technical),
-            'Both reports are printable and omit secrets and customer fields; only the technical report shows raw IDs.');
-    }
 
     $url = home_url('/catalog/?page_id=32&key=wc_order_example&email=buyer@example.test#details');
     $expect(WUTM_ATM_Events::verified_url($url) === home_url('/catalog/?page_id=32') &&

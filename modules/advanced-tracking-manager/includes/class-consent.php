@@ -11,8 +11,10 @@ final class WUTM_ATM_Consent {
 
     public static function settings(): array {
         $saved = (array) get_option(self::OPTION, []);
+        $gtm = $saved['gtm'] ?? '';
+        $saved['gtm'] = is_string($gtm) && isset(self::gtm_categories()[$gtm]) ? $gtm : 'both';
         return wp_parse_args($saved, [
-            'enabled'=>false, 'policy'=>'', 'days'=>180, 'gtm'=>'both', 'url'=>'',
+            'enabled'=>false, 'policy'=>'', 'days'=>180, 'url'=>'',
             'layout'=>'inline', 'appearance'=>'light', 'first_visit'=>!empty($saved['enabled']) ? 'opt_out' : 'opt_in',
             'default_analytics'=>true, 'default_marketing'=>true,
             'title'=>'Cookie 與隱私偏好',
@@ -23,6 +25,16 @@ final class WUTM_ATM_Consent {
 
     public static function active(): bool {
         return (bool) self::settings()['enabled'];
+    }
+
+    public static function gtm_categories(): array {
+        return ['both'=>'分析及行銷皆允許', 'analytics'=>'分析（限純分析容器）', 'marketing'=>'行銷（限純行銷容器）'];
+    }
+
+    public static function gtm_id(): string {
+        $id = get_option('atm_gtm_id', '');
+        $id = is_string($id) ? strtoupper(trim($id)) : '';
+        return preg_match('/^GTM-[A-Z0-9]+$/D', $id) ? $id : '';
     }
 
     public static function layouts(): array {
@@ -197,7 +209,7 @@ final class WUTM_ATM_Consent {
             'csrf'=>self::visitor_key('csrf', $token),
             'tags'=>[
                 'ga4'=>$tag('ga4', !$excluded && $analytics), 'ads'=>$tag('google_ads', !$excluded && $marketing),
-                'gtm'=>$tag('gtm', !$excluded && $gtm),
+                'gtm'=>!$excluded && $gtm && get_option('atm_gtm_enabled', 0) ? self::gtm_id() : '',
                 'pixel'=>!$excluded && $marketing && (!$managed || WUTM_ATM_Events::browser_active()) ? $tag('fb_pixel', true) : '',
                 'legacy'=>!$managed,
                 'match'=>!$excluded && $marketing && $preferences['chosen'] && WUTM_ATM_Events::browser_active() && WUTM_ATM_Events::server_active(),
