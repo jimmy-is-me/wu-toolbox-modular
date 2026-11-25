@@ -80,7 +80,9 @@ try {
     $page = $make( ['post_status'=>'publish','post_name'=>'indexnow-first','meta_input'=>['_wu_seo_title'=>'Launch']] );
     $first = get_permalink( $page );
     $listed = [$first];
-    $pages[$first] = $regular( '<html><head><link rel="canonical" href="/indexnow-first/"></head><body>CAPTCHA 字樣</body></html>' );
+    $relative = wp_parse_url( $first, PHP_URL_PATH );
+    if ( $query = wp_parse_url( $first, PHP_URL_QUERY ) ) $relative .= '?' . $query;
+    $pages[$first] = $regular( '<html><head><link rel="canonical" href="' . esc_attr( $relative ) . '"></head><body>CAPTCHA 字樣</body></html>' );
     // Multiple updates and SEO writes in one request yield one job with the final state.
     wp_update_post( ['ID'=>$page,'post_excerpt'=>'Launch excerpt'] );
     wp_update_post( ['ID'=>$page,'post_excerpt'=>'Launch excerpt'] );
@@ -94,8 +96,9 @@ try {
     index426_assert( $row( $first )['revision'] === $published['revision'], 'Unchanged saves and system metadata are ignored.' );
     $advance(); $worker();
     $health = json_decode( $row( $first )['health'], true );
-    index426_assert( $health['code'] === 'ok' && $health['page']['canonical'] === $first && $health['sitemap']['child'] === $child,
-        'Background health checks final HTTP, relative canonical, and the correct child Sitemap.' );
+    index426_assert( ( $health['code'] ?? '' ) === 'ok' && ( $health['page']['canonical'] ?? '' ) === $first && ( $health['sitemap']['child'] ?? '' ) === $child,
+        'Background health must confirm the final HTTP, relative canonical, and correct child Sitemap. Fixture result: ' .
+        wp_json_encode( ['expected'=>[$first,$child],'health'=>$health], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ) );
     $api_reply = 202;
     $advance(); $worker();
     $sent = $api();
