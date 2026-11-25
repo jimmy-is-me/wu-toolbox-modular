@@ -417,7 +417,7 @@
     }
     root.addEventListener('click', event=>{
         const anchor=event.target.closest('a[data-tab]');
-        if (!anchor || anchor.dataset.tab==='technical' || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
+        if (!anchor || ['technical','indexnow'].includes(anchor.dataset.tab) || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return;
         event.preventDefault(); chooseTab(anchor.dataset.tab,!anchor.closest('.wus-tabs'));
         const url=new URL(anchor.href); history.replaceState(null,'',url);
     });

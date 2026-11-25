@@ -74,7 +74,7 @@ trait WUTM_SEO_Technical {
     }
 
     /** Same-origin only, WP safe HTTP transport, redirects validated individually. */
-    public static function diagnostic_request( $url ) {
+    public static function diagnostic_request( $url, int $timeout = 8 ) {
         $origin = wp_parse_url( home_url( '/' ) );
         $seen = []; $chain = [];
         for ( $i = 0; $i < 5; $i++ ) {
@@ -84,7 +84,7 @@ trait WUTM_SEO_Technical {
             }
             if ( isset( $seen[ $url ] ) ) { return [ 'url' => $url, 'error' => '偵測到轉址循環。', 'chain' => $chain ]; }
             $seen[ $url ] = true;
-            $response = wp_safe_remote_get( $url, [ 'timeout' => 8, 'redirection' => 0, 'limit_response_size' => 2097152, 'cookies' => [], 'user-agent' => 'WuSEO-Diagnostic/1.0; ' . home_url( '/' ) ] );
+            $response = wp_safe_remote_get( $url, [ 'timeout' => $timeout, 'redirection' => 0, 'limit_response_size' => 2097152, 'cookies' => [], 'user-agent' => 'WuSEO-Diagnostic/1.0; ' . home_url( '/' ) ] );
             if ( is_wp_error( $response ) ) { return [ 'url' => $url, 'error' => $response->get_error_message(), 'chain' => $chain ]; }
             $status = wp_remote_retrieve_response_code( $response );
             $chain[] = [ 'url' => $url, 'status' => $status ];
@@ -94,7 +94,8 @@ trait WUTM_SEO_Technical {
                 $url = WP_Http::make_absolute_url( $next, $url ); continue;
             }
             $body = wp_remote_retrieve_body( $response );
-            $result = [ 'url' => $url, 'status' => $status, 'chain' => $chain, 'type' => (string) wp_remote_retrieve_header( $response, 'content-type' ), 'body' => $body, 'robots' => (string) wp_remote_retrieve_header( $response, 'x-robots-tag' ) ];
+            $robots = implode( ', ', (array) wp_remote_retrieve_header( $response, 'x-robots-tag' ) );
+            $result = [ 'url' => $url, 'status' => $status, 'chain' => $chain, 'type' => (string) wp_remote_retrieve_header( $response, 'content-type' ), 'body' => $body, 'robots' => $robots ];
             $result['challenge'] = 'challenge' === strtolower( trim( (string) wp_remote_retrieve_header( $response, 'cf-mitigated' ) ) );
             $result['cloudflare'] = (bool) wp_remote_retrieve_header( $response, 'cf-ray' );
             if ( strlen( $body ) >= 2097152 ) { $result['error'] = '回應超過 2 MB 診斷上限，未驗證完整內容；請另用伺服器工具驗證。'; }
@@ -133,12 +134,12 @@ trait WUTM_SEO_Technical {
         return $out;
     }
 
-    public static function run_sitemap_diagnostic( $selected = '' ) {
+    public static function run_sitemap_diagnostic( $selected = '', int $timeout = 8 ) {
         $url = $selected ?: self::sitemap_url();
         $key = 'wu_seo_http_' . md5( $url );
         $cached = get_transient( $key );
         if ( false !== $cached ) { return $cached; }
-        $result = self::diagnostic_request( $url );
+        $result = self::diagnostic_request( $url, $timeout );
         if ( isset( $result['body'] ) ) {
             if ( ! isset( $result['error'] ) ) { $result['xml'] = self::inspect_xml( $result['body'] ); }
             unset( $result['body'] );

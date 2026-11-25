@@ -108,46 +108,81 @@ trait WUTM_SEO_Dashboard_Data {
         wp_schedule_single_event( time() + 30, 'wu_seo_publication_check', [ (int) $post->ID ] );
     }
 
+    private static function publication_exclusion( $post, string $url ): string {
+        if ( ! get_option( 'blog_public' ) ) return '網站設定不允許索引';
+        if ( self::output_is_owned_elsewhere() ) return '';
+        if ( get_post_meta( $post->ID, '_wu_seo_noindex', true ) ) return '本機 noindex';
+        $canonical = (string) get_post_meta( $post->ID, '_wu_seo_canonical', true );
+        return $canonical && untrailingslashit( $canonical ) !== untrailingslashit( $url )
+            ? '本機 canonical 指向其他網址' : '';
+    }
+
+    private static function publication_sitemap_step( string $url, string $type, array $state, int $timeout = 4 ): array {
+        $root = self::run_sitemap_diagnostic( '', $timeout );
+        $state['time'] = time();
+        if ( empty( $root['xml']['valid'] ) || ! empty( $root['challenge'] ) || 200 !== ( $root['status'] ?? 0 ) ) {
+            return array_replace( $state, ['code'=>'sitemap_error','state'=>'主 Sitemap HTTP／XML 讀取錯誤',
+                'source'=>self::sitemap_url(),'source_time'=>$root['checked_at'] ?? 0,'http'=>$root['status'] ?? null,'detail'=>$root['error'] ?? implode( '；', $root['xml']['issues'] ?? [] )] );
+        }
+        if ( empty( $root['xml']['index'] ) ) {
+            $found = in_array( $url, $root['xml']['urls'], true );
+            return array_replace( $state, ['code'=>$found ? 'ok' : 'missing',
+                'state'=>$found ? '公開 Sitemap 已列出' : '找不到，原因待查',
+                'source'=>self::sitemap_url(),'source_time'=>$root['checked_at'] ?? 0,'http'=>200] );
+        }
+
+        $children = array_values( array_unique( array_filter( $root['xml']['urls'], static function ( $child ) use ( $type ) {
+            $parts = wp_parse_url( $child ); $params = [];
+            parse_str( $parts['query'] ?? '', $params );
+            return ( ( $params['sitemap'] ?? '' ) === 'posts' && ( $params['sitemap-subtype'] ?? '' ) === $type ) ||
+                preg_match( '~(?:^|/)wp-sitemap-posts-' . preg_quote( $type, '~' ) . '-[0-9]+\.xml$~D', $parts['path'] ?? '' );
+        } ) ) );
+        $state['children'] = count( $children );
+        $signature = hash( 'sha256', implode( "\n", $children ) );
+        if ( $signature !== ( $state['signature'] ?? '' ) ) {
+            $state = array_intersect_key( $state, array_flip( ['time','children'] ) ) + ['offset'=>0,'signature'=>$signature];
+        }
+        foreach ( array_slice( $children, $state['offset'], min( 2, 30 - $state['offset'] ) ) as $child ) {
+            $r = self::run_sitemap_diagnostic( $child, $timeout );
+            $state['offset']++;
+            $state['last_child'] = $child;
+            $state['last_child_time'] = $r['checked_at'] ?? 0;
+            if ( empty( $r['xml']['valid'] ) || ! empty( $r['xml']['index'] ) || ! empty( $r['challenge'] ) || 200 !== ( $r['status'] ?? 0 ) ) {
+                $state['child_error'] = true;
+                $state['source'] = $child;
+                $state['source_time'] = $r['checked_at'] ?? 0;
+                $state['http'] = $r['status'] ?? null;
+                $state['detail'] = $r['error'] ?? implode( '；', $r['xml']['issues'] ?? [] );
+                continue;
+            }
+            if ( in_array( $url, $r['xml']['urls'], true ) ) {
+                return array_replace( $state, ['code'=>'ok','state'=>'公開子 Sitemap 已列出','child'=>$child,'source'=>$child,'source_time'=>$r['checked_at'] ?? 0,'http'=>200,'detail'=>''] );
+            }
+        }
+        if ( $state['offset'] < min( 30, count( $children ) ) ) {
+            return array_replace( $state, ['code'=>'pending','state'=>'pending'] );
+        }
+        if ( ! empty( $state['child_error'] ) ) {
+            return array_replace( $state, ['code'=>'sitemap_error','state'=>'子 Sitemap HTTP／XML 讀取錯誤'] );
+        }
+        $state['source'] = $state['last_child'] ?? self::sitemap_url();
+        $state['source_time'] = $state['last_child_time'] ?? $root['checked_at'] ?? 0;
+        $state['http'] = 200;
+        unset( $state['detail'] );
+        return array_replace( $state, ['code'=>'missing','state'=>$state['offset'] < count( $children )
+            ? '本次已查 30 個子檔，原因待查' : '找不到，原因待查'] );
+    }
+
     public static function dashboard_check_publication( int $id ): void {
         $post = self::dashboard_post( $id );
         if ( ! $post ) return;
         $state = (array) get_post_meta( $id, '_wu_seo_publication_check', true );
         if ( 'pending' !== ( $state['state'] ?? '' ) ) return;
         $url = (string) get_permalink( $post );
-        $canonical = (string) get_post_meta( $id, '_wu_seo_canonical', true );
-        $state['time'] = time();
-        if ( ! get_option( 'blog_public' ) ) $state['state'] = '網站設定不允許索引';
-        elseif ( ! self::output_is_owned_elsewhere() && get_post_meta( $id, '_wu_seo_noindex', true ) ) $state['state'] = '本機 noindex';
-        elseif ( ! self::output_is_owned_elsewhere() && $canonical && untrailingslashit( $canonical ) !== untrailingslashit( $url ) ) $state['state'] = '本機 canonical 指向其他網址';
-        else {
-            $root = self::run_sitemap_diagnostic();
-            if ( empty( $root['xml']['valid'] ) || ! empty( $root['challenge'] ) || 200 !== ( $root['status'] ?? 0 ) ) {
-                $state['state'] = '主 Sitemap HTTP／XML 讀取錯誤';
-            } elseif ( empty( $root['xml']['index'] ) ) {
-                $state['state'] = in_array( $url, $root['xml']['urls'], true ) ? '公開 Sitemap 已列出' : '疑似快取／待確認';
-            } else {
-                $children = array_values( array_filter( $root['xml']['urls'], static function ( $child ) use ( $post ) {
-                    $parts = wp_parse_url( $child ); $params = [];
-                    parse_str( $parts['query'] ?? '', $params );
-                    return ( $params['sitemap'] ?? '' ) === 'posts' && ( $params['sitemap-subtype'] ?? '' ) === $post->post_type ||
-                        preg_match( '~(?:^|/)wp-sitemap-posts-' . preg_quote( $post->post_type, '~' ) . '-\\d+\\.xml$~D', $parts['path'] ?? '' );
-                } ) );
-                $state['state'] = '疑似快取／待確認';
-                foreach ( array_slice( $children, (int) ( $state['offset'] ?? 0 ), 2 ) as $child ) {
-                    $r = self::run_sitemap_diagnostic( $child );
-                    $state['offset']++;
-                    if ( empty( $r['xml']['valid'] ) || ! empty( $r['challenge'] ) || 200 !== ( $r['status'] ?? 0 ) ) { $state['child_error'] = true; continue; }
-                    if ( in_array( $url, $r['xml']['urls'], true ) ) {
-                        $state['state'] = '公開子 Sitemap 已列出'; $state['child'] = $child; break;
-                    }
-                }
-                if ( ! isset( $state['child'] ) && $state['offset'] < min( 30, count( $children ) ) ) {
-                    $state['state'] = 'pending';
-                    wp_schedule_single_event( time() + 15, 'wu_seo_publication_check', [ $id ] );
-                } elseif ( ! isset( $state['child'] ) && ! empty( $state['child_error'] ) ) $state['state'] = '子 Sitemap HTTP／XML 讀取錯誤';
-                $state['children'] = count( $children );
-            }
-        }
+        $excluded = self::publication_exclusion( $post, $url );
+        $state = $excluded ? array_replace( $state, ['state'=>$excluded,'time'=>time()] )
+            : self::publication_sitemap_step( $url, $post->post_type, $state );
+        if ( $state['state'] === 'pending' ) wp_schedule_single_event( time() + 15, 'wu_seo_publication_check', [$id] );
         update_post_meta( $id, '_wu_seo_publication_check', $state );
     }
 }

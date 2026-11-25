@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+            <h4>4.2.6</h4><ul><li>SEO 核心 1.5.0 新增可選的 IndexNow 自動通知、匿名驗證檔、背景重試與發布健檢。</li><li>新增提交與異常圖表，保留 Search Console 及 WordPress 原生 Sitemap。</li></ul>
             <h4>4.2.5</h4><ul><li>進階追蹤管理器 3.3.4 顯示 GTM 同意載入條件，並可在再次允許後重試載入失敗的容器。</li><li>移除驗收清單及報告，事件 CSV 移至事件紀錄。Cookie 偏好視窗改用柔和陰影，移除儲存中的文字。</li></ul>
             <h4>4.2.4</h4><ul><li>進階追蹤管理器 3.3.3 新增 WooCommerce 變化商品、Tutor LMS 及自訂內容商品對應，保留正確頁面來源。</li><li>修正首次同意時 Pixel Cookie 尚未寫入的時序，以原事件 ID 補入合法的伺服器事件。</li></ul>
             <h4>4.2.3</h4><ul><li>進階追蹤管理器 3.3.2 簡化 WooCommerce 訂單 Purchase 區塊，將模擬與技術診斷集中到「總覽與驗收」。</li><li>區隔正式與合成事件，新增人工收款付款方式、驗收清單、列印報告及事件 CSV，修正清除測試代碼。</li></ul>

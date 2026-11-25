@@ -10,25 +10,40 @@ final class WUTM_SEO_Sitemap_Review {
         if ( 200 !== $status ) { $issues[] = 'HTTP ' . $status . '：無法確認頁面正常公開。'; }
         if ( count( $response['chain'] ?? [] ) > 1 ) { $issues[] = 'Sitemap 網址有轉址，請確認應改成最終正式網址。'; }
         if ( ! empty( $response['challenge'] ) ) { $issues[] = '偵測到安全驗證挑戰，尚未取得可靠頁面內容。'; }
-        $robots = $response['robots'] ?? ''; $canonical = '';
+        $header_robots = $response['robots'] ?? '';
+        $meta_robots = [];
+        $canonical = '';
         $body = $response['body'] ?? '';
         if ( $body && empty( $response['challenge'] ) && empty( $response['error'] ) && class_exists( 'DOMDocument' ) ) {
             $previous = libxml_use_internal_errors( true ); $dom = new DOMDocument();
             $dom->loadHTML( '<?xml encoding="utf-8" ?>' . $body, LIBXML_NONET );
             libxml_clear_errors(); libxml_use_internal_errors( $previous );
-            foreach ( $dom->getElementsByTagName( 'meta' ) as $meta ) {
-                if ( in_array( strtolower( $meta->getAttribute( 'name' ) ), [ 'robots', 'googlebot' ], true ) ) { $robots .= ' ' . $meta->getAttribute( 'content' ); }
-            }
+            $head = $dom->getElementsByTagName( 'head' )->item( 0 );
             $canonicals = [];
-            foreach ( $dom->getElementsByTagName( 'link' ) as $link ) {
+            if ( $head ) {
+                foreach ( $head->getElementsByTagName( 'meta' ) as $meta ) {
+                    $name = strtolower( trim( $meta->getAttribute( 'name' ) ) );
+                    if ( in_array( $name, ['robots','googlebot','bingbot'], true ) ) {
+                        $meta_robots[] = $name . ': ' . $meta->getAttribute( 'content' );
+                    }
+                }
+            }
+            foreach ( $head ? $head->getElementsByTagName( 'link' ) : [] as $link ) {
                 if ( in_array( 'canonical', preg_split( '/\s+/', strtolower( trim( $link->getAttribute( 'rel' ) ) ) ), true ) ) { $canonicals[] = $link->getAttribute( 'href' ); }
             }
-            $canonical = $canonicals[0] ?? '';
+            $href = trim( $canonicals[0] ?? '' );
+            if ( $href !== '' && ! empty( $response['url'] ) ) {
+                $canonical = preg_match( '~^https?://~i', $href ) ? $href : WP_Http::make_absolute_url( $href, $response['url'] );
+            }
             if ( count( $canonicals ) > 1 ) { $issues[] = '重複 Canonical。'; }
             if ( $canonical && rtrim( $canonical, '/' ) !== rtrim( $response['url'] ?? '', '/' ) ) { $issues[] = 'Canonical 與最終網址不同，請確認正式或語言版本。'; }
         }
-        if ( preg_match( '/\bnoindex\b/i', $robots ) ) { $issues[] = '頁面有 noindex，應確認是否排除 Sitemap。'; }
-        return [ 'status' => $status, 'final_url' => $response['url'] ?? '', 'canonical' => $canonical, 'robots' => trim( $robots ), 'issues' => array_values( array_unique( $issues ) ), 'checked_at' => time(), 'google' => '尚未驗證：此結果不是 Googlebot 或 Google 索引證據' ];
+        $robots = trim( implode( '; ', $meta_robots ) . ' ' . $header_robots );
+        $noindex = (bool) preg_match( '/\b(?:noindex|none)\b/i', $robots );
+        if ( $noindex ) { $issues[] = '頁面或回應標頭有 noindex，應確認是否排除 Sitemap。'; }
+        return [ 'status'=>$status, 'final_url'=>$response['url'] ?? '', 'canonical'=>$canonical, 'robots'=>$robots,
+            'header_robots'=>$header_robots, 'meta_robots'=>$meta_robots, 'noindex'=>$noindex, 'issues'=>array_values( array_unique( $issues ) ),
+            'checked_at'=>time(), 'google'=>'尚未驗證：此結果不是 Googlebot 或 Google 索引證據' ];
     }
 
     public static function start( $url ) {
