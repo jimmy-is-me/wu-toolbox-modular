@@ -105,7 +105,7 @@ trait WUTM_SEO_IndexNow_Admin {
         if ( $operation === 'retry' && ! self::indexnow_in_scope( $row['url'], $settings ) ) return '此網址超出目前金鑰驗證範圍。';
         $changes = ['revision'=>wp_generate_uuid4(),'health'=>'','health_code'=>'pending','health_due'=>time()];
         if ( $operation === 'retry' ) {
-            $changes += ['state'=>'queued','ready'=>(int) in_array( $row['kind'], ['moved','removed','excluded'], true ),
+            $changes += ['state'=>'queued','ready'=>0,
                 'attempts'=>0,'due'=>max( time(), (int) get_option( 'wu_seo_indexnow_cooldown', 0 ) )];
         }
         if ( ! self::indexnow_write( $row, $changes ) ) return '此網址正在更新，請重新整理後再試。';

@@ -115,6 +115,10 @@ try {
     $listed = [$second];
     $pages[$first] = $regular( '',301,['location'=>$second] );
     $expire_sitemap(); $api_reply = 429;
+    $before_redirect = count( $api() );
+    $advance(); $worker();
+    index426_assert( count( $api() ) === $before_redirect && $row( $first )['health_code'] === 'retired',
+        'Old URL public status is checked before sending.' );
     $advance(); $worker();
     $old = $row( $first );
     index426_assert( $old['state'] === 'retry' && (int) $old['due'] >= time()+122 && $old['health_code'] === 'retired',
@@ -139,6 +143,10 @@ try {
     $listed = [];
     $expire_sitemap();
     Wumetax_SEO_Core_v120::indexnow_flush();
+    wp_update_post( ['ID'=>$page,'post_excerpt'=>'Further excluded-content edit'] );
+    Wumetax_SEO_Core_v120::indexnow_flush();
+    index426_assert( $row( $second )['kind'] === 'excluded', 'Later excluded-content edits preserve the unsubmitted retirement.' );
+    $advance(); $worker();
     $advance(); $worker();
     $noindex = $row( $second );
     $observed = json_decode( $noindex['health'], true );
@@ -147,6 +155,7 @@ try {
     wp_delete_post( $page, true );
     $pages[$second] = $regular( '',410 );
     Wumetax_SEO_Core_v120::indexnow_flush();
+    $advance(); $worker();
     $advance(); $worker();
     index426_assert( $row( $second )['state'] === 'delivered' && $row( $second )['kind'] === 'removed' &&
         $row( $second )['health_code'] === 'retired', 'Permanent deletion submits the former URL even after HTTP 410.' );

@@ -43,19 +43,18 @@ trait WUTM_SEO_IndexNow_Jobs {
     private static function indexnow_enqueue( string $url, int $id, string $type, string $kind ): bool {
         global $wpdb;
         $table = self::indexnow_table();
-        $ready = in_array( $kind, ['moved','removed','excluded'], true ) ? 1 : 0;
         $now = time();
         // One row per URL, newest change wins. Worker writes use its claimed revision.
         return false !== $wpdb->query( $wpdb->prepare(
             "INSERT INTO $table (url_hash, revision, url, post_id, post_type, kind, state, ready, due, health_due, updated, response, health)
-            VALUES (%s,%s,%s,%d,%s,%s,%s,%d,%d,%d,%d,'','')
+            VALUES (%s,%s,%s,%d,%s,%s,%s,0,%d,%d,%d,'','')
             ON DUPLICATE KEY UPDATE
                 kind=IF(kind IN ('published','new_url') AND state IN ('queued','retry') AND VALUES(kind)='updated',kind,VALUES(kind)),
                 revision=VALUES(revision), post_id=VALUES(post_id), post_type=VALUES(post_type),
                 state=VALUES(state), ready=VALUES(ready), attempts=0, due=VALUES(due), health_due=VALUES(health_due),
                 updated=VALUES(updated), health='', health_code='pending'",
             hash( 'sha256', $url ), wp_generate_uuid4(), $url, $id, $type, $kind, $kind === 'check' ? 'observed' : 'queued',
-            $ready, $now + 25, $now + 20, $now
+            $now + 25, $now + 20, $now
         ) );
     }
 
@@ -238,7 +237,10 @@ trait WUTM_SEO_IndexNow_Jobs {
         }
         $changes = ['health'=>wp_json_encode( $health, JSON_INVALID_UTF8_SUBSTITUTE ),'health_due'=>$next,'health_code'=>$health['code']];
         if ( $row['state'] === 'queued' && ! $row['ready'] ) {
-            if ( $live && !$excluded && $valid_http && !$redirect ) {
+            $retiring = in_array( $row['kind'], ['moved','removed','excluded'], true );
+            // Older URLs are already known to have been public. Their current HTTP evidence
+            // is recorded above, and a redirect, removal or temporary outage must not drop the notice.
+            if ( $retiring || ( $live && !$excluded && $valid_http && !$redirect ) ) {
                 $changes['ready'] = 1;
             } elseif ( ! $next && ( ! $live || $excluded || !$valid_http || $redirect ) ) {
                 $changes['state'] = 'held';

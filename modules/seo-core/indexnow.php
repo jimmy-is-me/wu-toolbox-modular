@@ -213,7 +213,8 @@ trait WUTM_SEO_IndexNow {
         if ( $after['excluded'] ) {
             if ( $old_url === $new_url && ! $before['excluded'] ) {
                 self::indexnow_enqueue( $new_url, $id, $after['type'], 'excluded' );
-            } elseif ( $before !== $after ) {
+            } elseif ( $old_url !== $new_url ) {
+                // Further edits to an excluded URL must not replace a pending retirement.
                 self::indexnow_enqueue( $new_url, $id, $after['type'], 'check' );
             }
             return;
