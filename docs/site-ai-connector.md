@@ -63,7 +63,7 @@ ACF、Pods 及原生 Post Meta 由維護者依型別和權限註冊適配器。�
 ## 測試與正式站驗收
 
 - PHP 整合測試在已啟用 AI 連接器的暫用 WordPress 執行下列指令。
-  `php tests/site-ai-connector-wordpress.php /path/to/wordpress`
+  `php tests/site-ai-connector-wordpress.php /path/to/wordpress`。如暫用站使用自訂公開網域，執行前明確設定 `WUTM_SAC_DISPOSABLE_FIXTURE=1`。
 - Chrome 與 MCP SDK 的 HTTP 整合測試需安裝 playwright-core 及 @modelcontextprotocol/sdk。設定 SAC_TEST_URL、SAC_TEST_LOGIN、SAC_TEST_PASSWORD、SAC_TEST_CHROME。測試站需允許指定 ChatGPT 回呼及測試 Scope，開啟草稿發佈確認。選用 SAC_TEST_IMAGE 可測試圖片連結，SAC_TEST_SEO=1 可測試啟用中的 SEO 適配器。執行 node tests/site-ai-connector-browser.cjs。測試會建立、寫入及發佈暫用內容，只能在可棄置的站點使用。
 - 測試站的本機 HTTP 模式需同時定義 WUTM_SAC_LOCAL_TEST 與 WordPress local 環境，且域名必須是 localhost 或 127.0.0.1。正式站維持 HTTPS。
 - GitHub CI 重跑 WordPress 整合測試及全站既有檢查。原生 ChatGPT 連線使用自有帳號與可達 HTTPS 測試站驗收。請先測查詢，再依方案測草稿和實際檔案參照。正式站的 Cloudflare 設定、外部 SEO 外掛的前台輸出，以及 ACF／Pods 的站點專屬欄位需在各自環境核對。
@@ -72,8 +72,8 @@ ACF、Pods 及原生 Post Meta 由維護者依型別和權限註冊適配器。�
 
 | 項目 | 結果 |
 | --- | --- |
-| OAuth 瀏覽器流程 | 暫用 WordPress 通過 Metadata、DCR、登入、拒絕與同意、授權碼單次使用、權杖撤銷 |
+| OAuth 瀏覽器流程 | 暫用 WordPress 通過 Metadata、DCR、登入、拒絕與同意、授權碼單次使用、權杖撤銷，並以本機 HTTPS 反向代理與子目錄重跑 |
 | OAuth 整合 | 通過錯誤 Redirect URI、Resource、PKCE、Client 與 Scope 拒絕，亦驗證過期／撤銷、Refresh 輪替與重用撤銷 |
 | MCP | TypeScript SDK 實測握手與工具呼叫，HTTP 實測 2026-07-28 探索及標頭與訊息比對 |
-| 內容與媒體 | 驗證文章、頁面、多種 CPT、實際 Lab 外掛欄位、SEO Core、FAQ、上傳連結、精選圖片、人工確認發佈與操作紀錄 |
+| 內容與媒體 | 驗證文章、頁面、多種 CPT、實際 Lab 外掛欄位、SEO Core、FAQ、上傳連結、精選圖片、人工確認發佈與操作紀錄。另在 ACF 和 Pods 啟用時執行整合測試，驗證 ACF 未綁定欄位提示 |
 | ChatGPT 帳號及正式環境 | 尚待原生 ChatGPT 建立私人連線、平台提供的圖片交付及正式站代理規則驗證 |

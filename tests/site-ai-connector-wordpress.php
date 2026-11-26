@@ -54,6 +54,10 @@ function sac_fixture_authorize( $client, $user, $scopes, $redirect ) {
     ];
 }
 
+$fixture_host = wp_parse_url( home_url(), PHP_URL_HOST );
+sac_fixture_assert( in_array( $fixture_host, [ '127.0.0.1', 'localhost' ], true )
+    || ( is_string( $fixture_host ) && str_ends_with( $fixture_host, '.test' ) )
+    || getenv( 'WUTM_SAC_DISPOSABLE_FIXTURE' ) === '1', 'Use a disposable WordPress site. Confirm custom hosts with WUTM_SAC_DISPOSABLE_FIXTURE=1.' );
 sac_fixture_assert( function_exists( 'sac_oauth_transport' ) && sac_oauth_transport(), 'Enable the connector on a disposable HTTPS site, or configure its explicit localhost test mode.' );
 $admin = get_users( [ 'role' => 'administrator', 'number' => 1 ] )[0];
 $original_user = get_current_user_id();
@@ -110,6 +114,7 @@ try {
     }, 10, 2 );
 
     sac_fixture_request( '/mcp', 'POST', '', [], 401 );
+    sac_fixture_request( '/mcp', 'POST', '', [], 403, [ 'Origin' => 'https://untrusted.example' ] );
     $legacy = bin2hex( random_bytes( 32 ) );
     update_option( 'sac_api_keys', [ $legacy => 'write' ], false );
     sac_fixture_request( '/posts', 'GET', '', [], 401, [ 'X-SAC-Key' => $legacy ] );

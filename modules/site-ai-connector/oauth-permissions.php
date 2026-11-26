@@ -106,6 +106,7 @@ function sac_oauth_is_route( $route ) {
 
 add_filter( 'rest_request_before_callbacks', static function ( $response, $handler, $request ) {
     if ( $response !== null || ! sac_oauth_is_route( $request->get_route() )
+        || $request->get_route() === '/' . SAC_NAMESPACE . '/mcp'
         || str_starts_with( $request->get_route(), '/' . SAC_NAMESPACE . '/oauth/' ) ) return $response;
     $grant = sac_authenticate( $request );
     if ( is_wp_error( $grant ) ) return $grant;
@@ -134,6 +135,7 @@ add_filter( 'rest_post_dispatch', static function ( $response, $server, $request
     $response->header( 'Cache-Control', 'no-store, private' );
     $response->header( 'Pragma', 'no-cache' );
     $response->header( 'X-Content-Type-Options', 'nosniff' );
+    if ( $response->get_status() === 429 ) $response->header( 'Retry-After', '60' );
     if ( str_starts_with( $request->get_route(), '/' . SAC_NAMESPACE . '/oauth/' ) ) return $response;
     $data = $response->get_data();
     if ( $response->get_status() === 401 || ( $response->get_status() === 403 && ( $data['code'] ?? '' ) === 'insufficient_scope' ) ) {
