@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+            <h4>4.3.0</h4><ul><li>更新 AI 連接器後台工作區，對齊連線欄位和複製按鈕，改善窄畫面的欄位排列。</li></ul>
             <h4>4.2.9</h4><ul><li>AI 連接器新增 WordPress 原生 OAuth、PKCE S256、動態註冊、授權撤銷及細項權限，舊固定金鑰停止使用。</li><li>支援自訂 CPT、SEO、FAQ、圖片上傳、操作紀錄及已發佈內容的 WordPress 人工確認。</li></ul>
             <h4>4.2.8</h4><ul><li>AI 連接器集中工具入口與操作紀錄，支援透過 REST 與 MCP 查詢、建立及更新文章、頁面與已授權的自訂內容類型。</li><li>保留舊金鑰與文章 API。直接發佈前先完成欄位寫入，部分儲存失敗時回傳內容 ID。</li></ul>
             <h4>4.2.7</h4><ul><li>內建 LINE Pay 付款工具更新至 WPBrewer 1.4.0，整合 CVE-2026-128833 修補。回呼同時驗證訂單金鑰及交易編號，後台付款操作檢查權限。</li><li>付款除錯紀錄遮蔽敏感資料，加入付款狀態查詢及確認失敗重試。</li></ul>

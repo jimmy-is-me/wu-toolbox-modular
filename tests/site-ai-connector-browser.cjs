@@ -173,6 +173,23 @@ async function main() {
         await copy.click();
         await page.getByRole('button', {name: '已複製', exact: true}).waitFor();
         assert.equal(await page.evaluate(() => navigator.clipboard.readText()), resource);
+        await page.locator('.sac-inspector summary').click();
+        const secondCopy = page.locator('.sac-inspector .sac-copy').first();
+        await secondCopy.click();
+        await secondCopy.getByText('已複製', {exact: true}).waitFor();
+        assert.equal(await copy.innerText(), '複製');
+        for (const width of [1440, 1024, 390]) {
+            await page.setViewportSize({width, height: 900});
+            const aligned = await page.locator('.sac-connection-endpoints .sac-copy-field').evaluateAll(rows => rows.every(row => {
+                const label = row.querySelector('label').getBoundingClientRect();
+                const field = row.querySelector('input').getBoundingClientRect();
+                const button = row.querySelector('button').getBoundingClientRect();
+                const verticalOffset = Math.abs((field.top + field.bottom) / 2 - (button.top + button.bottom) / 2);
+                return field.width > 55 && button.left >= field.right && verticalOffset <= 4
+                    && button.right <= row.getBoundingClientRect().right + 1 && (window.innerWidth > 782 || label.bottom <= field.top);
+            }));
+            assert.ok(aligned, 'Copy rows align at width ' + width);
+        }
 
         const revoked = await context.request.post(asm.revocation_endpoint, {
             headers: {Authorization: basic}, form: {token: tokens.refresh_token},

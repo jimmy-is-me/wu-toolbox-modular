@@ -46,9 +46,15 @@ function sac_admin_failure( $code ) {
 
 function sac_admin_copy( $id, $label, $value, $rows = 3 ) {
     ?>
-    <label for="<?php echo esc_attr( $id ); ?>"><?php echo esc_html( $label ); ?></label>
-    <textarea class="large-text code" id="<?php echo esc_attr( $id ); ?>" rows="<?php echo (int) $rows; ?>" readonly><?php echo esc_textarea( $value ); ?></textarea>
-    <button class="button sac-copy" type="button" data-copy="<?php echo esc_attr( $id ); ?>">複製</button>
+    <div class="sac-copy-field<?php echo $rows > 1 ? ' sac-copy-field--multiline' : ''; ?>">
+        <label for="<?php echo esc_attr( $id ); ?>"><?php echo esc_html( $label ); ?></label>
+        <?php if ( $rows === 1 ) : ?>
+            <input class="sac-copy-value" type="text" id="<?php echo esc_attr( $id ); ?>" value="<?php echo esc_attr( $value ); ?>" readonly>
+        <?php else : ?>
+            <textarea class="sac-copy-value" id="<?php echo esc_attr( $id ); ?>" rows="<?php echo (int) $rows; ?>" readonly><?php echo esc_textarea( $value ); ?></textarea>
+        <?php endif; ?>
+        <button class="sac-copy" type="button" data-copy="<?php echo esc_attr( $id ); ?>">複製</button>
+    </div>
     <?php
 }
 
@@ -207,11 +213,20 @@ function sac_render_admin_page() {
     wutm_admin_page_open( 'AI 連接器' );
     ?>
     <div class="sac-admin">
-    <nav class="nav-tab-wrapper" aria-label="AI 連接器設定">
+    <div class="sac-browser">
+        <div class="sac-browser-bar" aria-hidden="true">
+            <span class="sac-browser-controls"><i></i><i></i><i></i></span>
+            <span class="sac-browser-tab">AI 連接器</span>
+        </div>
+        <div class="sac-browser-heading"><h2><?php echo esc_html( $tabs[ $tab ] ); ?></h2></div>
+        <nav class="sac-nav" aria-label="AI 連接器設定">
     <?php foreach ( $tabs as $id => $label ) : ?>
-        <a class="nav-tab <?php echo $id === $tab ? 'nav-tab-active' : ''; ?>" <?php echo $id === $tab ? 'aria-current="page"' : ''; ?> href="<?php echo esc_url( sac_admin_url( $id ) ); ?>"><?php echo esc_html( $label ); ?></a>
+        <a <?php echo $id === $tab ? 'aria-current="page"' : ''; ?> href="<?php echo esc_url( sac_admin_url( $id ) ); ?>"><?php echo esc_html( $label ); ?></a>
     <?php endforeach; ?>
-    </nav>
+        </nav>
+    </div>
+    <div class="sac-content">
+        <p class="screen-reader-text sac-copy-status" role="status"></p>
     <?php if ( $notice ) : ?><div class="notice <?php echo $error ? 'notice-error' : 'notice-success'; ?>"><p><?php echo esc_html( $notice ); ?></p></div><?php endif;
     switch ( $tab ) {
         case 'connection': sac_oauth_admin_connect(); break;
@@ -223,6 +238,7 @@ function sac_render_admin_page() {
         default: sac_oauth_admin_overview(); break;
     }
     ?>
+    </div>
     </div>
     <?php wutm_admin_page_close();
 }
