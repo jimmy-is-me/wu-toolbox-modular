@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+            <h4>4.2.7</h4><ul><li>內建 LINE Pay 付款工具更新至 WPBrewer 1.4.0，整合 CVE-2026-128833 修補。回呼同時驗證訂單金鑰及交易編號，後台付款操作檢查權限。</li><li>付款除錯紀錄遮蔽敏感資料，加入付款狀態查詢及確認失敗重試。</li></ul>
             <h4>4.2.6</h4><ul><li>SEO 核心 1.5.0 新增可選的 IndexNow 自動通知、匿名驗證檔、背景重試與發布健檢。</li><li>新增提交與異常圖表，保留 Search Console 及 WordPress 原生 Sitemap。</li></ul>
             <h4>4.2.5</h4><ul><li>進階追蹤管理器 3.3.4 顯示 GTM 同意載入條件，並可在再次允許後重試載入失敗的容器。</li><li>移除驗收清單及報告，事件 CSV 移至事件紀錄。Cookie 偏好視窗改用柔和陰影，移除儲存中的文字。</li></ul>
             <h4>4.2.4</h4><ul><li>進階追蹤管理器 3.3.3 新增 WooCommerce 變化商品、Tutor LMS 及自訂內容商品對應，保留正確頁面來源。</li><li>修正首次同意時 Pixel Cookie 尚未寫入的時序，以原事件 ID 補入合法的伺服器事件。</li></ul>

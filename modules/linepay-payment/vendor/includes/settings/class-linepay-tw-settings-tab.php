@@ -88,6 +88,13 @@ class WC_Settings_Tab_LINEPay_TW extends WC_Settings_Page {
 						'id'      => 'linepay_tw_detail_status_note_enabled',
 					),
 					array(
+						'title'   => __( 'Retry Failed Notification Email', 'wpbr-linepay-tw' ),
+						'type'    => 'email',
+						'desc'    => __( 'Email address to receive notification when all confirm retries are exhausted. Defaults to admin email if empty.', 'wpbr-linepay-tw' ),
+						'default' => '',
+						'id'      => 'linepay_tw_retry_notification_email',
+					),
+					array(
 						'type' => 'sectionend',
 						'id'   => 'linepay_tw_general_setting',
 					),

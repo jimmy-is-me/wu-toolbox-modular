@@ -77,6 +77,36 @@ jQuery(function ($) {
 
 	});
 
+			$( document ).on( 'click', '.linepay-check-btn', function( event ) {
+				event.preventDefault();
+				var post_id = $( this ).data( 'id' );
+				var $box    = $( '#woocommerce-linepay-meta-boxes' );
+				if ( $.blockUI ) {
+					$box.block( { message: null } );
+				}
+				$.ajax( {
+					url: linepay_object.ajax_url,
+					data: {
+						action: 'linepay_check',
+						post_id: post_id,
+						security: linepay_object.check_nonce,
+					},
+					dataType: 'json',
+					type: 'post',
+				} ).done( function( data ) {
+					alert( data.message );
+					if ( data.success ) {
+						window.location.reload();
+					}
+				} ).fail( function() {
+					alert( __( 'Unable to check the payment status. Please try again.', 'wpbr-linepay-tw' ) );
+				} ).always( function() {
+					if ( $.blockUI ) {
+						$box.unblock();
+					}
+				} );
+			} );
+
 		}
 	};
 
