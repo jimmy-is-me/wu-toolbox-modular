@@ -75,5 +75,5 @@ ACF、Pods 及原生 Post Meta 由維護者依型別和權限註冊適配器。�
 | OAuth 瀏覽器流程 | 暫用 WordPress 通過 Metadata、DCR、登入、拒絕與同意、授權碼單次使用、權杖撤銷，並以本機 HTTPS 反向代理與子目錄重跑 |
 | OAuth 整合 | 通過錯誤 Redirect URI、Resource、PKCE、Client 與 Scope 拒絕，亦驗證過期／撤銷、Refresh 輪替與重用撤銷 |
 | MCP | TypeScript SDK 實測握手與工具呼叫，HTTP 實測 2026-07-28 探索及標頭與訊息比對 |
-| 內容與媒體 | 驗證文章、頁面、多種 CPT、實際 Lab 外掛欄位、SEO Core、FAQ、上傳連結、精選圖片、人工確認發佈與操作紀錄。另在 ACF 和 Pods 啟用時執行整合測試，驗證 ACF 未綁定欄位提示 |
+| 內容與媒體 | 驗證文章、頁面、多種 CPT、實際 Lab 外掛欄位、SEO Core、FAQ、上傳連結、精選圖片、人工確認發佈與操作紀錄。另測試公開 HTTPS 圖片匯入，在 ACF 和 Pods 啟用時驗證 ACF 未綁定欄位提示 |
 | ChatGPT 帳號及正式環境 | 尚待原生 ChatGPT 建立私人連線、平台提供的圖片交付及正式站代理規則驗證 |
