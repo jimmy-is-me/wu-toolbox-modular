@@ -166,6 +166,9 @@ jobs:
             echo 'Expected compatibility conflict did not reproduce'; exit 1
           fi
           grep -Fq 'already declared itself as compatible' "$RUNNER_TEMP/wutm-startup-repro.log"
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" option update wutm_module_site_ai_connector 1 --path="$RUNNER_TEMP/wutm-media-wp"
+          php tests/site-ai-connector-wordpress.php "$RUNNER_TEMP/wutm-media-wp"
+          php "$RUNNER_TEMP/wutm-wp-cli.phar" option delete wutm_module_site_ai_connector --path="$RUNNER_TEMP/wutm-media-wp"
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/newebpay-bootstrap-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
           php "$RUNNER_TEMP/wutm-wp-cli.phar" eval-file "$GITHUB_WORKSPACE/tests/linepay-payment-wordpress.php" --path="$RUNNER_TEMP/wutm-media-wp" --user=fixture
           php "$RUNNER_TEMP/wutm-wp-cli.phar" option update woocommerce_custom_orders_table_enabled yes --path="$RUNNER_TEMP/wutm-media-wp"

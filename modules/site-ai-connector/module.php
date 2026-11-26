@@ -27,7 +27,10 @@ define( 'SAC_FORM_CPT', 'sac_form_entry' );
 define( 'SAC_CACHE_TTL', 60 ); // 唯讀查詢快取秒數，降低重複對話造成的資料庫負擔
 define( 'SAC_OPTION_FEATURES', 'sac_features' );
 define( 'SAC_OPTION_REDIRECTS', 'sac_redirects' );
-define( 'SAC_LOG_MAX', 200 );  // 操作紀錄只保留寫入動作，上限更小即可
+define( 'SAC_LOG_MAX', 200 );
+require_once __DIR__ . '/content.php';
+require_once __DIR__ . '/connection.php';
+if ( is_admin() ) require_once __DIR__ . '/admin.php';
 
 
 function sac_on_activate() {
@@ -110,11 +113,6 @@ add_action( 'admin_menu', function () {
     add_submenu_page( 'wu-toolbox-modular', 'AI 連接器設定', 'AI 連接器', 'manage_options', 'site-ai-connector', 'sac_render_admin_page' );
 } );
 
-/** Hidden AI tool pages do not have a parent menu title for WordPress to resolve. */
-function sac_prepare_tools_page_title() {
-    $GLOBALS['title'] = 'AI 功能工具';
-}
-
 /**
  * ============================================================
  * 2. 功能定義（單一來源：畫面顯示 + MCP + OpenAPI + Gemini schema）
@@ -123,7 +121,7 @@ function sac_prepare_tools_page_title() {
 function sac_get_tool_definitions() {
     $has_wc = class_exists( 'WooCommerce' );
 
-    return [
+    return array_merge( sac_content_tool_definitions(), sac_connection_tool_definitions(), [
         [
             'name' => 'list_posts', 'group' => '文章與 FAQ', 'method' => 'GET', 'path' => '/posts',
             'summary' => '列出所有文章及狀態', 'description' => '列出文章（含草稿），只回傳 ID、標題、狀態、修改時間，不含內文，查詢速度快。',
@@ -189,7 +187,7 @@ function sac_get_tool_definitions() {
             'need_write' => true, 'available' => true,
             'params' => [
                 'post_id' => [ 'type' => 'integer', 'in' => 'path', 'required' => true ],
-                'faqs'    => [ 'type' => 'array', 'in' => 'body', 'required' => true, 'description' => '完整問答陣列，每項含 question 與 answer' ],
+                'faqs'    => [ 'type' => 'array', 'in' => 'body', 'required' => true, 'description' => '完整問答陣列，每項含 question 與 answer', 'items' => [ 'type' => 'object', 'properties' => [ 'question' => [ 'type' => 'string' ], 'answer' => [ 'type' => 'string' ] ], 'required' => [ 'question', 'answer' ] ] ],
             ],
         ],
         [
@@ -405,14 +403,14 @@ function sac_get_tool_definitions() {
             'params' => [ 'days' => [ 'type' => 'integer', 'in' => 'query', 'description' => '回溯天數，預設 7' ] ],
         ],
         [
-            'name' => 'get_unread_form_submissions', 'group' => '營運資料', 'method' => 'GET', 'path' => '/form-submissions/unread',
+            'name' => 'get_unread_form_submissions', 'group' => '表單送件', 'method' => 'GET', 'path' => '/form-submissions/unread',
             'summary' => '查看未讀表單送件', 'description' => '列出未讀的聯絡表單送件，個資預設遮蔽。',
             'scenario' => '想知道有沒有新的聯絡表單還沒處理', 'prompt' => '有新的聯絡表單嗎？列出未讀送件，客戶資料先遮蔽',
             'need_write' => false, 'available' => true,
             'params' => [ 'reveal_pii' => [ 'type' => 'boolean', 'in' => 'query' ] ],
         ],
         [
-            'name' => 'mark_form_submission_read', 'group' => '營運資料', 'method' => 'POST', 'path' => '/form-submissions/{entry_id}/mark-read',
+            'name' => 'mark_form_submission_read', 'group' => '表單送件', 'method' => 'POST', 'path' => '/form-submissions/{entry_id}/mark-read',
             'summary' => '標記表單送件為已讀', 'description' => '把指定表單送件標記為已處理（需讀寫金鑰）。',
             'scenario' => '處理完一筆表單後標記，避免重複查看', 'prompt' => '表單送件 45 已經處理完，幫我標記已讀',
             'need_write' => true, 'available' => true,
@@ -482,7 +480,7 @@ function sac_get_tool_definitions() {
             'need_write' => true, 'available' => $has_wc && sac_feature_enabled( 'coupons' ),
             'params' => [ 'coupon_id' => [ 'type' => 'integer', 'in' => 'path', 'required' => true ] ],
         ],
-    ];
+    ] );
 }
 
 /**
@@ -650,16 +648,24 @@ PROMPT,
     ];
 }
 
+function sac_parameter_schema( $parameter ) {
+    $schema = array_diff_key( $parameter, array_flip( [ 'in', 'required' ] ) );
+    if ( $schema['type'] === 'array' && ! isset( $schema['items'] ) ) {
+        $schema['items'] = [ 'type' => 'string' ];
+    }
+    return $schema;
+}
+
 function sac_build_gemini_tools_schema() {
     $defs = array_filter( sac_get_tool_definitions(), fn( $d ) => $d['available'] );
     $functions = [];
     foreach ( $defs as $d ) {
         $properties = []; $required = [];
         foreach ( $d['params'] as $key => $p ) {
-            $properties[ $key ] = [ 'type' => $p['type'], 'description' => $p['description'] ?? $d['summary'] ];
+            $properties[ $key ] = sac_parameter_schema( $p ) + [ 'description' => $d['summary'] ];
             if ( ! empty( $p['required'] ) ) $required[] = $key;
         }
-        $functions[] = [ 'name' => $d['name'], 'description' => $d['description'], 'parameters' => [ 'type' => 'object', 'properties' => $properties, 'required' => $required ] ];
+        $functions[] = [ 'name' => $d['name'], 'description' => $d['description'], 'parameters' => [ 'type' => 'object', 'properties' => (object) $properties, 'required' => $required ] ];
     }
     return [ 'function_declarations' => $functions ];
 }
@@ -670,18 +676,18 @@ function sac_build_openapi_schema() {
     $paths = [];
     foreach ( $defs as $d ) {
         $method = strtolower( $d['method'] );
-        $op = [ 'operationId' => $d['name'], 'summary' => $d['summary'], 'description' => $d['description'], 'parameters' => [], 'responses' => [ '200' => [ 'description' => '成功' ] ] ];
+        $op = [ 'operationId' => $d['name'], 'summary' => $d['summary'], 'description' => $d['description'], 'parameters' => [], 'x-openai-isConsequential' => $d['need_write'], 'responses' => [ '200' => [ 'description' => '成功' ] ] ];
         $body_props = []; $body_required = [];
         foreach ( $d['params'] as $key => $p ) {
             if ( $p['in'] === 'body' ) {
-                $body_props[ $key ] = [ 'type' => $p['type'], 'description' => $p['description'] ?? $d['summary'] ];
+                $body_props[ $key ] = sac_parameter_schema( $p ) + [ 'description' => $d['summary'] ];
                 if ( ! empty( $p['required'] ) ) $body_required[] = $key;
             } else {
-                $op['parameters'][] = [ 'name' => $key, 'in' => $p['in'], 'required' => ! empty( $p['required'] ), 'schema' => [ 'type' => $p['type'] ], 'description' => $p['description'] ?? '' ];
+                $op['parameters'][] = [ 'name' => $key, 'in' => $p['in'], 'required' => ! empty( $p['required'] ), 'schema' => sac_parameter_schema( $p ), 'description' => $p['description'] ?? '' ];
             }
         }
         if ( ! empty( $body_props ) ) {
-            $op['requestBody'] = [ 'required' => true, 'content' => [ 'application/json' => [ 'schema' => [ 'type' => 'object', 'properties' => $body_props, 'required' => $body_required ] ] ] ];
+            $op['requestBody'] = [ 'required' => (bool) $body_required, 'content' => [ 'application/json' => [ 'schema' => [ 'type' => 'object', 'properties' => $body_props, 'required' => $body_required ] ] ] ];
         }
         $paths[ $d['path'] ][ $method ] = $op;
     }
@@ -714,7 +720,7 @@ function sac_check_ip_allowlist() {
 // Every connector REST route, including public schemas and MCP transport, passes this gate first.
 add_filter( 'rest_pre_dispatch', function ( $result, $server, $request ) {
     if ( strpos( $request->get_route(), '/' . SAC_NAMESPACE . '/' ) === 0 && ! sac_check_ip_allowlist() ) {
-        return new WP_Error( 'sac_ip_blocked', '此 IP 不在白名單內', [ 'status' => 403 ] );
+        return new WP_Error( 'sac_ip_blocked', '來源 IP 未列入白名單。請前往「連線設定」檢查呼叫平台的出口 IP。', [ 'status' => 403 ] );
     }
     return $result;
 }, 1, 3 );
@@ -736,11 +742,25 @@ function sac_checked_publication_status( $value ) {
  * 僅套用在唯讀（GET）請求，TTL 很短（預設 60 秒），寫入動作不受影響。
  * ============================================================
  */
-function sac_cache_get( $cache_key ) {
-    return get_transient( 'sac_c_' . md5( $cache_key ) );
+function sac_cache_id( WP_REST_Request $request, $cache_key ) {
+    $key = sac_request_key( $request );
+    $scope = get_option( SAC_OPTION_KEYS, [] )[ $key ] ?? [];
+    return 'sac_c_' . hash( 'sha256', serialize( [
+        get_current_blog_id(), get_option( 'sac_cache_generation', '' ), sac_audit_key_id( $key ),
+        $scope, sac_site_content_policy(), $request->get_route(), $cache_key,
+    ] ) );
 }
-function sac_cache_set( $cache_key, $value ) {
-    set_transient( 'sac_c_' . md5( $cache_key ), $value, SAC_CACHE_TTL );
+
+function sac_cache_get( WP_REST_Request $request, $cache_key ) {
+    return get_transient( sac_cache_id( $request, $cache_key ) );
+}
+
+function sac_cache_set( WP_REST_Request $request, $cache_key, $value ) {
+    set_transient( sac_cache_id( $request, $cache_key ), $value, SAC_CACHE_TTL );
+}
+
+function sac_invalidate_cache() {
+    update_option( 'sac_cache_generation', wp_generate_uuid4(), false );
 }
 
 /**
@@ -754,13 +774,13 @@ function sac_mcp_tools_list( $auth_level ) {
     foreach ( $defs as $d ) {
         $properties = []; $required = [];
         foreach ( $d['params'] as $key => $p ) {
-            $properties[ $key ] = [ 'type' => $p['type'], 'description' => $p['description'] ?? $d['summary'] ];
+            $properties[ $key ] = sac_parameter_schema( $p ) + [ 'description' => $d['summary'] ];
             if ( ! empty( $p['required'] ) ) $required[] = $key;
         }
         $tools[] = [
             'name' => $d['name'],
             'description' => $d['description'] . ( $d['need_write'] ? '（此操作會修改網站內容，需讀寫權限）' : '（唯讀查詢）' ),
-            'inputSchema' => [ 'type' => 'object', 'properties' => $properties, 'required' => $required ],
+            'inputSchema' => [ 'type' => 'object', 'properties' => (object) $properties, 'required' => $required ],
             // Honest risk hints help clients distinguish a lookup from a write.
             // They never override a client's own confirmation requirements.
             'annotations' => [
@@ -774,29 +794,41 @@ function sac_mcp_tools_list( $auth_level ) {
     return $tools;
 }
 
-function sac_mcp_call_tool( $tool_name, $args, $auth_level, $actor_key = '' ) {
+function sac_mcp_call_tool( $tool_name, $args, $actor_key ) {
     if ( ! is_array( $args ) ) return new WP_Error( 'sac_invalid_arguments', '工具參數格式錯誤' );
     $defs = sac_get_tool_definitions();
     $def = null;
     foreach ( $defs as $d ) { if ( $d['name'] === $tool_name ) { $def = $d; break; } }
     if ( ! $def ) return new WP_Error( 'sac_unknown_tool', "未知的工具：{$tool_name}" );
-    if ( empty( $def['available'] ) ) return new WP_Error( 'sac_unavailable_tool', '此工具目前不可用' );
-    if ( $def['need_write'] && $auth_level !== 'write' ) return new WP_Error( 'sac_forbidden', '此金鑰為唯讀，無法執行寫入操作' );
+    if ( empty( $def['available'] ) ) return new WP_Error( 'sac_unavailable_tool', str_starts_with( $def['path'], '/wc/' ) && ! class_exists( 'WooCommerce' ) ? 'WooCommerce 未啟用，電商工具目前無法使用。' : '此工具目前不可用，請檢查 AI 連接器的進階設定。' );
 
     $path = $def['path'];
+    $path_keys = [];
     foreach ( $def['params'] as $key => $p ) {
+        if ( ! empty( $p['required'] ) && ! array_key_exists( $key, $args ) ) {
+            return sac_content_error( $key, '缺少工具必填參數。', 'sac_required_field' );
+        }
         if ( $p['in'] === 'path' && isset( $args[ $key ] ) ) {
             if ( ! is_scalar( $args[ $key ] ) || ! preg_match( '/^[a-zA-Z0-9_-]+$/', (string) $args[ $key ] ) ) return new WP_Error( 'sac_invalid_path', '路徑參數格式錯誤' );
             $path = str_replace( '{' . $key . '}', (string) $args[ $key ], $path );
+            $path_keys[ $key ] = true;
         }
     }
 
     $request = new WP_REST_Request( $def['method'], '/' . SAC_NAMESPACE . $path );
-    foreach ( $args as $k => $v ) $request->set_param( $k, $v );
-    $request->set_header( 'x-sac-key', sac_internal_key() );
-    $request->set_header( 'x-sac-audit-key', $actor_key );
+    // Use the original credential and normal REST authorization for every tool.
+    $request->set_header( 'x-sac-key', $actor_key );
+    $request_args = array_diff_key( $args, $path_keys );
+    if ( $def['method'] === 'GET' ) {
+        $request->set_query_params( $request_args );
+    } else {
+        $request->set_header( 'content-type', 'application/json' );
+        $request->set_body( wp_json_encode( (object) $request_args ) );
+    }
 
     $response = rest_do_request( $request );
+    // Internal dispatch skips WordPress's HTTP rest_post_dispatch filter.
+    sac_audit_write( $response, rest_get_server(), $request );
     if ( $response->is_error() ) return $response->as_error();
     return $response->get_data();
 }
@@ -831,7 +863,7 @@ add_action( 'rest_api_init', function () {
 
 function sac_handle_mcp_request( WP_REST_Request $request ) {
     if ( ! sac_check_ip_allowlist() ) {
-        return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => null, 'error' => [ 'code' => 403, 'message' => '此 IP 不在白名單內' ] ] );
+        return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => null, 'error' => [ 'code' => 403, 'message' => '來源 IP 未列入白名單。請前往「連線設定」檢查呼叫平台的出口 IP。' ] ] );
     }
 
     $body = json_decode( $request->get_body(), true );
@@ -845,13 +877,8 @@ function sac_handle_mcp_request( WP_REST_Request $request ) {
         return new WP_REST_Response( null, 202 );
     }
 
-    $auth_header = $request->get_header( 'authorization' );
-    $key = $request->get_header( 'x-sac-key' );
-    if ( ! $key && $auth_header && stripos( $auth_header, 'bearer ' ) === 0 ) {
-        $key = substr( $auth_header, 7 );
-    }
-    $keys = get_option( SAC_OPTION_KEYS, [] );
-    $auth_level = isset( $keys[ $key ] ) ? sac_get_key_level( $keys[ $key ] ) : null;
+    $key = sac_request_key( $request );
+    $auth_level = sac_authenticate( $request );
 
     if ( $method === 'initialize' ) {
         $requested_version = $body['params']['protocolVersion'] ?? '';
@@ -869,22 +896,30 @@ function sac_handle_mcp_request( WP_REST_Request $request ) {
     }
 
     if ( $method === 'tools/list' ) {
-        if ( ! $auth_level ) return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'error' => [ 'code' => 401, 'message' => '缺少或無效的 API 金鑰' ] ] );
+        if ( is_wp_error( $auth_level ) ) return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'error' => [ 'code' => $auth_level->get_error_data()['status'], 'message' => $auth_level->get_error_message() ] ] );
         return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'result' => [ 'tools' => sac_mcp_tools_list( $auth_level ) ] ] );
     }
 
     if ( $method === 'tools/call' ) {
-        if ( ! $auth_level ) return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'error' => [ 'code' => 401, 'message' => '缺少或無效的 API 金鑰' ] ] );
+        if ( is_wp_error( $auth_level ) ) return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'error' => [ 'code' => $auth_level->get_error_data()['status'], 'message' => $auth_level->get_error_message() ] ] );
         if ( ! is_array( $body['params'] ?? null ) || ! is_string( $body['params']['name'] ?? null ) ) {
             return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'error' => [ 'code' => -32602, 'message' => '缺少有效的工具名稱' ] ] );
         }
         $tool_name = $body['params']['name'] ?? '';
         $args = $body['params']['arguments'] ?? [];
-        $result = sac_mcp_call_tool( $tool_name, $args, $auth_level, $key );
+        $result = sac_mcp_call_tool( $tool_name, $args, $key );
         if ( is_wp_error( $result ) ) {
+            $details = [ 'code' => $result->get_error_code(), 'message' => $result->get_error_message() ];
+            $data = $result->get_error_data();
+            if ( is_string( $data['field'] ?? null ) ) $details['field'] = $data['field'];
+            if ( $details['code'] === 'sac_partial_save' && ! empty( $data['id'] ) ) $details['id'] = (int) $data['id'];
             return rest_ensure_response( [
                 'jsonrpc' => '2.0', 'id' => $id,
-                'result' => [ 'content' => [ [ 'type' => 'text', 'text' => $result->get_error_message() ] ], 'isError' => true ],
+                'result' => [
+                    'content' => [ [ 'type' => 'text', 'text' => isset( $details['id'] ) ? $details['message'] . ' 內容 ID：' . $details['id'] : $details['message'] ] ],
+                    'structuredContent' => $details,
+                    'isError' => true,
+                ],
             ] );
         }
         // The underlying write endpoint logs successful writes once.
@@ -894,419 +929,12 @@ function sac_handle_mcp_request( WP_REST_Request $request ) {
     return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'error' => [ 'code' => 404, 'message' => "未知的方法：{$method}" ] ] );
 }
 
-// 把參數陣列整理成一行好讀的摘要文字，取代原本直接顯示原始 JSON
-function sac_summarize_args( $args ) {
-    if ( empty( $args ) ) return '（無參數）';
-    $parts = [];
-    foreach ( $args as $k => $v ) {
-        if ( is_array( $v ) ) $v = wp_json_encode( $v, JSON_UNESCAPED_UNICODE );
-        $v = is_bool( $v ) ? ( $v ? 'true' : 'false' ) : $v;
-        $v = mb_substr( (string) $v, 0, 60 );
-        $parts[] = "{$k}={$v}";
-    }
-    return implode( '，', $parts );
-}
-
-/**
- * ============================================================
- * 5. 後台設定頁
- * ============================================================
- */
-function sac_render_admin_page() {
-    if ( ! current_user_can( 'manage_options' ) ) wp_die( '權限不足' );
-
-    if ( isset( $_POST['sac_action'] ) && check_admin_referer( 'sac_admin_action' ) ) {
-        $keys = get_option( SAC_OPTION_KEYS, [] );
-        if ( $_POST['sac_action'] === 'add_key' ) {
-            $level = ( $_POST['sac_level'] ?? 'read' ) === 'write' ? 'write' : 'read';
-            $prefix = $level === 'write' ? 'sac_rw_' : 'sac_ro_';
-            $new_key = $prefix . wp_generate_password( 32, false );
-            $keys[ $new_key ] = [ 'level' => $level, 'created' => current_time( 'mysql' ) ];
-            update_option( SAC_OPTION_KEYS, $keys );
-            echo '<div class="notice notice-success"><p>已新增金鑰：<code>' . esc_html( $new_key ) . '</code>（請立即複製保存，離開頁面後不再顯示明碼）</p></div>';
-        }
-        if ( $_POST['sac_action'] === 'revoke_key' && ! empty( $_POST['sac_key'] ) ) {
-            unset( $keys[ sanitize_text_field( $_POST['sac_key'] ) ] );
-            update_option( SAC_OPTION_KEYS, $keys );
-            echo '<div class="notice notice-success"><p>已撤銷金鑰</p></div>';
-        }
-        if ( $_POST['sac_action'] === 'save_ip_allowlist' ) {
-            $enabled = ! empty( $_POST['sac_ip_enabled'] );
-            $ips_raw = sanitize_textarea_field( $_POST['sac_ip_list'] ?? '' );
-            $ips = array_values( array_filter( array_map( 'trim', explode( "\n", $ips_raw ) ), fn( $ip ) => filter_var( $ip, FILTER_VALIDATE_IP ) !== false ) );
-            if ( $enabled && ! $ips ) {
-                echo '<div class="notice notice-error"><p>啟用 IP 白名單前，請先填寫至少一個有效的 IP 位址。</p></div>';
-            } else {
-                update_option( SAC_OPTION_IP_ALLOWLIST, [ 'enabled' => $enabled, 'ips' => $ips ] );
-                echo '<div class="notice notice-success"><p>已更新 IP 白名單設定</p></div>';
-            }
-        }
-        if ( $_POST['sac_action'] === 'save_publish_policy' ) {
-            update_option( SAC_OPTION_ALLOW_PUBLISH, ! empty( $_POST['sac_allow_publish'] ) );
-            update_option( SAC_OPTION_ALLOW_COUPON_PUBLISH, ! empty( $_POST['sac_allow_coupon_publish'] ) );
-            echo '<div class="notice notice-success"><p>已更新 AI 發布限制</p></div>';
-        }
-        if ( $_POST['sac_action'] === 'clear_log' ) {
-            update_option( SAC_LOG_OPTION, [] );
-            echo '<div class="notice notice-success"><p>已清空操作紀錄</p></div>';
-        }
-    }
-
-    $keys = get_option( SAC_OPTION_KEYS, [] );
-    $logs = array_slice( array_reverse( get_option( SAC_LOG_OPTION, [] ) ), 0, 50 );
-    $rest_base = esc_url( rest_url( SAC_NAMESPACE ) );
-    $mcp_url = esc_url( rest_url( SAC_NAMESPACE . '/mcp' ) );
-    $openapi_url = esc_url( rest_url( SAC_NAMESPACE . '/openapi.json' ) );
-    $gemini_schema = wp_json_encode( sac_build_gemini_tools_schema(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES );
-    $defs = sac_get_tool_definitions();
-    $prompt_templates = sac_get_prompt_templates();
-    $has_write_key = false;
-    $first_write_key_masked = '';
-    foreach ( $keys as $k => $data ) {
-        if ( sac_get_key_level( $data ) === 'write' ) { $has_write_key = true; break; }
-    }
-    $ip_allowlist = get_option( SAC_OPTION_IP_ALLOWLIST, [ 'enabled' => false, 'ips' => [] ] );
-    $tool_display_names = [];
-    foreach ( $defs as $d ) { $tool_display_names[ $d['name'] ] = $d['summary']; }
-    ?>
-    <div class="wrap wutm-module-wrap sac-connector-core">
-        <h1>AI 連接器設定</h1>
-
-        <h2>API 金鑰管理</h2>
-        <p>模組不會自動產生連線金鑰。請依需要新增唯讀或讀寫金鑰；讀寫金鑰可修改網站內容，請只交給信任的服務。</p>
-        <table class="widefat striped" style="max-width:1000px;">
-            <thead><tr><th>金鑰</th><th>權限</th><th>建立時間</th><th>操作</th></tr></thead>
-            <tbody>
-            <?php foreach ( $keys as $k => $data ) :
-                $level = sac_get_key_level( $data );
-                $created = is_array( $data ) ? ( $data['created'] ?? '—' ) : '—（舊版金鑰，無記錄）';
-            ?>
-                <tr>
-                    <td><code><?php echo esc_html( substr( $k, 0, 12 ) . '...' ); ?></code></td>
-                    <td><?php echo $level === 'write' ? '讀寫' : '唯讀'; ?></td>
-                    <td><?php echo esc_html( $created ); ?></td>
-                    <td>
-                        <form method="post" style="display:inline;">
-                            <?php wp_nonce_field( 'sac_admin_action' ); ?>
-                            <input type="hidden" name="sac_action" value="revoke_key">
-                            <input type="hidden" name="sac_key" value="<?php echo esc_attr( $k ); ?>">
-                            <button class="button button-small" onclick="return confirm('確定撤銷此金鑰？');">撤銷</button>
-                        </form>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
-        <form method="post" style="margin-top:15px;">
-            <?php wp_nonce_field( 'sac_admin_action' ); ?>
-            <input type="hidden" name="sac_action" value="add_key">
-            <select name="sac_level"><option value="read">唯讀</option><option value="write">讀寫</option></select>
-            <button class="button button-primary">新增金鑰</button>
-        </form>
-        <?php if ( ! $has_write_key ) : ?>
-        <p style="color:#a00;margin-top:10px;">⚠ 你目前還沒有「讀寫」金鑰，只能查詢不能修改。新增一把讀寫金鑰後才能使用標示「需要讀寫」的功能。</p>
-        <?php endif; ?>
-
-        <hr style="margin:30px 0;">
-
-        <h2>🚀 最快連接方式（推薦）</h2>
-        <div style="background:#eefaf0;border:1px solid #34a853;border-radius:8px;padding:18px;max-width:1000px;">
-            <p>如果你用 <strong>Claude</strong> 或 <strong>Perplexity</strong>（訂閱 Pro 以上），這是最快的方式，只需要「一個網址＋一把金鑰」，貼上去就能用，不用寫任何程式：</p>
-            <table class="widefat" style="max-width:900px;background:#fff;">
-                <tbody>
-                    <tr><td style="width:140px;"><strong>連線網址</strong></td><td><code><?php echo $mcp_url; ?></code></td></tr>
-                    <tr><td><strong>金鑰</strong></td><td>用上方「讀寫」金鑰（可修改內容）或「唯讀」金鑰（只能查詢，較安全）</td></tr>
-                </tbody>
-            </table>
-            <p style="margin-top:10px;">下方分頁選你要用的平台，照著 3～5 個步驟複製貼上即可。若你用 ChatGPT 或 Gemini，也一併整理在分頁裡。</p>
-        </div>
-
-        <hr style="margin:30px 0;">
-
-        <h2>🔌 依平台設定步驟</h2>
-
-        <div style="display:flex;gap:10px;margin-bottom:0;border-bottom:2px solid #ccd0d4;">
-            <button type="button" class="sac-tab-btn button" data-tab="claude" style="border-radius:6px 6px 0 0;">Claude</button>
-            <button type="button" class="sac-tab-btn button" data-tab="perplexity" style="border-radius:6px 6px 0 0;">Perplexity</button>
-            <button type="button" class="sac-tab-btn button" data-tab="chatgpt" style="border-radius:6px 6px 0 0;">ChatGPT</button>
-            <button type="button" class="sac-tab-btn button" data-tab="gemini" style="border-radius:6px 6px 0 0;">Gemini</button>
-        </div>
-
-        <div id="tab-claude" class="sac-tab-panel" style="border:1px solid #ccd0d4;padding:20px;max-width:1000px;">
-            <h3>Claude Desktop / Claude Code（3 步驟）</h3>
-            <ol style="line-height:2;">
-                <li>打開設定檔：Mac 是 <code>~/Library/Application Support/Claude/claude_desktop_config.json</code>，Windows 是 <code>%APPDATA%\Claude\claude_desktop_config.json</code></li>
-                <li>貼入下方內容，把 <code>你的讀寫金鑰</code> 換成上方複製的金鑰。</li>
-                <li>存檔後完全結束 Claude（工作列圖示右鍵「結束」）再重新開啟。</li>
-            </ol>
-            <textarea readonly class="sac-copy-box" style="width:100%;height:190px;font-family:monospace;font-size:12px;">{
-  "mcpServers": {
-    "<?php echo esc_js( get_bloginfo( 'name' ) ); ?>": {
-      "url": "<?php echo $mcp_url; ?>",
-      "headers": {
-        "X-SAC-Key": "你的讀寫金鑰"
-      }
-    }
-  }
-}</textarea>
-            <p><button type="button" class="button sac-copy-btn">📋 複製設定</button></p>
-        </div>
-
-        <div id="tab-perplexity" class="sac-tab-panel" style="border:1px solid #ccd0d4;padding:20px;max-width:1000px;display:none;">
-            <h3>Perplexity（Pro / Max / Enterprise，5 步驟）</h3>
-            <ol style="line-height:2;">
-                <li>登入 Perplexity，前往「帳號設定 → Connectors（連接器）」。</li>
-                <li>點右上角「+ Custom connector」，選擇「Remote」。</li>
-                <li>Name 填：<code><?php echo esc_html( get_bloginfo( 'name' ) ); ?></code>，MCP Server URL 填：<code><?php echo $mcp_url; ?></code></li>
-                <li>Authentication 選「API Key」貼上金鑰，Transport 選「Streamable HTTP」。</li>
-                <li>按「Add」，完成後在對話的 Sources 裡啟用這個連接器。連上後可先問「What tools do you have access to?」確認。</li>
-            </ol>
-            <p><strong>連線後驗證：</strong>先請 Perplexity 使用 <code>get_post</code> 讀取指定文章 ID，確認回傳標題與狀態。只有讀寫金鑰會列出 <code>update_post</code> 等寫入工具；若更新後仍看到舊工具清單，請重新連接。若能讀取但寫入被要求確認，請在 Perplexity 完成確認；本站無法略過平台的安全確認。若確認後仍失敗，檢查下方「最近操作紀錄」是否出現寫入紀錄。只有看見工具名稱，不代表寫入呼叫已送達本站。</p>
-        </div>
-
-        <div id="tab-chatgpt" class="sac-tab-panel" style="border:1px solid #ccd0d4;padding:20px;max-width:1000px;display:none;">
-            <h3>ChatGPT（需要 Plus 以上，建立 Custom GPT，5 步驟）</h3>
-            <ol style="line-height:2;">
-                <li>前往 <a href="https://chat.openai.com/gpts/editor" target="_blank">GPT 編輯器</a>，切到「Configure」分頁。</li>
-                <li>滑到「Actions」按「Create new action」。</li>
-                <li>Schema 來源選「Import from URL」，貼上：<code><?php echo $openapi_url; ?></code></li>
-                <li>Authentication 選「API Key」→ Custom → Header Name 填 <code>X-SAC-Key</code> → 貼上金鑰。</li>
-                <li>儲存後即可在對話中使用。</li>
-            </ol>
-        </div>
-
-        <div id="tab-gemini" class="sac-tab-panel" style="border:1px solid #ccd0d4;padding:20px;max-width:1000px;display:none;">
-            <h3>Gemini（機制不同，僅供測試判斷邏輯）</h3>
-            <p>Gemini 沒有隨插即用機制，需另寫轉接程式才能全自動對話。先在 <a href="https://aistudio.google.com/" target="_blank">Google AI Studio</a> 的 Tools 設定貼上下方 JSON 測試。</p>
-            <textarea readonly class="sac-copy-box" style="width:100%;height:200px;font-family:monospace;font-size:12px;"><?php echo esc_textarea( $gemini_schema ); ?></textarea>
-            <p><button type="button" class="button sac-copy-btn">📋 複製 JSON</button></p>
-        </div>
-
-        <script>
-        (function(){
-            var btns = document.querySelectorAll('.sac-tab-btn');
-            var panels = document.querySelectorAll('.sac-tab-panel');
-            function activate(tab){
-                panels.forEach(function(p){ p.style.display = (p.id === 'tab-' + tab) ? 'block' : 'none'; });
-                btns.forEach(function(b){ b.classList.toggle('button-primary', b.dataset.tab === tab); });
-            }
-            btns.forEach(function(b){ b.addEventListener('click', function(){ activate(b.dataset.tab); }); });
-            activate('claude');
-            document.querySelectorAll('.sac-copy-btn').forEach(function(btn){
-                btn.addEventListener('click', function(){
-                    var ta = btn.closest('div').querySelector('.sac-copy-box');
-                    navigator.clipboard.writeText(ta.value);
-                    var old = btn.innerText; btn.innerText = '已複製！';
-                    setTimeout(function(){ btn.innerText = old; }, 1200);
-                });
-            });
-        })();
-        </script>
-
-        <hr style="margin:30px 0;">
-
-        <h2>🔒 IP 白名單（進階安全性，選用）</h2>
-        <p>預設關閉，不限制任何來源。若你的 AI 工具是固定 IP 執行（例如自架伺服器），可啟用只允許清單內 IP 呼叫。<strong>Claude／Perplexity 這類雲端服務 IP 會變動，開啟可能導致連不上，不建議一般情況啟用。</strong></p>
-        <form method="post">
-            <?php wp_nonce_field( 'sac_admin_action' ); ?>
-            <input type="hidden" name="sac_action" value="save_ip_allowlist">
-            <label><input type="checkbox" name="sac_ip_enabled" value="1" <?php checked( ! empty( $ip_allowlist['enabled'] ) ); ?>> 啟用 IP 白名單限制</label>
-            <p>允許的 IP（一行一個）：</p>
-            <textarea name="sac_ip_list" style="width:100%;max-width:500px;height:80px;"><?php echo esc_textarea( implode( "\n", $ip_allowlist['ips'] ?? [] ) ); ?></textarea>
-            <p><button class="button button-primary">儲存設定</button></p>
-        </form>
-
-        <h2>AI 寫入限制</h2>
-        <p>新增文章、商品與優惠券預設為草稿；未開啟對應權限時，AI 不可直接讓內容或優惠券生效。此設定沿用現有唯讀／讀寫金鑰權限。</p>
-        <form method="post">
-            <?php wp_nonce_field( 'sac_admin_action' ); ?>
-            <input type="hidden" name="sac_action" value="save_publish_policy">
-            <label><input type="checkbox" name="sac_allow_publish" value="1" <?php checked( (bool) get_option( SAC_OPTION_ALLOW_PUBLISH, false ) ); ?>> 允許 AI 工具直接發布文章與商品</label>
-            <p><label><input type="checkbox" name="sac_allow_coupon_publish" value="1" <?php checked( (bool) get_option( SAC_OPTION_ALLOW_COUPON_PUBLISH, false ) ); ?>> 允許 AI 工具直接啟用新增優惠券，並修改已啟用的優惠券</label></p>
-            <p><button class="button button-primary">儲存設定</button></p>
-        </form>
-
-        <div class="sac-moved-features" hidden>
-        <h2>常用指令：直接複製貼給 AI</h2>
-        <p>每份指令都已包含實際工具名稱、查詢條件、內容規格、人工確認與完成回報。複製後可直接貼到 Claude、ChatGPT 或 Perplexity；需要改主題、文章 ID 或商品 ID 時，再替換指令中的範例值。</p>
-        <p><strong>SEO 寫作原則：</strong>先確認讀者需求與實際資料，再產出獨特標題、可讀的段落與小標題、自然摘要、SEO 標題與描述；避免關鍵字堆砌、重複內容、無依據的功效或排名保證。新內容預設先存草稿，由管理員審核。</p>
-        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px;max-width:1100px;">
-        <?php foreach ( $prompt_templates['quick'] as $key => $item ) : ?>
-            <div style="background:#fff;border:1px solid #ccd0d4;border-radius:6px;padding:14px;">
-                <strong><?php echo esc_html( $item['label'] ); ?></strong>
-                <span style="display:inline-block;margin-left:6px;padding:1px 6px;border-radius:10px;background:#eef1f4;color:#50575e;font-size:11px;"><?php echo esc_html( $item['category'] ); ?></span>
-                <p style="margin-bottom:8px;color:#50575e;">包含查詢、內容規格、確認後寫入及結果回報。</p>
-                <button type="button" class="button sac-quick-copy" data-command-key="<?php echo esc_attr( $key ); ?>">複製完整指令</button>
-                <textarea class="sac-command-source" data-command-key="<?php echo esc_attr( $key ); ?>" hidden><?php echo esc_textarea( $item['prompt'] ); ?></textarea>
-            </div>
-        <?php endforeach; ?>
-        </div>
-        <script>
-        document.querySelectorAll('.sac-quick-copy').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                var key = btn.getAttribute('data-command-key');
-                var source = document.querySelector('.sac-command-source[data-command-key="' + key + '"]');
-                if (!source) return;
-                navigator.clipboard.writeText(source.value).then(function() {
-                    var old = btn.textContent; btn.textContent = '已複製完整指令';
-                    setTimeout(function() { btn.textContent = old; }, 1200);
-                });
-            });
-        });
-        </script>
-        <hr style="margin:30px 0;">
-
-        <h2>📋 功能總覽與範例指令</h2>
-        <p>接上任一平台後，點擊下方範例指令即可複製，貼進對話並換成你實際要處理的對象。</p>
-        <?php
-        $grouped = [];
-        foreach ( $defs as $d ) { $grouped[ $d['group'] ][] = $d; }
-        foreach ( $grouped as $group_name => $items ) :
-        ?>
-            <h3 style="margin-top:22px;"><?php echo esc_html( $group_name ); ?></h3>
-            <table class="widefat striped" style="max-width:1100px;">
-                <thead><tr><th style="width:16%;">功能</th><th style="width:10%;">狀態</th><th style="width:28%;">適合情境</th><th>範例指令（點擊複製）</th></tr></thead>
-                <tbody>
-                <?php foreach ( $items as $d ) : ?>
-                    <tr<?php echo $d['available'] ? '' : ' style="opacity:0.45;"'; ?>>
-                        <td>
-                            <strong><?php echo esc_html( $d['summary'] ); ?></strong>
-                            <?php if ( $d['need_write'] ) : ?>
-                                <br><span style="font-size:11px;background:#fff3cd;color:#7a5c00;padding:1px 6px;border-radius:3px;">需要讀寫</span>
-                            <?php else : ?>
-                                <br><span style="font-size:11px;background:#e6f4ea;color:#1e7e34;padding:1px 6px;border-radius:3px;">唯讀可用</span>
-                            <?php endif; ?>
-                        </td>
-                        <td><?php echo $d['available'] ? '✅ 可用' : '未啟用<br><span style="font-size:11px;">(需 WooCommerce)</span>'; ?></td>
-                        <td><?php echo esc_html( $d['scenario'] ); ?></td>
-                        <td>
-                            <?php if ( $d['available'] ) : ?>
-                            <?php $tool_prompt = $prompt_templates['tool_prompts'][ $d['name'] ] ?? $d['prompt']; ?>
-                            <button type="button" class="sac-tool-prompt-copy" style="width:100%;text-align:left;cursor:pointer;display:block;padding:8px 10px;background:#f6f7f7;border:1px dashed #ccc;border-radius:4px;color:#1d2327;" data-tool="<?php echo esc_attr( $d['name'] ); ?>">📋 <?php echo esc_html( $tool_prompt ); ?></button>
-                            <textarea class="sac-tool-prompt-source" data-tool="<?php echo esc_attr( $d['name'] ); ?>" hidden><?php echo esc_textarea( $tool_prompt ); ?></textarea>
-                            <?php else : ?>
-                                <span style="color:#999;">此功能尚未啟用</span>
-                            <?php endif; ?>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
-                </tbody>
-            </table>
-        <?php endforeach; ?>
-
-        <script>
-        document.querySelectorAll('.sac-tool-prompt-copy').forEach(function(btn) {
-            btn.addEventListener('click', function() {
-                var tool = btn.getAttribute('data-tool');
-                var source = document.querySelector('.sac-tool-prompt-source[data-tool="' + tool + '"]');
-                if (!source) return;
-                navigator.clipboard.writeText(source.value).then(function() {
-                    var old = btn.textContent; btn.textContent = '✅ 已複製到剪貼簿';
-                    setTimeout(function() { btn.textContent = old; }, 1200);
-                });
-            });
-        });
-        </script>
-
-        <hr style="margin:30px 0;">
-
-        <h2>📜 最近操作紀錄（寫入工具）</h2>
-        <p style="font-size:13px;color:#666;">記錄寫入工具的成功與失敗結果；單純查詢不會顯示在這裡。</p>
-        <p class="notice notice-warning" style="padding:10px;">安全性提醒：v3.1.6 升級時已永久清除舊版紀錄中的明文摘要與金鑰前綴，無法還原。這是刻意保護敏感資料的單向遷移，並非資料異常。</p>
-        <table class="widefat striped" style="max-width:1100px;">
-            <thead><tr><th>時間</th><th>工具／動作</th><th>目標</th><th>結果／失敗原因</th><th>SEO 欄位</th><th>金鑰識別碼</th></tr></thead>
-            <tbody>
-            <?php if ( empty( $logs ) ) : ?>
-                <tr><td colspan="6" style="color:#999;">目前沒有任何寫入操作紀錄</td></tr>
-            <?php else : foreach ( $logs as $log ) : ?>
-                <tr>
-                    <td><?php echo esc_html( $log['time'] ); ?></td>
-                    <td><strong><?php echo esc_html( $log['tool'] ?? $log['action'] ?? '' ); ?></strong></td>
-                    <td><?php echo esc_html( ( $log['target_type'] ?? 'legacy' ) . ' #' . ( $log['target_id'] ?? 0 ) ); ?></td>
-                    <td><?php echo esc_html( isset( $log['success'] ) ? ( $log['success'] ? '成功' : '失敗：' . ( $log['failure_reason'] ?? 'request_failed' ) ) : '舊版紀錄' ); ?></td>
-                    <td><?php echo esc_html( implode( ', ', $log['seo_fields'] ?? [] ) ); ?></td>
-                    <td><code><?php echo esc_html( $log['key_id'] ?? '舊版無識別碼' ); ?></code></td>
-                </tr>
-            <?php endforeach; endif; ?>
-            </tbody>
-        </table>
-        <form method="post" style="margin-top:10px;">
-            <?php wp_nonce_field( 'sac_admin_action' ); ?>
-            <input type="hidden" name="sac_action" value="clear_log">
-            <button class="button" onclick="return confirm('確定清空所有操作紀錄？此動作無法復原。');">清空操作紀錄</button>
-        </form>
-        </div>
-    </div>
-    <?php
-}
-
-/**
- * 各 AI 功能卡片共用的獨立頁面。連線與權限仍由 AI 連接器統一管理，
- * 這裡只依工作類型顯示既有工具與指令，避免全部堆在設定首頁。
- */
-function sac_render_tools_page() {
-    if ( ! current_user_can( 'manage_options' ) ) wp_die( '權限不足' );
-
-    $pages = [
-        'content' => [ 'title' => 'AI 文章與 FAQ', 'groups' => [ '文章與 FAQ' ], 'categories' => [ '文章與 FAQ' ] ],
-        'seo' => [ 'title' => 'AI SEO 工具', 'groups' => [ 'SEO' ], 'categories' => [ 'SEO' ] ],
-        'media' => [ 'title' => 'AI 圖片工具', 'groups' => [ '圖片上傳' ], 'categories' => [ '圖片上傳' ] ],
-        'commerce' => [ 'title' => 'AI 電商工具', 'groups' => [ 'WooCommerce 商品', '營運資料', '優惠券管理' ], 'categories' => [ 'WooCommerce 商品', '營運資料', '優惠券管理' ] ],
-        'site' => [ 'title' => 'AI 網站工具', 'groups' => [ '選單管理', '轉址管理' ], 'categories' => [ '選單管理', '轉址管理' ] ],
-        'logs' => [ 'title' => 'AI 操作紀錄', 'groups' => [], 'categories' => [] ],
-    ];
-    $group_key = isset( $_GET['group'] ) ? sanitize_key( wp_unslash( $_GET['group'] ) ) : 'content'; // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-    if ( ! isset( $pages[ $group_key ] ) ) $group_key = 'content';
-    $page = $pages[ $group_key ];
-
-    if ( 'logs' === $group_key && isset( $_POST['sac_action'] ) && 'clear_log' === $_POST['sac_action'] ) {
-        check_admin_referer( 'sac_admin_action' );
-        update_option( SAC_LOG_OPTION, [] );
-        echo '<div class="notice notice-success"><p>已清空操作紀錄</p></div>';
-    }
-
-    $connector_url = admin_url( 'admin.php?page=site-ai-connector' );
-    ?>
-    <div class="wrap wutm-module-wrap sac-tools-page">
-        <h1><?php echo esc_html( $page['title'] ); ?></h1>
-        <p class="wutm-module-subtitle">工具由 AI 連接器統一提供；金鑰、平台串接、IP 白名單與權限請到 <a href="<?php echo esc_url( $connector_url ); ?>">AI 連接器設定</a> 管理。</p>
-        <?php if ( 'logs' === $group_key ) :
-            $logs = array_slice( array_reverse( get_option( SAC_LOG_OPTION, [] ) ), 0, 100 ); ?>
-            <div class="sac-tools-card"><h2>最近寫入操作</h2><p>記錄寫入工具的成功與失敗結果；唯讀查詢不會列入。</p><p class="notice notice-warning" style="padding:10px;">安全性提醒：v3.1.6 升級時已永久清除舊版紀錄中的明文摘要與金鑰前綴，無法還原。這是刻意保護敏感資料的單向遷移，並非資料異常。</p>
-            <table class="widefat striped"><thead><tr><th>時間</th><th>工具／動作</th><th>目標</th><th>結果／失敗原因</th><th>SEO 欄位</th><th>金鑰識別碼</th></tr></thead><tbody>
-            <?php if ( ! $logs ) : ?><tr><td colspan="6">目前沒有任何寫入操作紀錄</td></tr><?php else : foreach ( $logs as $log ) : ?>
-                <tr><td><?php echo esc_html( $log['time'] ?? '' ); ?></td><td><strong><?php echo esc_html( $log['tool'] ?? $log['action'] ?? '' ); ?></strong></td><td><?php echo esc_html( ( $log['target_type'] ?? 'legacy' ) . ' #' . ( $log['target_id'] ?? 0 ) ); ?></td><td><?php echo esc_html( isset( $log['success'] ) ? ( $log['success'] ? '成功' : '失敗：' . ( $log['failure_reason'] ?? 'request_failed' ) ) : '舊版紀錄' ); ?></td><td><?php echo esc_html( implode( ', ', $log['seo_fields'] ?? [] ) ); ?></td><td><code><?php echo esc_html( $log['key_id'] ?? '舊版無識別碼' ); ?></code></td></tr>
-            <?php endforeach; endif; ?></tbody></table>
-            <form method="post" style="margin-top:14px;"><?php wp_nonce_field( 'sac_admin_action' ); ?><input type="hidden" name="sac_action" value="clear_log"><button class="button" onclick="return confirm('確定清空所有操作紀錄？此動作無法復原。');">清空操作紀錄</button></form></div>
-        <?php else :
-            $defs = array_values( array_filter( sac_get_tool_definitions(), static function ( $definition ) use ( $page ) { return in_array( $definition['group'], $page['groups'], true ); } ) );
-            $templates = sac_get_prompt_templates();
-            $quick = array_filter( $templates['quick'], static function ( $item ) use ( $page ) { return in_array( $item['category'], $page['categories'], true ); } );
-            if ( $quick ) : ?>
-                <div class="sac-tools-card"><h2>AI 指令（一鍵複製）</h2><p>先閱讀指令，再將其中的範例主題、文章 ID 或商品 ID 換成實際內容。按「複製指令」後貼到已連接本站工具的 Claude、ChatGPT 或 Perplexity；需要寫入的操作會先請你確認。</p><div class="sac-prompt-list">
-                <?php foreach ( $quick as $key => $item ) : ?><section class="sac-prompt-card"><h3><?php echo esc_html( $item['label'] ); ?></h3><p>用途：<?php echo esc_html( $item['category'] ); ?> · 可先檢查完整步驟再複製</p><label class="screen-reader-text" for="quick-<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $item['label'] ); ?>完整指令</label><textarea id="quick-<?php echo esc_attr( $key ); ?>" class="sac-prompt-text" readonly rows="11"><?php echo esc_textarea( $item['prompt'] ); ?></textarea><p class="sac-prompt-actions"><button type="button" class="button button-primary sac-copy" data-copy="quick-<?php echo esc_attr( $key ); ?>">複製指令</button></p></section><?php endforeach; ?>
-                </div></div>
-            <?php endif; ?>
-            <div class="sac-tools-card"><h2>可使用工具</h2>
-            <?php if ( ! $defs ) : ?><p>目前沒有可顯示的工具。</p><?php else : ?><table class="widefat striped"><thead><tr><th>功能</th><th>權限</th><th>適合情境</th><th>範例指令</th></tr></thead><tbody>
-            <?php foreach ( $defs as $definition ) : $prompt = $templates['tool_prompts'][ $definition['name'] ] ?? $definition['prompt']; ?>
-                <tr<?php echo $definition['available'] ? '' : ' style="opacity:.5"'; ?>><td><strong><?php echo esc_html( $definition['summary'] ); ?></strong><br><code><?php echo esc_html( $definition['name'] ); ?></code></td><td><?php echo $definition['need_write'] ? '需要讀寫' : '唯讀可用'; ?></td><td><?php echo esc_html( $definition['scenario'] ); ?></td><td><?php if ( $definition['available'] ) : ?><details class="sac-tool-prompt"><summary>查看範例指令</summary><label class="screen-reader-text" for="tool-<?php echo esc_attr( $definition['name'] ); ?>"><?php echo esc_html( $definition['summary'] ); ?>範例指令</label><textarea id="tool-<?php echo esc_attr( $definition['name'] ); ?>" readonly rows="5"><?php echo esc_textarea( $prompt ); ?></textarea></details><button type="button" class="button sac-copy" data-copy="tool-<?php echo esc_attr( $definition['name'] ); ?>">複製指令</button><?php else : ?>尚未啟用或缺少 WooCommerce<?php endif; ?></td></tr>
-            <?php endforeach; ?></tbody></table><?php endif; ?></div>
-        <?php endif; ?>
-    </div>
-    <style>.sac-tools-page{max-width:1240px}.sac-tools-card{margin:20px 0;padding:22px 24px;border:1px solid #dcdcde;border-radius:8px;background:#fff}.sac-tools-card h2{margin-top:0}.sac-prompt-list{display:grid;gap:14px}.sac-prompt-card{padding:20px;border:1px solid #c3d8ee;border-radius:6px;background:#f2f8ff}.sac-prompt-card h3{margin:0 0 10px;font-size:16px}.sac-prompt-card p{color:#50575e}.sac-prompt-card .sac-prompt-text{display:block;width:100%;min-height:190px;resize:vertical;font-family:inherit;font-size:14px;line-height:1.6;background:#fff}.sac-prompt-actions{margin:14px 0 0}.sac-tool-prompt{margin-bottom:8px}.sac-tool-prompt summary{color:#2271b1;cursor:pointer}.sac-tool-prompt textarea{display:block;width:100%;min-width:230px;margin-top:8px;font-family:inherit;line-height:1.5}.sac-tools-page .widefat{margin-top:14px}.sac-tools-page .widefat th,.sac-tools-page .widefat td{vertical-align:top}@media(max-width:782px){.sac-tools-page .widefat{display:block;overflow-x:auto}.sac-tools-card{padding:16px}.sac-prompt-card{padding:14px}}</style>
-    <script>document.querySelectorAll('.sac-copy').forEach(function(button){button.addEventListener('click',function(){var source=document.getElementById(button.dataset.copy);if(!source)return;navigator.clipboard.writeText(source.value).then(function(){var old=button.textContent;button.textContent='已複製';setTimeout(function(){button.textContent=old},1200)})})});</script>
-    <?php
-}
-
-/** Render a separately registered AI tool module while reusing the connector's data layer. */
-function sac_render_tools_group( $group_key ) {
-    $_GET['group'] = sanitize_key( $group_key );
-    sac_render_tools_page();
-}
+add_filter( 'rest_pre_serve_request', static function ( $served, $result, $request ) {
+    return $served || ( $request->get_route() === '/' . SAC_NAMESPACE . '/mcp' && $result->get_status() === 202 );
+}, 10, 3 );
 
 function sac_audit_key_id( $key ) {
-    if ( ! is_string( $key ) || '' === $key || $key === sac_internal_key() ) return 'unknown';
+    if ( ! is_string( $key ) || '' === $key ) return 'unknown';
     return substr( hash_hmac( 'sha256', $key, wp_salt( 'auth' ) ), 0, 16 );
 }
 
@@ -1324,14 +952,24 @@ function sac_audit_write( $response, $server, $request ) {
         if ( preg_match( $pattern, $path ) ) { $tool = $definition['name']; break; }
     }
     if ( ! $tool ) return $response;
+    $key = sac_request_key( $request );
+    if ( ! isset( get_option( SAC_OPTION_KEYS, [] )[ $key ] ) ) return $response;
     $data = is_wp_error( $response ) ? [ 'code' => $response->get_error_code() ] : $response->get_data();
     $success = ! is_wp_error( $response ) && ! $response->is_error() && $response->get_status() < 400 && ! ( is_array( $data ) && isset( $data['success'] ) && false === $data['success'] );
+    if ( $success || ( $data['code'] ?? '' ) === 'sac_partial_save' ) sac_invalidate_cache();
     $params = $request->get_params();
-    $raw_id = $params['id'] ?? $params['post_id'] ?? $params['product_id'] ?? $params['media_id'] ?? $params['entry_id'] ?? '';
+    $url_params = $request->get_url_params();
+    $saved_id = $success ? ( $data['post_id'] ?? $data['id'] ?? '' ) : '';
+    if ( ( $data['code'] ?? '' ) === 'sac_partial_save' ) $saved_id = $data['data']['id'] ?? '';
+    $raw_id = $url_params['id'] ?? $saved_id;
     $id = is_scalar( $raw_id ) && preg_match( '/^(?:\d+|r_[a-zA-Z0-9]+)$/', (string) $raw_id ) ? (string) $raw_id : '';
     if ( '' === $id && $success && is_array( $data ) ) $id = (string) absint( $data['post_id'] ?? $data['product_id'] ?? $data['coupon_id'] ?? $data['id'] ?? 0 );
     $target_type = 'other';
-    if ( strpos( $path, '/posts' ) === 0 ) $target_type = 'post';
+    if ( strpos( $path, '/content/' ) === 0 ) {
+        $slug = $url_params['post_type'] ?? '';
+        $target_type = isset( sac_content_types()[ $slug ] ) ? $slug : 'unknown';
+    }
+    elseif ( strpos( $path, '/posts' ) === 0 ) $target_type = 'post';
     elseif ( strpos( $path, '/wc/products' ) === 0 ) $target_type = 'product';
     elseif ( strpos( $path, '/wc/coupons' ) === 0 ) $target_type = 'coupon';
     elseif ( strpos( $path, '/media' ) === 0 ) $target_type = 'media';
@@ -1341,8 +979,6 @@ function sac_audit_write( $response, $server, $request ) {
     $seo_keys = [ 'seo_title', 'seo_description', 'focus_keyword', 'canonical', 'noindex', 'nofollow', 'og_title', 'og_description', 'og_image_id' ];
     if ( 'update_post_seo' === $tool ) $seo_keys = array_merge( $seo_keys, [ 'title', 'description' ] );
     $seo_fields = ( 'update_post_seo' === $tool || in_array( $tool, [ 'update_post', 'update_product', 'create_post', 'create_product' ], true ) ) ? array_values( array_intersect( array_keys( $params ), $seo_keys ) ) : [];
-    $key = $request->get_header( 'x-sac-key' );
-    if ( $key === sac_internal_key() ) $key = $request->get_header( 'x-sac-audit-key' );
     $reason = '';
     if ( ! $success ) {
         // Error codes only: never log free-form messages, request values, PII, or response bodies.
@@ -1377,16 +1013,14 @@ add_action( 'init', function () {
  */
 function sac_authenticate( WP_REST_Request $request ) {
     if ( ! sac_check_ip_allowlist() ) {
-        return new WP_Error( 'sac_ip_blocked', '此 IP 不在白名單內', [ 'status' => 403 ] );
+        return new WP_Error( 'sac_ip_blocked', '來源 IP 未列入白名單。請前往「連線設定」檢查呼叫平台的出口 IP。', [ 'status' => 403 ] );
     }
-    $key = $request->get_header( 'x-sac-key' );
-    if ( $key === sac_internal_key() ) {
-        return 'write';
-    }
-    if ( ! $key ) return new WP_Error( 'sac_no_key', '缺少 API 金鑰', [ 'status' => 401 ] );
+    $key = sac_request_key( $request );
+    if ( ! $key ) return new WP_Error( 'sac_no_key', '請在 AI 平台的認證設定填入本站金鑰。', [ 'status' => 401 ] );
     $keys = get_option( SAC_OPTION_KEYS, [] );
-    if ( ! isset( $keys[ $key ] ) ) return new WP_Error( 'sac_invalid_key', 'API 金鑰無效', [ 'status' => 403 ] );
-    return sac_get_key_level( $keys[ $key ] );
+    $level = isset( $keys[ $key ] ) ? sac_get_key_level( $keys[ $key ] ) : '';
+    if ( ! in_array( $level, [ 'read', 'write' ], true ) ) return new WP_Error( 'sac_invalid_key', 'API 金鑰無效或已撤銷。請在「連線設定」確認金鑰並更新平台認證。', [ 'status' => 403 ] );
+    return $level;
 }
 
 function sac_permission_read( WP_REST_Request $request ) {
@@ -1397,7 +1031,7 @@ function sac_permission_read( WP_REST_Request $request ) {
 function sac_permission_write( WP_REST_Request $request ) {
     $level = sac_authenticate( $request );
     if ( is_wp_error( $level ) ) return $level;
-    if ( $level !== 'write' ) return new WP_Error( 'sac_forbidden', '此金鑰為唯讀，無法執行寫入操作', [ 'status' => 403 ] );
+    if ( $level !== 'write' ) return new WP_Error( 'sac_forbidden', '此金鑰可查詢內容。建立或更新時，請使用已授權此類型的讀寫金鑰。', [ 'status' => 403 ] );
     return true;
 }
 
@@ -1408,136 +1042,26 @@ function sac_permission_write( WP_REST_Request $request ) {
  */
 add_action( 'rest_api_init', function () {
 
-    register_rest_route( SAC_NAMESPACE, '/posts/(?P<id>\d+)/faq', [
-        'methods' => 'GET', 'permission_callback' => 'sac_permission_read',
-        'callback' => function ( WP_REST_Request $req ) {
-            $post_id = (int) $req['id'];
-            if ( ! get_post( $post_id ) ) return new WP_Error( 'sac_not_found', '文章不存在', [ 'status' => 404 ] );
-            $cache_key = "faq_{$post_id}";
-            $cached = sac_cache_get( $cache_key );
-            if ( $cached !== false ) return rest_ensure_response( $cached );
-            $faqs = get_post_meta( $post_id, '_sac_faq_list', true );
-            $result = [ 'post_id' => $post_id, 'title' => get_the_title( $post_id ), 'status' => get_post_status( $post_id ), 'faqs' => $faqs ?: [] ];
-            sac_cache_set( $cache_key, $result );
-            return rest_ensure_response( $result );
-        },
-    ] );
-
-    register_rest_route( SAC_NAMESPACE, '/posts/(?P<id>\d+)/faq', [
-        'methods' => 'POST', 'permission_callback' => 'sac_permission_write', 'args' => [ 'faqs' => [ 'required' => true ] ],
-        'callback' => function ( WP_REST_Request $req ) {
-            $post_id = (int) $req['id'];
-            if ( ! get_post( $post_id ) ) return new WP_Error( 'sac_not_found', '文章不存在', [ 'status' => 404 ] );
-            $clean = [];
-            foreach ( (array) $req->get_param( 'faqs' ) as $item ) {
-                if ( ! empty( $item['question'] ) && isset( $item['answer'] ) ) {
-                    $clean[] = [ 'question' => sanitize_text_field( $item['question'] ), 'answer' => wp_kses_post( $item['answer'] ) ];
-                }
-            }
-            update_post_meta( $post_id, '_sac_faq_list', $clean );
-            sac_sync_faq_schema( $post_id, $clean );
-            delete_transient( 'sac_c_' . md5( "faq_{$post_id}" ) );
-            return rest_ensure_response( [ 'success' => true, 'post_id' => $post_id, 'faqs' => $clean ] );
-        },
-    ] );
-
-    register_rest_route( SAC_NAMESPACE, '/posts', [
-        'methods' => 'GET', 'permission_callback' => 'sac_permission_read',
-        'callback' => function ( WP_REST_Request $req ) {
-            $status = $req->get_param( 'status' ) ?: 'any';
-            $search = $req->get_param( 'search' ) ?: '';
-            $limit  = min( (int) ( $req->get_param( 'limit' ) ?: 10 ), 50 );
-            $cache_key = "posts_{$status}_{$search}_{$limit}";
-            $cached = sac_cache_get( $cache_key );
-            if ( $cached !== false ) return rest_ensure_response( $cached );
-            $query = new WP_Query( [
-                'post_type' => 'post', 'post_status' => $status, 's' => $search, 'posts_per_page' => $limit,
-                'orderby' => 'modified', 'order' => 'DESC', 'no_found_rows' => true, 'update_post_meta_cache' => false, 'update_post_term_cache' => false,
+    foreach ( [ 'GET', 'POST' ] as $method ) {
+        register_rest_route( SAC_NAMESPACE, '/posts', [
+            'methods' => $method, 'permission_callback' => $method === 'GET' ? 'sac_permission_read' : 'sac_permission_write',
+            'callback' => 'sac_handle_legacy_content',
+        ] );
+        foreach ( [ '', '/faq', '/seo' ] as $suffix ) {
+            register_rest_route( SAC_NAMESPACE, '/posts/(?P<id>\d+)' . $suffix, [
+                'methods' => $method, 'permission_callback' => $method === 'GET' ? 'sac_permission_read' : 'sac_permission_write',
+                'callback' => 'sac_handle_legacy_content',
             ] );
-            $result = array_map( fn( $p ) => [ 'id' => $p->ID, 'title' => get_the_title( $p ), 'status' => get_post_status( $p ), 'modified' => $p->post_modified ], $query->posts );
-            sac_cache_set( $cache_key, $result );
-            return rest_ensure_response( $result );
-        },
-    ] );
-
-    register_rest_route( SAC_NAMESPACE, '/posts', [
-        'methods' => 'POST', 'permission_callback' => 'sac_permission_write', 'args' => [ 'title' => [ 'required' => true ] ],
-        'callback' => function ( WP_REST_Request $req ) {
-            $content = wp_kses_post( $req->get_param( 'content' ) ?: '' );
-            $status = sac_checked_publication_status( $req->get_param( 'status' ) );
-            if ( is_wp_error( $status ) ) return $status;
-            $excerpt = $req->get_param( 'excerpt' ) !== null
-                ? sanitize_textarea_field( $req->get_param( 'excerpt' ) )
-                : sac_seo_summary( $content );
-            $post_id = wp_insert_post( [
-                'post_title'   => sanitize_text_field( $req->get_param( 'title' ) ),
-                'post_content' => $content,
-                'post_excerpt' => $excerpt,
-                'post_name'    => $req->get_param( 'slug' ) !== null ? sanitize_title( $req->get_param( 'slug' ) ) : '',
-                'post_status'  => $status,
-                'post_type'    => 'post',
-            ], true );
-            if ( is_wp_error( $post_id ) ) return $post_id;
-            sac_apply_seo_request( $post_id, $req, true, $req->get_param( 'title' ), $excerpt );
-            return rest_ensure_response( [ 'success' => true, 'post_id' => $post_id, 'seo' => sac_get_seo_fields( $post_id ) ] );
-        },
-    ] );
-
-    register_rest_route( SAC_NAMESPACE, '/posts/(?P<id>\d+)', [
-        'methods' => 'GET', 'permission_callback' => 'sac_permission_read',
-        'callback' => function ( WP_REST_Request $req ) {
-            $post = get_post( (int) $req['id'] );
-            if ( ! $post ) return new WP_Error( 'sac_not_found', '文章不存在', [ 'status' => 404 ] );
-            return rest_ensure_response( [ 'id' => $post->ID, 'title' => $post->post_title, 'content' => $post->post_content, 'status' => $post->post_status, 'modified' => $post->post_modified ] );
-        },
-    ] );
-
-    register_rest_route( SAC_NAMESPACE, '/posts/(?P<id>\d+)', [
-        'methods' => 'POST', 'permission_callback' => 'sac_permission_write',
-        'callback' => function ( WP_REST_Request $req ) {
-            $post_id = (int) $req['id'];
-            if ( ! get_post( $post_id ) ) return new WP_Error( 'sac_not_found', '文章不存在', [ 'status' => 404 ] );
-            $update = [ 'ID' => $post_id ];
-            $changed_fields = [];
-            if ( $req->get_param( 'title' ) !== null ) { $update['post_title'] = sanitize_text_field( $req->get_param( 'title' ) ); $changed_fields[] = '標題'; }
-            if ( $req->get_param( 'content' ) !== null ) { $update['post_content'] = wp_kses_post( $req->get_param( 'content' ) ); $changed_fields[] = '內容'; }
-            if ( $req->get_param( 'excerpt' ) !== null ) { $update['post_excerpt'] = sanitize_textarea_field( $req->get_param( 'excerpt' ) ); $changed_fields[] = '摘要'; }
-            if ( $req->get_param( 'slug' ) !== null ) { $update['post_name'] = sanitize_title( $req->get_param( 'slug' ) ); $changed_fields[] = '網址代稱'; }
-            if ( $req->get_param( 'status' ) !== null ) { $status = sac_checked_publication_status( $req->get_param( 'status' ) ); if ( is_wp_error( $status ) ) return $status; $update['post_status'] = $status; $changed_fields[] = '狀態'; }
-            $result = wp_update_post( $update, true );
-            if ( is_wp_error( $result ) ) return $result;
-            if ( sac_apply_seo_request( $post_id, $req ) ) $changed_fields[] = 'SEO';
-            return rest_ensure_response( [ 'success' => true, 'post_id' => $post_id, 'seo' => sac_get_seo_fields( $post_id ) ] );
-        },
-    ] );
-
-    register_rest_route( SAC_NAMESPACE, '/posts/(?P<id>\d+)/seo', [
-        'methods' => 'GET', 'permission_callback' => 'sac_permission_read',
-        'callback' => function ( WP_REST_Request $req ) {
-            $post_id = (int) $req['id'];
-            if ( ! get_post( $post_id ) ) return new WP_Error( 'sac_not_found', '文章不存在', [ 'status' => 404 ] );
-            return rest_ensure_response( sac_get_seo_fields( $post_id ) );
-        },
-    ] );
-
-    register_rest_route( SAC_NAMESPACE, '/posts/(?P<id>\d+)/seo', [
-        'methods' => 'POST', 'permission_callback' => 'sac_permission_write',
-        'callback' => function ( WP_REST_Request $req ) {
-            $post_id = (int) $req['id'];
-            if ( ! get_post( $post_id ) ) return new WP_Error( 'sac_not_found', '文章不存在', [ 'status' => 404 ] );
-            sac_update_seo_fields( $post_id, $req->get_params() );
-            return rest_ensure_response( [ 'success' => true, 'post_id' => $post_id, 'seo' => sac_get_seo_fields( $post_id ) ] );
-        },
-    ] );
+        }
+    }
 
     // 效能優化：只查詢 ID 與必要欄位，不載入完整 post 物件與 meta/term cache
     register_rest_route( SAC_NAMESPACE, '/seo/missing', [
         'methods' => 'GET', 'permission_callback' => 'sac_permission_read',
         'callback' => function ( WP_REST_Request $req ) {
-            $limit = min( (int) ( $req->get_param( 'limit' ) ?: 20 ), 100 );
-            $cache_key = "seo_missing_{$limit}";
-            $cached = sac_cache_get( $cache_key );
-            if ( $cached !== false ) return rest_ensure_response( $cached );
+            $target = sac_content_legacy_target( $req );
+            if ( is_wp_error( $target ) ) return $target;
+            $limit = max( 1, min( (int) ( $req->get_param( 'limit' ) ?: 20 ), 100 ) );
 
             $has_seo_core   = sac_has_wumetax_seo_core();
             $has_seo_plugin = defined( 'WPSEO_VERSION' ) || class_exists( 'RankMath' );
@@ -1549,6 +1073,7 @@ add_action( 'rest_api_init', function () {
             ] );
             $missing = [];
             foreach ( $query->posts as $p ) {
+                if ( ! sac_content_can_access_post( $target['user'], $target['type'], $p, 'read' ) ) continue;
                 $desc = $has_seo_core
                     ? get_post_meta( $p->ID, '_wu_seo_description', true )
                     : ( $has_seo_plugin
@@ -1559,7 +1084,6 @@ add_action( 'rest_api_init', function () {
                     if ( count( $missing ) >= $limit ) break;
                 }
             }
-            sac_cache_set( $cache_key, $missing );
             return rest_ensure_response( $missing );
         },
     ] );
@@ -1589,9 +1113,15 @@ add_action( 'rest_api_init', function () {
     register_rest_route( SAC_NAMESPACE, '/posts/(?P<id>\d+)/featured-image', [
         'methods' => 'POST', 'permission_callback' => 'sac_permission_write',
         'callback' => function ( WP_REST_Request $req ) {
-            $post_id = (int) $req['id']; $media_id = (int) $req->get_param( 'media_id' );
-            if ( ! get_post( $post_id ) || ! get_post( $media_id ) ) return new WP_Error( 'sac_not_found', '文章或媒體不存在', [ 'status' => 404 ] );
-            set_post_thumbnail( $post_id, $media_id );
+            $target = sac_content_legacy_target( $req );
+            if ( is_wp_error( $target ) ) return $target;
+            $media_id = filter_var( $req->get_param( 'media_id' ), FILTER_VALIDATE_INT, [ 'options' => [ 'min_range' => 1 ] ] );
+            $media_id = sac_content_thumbnail( $media_id, $target );
+            if ( is_wp_error( $media_id ) ) return $media_id;
+            $post_id = $target['post']->ID;
+            if ( (int) get_post_thumbnail_id( $post_id ) !== $media_id && ! set_post_thumbnail( $post_id, $media_id ) ) {
+                return sac_content_save_error( $post_id, 'featured_image_id', $target['post'] );
+            }
             return rest_ensure_response( [ 'success' => true ] );
         },
     ] );
@@ -1604,7 +1134,7 @@ add_action( 'rest_api_init', function () {
             $missing_alt = filter_var( $req->get_param( 'missing_alt' ), FILTER_VALIDATE_BOOLEAN );
             $cache_key = "media_{$search}_{$limit}_" . ( $missing_alt ? 'missing' : 'all' );
             if ( ! $missing_alt ) {
-                $cached = sac_cache_get( $cache_key );
+                $cached = sac_cache_get( $req, $cache_key );
                 if ( $cached !== false ) return rest_ensure_response( $cached );
             }
             $query_args = [
@@ -1634,7 +1164,7 @@ add_action( 'rest_api_init', function () {
                     'uploaded' => $a->post_date,
                 ];
             }, $query->posts );
-            if ( ! $missing_alt ) sac_cache_set( $cache_key, $result );
+            if ( ! $missing_alt ) sac_cache_set( $req, $cache_key, $result );
             return rest_ensure_response( $result );
         },
     ] );
@@ -1689,7 +1219,7 @@ add_action( 'rest_api_init', function () {
             $category = $req->get_param( 'category' ) ?: '';
             $status = $req->get_param( 'status' ) ?: '';
             $cache_key = "products_{$search}_{$category}_{$status}_{$limit}";
-            $cached = sac_cache_get( $cache_key );
+            $cached = sac_cache_get( $req, $cache_key );
             if ( $cached !== false ) return rest_ensure_response( $cached );
             $args = [ 'limit' => $limit, 'orderby' => 'date', 'order' => 'DESC' ];
             if ( $status && $status !== 'any' ) $args['status'] = $status;
@@ -1702,7 +1232,7 @@ add_action( 'rest_api_init', function () {
                 'stock_quantity' => $p->get_stock_quantity(), 'stock_status' => $p->get_stock_status(),
                 'categories' => wp_list_pluck( wc_get_product_terms( $p->get_id(), 'product_cat' ), 'name' ),
             ], $products );
-            sac_cache_set( $cache_key, $result );
+            sac_cache_set( $req, $cache_key, $result );
             return rest_ensure_response( $result );
         },
     ] );
@@ -1814,12 +1344,12 @@ add_action( 'rest_api_init', function () {
         'methods' => 'GET', 'permission_callback' => 'sac_permission_read',
         'callback' => function ( WP_REST_Request $req ) {
             if ( ! class_exists( 'WooCommerce' ) ) return new WP_Error( 'sac_no_wc', 'WooCommerce 未啟用', [ 'status' => 400 ] );
-            $cached = sac_cache_get( 'product_categories' );
+            $cached = sac_cache_get( $req, 'product_categories' );
             if ( $cached !== false ) return rest_ensure_response( $cached );
             $terms = get_terms( [ 'taxonomy' => 'product_cat', 'hide_empty' => false ] );
             if ( is_wp_error( $terms ) ) return $terms;
             $result = array_map( fn( $t ) => [ 'id' => $t->term_id, 'name' => $t->name, 'slug' => $t->slug, 'count' => $t->count ], $terms );
-            sac_cache_set( 'product_categories', $result );
+            sac_cache_set( $req, 'product_categories', $result );
             return rest_ensure_response( $result );
         },
     ] );
@@ -1847,7 +1377,7 @@ add_action( 'rest_api_init', function () {
             if ( ! class_exists( 'WooCommerce' ) ) return new WP_Error( 'sac_no_wc', 'WooCommerce 未啟用', [ 'status' => 400 ] );
             $threshold = (int) ( $req->get_param( 'threshold' ) ?: 5 );
             $cache_key = "low_stock_{$threshold}";
-            $cached = sac_cache_get( $cache_key );
+            $cached = sac_cache_get( $req, $cache_key );
             if ( $cached !== false ) return rest_ensure_response( $cached );
             $products = wc_get_products( [ 'limit' => -1, 'stock_status' => 'instock' ] );
             $low = [];
@@ -1855,7 +1385,7 @@ add_action( 'rest_api_init', function () {
                 $qty = $p->get_stock_quantity();
                 if ( $qty !== null && $qty <= $threshold ) $low[] = [ 'id' => $p->get_id(), 'name' => $p->get_name(), 'stock' => $qty ];
             }
-            sac_cache_set( $cache_key, $low );
+            sac_cache_set( $req, $cache_key, $low );
             return rest_ensure_response( $low );
         },
     ] );
@@ -1866,13 +1396,13 @@ add_action( 'rest_api_init', function () {
             if ( ! class_exists( 'WooCommerce' ) ) return new WP_Error( 'sac_no_wc', 'WooCommerce 未啟用', [ 'status' => 400 ] );
             $days = (int) ( $req->get_param( 'days' ) ?: 7 );
             $cache_key = "revenue_{$days}";
-            $cached = sac_cache_get( $cache_key );
+            $cached = sac_cache_get( $req, $cache_key );
             if ( $cached !== false ) return rest_ensure_response( $cached );
             $orders = wc_get_orders( [ 'status' => [ 'completed', 'processing' ], 'date_created' => '>' . ( time() - $days * DAY_IN_SECONDS ), 'limit' => -1 ] );
             $total = 0; $count = 0;
             foreach ( $orders as $o ) { $total += (float) $o->get_total(); $count++; }
             $result = [ 'days' => $days, 'order_count' => $count, 'total_revenue' => round( $total, 2 ) ];
-            sac_cache_set( $cache_key, $result );
+            sac_cache_set( $req, $cache_key, $result );
             return rest_ensure_response( $result );
         },
     ] );
@@ -2067,17 +1597,17 @@ function sac_update_seo_fields( $post_id, $params ) {
 function sac_sync_faq_schema( $post_id, $faqs ) {
     if ( empty( $faqs ) ) { delete_post_meta( $post_id, '_sac_faq_schema' ); return; }
     $schema = [ '@context' => 'https://schema.org', '@type' => 'FAQPage', 'mainEntity' => array_map( fn( $f ) => [ '@type' => 'Question', 'name' => $f['question'], 'acceptedAnswer' => [ '@type' => 'Answer', 'text' => wp_strip_all_tags( $f['answer'] ) ] ], $faqs ) ];
-    update_post_meta( $post_id, '_sac_faq_schema', wp_json_encode( $schema ) );
+    update_post_meta( $post_id, '_sac_faq_schema', wp_slash( wp_json_encode( $schema, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ) ) );
 }
 
 add_action( 'wp_head', function () {
-    if ( ! is_singular( 'post' ) ) return;
+    if ( ! is_singular() || ! isset( sac_content_types()[ get_post_type() ] ) || ! sac_content_extensions( get_post_type() )['faq'] ) return;
     $schema = get_post_meta( get_the_ID(), '_sac_faq_schema', true );
     if ( $schema ) echo '<script type="application/ld+json">' . $schema . '</script>' . "\n";
 } );
 
 add_filter( 'the_content', function ( $content ) {
-    if ( ! is_singular( 'post' ) || ! in_the_loop() || ! is_main_query() ) return $content;
+    if ( ! is_singular() || ! in_the_loop() || ! is_main_query() || ! isset( sac_content_types()[ get_post_type() ] ) || ! sac_content_extensions( get_post_type() )['faq'] ) return $content;
     $faqs = get_post_meta( get_the_ID(), '_sac_faq_list', true );
     if ( empty( $faqs ) ) return $content;
     $html = '<div class="sac-faq-block"><h2>常見問題</h2>';
@@ -2148,7 +1678,7 @@ add_action( 'template_redirect', function () {
     exit;
 } );
 
-/** AI 工具已拆分為獨立卡片，連接器只管理連線設定；既有功能一律保持可用。 */
+/** Legacy redirect and coupon tools remain available through the connector. */
 function sac_feature_enabled( $feature ) {
     return in_array( $feature, [ 'redirects', 'coupons' ], true );
 }
@@ -2376,9 +1906,3 @@ add_action( 'template_redirect', function () {
         exit;
     }
 }, 1 );
-
-function sac_internal_key() {
-    static $key = null;
-    if ( $key === null ) $key = 'sac_internal_' . wp_generate_password( 64, false, false );
-    return $key;
-}

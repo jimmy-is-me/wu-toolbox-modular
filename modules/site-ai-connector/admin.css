@@ -1,0 +1,17 @@
+.sac-admin { max-width: 1080px; }
+.sac-admin .nav-tab-wrapper { display: flex; flex-wrap: wrap; }
+.sac-admin .nav-tab { float: none; margin-bottom: 0; }
+.sac-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.sac-panel { padding: 18px 22px; margin: 16px 0; border: 1px solid #dcdcde; border-radius: 8px; background: #fff; }
+.sac-panel > h2 { margin-top: 0; }
+.sac-panel textarea, .sac-admin .notice textarea { display: block; margin: 6px 0; }
+.sac-admin summary { cursor: pointer; color: #135e96; font-weight: 600; }
+.sac-admin details + details, .sac-tool { margin-top: 12px; }
+.sac-builder { padding-top: 16px; margin-top: 20px; border-top: 1px solid #dcdcde; }
+.sac-builder-fields { color: #50575e; }
+.sac-tool dt { font-weight: 600; }
+.sac-tool dd { margin: 4px 0 10px; }
+@media (max-width: 782px) {
+    .sac-panel { padding: 14px; }
+    .sac-table { display: block; overflow-x: auto; }
+}

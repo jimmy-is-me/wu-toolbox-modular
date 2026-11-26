@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+            <h4>4.2.8</h4><ul><li>AI 連接器集中工具入口與操作紀錄，支援透過 REST 與 MCP 查詢、建立及更新文章、頁面與已授權的自訂內容類型。</li><li>保留舊金鑰與文章 API。直接發佈前先完成欄位寫入，部分儲存失敗時回傳內容 ID。</li></ul>
             <h4>4.2.7</h4><ul><li>內建 LINE Pay 付款工具更新至 WPBrewer 1.4.0，整合 CVE-2026-128833 修補。回呼同時驗證訂單金鑰及交易編號，後台付款操作檢查權限。</li><li>付款除錯紀錄遮蔽敏感資料，加入付款狀態查詢及確認失敗重試。</li></ul>
             <h4>4.2.6</h4><ul><li>SEO 核心 1.5.0 新增可選的 IndexNow 自動通知、匿名驗證檔、背景重試與發布健檢。</li><li>新增提交與異常圖表，保留 Search Console 及 WordPress 原生 Sitemap。</li></ul>
             <h4>4.2.5</h4><ul><li>進階追蹤管理器 3.3.4 顯示 GTM 同意載入條件，並可在再次允許後重試載入失敗的容器。</li><li>移除驗收清單及報告，事件 CSV 移至事件紀錄。Cookie 偏好視窗改用柔和陰影，移除儲存中的文字。</li></ul>
