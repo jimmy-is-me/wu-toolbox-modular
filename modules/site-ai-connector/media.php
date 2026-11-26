@@ -17,6 +17,13 @@ function sac_media_image( $path ) {
     return [ 'extension' => $formats[ $image[2] ], 'mime' => $image['mime'] ];
 }
 
+function sac_media_public_ipv4( $ip ) {
+    $flags = FILTER_FLAG_IPV4 | FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE;
+    if ( defined( 'FILTER_FLAG_GLOBAL_RANGE' ) ) $flags |= FILTER_FLAG_GLOBAL_RANGE;
+    return (bool) filter_var( $ip, FILTER_VALIDATE_IP, $flags )
+        && ! preg_match( '/^(?:0\.|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|192\.(?:0\.(?:0|2)|88\.99)\.|198\.(?:18\.|19\.|51\.100\.)|203\.0\.113\.|(?:22[4-9]|23\d|24\d|25\d)\.)/', $ip );
+}
+
 function sac_media_download( $url, $target ) {
     $reject = sac_oauth_error( 'sac_image_url', '請提供可直接下載圖片的公開 HTTPS 網址。', 400 );
     if ( ! is_string( $url ) || strlen( $url ) > 1800 || ! function_exists( 'curl_init' ) || ! function_exists( 'dns_get_record' )
@@ -30,8 +37,7 @@ function sac_media_download( $url, $target ) {
     if ( ! $records ) return $reject;
     $ips = array_column( $records, 'ip' );
     foreach ( $ips as $ip ) {
-        if ( ! filter_var( $ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4 | FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE )
-            || preg_match( '/^(?:0\.|100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|192\.0\.|198\.(?:18|19)\.|(?:22[4-9]|23\d|24\d|25\d)\.)/', $ip ) ) return $reject;
+        if ( ! sac_media_public_ipv4( $ip ) ) return $reject;
     }
     if ( ! $ips ) return $reject;
     $file = fopen( $target, 'wb' );
@@ -41,6 +47,8 @@ function sac_media_download( $url, $target ) {
     $max = sac_media_max_bytes();
     try {
         $protocol = defined( 'CURLOPT_PROTOCOLS_STR' ) ? [ CURLOPT_PROTOCOLS_STR => 'HTTPS' ] : [ CURLOPT_PROTOCOLS => CURLPROTO_HTTPS ];
+        $ca_bundle = ABSPATH . WPINC . '/certificates/ca-bundle.crt';
+        if ( is_readable( $ca_bundle ) ) $protocol[ CURLOPT_CAINFO ] = $ca_bundle;
         $configured = curl_setopt_array( $curl, $protocol + [ CURLOPT_FOLLOWLOCATION => false, CURLOPT_MAXREDIRS => 0,
             CURLOPT_PROXY => '', CURLOPT_RESOLVE => [ $host . ':443:' . $ips[0] ], CURLOPT_IPRESOLVE => CURL_IPRESOLVE_V4,
             CURLOPT_TIMEOUT => 12, CURLOPT_CONNECTTIMEOUT => 4, CURLOPT_SSL_VERIFYHOST => 2, CURLOPT_SSL_VERIFYPEER => true,

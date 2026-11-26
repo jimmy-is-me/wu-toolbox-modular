@@ -203,6 +203,10 @@ try {
     }
     sac_fixture_request( '/media/upload', 'POST', $access, [ 'base64' => base64_encode( 'not an image' ) ], 415 );
     sac_fixture_request( '/media/upload', 'POST', $access, [ 'url' => 'https://localhost/private-file' ], 400 );
+    foreach ( [ '127.0.0.1', '192.168.10.1', '169.254.169.254', '100.64.1.1', '192.0.0.1', '198.19.0.1', '203.0.113.4' ] as $address ) {
+        sac_fixture_assert( ! sac_media_public_ipv4( $address ), 'Import rejects private and special-use IPv4 addresses' );
+    }
+    sac_fixture_assert( sac_media_public_ipv4( '192.0.77.48' ), 'Public IPv4 outside the special-use subnet remains eligible' );
     sac_fixture_request( '/content/post/' . $post, 'POST', $access, [ 'status' => 'publish' ], 400 );
     $review = sac_fixture_request( '/content/post/' . $post . '/publish', 'POST', $access, [], 409 );
     sac_fixture_assert( $review['code'] === 'sac_confirmation_required' && get_post_status( $post ) === 'draft', 'Publish requires WordPress approval' );
