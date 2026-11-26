@@ -1,77 +1,79 @@
-# AI 連接器
+# AI 連接器｜OAuth 與 MCP
 
-在 **Wu Toolbox Modular → AI 功能 → AI 連接器** 啟用模組並選擇 **開啟 AI 連接器**。原有的站點分類和獨立模組依各自的開關與依賴運作。
+WU Toolbox Modular v4.2.9 將 AI 連接器改為 WordPress 原生 OAuth。新版以登入本站的帳號授權，既有固定金鑰會失效，站內文章、自訂欄位、SEO、媒體及歷史操作紀錄會保留。
 
-## 連線並建立草稿
+## 使用 ChatGPT 連線
 
-1. 在「連線設定」選擇平台，建立唯讀或讀寫金鑰。金鑰明碼只在新增時顯示。請填入平台的認證設定。
-2. 複製該平台的端點或工具定義。先按「測試本站端點」，再產生平台驗證指令並到選定平台執行。本站收到帶有正確金鑰與短效驗證碼的請求後，會記錄時間。這個驗證由指定平台的呼叫完成，平台名稱取自管理員的選擇。
-3. 在「內容類型與權限」開放本站的文章、頁面或 CPT，儲存後展開金鑰並設定該類型的操作範圍及 WordPress 使用者。只有站點、金鑰等級、金鑰範圍和 WordPress 使用者共同允許的操作才會成功。
-4. 在「功能與指令」選擇「建立內容草稿」，選定類型並填寫需求。把指令貼到已連線的 AI，核對必填欄位及草稿內容，確認後才建立。成功結果包含類型、標題、ID、狀態及有權使用的後台編輯連結。
-5. 更新時用相同頁面的「更新既有內容」指定類型及 ID。AI 應先讀取現況並列出原值和變更，再送出確認過的欄位。可到「操作紀錄」確認實際結果。
+1. 到 **WU Toolbox Modular → AI 功能 → AI 連接器**，啟用模組。
+2. 在 **內容類型與權限** 開放需要的文章、頁面或 CPT。在 **進階安全設定** 開放需要的 Scope。一般內容先用草稿，正式發佈額外需要本站開關、該類型的發佈操作、OAuth 授權、WordPress 發佈權限以及一次性人工確認。
+3. 到 **連線總覽** 按 **測試本站端點**。這一步只驗證本站的 Metadata、OAuth 挑戰和 Token 端點。
+4. 在 **平台連線設定** 複製 MCP Server URL。到 ChatGPT 的 Plugins 新增自訂 MCP 伺服器，填入網址，選 **OAuth**。啟用動態註冊時可使用平台的 DCR 選項。若平台要求預先註冊，在 **已授權的應用程式** 登錄畫面提供的完整回呼網址，使用生成的 PKCE 客戶端 ID。
+5. 登入本站 WordPress，核對應用程式名稱、回呼網址、內容類型和權限後按 **同意授權**。動態註冊的名稱由客戶端提供。
+6. 在對話選用該連線並要求呼叫 verify_connection。再從 **功能與指令** 複製查詢或建立草稿的指令。需要補充權限時重新授權。寫入功能依 ChatGPT 方案、帳號及工作區政策而定。
+7. 在 **操作紀錄** 核對結果與編輯連結。若要終止存取，管理員可在 **已授權的應用程式** 撤銷指定授權、客戶端或所有授權。授權者也可在個人資料頁撤銷自己的授權。
 
-| 平台 | 適用條件 |
+這個流程使用 ChatGPT 的自訂 MCP 客戶端與本站 WordPress 帳號。參考 [OpenAI 自訂 MCP](https://developers.openai.com/api/docs/guides/custom-mcp-server)、[OAuth 認證](https://developers.openai.com/plugins/build/auth)及 [ChatGPT 檔案參照](https://developers.openai.com/plugins/reference#file-apis)。
+
+## 網址與主機設定
+
+以根目錄安裝於 example.com、使用 WordPress 一般 REST 路徑為例。實際值從後台複製。
+
+| 項目 | 路徑 |
 | --- | --- |
-| ChatGPT Plugins／自訂 MCP | 依帳號及工作區是否提供新增自訂 MCP 的入口。OpenAI 文件列出的連線認證為 OAuth、無認證及混合模式。本站連接器使用 API 金鑰。若平台只提供這些選項，須由既有 OAuth 橋接服務轉送本站金鑰。 |
-| GPT Actions | 適用仍可編輯 Actions 的 GPT。匯入 OpenAPI 並設定自訂認證標頭 `X-SAC-Key`。若帳號已遷移至 Plugins，請依該入口的認證方式設定。 |
-| Claude Messages API | 使用遠端 MCP 支援的 API，設定 `mcp_servers` 和 `mcp_toolset`，以 `authorization_token` 傳送金鑰。Claude 網頁與桌面版依產品實際提供的認證選項。 |
-| Gemini API | 取得函式定義，由呼叫 Gemini API 的應用程式依 OpenAPI 呼叫本站 REST，將結果回傳給模型。使用 `X-SAC-Key`。 |
-| 其他 MCP 用戶端 | 支援 Streamable HTTP，並可傳送 `X-SAC-Key` 或 `Authorization: Bearer`。WordPress 端點需能從 AI 平台存取。 |
+| MCP Server／Resource | /wp-json/site-ai/v1/mcp |
+| OAuth Issuer | /wutm-site-ai |
+| Authorization | /wp-admin/admin-post.php?action=sac_oauth_authorize |
+| Token | /wp-json/site-ai/v1/oauth/token |
+| Registration | /wp-json/site-ai/v1/oauth/register |
+| Revocation | /wp-json/site-ai/v1/oauth/revoke |
+| Authorization Server Metadata | /.well-known/oauth-authorization-server/wutm-site-ai |
+| Protected Resource Metadata | /.well-known/oauth-protected-resource/wp-json/site-ai/v1/mcp |
 
-[OpenAI 自訂 MCP](https://developers.openai.com/api/docs/guides/custom-mcp-server) · [GPT Actions](https://help.openai.com/en/articles/9442513-configuring-actions-in-gpts) · [Claude MCP](https://platform.claude.com/docs/en/agents-and-tools/mcp-connector) · [Gemini 函式呼叫](https://ai.google.dev/gemini-api/docs/function-calling)
+- OAuth 使用 Authorization Code、PKCE S256、HTTPS、RFC 8707 Resource 與 RFC 9207 回呼 Issuer。支援 DCR 與預先註冊。DCR 僅接受設定中精確允許的回呼，預設為 https://chatgpt.com/connector_platform_oauth_redirect 。若平台顯示不同回呼，先核對平台連線管理頁，再加入完整網址。CIMD 未啟用。
+- WordPress 位於子目錄時，Metadata 仍從網域根目錄的 /.well-known/ 服務，後面加上實際 Issuer 或 MCP 路徑。主機必須將對應的兩條路徑交給該 WordPress 的 index.php，並保留原始 REQUEST_URI。若主機已有其他 OAuth 外掛，檢查命名空間專用路徑及回傳的 issuer 值。已有外部路由接手時，可用 sac_oauth_external_metadata 過濾器將相應的探索路徑交給主機處理。
+- Apache 或 Nginx 讓 OAuth 端點及 MCP 收到標準 Authorization 標頭。PHP-FPM 可在該站 FastCGI 設定保留 HTTP_AUTHORIZATION，避免代理移除標頭。
+- Cloudflare 只針對本站實際的兩條探索路徑、REST 命名空間 /wp-json/site-ai/v1/，以及 /wp-admin/admin-post.php 的 sac_oauth_authorize、sac_confirm_change 和 sac_upload_image 動作套用 Bypass cache。使用預設永久連結時同樣涵蓋 rest_route=/site-ai/v1/ 的請求。
+- 若 WAF 或 Bot 防護攔到官方呼叫，以以上路徑及所需方法縮小例外。站點使用 HTTPS，反向代理由主機轉送可信的 HTTPS 狀態，避免讓任意外部 Forwarded 標頭決定安全連線。
+- 先用匿名 GET 核對兩個 Metadata 檔，再以匿名 POST 確認 MCP 回傳 401 及 WWW-Authenticate resource_metadata。完成授權後測試工具呼叫。若回傳 CDN 挑戰 HTML，依實際規則及事件紀錄排查。
 
-## 內容類型與欄位
+## 內容、SEO、FAQ 與圖片
 
-一般內容依 WordPress 已註冊且有後台介面的類型判定，支援 `show_in_rest=false`。商品、附件、訂單、修訂、工具箱表單送件等資料使用各自的專用流程。站點可用 `sac_excluded_content_types` 增列應排除的內部類型。精選圖片須是可讀取的圖片附件。分類使用該類型所綁定且使用者可指派的 taxonomy，值為現有的分類項目 ID。使用 `list_content_terms` 查詢 ID。僅指定的 taxonomy 會替換其項目。
+- **內容**：先列出內容類型和欄位，用分類查詢取得現有項目 ID，再建立或更新。一般文章、頁面和多種 CPT 共用同一套權限。支援原生標題、正文、摘要、slug、作者、上層頁面、分類和精選圖片。Gutenberg 可傳送有效的 WordPress 區塊 HTML。
+- **Lab**：偵測到已知 Wumetax Lab System 與 wulab_type、wulab_tech 時，顯示由該外掛維護的英文標題、網址、排序、狀態及 Challenge／Approach／Result。正式站仍應透過 describe_content_type 與 list_content_terms 核對當前設定。
+- **SEO**：依啟用狀態選定 WUMETAX SEO Core、Yoast、Rank Math 或 SEOPress 的單一適配器。可用欄位依所選外掛而定。沒有啟用適配器時回報原因。FAQ 使用既有 AI 連接器規則，請在更新前檢查既有頁面是否已有 FAQ 區塊或獨立 Schema。
+- **圖片**：支援 multipart 的 image 欄位、Base64、可直接取得的 HTTPS 網址及 ChatGPT 的 file 參照物件。若 ChatGPT 只提供平台內部路徑，請使用 create_upload_link 取得 10 分鐘的一次性連結，由同一 WordPress 帳號登入後上傳，再查詢 Attachment ID 並設定精選圖片。檔案大小以 8 MiB 和主機上傳上限較低者為準。僅接受以 WordPress 圖片編輯器能安全解碼和重新儲存的 PNG、JPEG 或 WebP。重名上傳由 WordPress 產生新檔名。
+- **已發佈內容**：伺服器回傳 WordPress 審核連結。授權者核對原內容與預計變更，親自確認後才可重送相同操作。一旦權限或目標狀態變更，請重新產生審核。部分寫入失敗會回報目標 ID。
+- **刪除**：一般內容由站長在 WordPress 處理。已開放的電商垃圾桶操作需要使用者確認及 WooCommerce 權限，且 WordPress 必須啟用垃圾桶。
 
-自訂欄位由站點外掛在 `sac_content_field_definitions` 登錄。連接器會列出 ACF 與 Pods 已知的未綁定欄位與處理方式。若站點外掛有另外的條件欄位或驗證，請在回呼中帶入該條件。對取決於既有文章的欄位，可在 `describe_content_type` 指定 `id` 取得該筆定義。
+### 自訂欄位適配器
 
-每個欄位可設定 `label`、JSON Schema `type`、額外的 `schema`、`required`、`authorize`、`validate`、`read`、`write`。`authorize` 接收操作、WordPress 使用者、現有文章或 null、文章類型物件。驗證應回傳已正規化的值或 `WP_Error`，並且在驗證階段維持資料唯讀。儲存回呼收到內容 ID、已驗證值、使用者，成功回傳 `true`。現有不做寫入的必要欄位可提供 `is_present` 回呼檢查是否已填。若複雜欄位仍需原外掛處理，可登錄 `unsupported` 文字指引。
+使用 sac_content_field_definitions 登錄要公開的欄位。適配器提供 label、type、schema、required、authorize、validate、read、write。authorize 接收操作、使用者、文章或 null、文章類型。validate 必須唯讀，回傳正規化值或 WP_Error。write 接收 ID、值及使用者，成功回傳 true 並自行核對實際儲存結果。必填但由編輯器管理的欄位可提供 is_present。
 
-以下示例由維護者加入站點的 MU 外掛。更換類型 slug、欄位名稱和 ACF 欄位 key，並依本站的欄位權限實作 `authorize`。
+ACF、Pods 及原生 Post Meta 由維護者依型別和權限註冊適配器。已明確登錄 show_in_rest 的單值原生 Meta，也可透過 sac_oauth_registered_meta 明確加入允許清單，讀寫仍經過 WordPress Meta 權限。可在適配器中使用 ACF 的 get_field／update_field、Pods 的 field／save，或固定已知 Meta Key。未綁定的第三方欄位會明確提示需由網站維護者設定。請在暫用站對照實際欄位設定，再把適配器安裝到正式站。
 
-```php
-add_filter( 'sac_content_field_definitions', function ( $fields, $type ) {
-    if ( $type !== 'field_report' || ! function_exists( 'update_field' ) ) return $fields;
-    $acf_key = 'field_replace_with_the_field_key';
-    if ( ! acf_get_field( $acf_key ) ) return $fields;
+## 安全與資料庫升級
 
-    $fields['source_note'] = [
-        'label' => '資料來源',
-        'type' => 'string',
-        'required' => true,
-        'authorize' => function ( $operation, $user, $post, $post_type ) {
-            if ( ! user_can( $user, 'manage_options' ) ) return false;
-            return ! $post || user_can( $user, $post_type->cap->edit_post, $post->ID );
-        },
-        'validate' => function ( $value ) {
-            return sanitize_text_field( $value );
-        },
-        'read' => function ( $post ) use ( $acf_key ) {
-            $value = get_field( $acf_key, $post->ID, false );
-            return $value === false ? null : $value;
-        },
-        'write' => function ( $id, $value ) use ( $acf_key ) {
-            update_field( $acf_key, $value, $id );
-            return get_field( $acf_key, $id, false ) === $value;
-        },
-    ];
-    return $fields;
-}, 10, 2 );
-```
+- 連接器第一次需要 OAuth 資料庫時建立各站獨立的 InnoDB 資料表 {prefix}sac_oauth，由 sac_oauth_schema 記錄結構版本。用 WordPress dbDelta 建立及驗證資料表，既有建表版本不重複執行。停用模組即移除服務入口，重新啟用可讀取尚有效的授權。
+- 權杖為 PHP 安全亂數產生的 Opaque Token。資料庫僅保留雜湊，交換在 InnoDB 交易內鎖定客戶端、一次性憑證和授權。Refresh Token 輪替後再次使用舊值會撤銷該授權。變更密碼、角色或能力也會使既有憑證失效。其他停權機制可接 sac_oauth_account_allowed。
+- 伺服器驗證 Issuer、Resource、WordPress 帳號、Client、Grant、Scope、內容類型及物件能力。發佈與修改公開內容還需短效、一次性確認。服務不採用 MCP Session ID。
+- 遠端圖片只接受公開 IPv4 上的 HTTPS 直接下載。DNS 驗證後固定連線 IP，保持 TLS 憑證檢查，拒絕重導、私有網路、Loopback、特殊位址、非允許格式和超限內容。
+- 過期資料每日分批清理。客戶端註冊、OAuth 交換及工具請求有分開的頻率上限。操作紀錄僅保存工具、時間、狀態、授權識別與目標，新增紀錄保存 30 天。短效審核預覽於核准後移除。
+- OAuth 使用 RFC 8414、RFC 9728、RFC 7636、RFC 8707、RFC 9207、RFC 7591 與 RFC 7009 的相關流程，以及 RFC 9700 的安全要求。此版使用 PHP 安全亂數、雜湊及 WordPress／InnoDB，採 Opaque Token 避免引入 JWT 簽章金鑰或全站 Composer 依賴。MCP 支援 2026-07-28 的無狀態 HTTP 流程，並保留 2025-11-25、2025-06-18 和 2025-03-26 的握手相容性。
 
-Pods 欄位可將讀寫回呼改為使用該 Pod 的 `field()`、`save()`。自製欄位可接到站點自己的儲存函式。第三方讀寫失敗時會回報欄位與處理方式。直接發佈前會先儲存分類、精選圖片與已綁定欄位。若建立過程發生儲存錯誤，連接器會嘗試移除這次新增的內容。若部分變更已儲存，REST 與 MCP 都會回傳目標 ID，具備編輯權限的管理員可從操作紀錄開啟內容核對。
+## 測試與正式站驗收
 
-[ACF update_field](https://www.advancedcustomfields.com/resources/update_field/) · [Pods save](https://docs.pods.io/code/pods/save/)
+- PHP 整合測試在已啟用 AI 連接器的暫用 WordPress 執行下列指令。
+  `php tests/site-ai-connector-wordpress.php /path/to/wordpress`。如暫用站使用自訂公開網域，執行前明確設定 `WUTM_SAC_DISPOSABLE_FIXTURE=1`。
+- Chrome 與 MCP SDK 的 HTTP 整合測試需安裝 playwright-core 及 @modelcontextprotocol/sdk。設定 SAC_TEST_URL、SAC_TEST_LOGIN、SAC_TEST_PASSWORD、SAC_TEST_CHROME。測試站需允許指定 ChatGPT 回呼及測試 Scope，開啟草稿發佈確認。選用 SAC_TEST_IMAGE 可測試圖片連結，SAC_TEST_SEO=1 可測試啟用中的 SEO 適配器。執行 node tests/site-ai-connector-browser.cjs。測試會建立、寫入及發佈暫用內容，只能在可棄置的站點使用。
+- 測試站的本機 HTTP 模式需同時定義 WUTM_SAC_LOCAL_TEST 與 WordPress local 環境，且域名必須是 localhost 或 127.0.0.1。正式站維持 HTTPS。
+- GitHub CI 重跑 WordPress 整合測試及全站既有檢查。原生 ChatGPT 連線使用自有帳號與可達 HTTPS 測試站驗收。請先測查詢，再依方案測草稿和實際檔案參照。正式站的 Cloudflare 設定、外部 SEO 外掛的前台輸出，以及 ACF／Pods 的站點專屬欄位需在各自環境核對。
 
-## 升級與舊 API
+### v4.2.9 驗證紀錄
 
-- 六個舊 AI 子頁開關控制後台入口，原本的工具端點由主連接器載入。新版把六頁搬進主入口，舊書籤導向對應分頁。既有子頁選項保留在資料庫。
-- 保留金鑰、IP 白名單、發佈設定、操作紀錄和原有專用工具。舊金鑰無需重建。首次載入會在舊金鑰登錄站點管理員帳號作為內容操作者，優先使用對應站點管理員電子郵件且具權限的本站使用者，否則選用最早的本站管理員。舊金鑰只保留文章的內容範圍。新增頁面或 CPT 範圍時，請一併設定站點與金鑰。
-- 舊 `/posts`、單篇文章、FAQ、SEO、精選圖片路由及 MCP 工具名稱仍可使用原本的文章參數和成功回傳。以其他類型的 ID 呼叫舊文章路由會拒絕。所有內容操作使用原始呼叫金鑰判定授權。
-- 一般內容請使用 `list_content_types`、`describe_content_type`、`list_content`、`get_content`、`create_content`、`update_content`。類型與 ID 放在 REST 路徑，JSON 回應欄位及 MCP 工具參數可由工具定義取得。
-- 金鑰應只經認證標頭或平台的秘密憑證欄位傳送。操作紀錄儲存不可還原的縮短識別碼、結果及錯誤代碼。站點端點測試若碰到自己的 IP 限制，請查核來源 IP 或主機回連政策。
-
-## 測試
-
-在啟用 AI 連接器的暫用 WordPress 測試站執行 `php tests/site-ai-connector-wordpress.php /path/to/wordpress`。可在未啟用及已啟用 WooCommerce 的測試站各執行一次。
+| 項目 | 結果 |
+| --- | --- |
+| OAuth 瀏覽器流程 | 暫用 WordPress 通過 Metadata、DCR、登入、拒絕與同意、授權碼單次使用、權杖撤銷，並以本機 HTTPS 反向代理與子目錄重跑 |
+| OAuth 整合 | 通過錯誤 Redirect URI、Resource、PKCE、Client 與 Scope 拒絕，亦驗證過期／撤銷、Refresh 輪替與重用撤銷 |
+| MCP | TypeScript SDK 實測握手與工具呼叫，HTTP 實測 2026-07-28 探索及標頭與訊息比對 |
+| 內容與媒體 | 驗證文章、頁面、多種 CPT、實際 Lab 外掛欄位、SEO Core、FAQ、上傳連結、精選圖片、人工確認發佈與操作紀錄。另測試公開 HTTPS 圖片匯入，在 ACF 和 Pods 啟用時驗證 ACF 未綁定欄位提示 |
+| ChatGPT 帳號及正式環境 | 尚待原生 ChatGPT 建立私人連線、平台提供的圖片交付及正式站代理規則驗證 |

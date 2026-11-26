@@ -16,66 +16,35 @@ function sac_site_content_policy() {
     return (array) get_option( SAC_OPTION_CONTENT_TYPES, [ 'post' => [ 'read', 'create', 'update' ] ] );
 }
 
-/** Pin unbound legacy keys to an existing administrator without changing their token or type scope. */
-function sac_bind_legacy_content_keys() {
-    $keys = get_option( SAC_OPTION_KEYS, [] );
-    $owner = null;
-    $changed = false;
-    foreach ( $keys as &$key ) {
-        if ( ! is_array( $key ) || array_key_exists( 'user_id', $key ) ) continue;
-        if ( $owner === null ) {
-            $site_admin = get_user_by( 'email', get_option( 'admin_email' ) );
-            if ( ! $site_admin || ! is_user_member_of_blog( $site_admin->ID ) || ! user_can( $site_admin, 'manage_options' ) ) {
-                $admins = get_users( [ 'role' => 'administrator', 'orderby' => 'ID', 'order' => 'ASC', 'number' => 1 ] );
-                $site_admin = $admins[0] ?? null;
-            }
-            $owner = $site_admin ? (int) $site_admin->ID : 0;
-        }
-        if ( ! $owner ) break;
-        $key['user_id'] = $owner;
-        $changed = true;
-    }
-    unset( $key );
-    if ( $changed ) update_option( SAC_OPTION_KEYS, $keys, false );
-}
-add_action( 'init', 'sac_bind_legacy_content_keys', 30 );
-
-function sac_request_key( WP_REST_Request $request ) {
-    $key = $request->get_header( 'x-sac-key' );
-    $authorization = $request->get_header( 'authorization' );
-    return $key ?: ( stripos( (string) $authorization, 'bearer ' ) === 0 ? substr( $authorization, 7 ) : '' );
-}
-
-function sac_content_operations( $type, $key ) {
-    $owner = get_userdata( (int) ( $key['user_id'] ?? 0 ) );
+function sac_content_operations( $type, $grant ) {
+    $owner = get_userdata( (int) ( $grant['user_id'] ?? 0 ) );
     if ( ! $owner || ! is_user_member_of_blog( $owner->ID ) || ! user_can( $owner, 'read' ) ) return [];
     $site = sac_site_content_policy();
-    $scope = $key['content_scope'] ?? [ 'post' => [ 'read', 'create', 'update' ] ];
+    $scope = $grant['content_scope'] ?? [];
     $operations = array_intersect( $site[ $type->name ] ?? [], $scope[ $type->name ] ?? [] );
-    $capabilities = [ 'read' => $type->cap->edit_posts, 'create' => $type->cap->create_posts, 'update' => $type->cap->edit_posts ];
-    return array_values( array_filter( $operations, static function ( $operation ) use ( $key, $owner, $capabilities ) {
+    $capabilities = [ 'read' => $type->cap->edit_posts, 'create' => $type->cap->create_posts, 'update' => $type->cap->edit_posts, 'publish' => $type->cap->publish_posts ];
+    return array_values( array_filter( $operations, static function ( $operation ) use ( $grant, $owner, $capabilities ) {
         return isset( $capabilities[ $operation ] )
-            && ( $operation === 'read' || sac_get_key_level( $key ) === 'write' )
+            && in_array( 'content:' . $operation, $grant['scopes'], true )
             && user_can( $owner, $capabilities[ $operation ] );
     } ) );
 }
 
 function sac_content_target( WP_REST_Request $request, $slug, $operation, $id = null ) {
-    $permission = $operation === 'read' ? sac_permission_read( $request ) : sac_permission_write( $request );
-    if ( is_wp_error( $permission ) ) return $permission;
+    $grant = sac_authenticate( $request );
+    if ( is_wp_error( $grant ) ) return $grant;
     $types = sac_content_types();
-    $key = get_option( SAC_OPTION_KEYS, [] )[ sac_request_key( $request ) ] ?? [];
-    if ( ! isset( $types[ $slug ] ) || ! in_array( $operation, sac_content_operations( $types[ $slug ], $key ), true ) ) {
-        return new WP_Error( 'sac_content_scope', '這把金鑰未獲授權。請前往「內容類型與權限」檢查站點、金鑰及 WordPress 使用者權限。', [ 'status' => 403 ] );
+    if ( ! isset( $types[ $slug ] ) || ! in_array( $operation, sac_content_operations( $types[ $slug ], $grant ), true ) ) {
+        return new WP_Error( 'sac_content_scope', '此授權無法操作指定內容類型。請確認站點、授權及 WordPress 使用者權限。', [ 'status' => 403 ] );
     }
-    $user = get_userdata( (int) $key['user_id'] );
+    $user = get_userdata( $grant['user_id'] );
     $post = null;
     if ( $id !== null ) {
         $post = get_post( $id );
         if ( ! $post ) return new WP_Error( 'sac_not_found', '找不到指定的內容。請先查詢本站內容。', [ 'status' => 404 ] );
         if ( $post->post_type !== $slug ) return new WP_Error( 'sac_content_type_mismatch', '目標 ID 與指定的內容類型不符。請核對類型及 ID。', [ 'status' => 409 ] );
         if ( ! sac_content_can_access_post( $user, $types[ $slug ], $post, $operation ) ) {
-            return new WP_Error( 'sac_content_capability', '金鑰綁定的使用者無權操作這筆內容。', [ 'status' => 403 ] );
+            return new WP_Error( 'sac_content_capability', '授權的使用者無權操作這筆內容。', [ 'status' => 403 ] );
         }
     }
     return [ 'type' => $types[ $slug ], 'user' => $user, 'post' => $post ];
@@ -102,19 +71,34 @@ function sac_content_legacy_target( WP_REST_Request $request ) {
     return sac_content_target( $request, 'post', $operation, isset( $url['id'] ) ? (int) $url['id'] : null );
 }
 
-function sac_content_status( $value, $target ) {
-    if ( $value !== null && ! is_string( $value ) ) return new WP_Error( 'sac_invalid_status', '發布狀態格式錯誤。', [ 'status' => 400 ] );
-    $status = sac_checked_publication_status( $value );
-    if ( is_wp_error( $status ) ) return $status;
-    if ( in_array( $status, [ 'publish', 'private' ], true ) && ! user_can( $target['user'], $target['type']->cap->publish_posts ) ) {
-        return new WP_Error( 'sac_publish_capability', '金鑰綁定的使用者無此類型的發佈權限。', [ 'status' => 403 ] );
-    }
-    return $status;
-}
-
 function sac_content_fields( $slug, $post = null ) {
     $fields = apply_filters( 'sac_content_field_definitions', [], $slug, $post );
     $fields = is_array( $fields ) ? $fields : [];
+    $opted_in = (array) apply_filters( 'sac_oauth_registered_meta', [], $slug );
+    foreach ( array_intersect_key( get_registered_meta_keys( 'post', $slug ), array_fill_keys( $opted_in, true ) ) as $key => $definition ) {
+        if ( isset( $fields[ $key ] ) || empty( $definition['single'] ) || empty( $definition['show_in_rest'] )
+            || ! in_array( $definition['type'], [ 'string', 'integer', 'number', 'boolean' ], true ) ) continue;
+        $fields[ $key ] = [
+            'label' => ( $definition['label'] ?? '' ) ?: $key, 'type' => $definition['type'],
+            'authorize' => static function ( $operation, $user, $post, $type ) use ( $key ) {
+                if ( ! $post ) return user_can( $user, $type->cap->create_posts );
+                return ( $operation !== 'read' || user_can( $user, 'read_post', $post->ID ) )
+                    && user_can( $user, 'edit_post_meta', $post->ID, $key );
+            },
+            'validate' => static function ( $value ) use ( $definition, $key, $slug ) {
+                $clean = rest_sanitize_value_from_schema( $value, [ 'type' => $definition['type'] ], $key );
+                return is_wp_error( $clean ) ? $clean : sanitize_meta( $key, $clean, 'post', $slug );
+            },
+            'read' => static function ( $post ) use ( $key, $definition ) {
+                return rest_sanitize_value_from_schema( get_post_meta( $post->ID, $key, true ), [ 'type' => $definition['type'] ], $key );
+            },
+            'write' => static function ( $id, $value ) use ( $key ) {
+                if ( ! current_user_can( 'edit_post_meta', $id, $key ) ) return false;
+                update_post_meta( $id, $key, wp_slash( $value ) );
+                return metadata_exists( 'post', $id, $key ) && (string) get_post_meta( $id, $key, true ) === (string) $value;
+            },
+        ];
+    }
     if ( function_exists( 'acf_get_field_groups' ) && function_exists( 'acf_get_fields' ) ) {
         $context = [ 'post_type' => $slug ];
         if ( $post ) $context['post_id'] = $post->ID;
@@ -154,15 +138,20 @@ function sac_content_fields( $slug, $post = null ) {
 }
 
 function sac_content_field_access( $field, $operation, $target ) {
-    return empty( $field['unsupported'] ) && is_callable( $field[ $operation ] ?? null )
-        && is_callable( $field['authorize'] ?? null )
-        && ( $operation !== 'write' || is_callable( $field['validate'] ?? null ) )
-        && $field['authorize']( $operation, $target['user'], $target['post'], $target['type'] );
+    if ( ! empty( $field['unsupported'] ) || ! is_callable( $field[ $operation ] ?? null )
+        || ! is_callable( $field['authorize'] ?? null ) || ( $operation === 'write' && ! is_callable( $field['validate'] ?? null ) ) ) return false;
+    try {
+        return (bool) $field['authorize']( $operation, $target['user'], $target['post'], $target['type'] );
+    } catch ( Throwable $error ) {
+        return false;
+    }
 }
 
 function sac_content_native_fields( $slug ) {
     $supports = [ 'title' => 'title', 'content' => 'editor', 'excerpt' => 'excerpt', 'featured_image_id' => 'thumbnail' ];
-    $fields = [ 'slug' => true, 'status' => true, 'terms' => (bool) get_object_taxonomies( $slug ) ];
+    $type = get_post_type_object( $slug );
+    $fields = [ 'slug' => true, 'status' => true, 'terms' => (bool) get_object_taxonomies( $slug ),
+        'parent_id' => $type->hierarchical, 'author_id' => post_type_supports( $slug, 'author' ) ];
     foreach ( $supports as $field => $feature ) $fields[ $field ] = post_type_supports( $slug, $feature );
     return $fields;
 }
@@ -171,7 +160,7 @@ function sac_content_extensions( $slug ) {
     return [
         'faq' => post_type_supports( $slug, 'editor' ),
         'seo' => is_post_type_viewable( $slug ) && post_type_supports( $slug, 'title' )
-            && ( sac_has_wumetax_seo_core() || defined( 'WPSEO_VERSION' ) || class_exists( 'RankMath' ) || $slug === 'post' ),
+            && (bool) sac_seo_adapter(),
         'featured_image' => post_type_supports( $slug, 'thumbnail' ),
     ];
 }
@@ -216,6 +205,8 @@ function sac_content_result( $post, $user, $detail = false ) {
     foreach ( [ 'content' => 'post_content', 'excerpt' => 'post_excerpt', 'slug' => 'post_name' ] as $name => $column ) {
         if ( $native[ $name ] ) $result[ $name ] = $post->$column;
     }
+    if ( $native['parent_id'] ) $result['parent_id'] = (int) $post->post_parent;
+    if ( $native['author_id'] ) $result['author_id'] = (int) $post->post_author;
     if ( $native['featured_image_id'] ) $result['featured_image_id'] = (int) get_post_thumbnail_id( $post );
     $result['terms'] = [];
     foreach ( get_object_taxonomies( $post->post_type, 'objects' ) as $taxonomy ) {
@@ -232,9 +223,16 @@ function sac_content_result( $post, $user, $detail = false ) {
     $target = [ 'type' => get_post_type_object( $post->post_type ), 'post' => $post, 'user' => $user ];
     foreach ( sac_content_fields( $post->post_type, $post ) as $name => $field ) {
         if ( sac_content_field_access( $field, 'read', $target ) ) {
-            $value = $field['read']( $post, $user );
-            if ( ! is_wp_error( $value ) ) $result['custom_fields'][ $name ] = $value;
-            else $field_guidance[ $name ] = '欄位讀取失敗，請檢查綁定或從 WordPress 後台查看。';
+            try {
+                $value = $field['read']( $post, $user );
+                if ( ! is_wp_error( $value ) ) {
+                    $result['custom_fields'][ $name ] = $value;
+                    continue;
+                }
+            } catch ( Throwable $error ) {
+                // Report availability without exposing a third-party exception.
+            }
+            $field_guidance[ $name ] = '欄位讀取失敗，請檢查綁定或從 WordPress 後台查看。';
         } elseif ( ! empty( $field['unsupported'] ) ) {
             $field_guidance[ $name ] = $field['unsupported'];
         }
@@ -304,6 +302,12 @@ function sac_content_save( $request, $target, $values = null ) {
     if ( ! $post && array_key_exists( 'id', $values ) ) return sac_content_error( 'id', '建立草稿由 WordPress 分配 ID。' );
     $unknown = array_diff( array_keys( $values ), array_merge( array_keys( $native ), [ 'custom_fields', 'id', 'post_type' ] ) );
     if ( $unknown ) return sac_content_error( reset( $unknown ), '欄位未登錄。請先查看內容類型的欄位說明。' );
+    $grant = sac_authenticate( $request );
+    foreach ( [ 'terms' => 'taxonomy:write', 'featured_image_id' => 'media:update' ] as $field => $scope ) {
+        if ( ! array_key_exists( $field, $values ) ) continue;
+        $permission = sac_oauth_require_scope( $grant, $scope );
+        if ( is_wp_error( $permission ) ) return $permission;
+    }
     $data = $post ? [ 'ID' => $post->ID ] : [ 'post_type' => $slug, 'post_author' => $target['user']->ID, 'post_status' => 'draft' ];
     $native_columns = [ 'title' => 'post_title', 'content' => 'post_content', 'excerpt' => 'post_excerpt', 'slug' => 'post_name' ];
     foreach ( $native_columns as $field => $column ) {
@@ -315,8 +319,28 @@ function sac_content_save( $request, $target, $values = null ) {
     if ( ! $post && $native['title'] && empty( $data['post_title'] ) && ( $data['post_title'] ?? '' ) !== '0' ) {
         return sac_content_error( 'title', '請提供必填標題。', 'sac_required_field' );
     }
+    if ( array_key_exists( 'parent_id', $values ) ) {
+        $parent_id = $values['parent_id'];
+        if ( ! $native['parent_id'] || ! is_int( $parent_id ) || $parent_id < 0 ) return sac_content_error( 'parent_id', '請提供有效上層 ID。' );
+        if ( $parent_id ) {
+            $parent = get_post( $parent_id );
+            if ( ! $parent || $parent->post_type !== $slug || ! sac_content_can_access_post( $target['user'], $target['type'], $parent, 'read' )
+                || ( $post && ( $parent_id === $post->ID || in_array( $post->ID, get_post_ancestors( $parent ), true ) ) ) ) {
+                return sac_content_error( 'parent_id', '上層內容不存在、無法讀取或形成循環。' );
+            }
+        }
+        $data['post_parent'] = $parent_id;
+    }
+    if ( array_key_exists( 'author_id', $values ) ) {
+        $author = $values['author_id'];
+        if ( ! $native['author_id'] || ! is_int( $author ) || ! sac_oauth_account( $author )
+            || ( $author !== $target['user']->ID && ! user_can( $target['user'], $target['type']->cap->edit_others_posts ) ) ) {
+            return sac_content_error( 'author_id', '無法指定此作者。' );
+        }
+        $data['post_author'] = $author;
+    }
     if ( array_key_exists( 'status', $values ) ) {
-        $data['post_status'] = sac_content_status( $values['status'], $target );
+        $data['post_status'] = str_ends_with( $request->get_route(), '/publish' ) ? 'publish' : sac_checked_publication_status( $values['status'] );
         if ( is_wp_error( $data['post_status'] ) ) return $data['post_status'];
     }
     $custom = sac_content_validate_custom( $values['custom_fields'] ?? [], $target );
@@ -346,15 +370,22 @@ function sac_content_save( $request, $target, $values = null ) {
         $publication = null;
     }
 
+    $review = sac_content_review( $request, $target );
+    if ( is_wp_error( $review ) ) return $review;
     $user_id = get_current_user_id();
     wp_set_current_user( $target['user']->ID );
     try {
-        $id = $post ? wp_update_post( wp_slash( $data ), true ) : wp_insert_post( wp_slash( $data ), true );
+        $id = $post
+            ? ( count( $data ) === 1 ? $post->ID : wp_update_post( wp_slash( $data ), true ) )
+            : wp_insert_post( wp_slash( $data ), true );
         if ( is_wp_error( $id ) ) return $id;
         if ( ! $id ) return new WP_Error( 'sac_save_failed', 'WordPress 無法儲存內容。', [ 'status' => 500 ] );
         foreach ( $terms as $taxonomy => $ids ) {
             $result = wp_set_object_terms( $id, $ids, $taxonomy );
-            if ( is_wp_error( $result ) ) return sac_content_save_error( $id, 'terms.' . $taxonomy, $post );
+            $saved_terms = wp_get_object_terms( $id, $taxonomy, [ 'fields' => 'ids' ] );
+            if ( is_wp_error( $result ) || is_wp_error( $saved_terms ) || array_diff( $ids, $saved_terms ) || array_diff( $saved_terms, $ids ) ) {
+                return sac_content_save_error( $id, 'terms.' . $taxonomy, $post );
+            }
         }
         if ( $thumbnail !== null && (int) get_post_thumbnail_id( $id ) !== $thumbnail ) {
             $thumbnail ? set_post_thumbnail( $id, $thumbnail ) : delete_post_thumbnail( $id );
@@ -396,8 +427,10 @@ function sac_content_tool_definitions() {
         'content' => [ 'type' => 'string', 'in' => 'body', 'description' => 'WordPress 正文 HTML。' ],
         'excerpt' => [ 'type' => 'string', 'in' => 'body' ],
         'slug' => [ 'type' => 'string', 'in' => 'body' ],
-        'status' => [ 'type' => 'string', 'in' => 'body', 'enum' => [ 'draft', 'pending', 'private', 'publish' ] ],
+        'status' => [ 'type' => 'string', 'in' => 'body', 'enum' => [ 'draft', 'pending' ] ],
         'featured_image_id' => [ 'type' => 'integer', 'in' => 'body', 'description' => '媒體庫圖片 ID。填 0 移除。' ],
+        'parent_id' => [ 'type' => 'integer', 'in' => 'body' ],
+        'author_id' => [ 'type' => 'integer', 'in' => 'body' ],
         'terms' => [ 'type' => 'object', 'in' => 'body', 'description' => '分類法 slug 對應分類項目 ID 陣列。指定的分類法整組更新。', 'additionalProperties' => [ 'type' => 'array', 'items' => [ 'type' => 'integer' ] ] ],
         'custom_fields' => [ 'type' => 'object', 'in' => 'body', 'description' => 'describe_content_type 顯示有寫入權限的欄位和值。', 'additionalProperties' => true ],
     ];
@@ -415,7 +448,7 @@ function sac_content_tool_definitions() {
     $seo['og_image_id'] = [ 'type' => 'integer', 'in' => 'body' ];
     $seo['noindex'] = $seo['nofollow'] = [ 'type' => 'boolean', 'in' => 'body' ];
     $rows = [
-        [ 'list_content_types', 'GET', '/content-types', '查詢本站可用的內容類型', '列出此金鑰可使用的內容類型、操作與支援狀態。', [], '文章與 FAQ' ],
+        [ 'list_content_types', 'GET', '/content-types', '查詢本站可用的內容類型', '列出此授權可使用的內容類型、操作與支援狀態。', [], '文章與 FAQ' ],
         [ 'describe_content_type', 'GET', '/content-types/{post_type}', '查看欄位與分類法', '查看類型的原生及自訂欄位、必填規則、分類法與 SEO、FAQ、精選圖片支援。可提供現有內容 ID 取得該筆欄位定義。', [ 'post_type' => $type, 'id' => [ 'type' => 'integer', 'in' => 'query' ] ], '文章與 FAQ' ],
         [ 'list_content_terms', 'GET', '/content-types/{post_type}/terms/{taxonomy}', '查詢分類項目',
             '按分類名稱查詢現有項目與 ID。建立或更新前請先用此工具核對分類。', [ 'post_type' => $type, 'taxonomy' => $taxonomy ] + array_diff_key( $list, [ 'status' => true ] ), '文章與 FAQ' ],
@@ -423,6 +456,8 @@ function sac_content_tool_definitions() {
         [ 'get_content', 'GET', '/content/{post_type}/{id}', '查看單筆內容', '透過內容類型與 ID 核對正文、分類及可讀的欄位。', [ 'post_type' => $type, 'id' => $id ], '文章與 FAQ' ],
         [ 'create_content', 'POST', '/content/{post_type}', '建立內容草稿', '先查看類型欄位與必填規則，確認草稿內容後再建立。預設草稿，成功回傳類型、標題、ID、狀態及編輯連結。', [ 'post_type' => $type ] + $native, '文章與 FAQ' ],
         [ 'update_content', 'POST', '/content/{post_type}/{id}', '更新指定欄位', '先查詢目標並逐項確認變更，再只送出需要更新的欄位。', [ 'post_type' => $type, 'id' => $id ] + $native, '文章與 FAQ' ],
+        [ 'publish_content', 'POST', '/content/{post_type}/{id}/publish', '確認並發佈', '發佈已完成的草稿。需在 WordPress 以原授權帳號確認。', [ 'post_type' => $type, 'id' => $id ], '文章與 FAQ' ],
+        [ 'set_content_featured_image', 'POST', '/content/{post_type}/{id}/featured-image', '設定精選圖片', '設定已上傳的媒體庫圖片，填 0 移除。', [ 'post_type' => $type, 'id' => $id, 'featured_image_id' => $native['featured_image_id'] + [ 'required' => true ] ], '圖片上傳' ],
         [ 'get_content_faq', 'GET', '/content/{post_type}/{id}/faq', '查看內容 FAQ', '查看已授權內容的現有問答。', [ 'post_type' => $type, 'id' => $id ], '文章與 FAQ' ],
         [ 'update_content_faq', 'POST', '/content/{post_type}/{id}/faq', '儲存內容 FAQ', '先核對現有問答和使用者確認的完整清單再儲存。', [ 'post_type' => $type, 'id' => $id ] + $faq, '文章與 FAQ' ],
         [ 'get_content_seo', 'GET', '/content/{post_type}/{id}/seo', '查看內容 SEO', '查看此類型支援的 SEO 欄位。', [ 'post_type' => $type, 'id' => $id ], 'SEO' ],
@@ -433,7 +468,7 @@ function sac_content_tool_definitions() {
         return [
             'name' => $name, 'method' => $method, 'path' => $path, 'group' => $group, 'summary' => $summary,
             'description' => $description, 'scenario' => $summary, 'prompt' => $description,
-            'available' => true, 'need_write' => $method === 'POST', 'params' => $params,
+            'available' => $name !== 'publish_content' || (bool) get_option( SAC_OPTION_ALLOW_PUBLISH, false ), 'need_write' => $method === 'POST', 'params' => $params,
         ];
     }, $rows );
 }
@@ -517,14 +552,17 @@ function sac_content_faq( $request, $post_id, $write ) {
         }
         $clean[] = [ 'question' => sanitize_text_field( $item['question'] ), 'answer' => wp_kses_post( $item['answer'] ) ];
     }
+    if ( $clean && sac_faq_block_exists( $post_id ) ) return sac_oauth_error( 'sac_faq_block_exists', '此內容已有 SEO 外掛的 FAQ 區塊，請在原區塊編輯。', 409 );
     update_post_meta( $post_id, '_sac_faq_list', wp_slash( $clean ) );
-    sac_sync_faq_schema( $post_id, $clean );
+    if ( get_post_meta( $post_id, '_sac_faq_list', true ) !== $clean || ! sac_sync_faq_schema( $post_id, $clean ) ) {
+        return new WP_Error( 'sac_partial_save', 'FAQ 或結構化資料可能已部分更新，請到後台核對。', [ 'status' => 500, 'id' => $post_id ] );
+    }
     return [ 'success' => true, 'post_id' => $post_id, 'faqs' => $clean ];
 }
 
 function sac_handle_content_tool( $name, WP_REST_Request $request ) {
     if ( $name === 'list_content_types' ) {
-        $key = get_option( SAC_OPTION_KEYS, [] )[ sac_request_key( $request ) ] ?? [];
+        $key = sac_authenticate( $request );
         $results = [];
         foreach ( sac_content_types() as $type ) {
             $ops = sac_content_operations( $type, $key );
@@ -546,7 +584,7 @@ function sac_handle_content_tool( $name, WP_REST_Request $request ) {
     }
     if ( $id !== null && $id < 1 ) return sac_content_error( 'id', '請提供有效內容 ID。' );
     $write = $request->get_method() === 'POST';
-    $operation = $write ? ( $id === null ? 'create' : 'update' ) : 'read';
+    $operation = $name === 'publish_content' ? 'publish' : ( $write ? ( $id === null ? 'create' : 'update' ) : 'read' );
     $target = sac_content_target( $request, $slug, $operation, $id );
     if ( is_wp_error( $target ) && in_array( $name, [ 'describe_content_type', 'list_content_terms' ], true ) && $id === null ) {
         foreach ( [ 'create', 'update' ] as $alternative ) {
@@ -563,25 +601,33 @@ function sac_handle_content_tool( $name, WP_REST_Request $request ) {
         case 'list_content':
             return sac_query_content( $request, $target );
         case 'get_content':
-            return sac_content_result( $target['post'], $target['user'], true );
+            $result = sac_content_result( $target['post'], $target['user'], true );
+            $grant = sac_authenticate( $request );
+            if ( ! in_array( 'taxonomy:read', $grant['scopes'], true ) ) unset( $result['terms'] );
+            if ( ! in_array( 'media:read', $grant['scopes'], true ) ) unset( $result['featured_image_id'] );
+            return $result;
         case 'create_content':
         case 'update_content':
             return sac_content_save( $request, $target );
+        case 'publish_content':
+            if ( ! in_array( $target['post']->post_status, [ 'draft', 'pending' ], true ) ) return sac_oauth_error( 'sac_publish_status', '此工具只發佈草稿或待審內容。', 409 );
+            return sac_content_save( $request, $target, [ 'status' => 'publish' ] );
+        case 'set_content_featured_image':
+            return sac_content_save( $request, $target, [ 'featured_image_id' => $request->get_param( 'featured_image_id' ) ] );
         case 'get_content_faq':
         case 'update_content_faq':
             if ( ! sac_content_extensions( $slug )['faq'] ) return sac_content_error( 'faq', '此類型未支援 FAQ。請從 WordPress 後台確認類型設定。' );
-            return sac_content_faq( $request, $id, $write );
+            $review = $write ? sac_content_review( $request, $target ) : true;
+            return is_wp_error( $review ) ? $review : sac_content_faq( $request, $id, $write );
         case 'get_content_seo':
         case 'update_content_seo':
             if ( ! sac_content_extensions( $slug )['seo'] ) return sac_content_error( 'seo', '此類型缺少可用的 SEO 模組或欄位。' );
             if ( ! $write ) return sac_get_seo_fields( $id );
+            $review = sac_content_review( $request, $target );
+            if ( is_wp_error( $review ) ) return $review;
             $fields = $request->get_json_params() ?: $request->get_body_params();
-            if ( ! sac_has_wumetax_seo_core() ) {
-                $unsupported = array_intersect( array_keys( $fields ), [ 'canonical', 'noindex', 'nofollow', 'og_title', 'og_description' ] );
-                if ( $unsupported ) return sac_content_error( reset( $unsupported ), '此欄位需要啟用 WUMETAX SEO Core，或改用 WordPress 後台。' );
-            }
-            sac_update_seo_fields( $id, $fields );
-            return [ 'success' => true, 'post_id' => $id, 'seo' => sac_get_seo_fields( $id ) ];
+            $saved = sac_update_seo_fields( $id, $fields );
+            return is_wp_error( $saved ) ? $saved : [ 'success' => true, 'post_id' => $id, 'seo' => sac_get_seo_fields( $id ) ];
     }
 }
 
@@ -604,10 +650,15 @@ function sac_handle_legacy_content( WP_REST_Request $request ) {
     $post = $target['post'];
     $write = $request->get_method() === 'POST';
     $route = $request->get_route();
+    if ( $write && ( str_ends_with( $route, '/faq' ) || str_ends_with( $route, '/seo' ) ) ) {
+        $review = sac_content_review( $request, $target );
+        if ( is_wp_error( $review ) ) return $review;
+    }
     if ( str_ends_with( $route, '/faq' ) ) return sac_content_faq( $request, $post->ID, $write );
     if ( str_ends_with( $route, '/seo' ) ) {
         if ( ! $write ) return sac_get_seo_fields( $post->ID );
-        sac_update_seo_fields( $post->ID, $request->get_params() );
+        $saved = sac_update_seo_fields( $post->ID, $request->get_json_params() ?: $request->get_body_params() );
+        if ( is_wp_error( $saved ) ) return $saved;
         return [ 'success' => true, 'post_id' => $post->ID, 'seo' => sac_get_seo_fields( $post->ID ) ];
     }
     if ( ! $write ) {
@@ -621,6 +672,7 @@ function sac_handle_legacy_content( WP_REST_Request $request ) {
     $result = sac_content_save( $request, $target, $values );
     if ( is_wp_error( $result ) ) return $result;
     $post_id = $result['id'];
-    sac_apply_seo_request( $post_id, $request, ! $post, $values['title'] ?? '', $values['excerpt'] ?? '' );
-    return [ 'success' => true, 'post_id' => $post_id, 'seo' => sac_get_seo_fields( $post_id ) ];
+    sac_apply_seo_request( $post_id, $request );
+    $grant = sac_authenticate( $request );
+    return [ 'success' => true, 'post_id' => $post_id ] + ( in_array( 'seo:read', $grant['scopes'], true ) ? [ 'seo' => sac_get_seo_fields( $post_id ) ] : [] );
 }
