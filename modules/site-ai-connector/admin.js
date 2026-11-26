@@ -1,17 +1,31 @@
-document.querySelectorAll('.sac-admin .sac-copy').forEach((button) => {
-    button.addEventListener('click', async () => {
-        const source = document.getElementById(button.dataset.copy);
-        if (!source || !source.value) return;
-        try {
-            await navigator.clipboard.writeText(source.value);
-            button.textContent = '已複製';
-        } catch {
-            source.focus();
-            source.select();
-            button.textContent = '已選取，請手動複製';
-        }
+{
+    const copyStatus = document.querySelector('.sac-copy-status');
+    let previousCopyButton;
+    let copyTimer;
+
+    document.querySelectorAll('.sac-admin .sac-copy').forEach((button) => {
+        const showResult = (label, message) => {
+            clearTimeout(copyTimer);
+            if (previousCopyButton) previousCopyButton.textContent = '複製';
+            previousCopyButton = button;
+            button.textContent = label;
+            if (copyStatus) copyStatus.textContent = message;
+            copyTimer = setTimeout(() => { button.textContent = '複製'; }, 3000);
+        };
+        button.addEventListener('click', async () => {
+            const source = document.getElementById(button.dataset.copy);
+            if (!source || !source.value) return;
+            try {
+                await navigator.clipboard.writeText(source.value);
+                showResult('已複製', '已複製欄位內容。');
+            } catch {
+                source.focus();
+                source.select();
+                showResult('已選取', '已選取欄位內容，請手動複製。');
+            }
+        });
     });
-});
+}
 
 document.querySelectorAll('.sac-builder').forEach((builder) => {
     const types = JSON.parse(builder.dataset.types);

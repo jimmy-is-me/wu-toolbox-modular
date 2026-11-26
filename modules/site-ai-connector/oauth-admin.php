@@ -116,7 +116,7 @@ function sac_oauth_admin_overview() {
 function sac_oauth_admin_connect() {
     $fields = [
         '名稱' => get_bloginfo( 'name' ) . ' AI 連接器', '說明' => '依 WordPress 使用者權限查詢和管理本站內容。',
-        'MCP Server URL' => sac_oauth_resource(), 'Authentication' => 'OAuth',
+        'Authentication' => 'OAuth',
         'Authorization URL' => sac_oauth_url( 'authorize' ), 'Token URL' => sac_oauth_url( 'token' ),
         'Registration URL' => sac_oauth_url( 'register' ), 'Revocation URL' => sac_oauth_url( 'revoke' ),
         'Authorization Server Base URL' => sac_oauth_issuer(), 'Resource' => sac_oauth_resource(),
@@ -124,17 +124,24 @@ function sac_oauth_admin_connect() {
         'Authorization Server Metadata' => sac_oauth_metadata_url(), 'Protected Resource Metadata' => sac_oauth_metadata_url( true ),
     ];
     ?>
-    <section class="sac-panel">
+    <div class="sac-connection-grid">
+    <section class="sac-panel sac-connection-endpoints">
+        <h2>MCP 連線資料</h2>
+        <?php sac_admin_copy( 'sac-mcp-connect', 'MCP Server URL', sac_oauth_resource(), 1 ); ?>
+        <details class="sac-inspector"><summary>手動設定與探索網址</summary>
+            <div class="sac-inspector-fields">
+            <?php foreach ( $fields as $label => $value ) sac_admin_copy( 'sac-oauth-' . substr( md5( $label ), 0, 10 ), $label, $value, 1 ); ?>
+            </div>
+        </details>
+    </section>
+    <section class="sac-panel sac-connection-guide">
         <h2>ChatGPT 自訂 MCP</h2>
         <ol><li>在 ChatGPT 的 Plugins 開啟新增自訂 MCP 伺服器。</li>
             <li>貼上 MCP Server URL，身分驗證選擇 OAuth，再建立私人連線。</li>
             <li>依畫面提示登入本站 WordPress，核對應用程式、回呼網址及權限後，同意授權。</li>
             <li>在對話選用連線，呼叫 verify_connection。寫入可用性依帳號方案、工作區政策與本站權限。</li></ol>
-        <?php sac_admin_copy( 'sac-mcp-connect', 'MCP Server URL', sac_oauth_resource(), 1 ); ?>
-        <details><summary>手動設定與探索網址</summary>
-        <?php foreach ( $fields as $label => $value ) sac_admin_copy( 'sac-oauth-' . substr( md5( $label ), 0, 10 ), $label, $value, 1 ); ?>
-        </details>
     </section>
+    </div>
     <?php
 }
 
