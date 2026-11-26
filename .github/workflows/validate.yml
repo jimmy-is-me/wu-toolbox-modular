@@ -26,6 +26,8 @@ jobs:
       - name: Check shared admin design ownership and settings contract
         run: |
           php tests/admin-design.php
+          node --check modules/site-ai-connector/admin.js
+          node --check tests/site-ai-connector-browser.cjs
           php tests/gutenberg-manager.php
           php tests/website-optimization.php
           php tests/website-optimization.php enabled

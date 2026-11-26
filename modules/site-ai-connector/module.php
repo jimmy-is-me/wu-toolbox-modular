@@ -17,66 +17,20 @@ if ( defined( 'SAC_NAMESPACE' ) ) {
  * ============================================================
  */
 define( 'SAC_NAMESPACE', 'site-ai/v1' );
-define( 'SAC_OPTION_KEYS', 'sac_api_keys' );
-define( 'SAC_OPTION_UPLOAD_TOKENS', 'sac_upload_tokens' );
 define( 'SAC_LOG_OPTION', 'sac_operation_log' );
 define( 'SAC_OPTION_IP_ALLOWLIST', 'sac_ip_allowlist' );
 define( 'SAC_OPTION_ALLOW_PUBLISH', 'sac_ai_allow_publish' );
 define( 'SAC_OPTION_ALLOW_COUPON_PUBLISH', 'sac_ai_allow_coupon_publish' );
 define( 'SAC_FORM_CPT', 'sac_form_entry' );
 define( 'SAC_CACHE_TTL', 60 ); // 唯讀查詢快取秒數，降低重複對話造成的資料庫負擔
-define( 'SAC_OPTION_FEATURES', 'sac_features' );
 define( 'SAC_OPTION_REDIRECTS', 'sac_redirects' );
 define( 'SAC_LOG_MAX', 200 );
-require_once __DIR__ . '/content.php';
-require_once __DIR__ . '/connection.php';
+foreach ( [ 'oauth-store', 'oauth-server', 'oauth-tokens', 'oauth-authorize', 'oauth-permissions',
+    'confirmation', 'mcp-server', 'media', 'seo', 'content', 'lab-adapter', 'connection' ] as $component ) {
+    require_once __DIR__ . '/' . $component . '.php';
+}
 if ( is_admin() ) require_once __DIR__ . '/admin.php';
 
-
-function sac_on_activate() {
-    sac_migrate_key_format();
-    if ( ! wp_next_scheduled( 'sac_cleanup_tokens' ) ) {
-        wp_schedule_event( time(), 'daily', 'sac_cleanup_tokens' );
-    }
-}
-
-// Modules do not receive standalone plugin activation hooks. Initialize after
-// loading and flush the new upload rewrite exactly once when first enabled.
-sac_on_activate();
-add_action( 'init', function () {
-    if ( get_option( 'wutm_sac_rewrite_flushed_256', false ) ) return;
-    flush_rewrite_rules( false );
-    update_option( 'wutm_sac_rewrite_flushed_256', 1, false );
-}, 99 );
-
-
-
-/**
- * 舊版金鑰格式是 key => 'read'/'write' 字串。
- * 新版格式是 key => ['level'=>..., 'created'=>...]，這裡自動搬移，不會讓你原本的金鑰失效。
- */
-function sac_migrate_key_format() {
-    $keys = get_option( SAC_OPTION_KEYS, [] );
-    if ( empty( $keys ) ) return;
-    $changed = false;
-    foreach ( $keys as $k => $v ) {
-        if ( is_string( $v ) ) {
-            $keys[ $k ] = [ 'level' => $v, 'created' => '未記錄（舊版金鑰）' ];
-            $changed = true;
-        }
-    }
-    if ( $changed ) update_option( SAC_OPTION_KEYS, $keys );
-}
-
-function sac_get_key_level( $key_data ) {
-    return is_array( $key_data ) ? ( $key_data['level'] ?? '' ) : $key_data;
-}
-
-/**
- * ============================================================
- * 0B. 註冊 sac_form_entry 自訂文章類型（表單送件儲存位置）
- * ============================================================
- */
 add_action( 'init', function () {
     register_post_type( SAC_FORM_CPT, [
         'labels'          => [ 'name' => 'AI 表單送件', 'singular_name' => '表單送件' ],
@@ -92,20 +46,6 @@ add_action( 'init', function () {
 
 /**
  * ============================================================
- * 0C. 排程清理過期上傳 Token，避免 wp_options 肥大
- * ============================================================
- */
-add_action( 'sac_cleanup_tokens', function () {
-    $tokens = get_option( SAC_OPTION_UPLOAD_TOKENS, [] );
-    $now = time();
-    $new_tokens = array_filter( $tokens, fn( $t ) => $t['expires'] > $now );
-    if ( count( $new_tokens ) !== count( $tokens ) ) {
-        update_option( SAC_OPTION_UPLOAD_TOKENS, $new_tokens );
-    }
-} );
-
-/**
- * ============================================================
  * 1. 後台選單
  * ============================================================
  */
@@ -115,13 +55,15 @@ add_action( 'admin_menu', function () {
 
 /**
  * ============================================================
- * 2. 功能定義（單一來源：畫面顯示 + MCP + OpenAPI + Gemini schema）
+ * 2. MCP 與 REST 共用工具定義
  * ============================================================
  */
 function sac_get_tool_definitions() {
     $has_wc = class_exists( 'WooCommerce' );
 
-    return array_merge( sac_content_tool_definitions(), sac_connection_tool_definitions(), [
+    return array_merge( sac_content_tool_definitions(), sac_connection_tool_definitions(), array_map( static function ( $tool ) {
+        return $tool + [ 'available' => true, 'group' => '圖片上傳', 'scenario' => $tool['summary'], 'prompt' => $tool['description'] ];
+    }, sac_media_definitions() ), [
         [
             'name' => 'list_posts', 'group' => '文章與 FAQ', 'method' => 'GET', 'path' => '/posts',
             'summary' => '列出所有文章及狀態', 'description' => '列出文章（含草稿），只回傳 ID、標題、狀態、修改時間，不含內文，查詢速度快。',
@@ -142,7 +84,7 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'update_post', 'group' => '文章與 FAQ', 'method' => 'POST', 'path' => '/posts/{post_id}',
-            'summary' => '修改文章與 SEO', 'description' => '修改文章標題、正文、摘要或 SEO 欄位。生成內容須符合搜尋意圖、以自然語句呈現主要關鍵字、使用清楚的小標題及原創資訊；勿堆砌關鍵字或編造事實。既有欄位只更新有帶入的項目（需讀寫金鑰）。',
+            'summary' => '修改文章與 SEO', 'description' => '修改文章標題、正文、摘要或 SEO 欄位。生成內容須符合搜尋意圖、以自然語句呈現主要關鍵字、使用清楚的小標題及原創資訊；勿堆砌關鍵字或編造事實。既有欄位只更新有帶入的項目（需OAuth 寫入授權）。',
             'scenario' => '確認現況後要更新內容或發佈草稿', 'prompt' => '把文章 123 的標題改成「中秋送禮推薦」，內文先不要動',
             'need_write' => true, 'available' => true,
             'params' => [
@@ -159,7 +101,7 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'create_post', 'group' => '文章與 FAQ', 'method' => 'POST', 'path' => '/posts',
-            'summary' => '新增 SEO 友善文章草稿', 'description' => '建立文章時先確認搜尋意圖與目標讀者；撰寫原創、準確且有用的內容，以自然方式使用主要關鍵字、清楚的小標題與具體資訊，同時提供摘要與獨特 SEO 標題／描述。勿堆砌關鍵字、編造資訊或保證排名；預設草稿（需讀寫金鑰）。',
+            'summary' => '新增 SEO 友善文章草稿', 'description' => '建立文章時先確認搜尋意圖與目標讀者；撰寫原創、準確且有用的內容，以自然方式使用主要關鍵字、清楚的小標題與具體資訊，同時提供摘要與獨特 SEO 標題／描述。勿堆砌關鍵字、編造資訊或保證排名；預設草稿（需OAuth 寫入授權）。',
             'scenario' => '想請 AI 先擬一篇兼顧讀者與 SEO 的文章草稿，之後自己審核發佈', 'prompt' => '先確認「中秋節送禮推薦」的搜尋意圖，再寫原創繁體中文文章，包含清楚小標題、自然摘要與獨特 SEO 標題／描述；不要堆砌關鍵字，先存草稿讓我審核',
             'need_write' => true, 'available' => true,
             'params' => [
@@ -182,7 +124,7 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'update_post_faq', 'group' => '文章與 FAQ', 'method' => 'POST', 'path' => '/posts/{post_id}/faq',
-            'summary' => '整組覆蓋 FAQ', 'description' => '整組覆蓋指定文章的 FAQ，會自動同步 FAQPage 結構化資料（需先讀取現況，再回傳完整陣列，需讀寫金鑰）。',
+            'summary' => '整組覆蓋 FAQ', 'description' => '整組覆蓋指定文章的 FAQ，會自動同步 FAQPage 結構化資料（需先讀取現況，再回傳完整陣列，需OAuth 寫入授權）。',
             'scenario' => '想幫文章補上常見問題，並自動產生結構化資料', 'prompt' => '幫文章 123 整理 3 題讀者常問的問題，先讀取原有 FAQ，保留舊題後再更新',
             'need_write' => true, 'available' => true,
             'params' => [
@@ -199,7 +141,7 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'update_post_seo', 'group' => 'SEO', 'method' => 'POST', 'path' => '/posts/{post_id}/seo',
-            'summary' => '修改 SEO 核心欄位', 'description' => '修改指定文章的 SEO 標題、描述、Canonical、社群分享與索引設定；啟用 SEO 核心時會直接寫入 SEO 核心欄位（需讀寫金鑰）。',
+            'summary' => '修改 SEO 核心欄位', 'description' => '修改指定文章的 SEO 標題、描述、Canonical、社群分享與索引設定；啟用 SEO 核心時會直接寫入 SEO 核心欄位（需OAuth 寫入授權）。',
             'scenario' => '要更新搜尋標題或描述，提高點擊率', 'prompt' => '幫文章 123 寫一段適合台灣讀者的 SEO 描述，先讓我看內容，再更新',
             'need_write' => true, 'available' => true,
             'params' => [
@@ -224,12 +166,10 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'create_upload_link', 'group' => '圖片上傳', 'method' => 'POST', 'path' => '/upload-link',
-            'summary' => '產生一次性上傳連結', 'description' => '產生一次性圖片上傳連結，供手機或其他裝置上傳圖片，有時效與張數限制（需讀寫金鑰）。',
+            'summary' => '產生一次性上傳連結', 'description' => '產生一次性圖片上傳連結，供手機或其他裝置上傳圖片，有時效與張數限制（需OAuth 寫入授權）。',
             'scenario' => '圖片只在手機裡，想直接讓 AI 幫忙處理不用先傳到電腦', 'prompt' => '我要用手機上傳商品照片，請給我一個 30 分鐘有效的上傳連結',
             'need_write' => true, 'available' => true,
             'params' => [
-                'ttl_minutes' => [ 'type' => 'integer', 'in' => 'body', 'description' => '有效分鐘數，預設 30，最大 180' ],
-                'max_files'   => [ 'type' => 'integer', 'in' => 'body', 'description' => '最多張數，預設 5，最大 20' ],
             ],
         ],
         [
@@ -241,7 +181,7 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'set_featured_image', 'group' => '圖片上傳', 'method' => 'POST', 'path' => '/posts/{post_id}/featured-image',
-            'summary' => '設定精選圖片', 'description' => '將指定媒體 ID 設為文章精選圖片（需讀寫金鑰）。',
+            'summary' => '設定精選圖片', 'description' => '將指定媒體 ID 設為文章精選圖片（需OAuth 寫入授權）。',
             'scenario' => '圖片上傳完成後，指定要用在哪一篇文章', 'prompt' => '把剛上傳的照片設為文章 123 的精選圖片',
             'need_write' => true, 'available' => true,
             'params' => [
@@ -262,7 +202,7 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'update_media_alt', 'group' => '圖片上傳', 'method' => 'POST', 'path' => '/media/{media_id}/alt',
-            'summary' => '更新圖片替代文字', 'description' => '更新指定圖片的替代文字；寫入前應先用 list_media 核對媒體 ID、檔名與所屬文章或商品（需讀寫金鑰）。',
+            'summary' => '更新圖片替代文字', 'description' => '更新指定圖片的替代文字；寫入前應先用 list_media 核對媒體 ID、檔名與所屬文章或商品（需OAuth 寫入授權）。',
             'scenario' => '為缺少替代文字的圖片補上精確、可讀且符合 SEO 的描述', 'prompt' => '請先使用 list_media 取得 missing_alt=true 的前 20 張圖片，列出媒體 ID、檔名、所屬內容與建議的繁體中文替代文字（20 字內）；等我確認後，才逐筆使用 update_media_alt 寫入，最後回報成功、失敗筆數與原因。',
             'need_write' => true, 'available' => true,
             'params' => [
@@ -279,7 +219,7 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'update_menu_item', 'group' => '選單管理', 'method' => 'POST', 'path' => '/menu/{item_id}',
-            'summary' => '修改選單項目文字或網址', 'description' => '更新既有選單項目的文字或自訂網址，保留原項目編號（需讀寫金鑰）。',
+            'summary' => '修改選單項目文字或網址', 'description' => '更新既有選單項目的文字或自訂網址，保留原項目編號（需OAuth 寫入授權）。',
             'scenario' => '小幅調整選單文字或連結，不想重建整個選單', 'prompt' => '先列出主選單，再把「聯絡」那一項改成「聯絡我們」',
             'need_write' => true, 'available' => true,
             'params' => [
@@ -309,7 +249,7 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'create_product', 'group' => 'WooCommerce 商品', 'method' => 'POST', 'path' => '/wc/products',
-            'summary' => '新增 SEO 友善商品', 'description' => '建立 WooCommerce 商品時先確認真實規格與適用情境，撰寫獨特、清楚且可掃讀的商品說明與簡短說明，自然使用主要關鍵字，提供 SEO 標題、描述及圖片替代文字；勿捏造功效或堆砌關鍵字。預設草稿（需讀寫金鑰）。',
+            'summary' => '新增 SEO 友善商品', 'description' => '建立 WooCommerce 商品時先確認真實規格與適用情境，撰寫獨特、清楚且可掃讀的商品說明與簡短說明，自然使用主要關鍵字，提供 SEO 標題、描述及圖片替代文字；勿捏造功效或堆砌關鍵字。預設草稿（需OAuth 寫入授權）。',
             'scenario' => '想請 AI 幫忙快速建立一筆新商品，之後自己審核上架', 'prompt' => '幫我新增「中秋綜合禮盒」，售價 880 元、庫存 20 盒，先存成草稿',
             'need_write' => true, 'available' => $has_wc,
             'params' => [
@@ -332,7 +272,7 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'update_product', 'group' => 'WooCommerce 商品', 'method' => 'POST', 'path' => '/wc/products/{product_id}',
-            'summary' => '修改商品與 SEO', 'description' => '修改商品資料與 SEO 欄位；若重寫商品內容，須以真實規格、買家疑問與自然語言為核心，避免重複或誇大。只更新有帶入的欄位（需讀寫金鑰）。',
+            'summary' => '修改商品與 SEO', 'description' => '修改商品資料與 SEO 欄位；若重寫商品內容，須以真實規格、買家疑問與自然語言為核心，避免重複或誇大。只更新有帶入的欄位（需OAuth 寫入授權）。',
             'scenario' => '確認現況後要調整價格、補貨或上下架', 'prompt' => '商品 88 補貨 20 件了，請先確認現有資料，再把庫存設為 20',
             'need_write' => true, 'available' => $has_wc,
             'params' => [
@@ -355,14 +295,14 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'delete_product', 'group' => 'WooCommerce 商品', 'method' => 'POST', 'path' => '/wc/products/{product_id}/delete',
-            'summary' => '刪除商品（移入垃圾桶）', 'description' => '將指定商品移入垃圾桶，可還原，不會直接永久刪除（需讀寫金鑰）。',
+            'summary' => '刪除商品（移入垃圾桶）', 'description' => '將指定商品移入垃圾桶，可還原，不會直接永久刪除（需OAuth 寫入授權）。',
             'scenario' => '商品下架不再銷售，想從商品列表移除', 'prompt' => '商品 88 不賣了，先確認商品名稱，再移到垃圾桶',
             'need_write' => true, 'available' => $has_wc,
             'params' => [ 'product_id' => [ 'type' => 'integer', 'in' => 'path', 'required' => true ] ],
         ],
         [
             'name' => 'set_product_stock', 'group' => 'WooCommerce 商品', 'method' => 'POST', 'path' => '/wc/products/{product_id}/stock',
-            'summary' => '快速調整庫存', 'description' => '單獨調整指定商品的庫存數量與庫存狀態，不影響其他欄位（需讀寫金鑰）。',
+            'summary' => '快速調整庫存', 'description' => '單獨調整指定商品的庫存數量與庫存狀態，不影響其他欄位（需OAuth 寫入授權）。',
             'scenario' => '盤點後要快速更新單一商品庫存，不想動到其他資料', 'prompt' => '商品 88 已售完，請把庫存設為 0',
             'need_write' => true, 'available' => $has_wc,
             'params' => [
@@ -411,7 +351,7 @@ function sac_get_tool_definitions() {
         ],
         [
             'name' => 'mark_form_submission_read', 'group' => '表單送件', 'method' => 'POST', 'path' => '/form-submissions/{entry_id}/mark-read',
-            'summary' => '標記表單送件為已讀', 'description' => '把指定表單送件標記為已處理（需讀寫金鑰）。',
+            'summary' => '標記表單送件為已讀', 'description' => '把指定表單送件標記為已處理（需OAuth 寫入授權）。',
             'scenario' => '處理完一筆表單後標記，避免重複查看', 'prompt' => '表單送件 45 已經處理完，幫我標記已讀',
             'need_write' => true, 'available' => true,
             'params' => [ 'entry_id' => [ 'type' => 'integer', 'in' => 'path', 'required' => true ] ],
@@ -618,7 +558,7 @@ PROMPT,
             'get_post_seo' => '請使用 get_post_seo，參數 post_id=123，列出 SEO 標題、描述與焦點關鍵字；只查詢，不要修改。',
             'update_post_seo' => '先使用 get_post 與 get_post_seo 讀取 post_id=123。列出每個預計修改的 SEO 欄位名稱、目前舊值與預計新值，請我明確確認；確認前不得寫入。確認後才使用 update_post_seo 且只傳已確認欄位，最後回報實際結果與失敗原因。',
             'find_posts_missing_seo' => '請使用 find_posts_missing_seo，參數 limit=20，列出缺少 SEO 描述的已發佈文章 ID 與標題；只查詢，不要修改。',
-            'create_upload_link' => '先確認需要上傳的張數，再使用 create_upload_link，參數 ttl_minutes=30、max_files=5；回報連結、到期時間與張數上限。',
+            'create_upload_link' => '使用 create_upload_link 取得一張圖片的短效連結，由授權者登入 WordPress 上傳。',
             'check_upload_link' => '請使用 check_upload_link，傳入我提供的 token，列出已上傳媒體 ID 與狀態；不要修改。',
             'set_featured_image' => '先使用 get_post 與 list_media 核對文章和圖片；列出 post_id、media_id 給我確認後才使用 set_featured_image，完成後回報結果。',
             'list_media' => '請使用 list_media，參數 missing_alt=true、limit=20，列出媒體 ID、檔名、替代文字與所屬內容；只查詢，不要修改。',
@@ -649,63 +589,14 @@ PROMPT,
 }
 
 function sac_parameter_schema( $parameter ) {
-    $schema = array_diff_key( $parameter, array_flip( [ 'in', 'required' ] ) );
+    $schema = array_diff_key( $parameter, [ 'in' => true ] );
+    if ( ! is_array( $schema['required'] ?? null ) ) unset( $schema['required'] );
     if ( $schema['type'] === 'array' && ! isset( $schema['items'] ) ) {
         $schema['items'] = [ 'type' => 'string' ];
     }
     return $schema;
 }
 
-function sac_build_gemini_tools_schema() {
-    $defs = array_filter( sac_get_tool_definitions(), fn( $d ) => $d['available'] );
-    $functions = [];
-    foreach ( $defs as $d ) {
-        $properties = []; $required = [];
-        foreach ( $d['params'] as $key => $p ) {
-            $properties[ $key ] = sac_parameter_schema( $p ) + [ 'description' => $d['summary'] ];
-            if ( ! empty( $p['required'] ) ) $required[] = $key;
-        }
-        $functions[] = [ 'name' => $d['name'], 'description' => $d['description'], 'parameters' => [ 'type' => 'object', 'properties' => (object) $properties, 'required' => $required ] ];
-    }
-    return [ 'function_declarations' => $functions ];
-}
-
-function sac_build_openapi_schema() {
-    $rest_base = rest_url( SAC_NAMESPACE );
-    $defs = array_filter( sac_get_tool_definitions(), fn( $d ) => $d['available'] );
-    $paths = [];
-    foreach ( $defs as $d ) {
-        $method = strtolower( $d['method'] );
-        $op = [ 'operationId' => $d['name'], 'summary' => $d['summary'], 'description' => $d['description'], 'parameters' => [], 'x-openai-isConsequential' => $d['need_write'], 'responses' => [ '200' => [ 'description' => '成功' ] ] ];
-        $body_props = []; $body_required = [];
-        foreach ( $d['params'] as $key => $p ) {
-            if ( $p['in'] === 'body' ) {
-                $body_props[ $key ] = sac_parameter_schema( $p ) + [ 'description' => $d['summary'] ];
-                if ( ! empty( $p['required'] ) ) $body_required[] = $key;
-            } else {
-                $op['parameters'][] = [ 'name' => $key, 'in' => $p['in'], 'required' => ! empty( $p['required'] ), 'schema' => sac_parameter_schema( $p ), 'description' => $p['description'] ?? '' ];
-            }
-        }
-        if ( ! empty( $body_props ) ) {
-            $op['requestBody'] = [ 'required' => (bool) $body_required, 'content' => [ 'application/json' => [ 'schema' => [ 'type' => 'object', 'properties' => $body_props, 'required' => $body_required ] ] ] ];
-        }
-        $paths[ $d['path'] ][ $method ] = $op;
-    }
-    return [
-        'openapi' => '3.1.0',
-        'info'    => [ 'title' => get_bloginfo( 'name' ) . ' AI Connector', 'version' => WUTM_VERSION ],
-        'servers' => [ [ 'url' => untrailingslashit( $rest_base ) ] ],
-        'paths'   => $paths,
-        'components' => [ 'securitySchemes' => [ 'ApiKeyAuth' => [ 'type' => 'apiKey', 'in' => 'header', 'name' => 'X-SAC-Key' ] ] ],
-        'security' => [ [ 'ApiKeyAuth' => [] ] ],
-    ];
-}
-
-/**
- * ============================================================
- * 3. IP 白名單（可選，預設關閉）
- * ============================================================
- */
 function sac_check_ip_allowlist() {
     $allowlist = get_option( SAC_OPTION_IP_ALLOWLIST, [ 'enabled' => false, 'ips' => [] ] );
     if ( empty( $allowlist['enabled'] ) ) {
@@ -717,21 +608,11 @@ function sac_check_ip_allowlist() {
     return in_array( $remote_ip, $allowlist['ips'], true );
 }
 
-// Every connector REST route, including public schemas and MCP transport, passes this gate first.
-add_filter( 'rest_pre_dispatch', function ( $result, $server, $request ) {
-    if ( strpos( $request->get_route(), '/' . SAC_NAMESPACE . '/' ) === 0 && ! sac_check_ip_allowlist() ) {
-        return new WP_Error( 'sac_ip_blocked', '來源 IP 未列入白名單。請前往「連線設定」檢查呼叫平台的出口 IP。', [ 'status' => 403 ] );
-    }
-    return $result;
-}, 1, 3 );
-
 function sac_checked_publication_status( $value ) {
-    $status = sanitize_key( $value ?: 'draft' );
-    if ( ! in_array( $status, [ 'draft', 'pending', 'private', 'publish' ], true ) ) {
-        return new WP_Error( 'sac_invalid_status', '不允許的發布狀態', [ 'status' => 400 ] );
-    }
-    if ( 'publish' === $status && ! get_option( SAC_OPTION_ALLOW_PUBLISH, false ) ) {
-        return new WP_Error( 'sac_publish_disabled', 'AI 直接發布已停用，請先儲存草稿並由管理員審核', [ 'status' => 403 ] );
+    if ( $value !== null && ! is_string( $value ) ) return sac_oauth_error( 'sac_invalid_status', '狀態格式錯誤。' );
+    $status = $value ?? 'draft';
+    if ( ! in_array( $status, [ 'draft', 'pending' ], true ) ) {
+        return sac_oauth_error( 'sac_publish_workflow', '請先儲存草稿，並使用獨立發佈流程或 WordPress 編輯器。', 403 );
     }
     return $status;
 }
@@ -743,11 +624,10 @@ function sac_checked_publication_status( $value ) {
  * ============================================================
  */
 function sac_cache_id( WP_REST_Request $request, $cache_key ) {
-    $key = sac_request_key( $request );
-    $scope = get_option( SAC_OPTION_KEYS, [] )[ $key ] ?? [];
+    $grant = sac_authenticate( $request );
     return 'sac_c_' . hash( 'sha256', serialize( [
-        get_current_blog_id(), get_option( 'sac_cache_generation', '' ), sac_audit_key_id( $key ),
-        $scope, sac_site_content_policy(), $request->get_route(), $cache_key,
+        get_current_blog_id(), get_option( 'sac_cache_generation', '' ),
+        is_wp_error( $grant ) ? [] : $grant, sac_site_content_policy(), $request->get_route(), $cache_key,
     ] ) );
 }
 
@@ -765,232 +645,9 @@ function sac_invalidate_cache() {
 
 /**
  * ============================================================
- * 4. 真正的 MCP 端點
+ * 4. 歷史操作紀錄遷移
  * ============================================================
  */
-function sac_mcp_tools_list( $auth_level ) {
-    $defs = array_filter( sac_get_tool_definitions(), fn( $d ) => $d['available'] && ( $auth_level === 'write' || ! $d['need_write'] ) );
-    $tools = [];
-    foreach ( $defs as $d ) {
-        $properties = []; $required = [];
-        foreach ( $d['params'] as $key => $p ) {
-            $properties[ $key ] = sac_parameter_schema( $p ) + [ 'description' => $d['summary'] ];
-            if ( ! empty( $p['required'] ) ) $required[] = $key;
-        }
-        $tools[] = [
-            'name' => $d['name'],
-            'description' => $d['description'] . ( $d['need_write'] ? '（此操作會修改網站內容，需讀寫權限）' : '（唯讀查詢）' ),
-            'inputSchema' => [ 'type' => 'object', 'properties' => (object) $properties, 'required' => $required ],
-            // Honest risk hints help clients distinguish a lookup from a write.
-            // They never override a client's own confirmation requirements.
-            'annotations' => [
-                'title' => $d['summary'],
-                'readOnlyHint' => ! $d['need_write'],
-                'destructiveHint' => $d['need_write'],
-                'idempotentHint' => ! $d['need_write'],
-            ],
-        ];
-    }
-    return $tools;
-}
-
-function sac_mcp_call_tool( $tool_name, $args, $actor_key ) {
-    if ( ! is_array( $args ) ) return new WP_Error( 'sac_invalid_arguments', '工具參數格式錯誤' );
-    $defs = sac_get_tool_definitions();
-    $def = null;
-    foreach ( $defs as $d ) { if ( $d['name'] === $tool_name ) { $def = $d; break; } }
-    if ( ! $def ) return new WP_Error( 'sac_unknown_tool', "未知的工具：{$tool_name}" );
-    if ( empty( $def['available'] ) ) return new WP_Error( 'sac_unavailable_tool', str_starts_with( $def['path'], '/wc/' ) && ! class_exists( 'WooCommerce' ) ? 'WooCommerce 未啟用，電商工具目前無法使用。' : '此工具目前不可用，請檢查 AI 連接器的進階設定。' );
-
-    $path = $def['path'];
-    $path_keys = [];
-    foreach ( $def['params'] as $key => $p ) {
-        if ( ! empty( $p['required'] ) && ! array_key_exists( $key, $args ) ) {
-            return sac_content_error( $key, '缺少工具必填參數。', 'sac_required_field' );
-        }
-        if ( $p['in'] === 'path' && isset( $args[ $key ] ) ) {
-            if ( ! is_scalar( $args[ $key ] ) || ! preg_match( '/^[a-zA-Z0-9_-]+$/', (string) $args[ $key ] ) ) return new WP_Error( 'sac_invalid_path', '路徑參數格式錯誤' );
-            $path = str_replace( '{' . $key . '}', (string) $args[ $key ], $path );
-            $path_keys[ $key ] = true;
-        }
-    }
-
-    $request = new WP_REST_Request( $def['method'], '/' . SAC_NAMESPACE . $path );
-    // Use the original credential and normal REST authorization for every tool.
-    $request->set_header( 'x-sac-key', $actor_key );
-    $request_args = array_diff_key( $args, $path_keys );
-    if ( $def['method'] === 'GET' ) {
-        $request->set_query_params( $request_args );
-    } else {
-        $request->set_header( 'content-type', 'application/json' );
-        $request->set_body( wp_json_encode( (object) $request_args ) );
-    }
-
-    $response = rest_do_request( $request );
-    // Internal dispatch skips WordPress's HTTP rest_post_dispatch filter.
-    sac_audit_write( $response, rest_get_server(), $request );
-    if ( $response->is_error() ) return $response->as_error();
-    return $response->get_data();
-}
-
-add_action( 'rest_api_init', function () {
-
-    register_rest_route( SAC_NAMESPACE, '/mcp', [
-        'methods' => 'POST', 'permission_callback' => '__return_true', 'callback' => 'sac_handle_mcp_request',
-    ] );
-
-    // This stateless JSON endpoint does not offer an unsolicited SSE stream.
-    register_rest_route( SAC_NAMESPACE, '/mcp', [
-        'methods' => 'GET', 'permission_callback' => '__return_true',
-        'callback' => function () { return new WP_Error( 'sac_no_sse', '此端點使用 Streamable HTTP JSON，不提供 SSE 串流。', [ 'status' => 405 ] ); },
-    ] );
-
-    register_rest_route( SAC_NAMESPACE, '/capabilities', [
-        'methods' => 'GET', 'permission_callback' => '__return_true',
-        'callback' => function () { return rest_ensure_response( sac_get_tool_definitions() ); },
-    ] );
-
-    register_rest_route( SAC_NAMESPACE, '/gemini-tools-schema', [
-        'methods' => 'GET', 'permission_callback' => '__return_true',
-        'callback' => function () { return rest_ensure_response( sac_build_gemini_tools_schema() ); },
-    ] );
-
-    register_rest_route( SAC_NAMESPACE, '/openapi.json', [
-        'methods' => 'GET', 'permission_callback' => '__return_true',
-        'callback' => function () { return rest_ensure_response( sac_build_openapi_schema() ); },
-    ] );
-} );
-
-function sac_handle_mcp_request( WP_REST_Request $request ) {
-    if ( ! sac_check_ip_allowlist() ) {
-        return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => null, 'error' => [ 'code' => 403, 'message' => '來源 IP 未列入白名單。請前往「連線設定」檢查呼叫平台的出口 IP。' ] ] );
-    }
-
-    $body = json_decode( $request->get_body(), true );
-    if ( ! is_array( $body ) ) return new WP_Error( 'sac_invalid_json', '請提供有效的 JSON 物件', [ 'status' => 400 ] );
-    $id = $body['id'] ?? null;
-    $method = $body['method'] ?? '';
-    if ( ! is_string( $method ) ) return new WP_Error( 'sac_invalid_method', 'MCP 方法格式錯誤', [ 'status' => 400 ] );
-
-    // Streamable HTTP notifications have no JSON-RPC response body.
-    if ( strpos( $method, 'notifications/' ) === 0 ) {
-        return new WP_REST_Response( null, 202 );
-    }
-
-    $key = sac_request_key( $request );
-    $auth_level = sac_authenticate( $request );
-
-    if ( $method === 'initialize' ) {
-        $requested_version = $body['params']['protocolVersion'] ?? '';
-        $supported_versions = [ '2024-11-05', '2025-03-26', '2025-06-18', '2025-11-25' ];
-        $protocol_version = in_array( $requested_version, $supported_versions, true ) ? $requested_version : '2025-03-26';
-        return rest_ensure_response( [
-            'jsonrpc' => '2.0', 'id' => $id,
-            'result'  => [
-                'protocolVersion' => $protocol_version,
-                'capabilities' => [ 'tools' => new stdClass() ],
-                'serverInfo' => [ 'name' => get_bloginfo( 'name' ) . ' AI Connector', 'version' => WUTM_VERSION ],
-                'instructions' => '唯讀工具可查詢網站資料。任何寫入操作都必須先用唯讀工具核對現況，列出預計修改的對象、欄位與內容，取得使用者明確確認後才呼叫寫入工具；完成後回報成功筆數、失敗筆數與失敗原因。修改網站內容需讀寫金鑰，且仍須遵循連接平台的確認流程。',
-            ],
-        ] );
-    }
-
-    if ( $method === 'tools/list' ) {
-        if ( is_wp_error( $auth_level ) ) return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'error' => [ 'code' => $auth_level->get_error_data()['status'], 'message' => $auth_level->get_error_message() ] ] );
-        return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'result' => [ 'tools' => sac_mcp_tools_list( $auth_level ) ] ] );
-    }
-
-    if ( $method === 'tools/call' ) {
-        if ( is_wp_error( $auth_level ) ) return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'error' => [ 'code' => $auth_level->get_error_data()['status'], 'message' => $auth_level->get_error_message() ] ] );
-        if ( ! is_array( $body['params'] ?? null ) || ! is_string( $body['params']['name'] ?? null ) ) {
-            return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'error' => [ 'code' => -32602, 'message' => '缺少有效的工具名稱' ] ] );
-        }
-        $tool_name = $body['params']['name'] ?? '';
-        $args = $body['params']['arguments'] ?? [];
-        $result = sac_mcp_call_tool( $tool_name, $args, $key );
-        if ( is_wp_error( $result ) ) {
-            $details = [ 'code' => $result->get_error_code(), 'message' => $result->get_error_message() ];
-            $data = $result->get_error_data();
-            if ( is_string( $data['field'] ?? null ) ) $details['field'] = $data['field'];
-            if ( $details['code'] === 'sac_partial_save' && ! empty( $data['id'] ) ) $details['id'] = (int) $data['id'];
-            return rest_ensure_response( [
-                'jsonrpc' => '2.0', 'id' => $id,
-                'result' => [
-                    'content' => [ [ 'type' => 'text', 'text' => isset( $details['id'] ) ? $details['message'] . ' 內容 ID：' . $details['id'] : $details['message'] ] ],
-                    'structuredContent' => $details,
-                    'isError' => true,
-                ],
-            ] );
-        }
-        // The underlying write endpoint logs successful writes once.
-        return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'result' => [ 'content' => [ [ 'type' => 'text', 'text' => wp_json_encode( $result, JSON_UNESCAPED_UNICODE ) ] ] ] ] );
-    }
-
-    return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'error' => [ 'code' => 404, 'message' => "未知的方法：{$method}" ] ] );
-}
-
-add_filter( 'rest_pre_serve_request', static function ( $served, $result, $request ) {
-    return $served || ( $request->get_route() === '/' . SAC_NAMESPACE . '/mcp' && $result->get_status() === 202 );
-}, 10, 3 );
-
-function sac_audit_key_id( $key ) {
-    if ( ! is_string( $key ) || '' === $key ) return 'unknown';
-    return substr( hash_hmac( 'sha256', $key, wp_salt( 'auth' ) ), 0, 16 );
-}
-
-function sac_audit_write( $response, $server, $request ) {
-    if ( 'POST' !== $request->get_method() ) return $response;
-    $route = $request->get_route();
-    $prefix = '/' . SAC_NAMESPACE;
-    if ( strpos( $route, $prefix . '/' ) !== 0 || $route === $prefix . '/mcp' ) return $response;
-    $path = substr( $route, strlen( $prefix ) );
-    $tool = null;
-    foreach ( sac_get_tool_definitions() as $definition ) {
-        if ( ! $definition['need_write'] || 'POST' !== $definition['method'] ) continue;
-        $parts = preg_split( '/\{[^}]+\}/', $definition['path'] );
-        $pattern = '~^' . implode( '[^/]+', array_map( static function ( $part ) { return preg_quote( $part, '~' ); }, $parts ) ) . '$~';
-        if ( preg_match( $pattern, $path ) ) { $tool = $definition['name']; break; }
-    }
-    if ( ! $tool ) return $response;
-    $key = sac_request_key( $request );
-    if ( ! isset( get_option( SAC_OPTION_KEYS, [] )[ $key ] ) ) return $response;
-    $data = is_wp_error( $response ) ? [ 'code' => $response->get_error_code() ] : $response->get_data();
-    $success = ! is_wp_error( $response ) && ! $response->is_error() && $response->get_status() < 400 && ! ( is_array( $data ) && isset( $data['success'] ) && false === $data['success'] );
-    if ( $success || ( $data['code'] ?? '' ) === 'sac_partial_save' ) sac_invalidate_cache();
-    $params = $request->get_params();
-    $url_params = $request->get_url_params();
-    $saved_id = $success ? ( $data['post_id'] ?? $data['id'] ?? '' ) : '';
-    if ( ( $data['code'] ?? '' ) === 'sac_partial_save' ) $saved_id = $data['data']['id'] ?? '';
-    $raw_id = $url_params['id'] ?? $saved_id;
-    $id = is_scalar( $raw_id ) && preg_match( '/^(?:\d+|r_[a-zA-Z0-9]+)$/', (string) $raw_id ) ? (string) $raw_id : '';
-    if ( '' === $id && $success && is_array( $data ) ) $id = (string) absint( $data['post_id'] ?? $data['product_id'] ?? $data['coupon_id'] ?? $data['id'] ?? 0 );
-    $target_type = 'other';
-    if ( strpos( $path, '/content/' ) === 0 ) {
-        $slug = $url_params['post_type'] ?? '';
-        $target_type = isset( sac_content_types()[ $slug ] ) ? $slug : 'unknown';
-    }
-    elseif ( strpos( $path, '/posts' ) === 0 ) $target_type = 'post';
-    elseif ( strpos( $path, '/wc/products' ) === 0 ) $target_type = 'product';
-    elseif ( strpos( $path, '/wc/coupons' ) === 0 ) $target_type = 'coupon';
-    elseif ( strpos( $path, '/media' ) === 0 ) $target_type = 'media';
-    elseif ( strpos( $path, '/menu' ) === 0 ) $target_type = 'menu';
-    elseif ( strpos( $path, '/redirect' ) === 0 ) $target_type = 'redirect';
-    elseif ( strpos( $path, '/form-submissions' ) === 0 ) $target_type = 'form_submission';
-    $seo_keys = [ 'seo_title', 'seo_description', 'focus_keyword', 'canonical', 'noindex', 'nofollow', 'og_title', 'og_description', 'og_image_id' ];
-    if ( 'update_post_seo' === $tool ) $seo_keys = array_merge( $seo_keys, [ 'title', 'description' ] );
-    $seo_fields = ( 'update_post_seo' === $tool || in_array( $tool, [ 'update_post', 'update_product', 'create_post', 'create_product' ], true ) ) ? array_values( array_intersect( array_keys( $params ), $seo_keys ) ) : [];
-    $reason = '';
-    if ( ! $success ) {
-        // Error codes only: never log free-form messages, request values, PII, or response bodies.
-        $reason = is_array( $data ) && isset( $data['code'] ) ? sanitize_key( $data['code'] ) : 'request_failed';
-    }
-    $logs = get_option( SAC_LOG_OPTION, [] );
-    $logs[] = [ 'time' => current_time( 'mysql' ), 'tool' => $tool, 'target_type' => $target_type, 'target_id' => $id, 'action' => $tool, 'success' => $success, 'failure_reason' => $reason, 'key_id' => sac_audit_key_id( $key ), 'seo_fields' => $seo_fields ];
-    update_option( SAC_LOG_OPTION, array_slice( $logs, -SAC_LOG_MAX ), false );
-    return $response;
-}
-add_filter( 'rest_post_dispatch', 'sac_audit_write', 10, 3 );
-
 add_action( 'init', function () {
     if ( get_option( 'sac_log_safe_migration_v316', false ) ) return;
     $logs = get_option( SAC_LOG_OPTION, [] );
@@ -1008,36 +665,7 @@ add_action( 'init', function () {
 
 /**
  * ============================================================
- * 6. 認證
- * ============================================================
- */
-function sac_authenticate( WP_REST_Request $request ) {
-    if ( ! sac_check_ip_allowlist() ) {
-        return new WP_Error( 'sac_ip_blocked', '來源 IP 未列入白名單。請前往「連線設定」檢查呼叫平台的出口 IP。', [ 'status' => 403 ] );
-    }
-    $key = sac_request_key( $request );
-    if ( ! $key ) return new WP_Error( 'sac_no_key', '請在 AI 平台的認證設定填入本站金鑰。', [ 'status' => 401 ] );
-    $keys = get_option( SAC_OPTION_KEYS, [] );
-    $level = isset( $keys[ $key ] ) ? sac_get_key_level( $keys[ $key ] ) : '';
-    if ( ! in_array( $level, [ 'read', 'write' ], true ) ) return new WP_Error( 'sac_invalid_key', 'API 金鑰無效或已撤銷。請在「連線設定」確認金鑰並更新平台認證。', [ 'status' => 403 ] );
-    return $level;
-}
-
-function sac_permission_read( WP_REST_Request $request ) {
-    $level = sac_authenticate( $request );
-    return is_wp_error( $level ) ? $level : true;
-}
-
-function sac_permission_write( WP_REST_Request $request ) {
-    $level = sac_authenticate( $request );
-    if ( is_wp_error( $level ) ) return $level;
-    if ( $level !== 'write' ) return new WP_Error( 'sac_forbidden', '此金鑰可查詢內容。建立或更新時，請使用已授權此類型的讀寫金鑰。', [ 'status' => 403 ] );
-    return true;
-}
-
-/**
- * ============================================================
- * 7. REST 路由
+ * 6. 相容 REST 路由
  * ============================================================
  */
 add_action( 'rest_api_init', function () {
@@ -1089,24 +717,17 @@ add_action( 'rest_api_init', function () {
     ] );
 
     register_rest_route( SAC_NAMESPACE, '/upload-link', [
-        'methods' => 'POST', 'permission_callback' => 'sac_permission_write',
-        'callback' => function ( WP_REST_Request $req ) {
-            $ttl_minutes = max( 1, min( (int) ( $req->get_param( 'ttl_minutes' ) ?: 30 ), 180 ) );
-            $max_files = max( 1, min( (int) ( $req->get_param( 'max_files' ) ?: 5 ), 20 ) );
-            $token = wp_generate_password( 40, false );
-            $tokens = get_option( SAC_OPTION_UPLOAD_TOKENS, [] );
-            $tokens[ $token ] = [ 'expires' => time() + $ttl_minutes * 60, 'max_files' => $max_files, 'used' => 0, 'media_ids' => [] ];
-            update_option( SAC_OPTION_UPLOAD_TOKENS, $tokens );
-            return rest_ensure_response( [ 'upload_url' => add_query_arg( 'sac_token', $token, home_url( '/sac-upload/' ) ), 'expires_in_minutes' => $ttl_minutes, 'max_files' => $max_files ] );
-        },
+        'methods' => 'POST', 'permission_callback' => 'sac_permission_write', 'callback' => 'sac_media_upload_link',
     ] );
-
-    register_rest_route( SAC_NAMESPACE, '/upload-link/(?P<token>[a-zA-Z0-9]+)', [
+    register_rest_route( SAC_NAMESPACE, '/upload-link/(?P<token>[a-f0-9]{64})', [
         'methods' => 'GET', 'permission_callback' => 'sac_permission_read',
-        'callback' => function ( WP_REST_Request $req ) {
-            $tokens = get_option( SAC_OPTION_UPLOAD_TOKENS, [] );
-            if ( empty( $tokens[ $req['token'] ] ) ) return new WP_Error( 'sac_invalid_token', '連結不存在或已失效', [ 'status' => 404 ] );
-            return rest_ensure_response( $tokens[ $req['token'] ] );
+        'callback' => static function ( $request ) {
+            $grant = sac_authenticate( $request );
+            $row = sac_oauth_row( 'upload', $request->get_url_params()['token'] );
+            if ( ! $row || (int) $row['expires'] <= time() || (int) $row['family'] !== $grant['id'] ) {
+                return sac_oauth_error( 'sac_not_found', '找不到此授權下的有效連結。', 404 );
+            }
+            return $row['payload'] ?: [ 'status' => (int) $row['state'] ? 'processing' : 'waiting' ];
         },
     ] );
 
@@ -1118,6 +739,8 @@ add_action( 'rest_api_init', function () {
             $media_id = filter_var( $req->get_param( 'media_id' ), FILTER_VALIDATE_INT, [ 'options' => [ 'min_range' => 1 ] ] );
             $media_id = sac_content_thumbnail( $media_id, $target );
             if ( is_wp_error( $media_id ) ) return $media_id;
+            $review = sac_content_review( $req, $target );
+            if ( is_wp_error( $review ) ) return $review;
             $post_id = $target['post']->ID;
             if ( (int) get_post_thumbnail_id( $post_id ) !== $media_id && ! set_post_thumbnail( $post_id, $media_id ) ) {
                 return sac_content_save_error( $post_id, 'featured_image_id', $target['post'] );
@@ -1132,11 +755,6 @@ add_action( 'rest_api_init', function () {
             $limit = min( (int) ( $req->get_param( 'limit' ) ?: 10 ), 50 );
             $search = $req->get_param( 'search' ) ?: '';
             $missing_alt = filter_var( $req->get_param( 'missing_alt' ), FILTER_VALIDATE_BOOLEAN );
-            $cache_key = "media_{$search}_{$limit}_" . ( $missing_alt ? 'missing' : 'all' );
-            if ( ! $missing_alt ) {
-                $cached = sac_cache_get( $req, $cache_key );
-                if ( $cached !== false ) return rest_ensure_response( $cached );
-            }
             $query_args = [
                 'post_type' => 'attachment', 'post_status' => 'inherit', 'post_mime_type' => 'image',
                 's' => $search, 'posts_per_page' => $limit, 'orderby' => 'date', 'order' => 'DESC', 'no_found_rows' => true,
@@ -1149,7 +767,8 @@ add_action( 'rest_api_init', function () {
                 ];
             }
             $query = new WP_Query( $query_args );
-            $result = array_map( function ( $a ) {
+            $allowed = array_filter( $query->posts, static function ( $post ) { return current_user_can( 'read_post', $post->ID ); } );
+            $result = array_values( array_map( function ( $a ) {
                 $parent_id = (int) $a->post_parent;
                 $file = get_attached_file( $a->ID );
                 return [
@@ -1163,8 +782,8 @@ add_action( 'rest_api_init', function () {
                     'thumbnail' => wp_get_attachment_image_url( $a->ID, 'thumbnail' ),
                     'uploaded' => $a->post_date,
                 ];
-            }, $query->posts );
-            if ( ! $missing_alt ) sac_cache_set( $req, $cache_key, $result );
+            }, $allowed ) );
+            // Media visibility may change independently of the connector.
             return rest_ensure_response( $result );
         },
     ] );
@@ -1173,7 +792,8 @@ add_action( 'rest_api_init', function () {
         'methods' => 'POST', 'permission_callback' => 'sac_permission_write',
         'args' => [ 'alt_text' => [ 'required' => true, 'type' => 'string' ] ],
         'callback' => function ( WP_REST_Request $req ) {
-            $media_id = (int) $req['id'];
+            $media_id = (int) $req->get_url_params()['id'];
+            if ( ! current_user_can( 'edit_post', $media_id ) ) return sac_oauth_error( 'sac_capability', '無法編輯此圖片。', 403 );
             if ( get_post_type( $media_id ) !== 'attachment' || strpos( (string) get_post_mime_type( $media_id ), 'image/' ) !== 0 ) {
                 return new WP_Error( 'sac_not_found', '找不到指定圖片', [ 'status' => 404 ] );
             }
@@ -1202,7 +822,7 @@ add_action( 'rest_api_init', function () {
     register_rest_route( SAC_NAMESPACE, '/menu/(?P<id>\d+)', [
         'methods' => 'POST', 'permission_callback' => 'sac_permission_write',
         'callback' => function ( WP_REST_Request $req ) {
-            $item_id = (int) $req['id'];
+            $item_id = (int) $req->get_url_params()['id'];
             if ( get_post_type( $item_id ) !== 'nav_menu_item' ) return new WP_Error( 'sac_not_found', '選單項目不存在', [ 'status' => 404 ] );
             if ( $req->get_param( 'title' ) !== null ) wp_update_post( [ 'ID' => $item_id, 'post_title' => sanitize_text_field( $req->get_param( 'title' ) ) ] );
             if ( $req->get_param( 'url' ) !== null ) update_post_meta( $item_id, '_menu_item_url', esc_url_raw( $req->get_param( 'url' ) ) );
@@ -1265,8 +885,7 @@ add_action( 'rest_api_init', function () {
             if ( ! $product_id ) return new WP_Error( 'sac_create_failed', '商品建立失敗', [ 'status' => 500 ] );
             $categories = $req->get_param( 'categories' );
             if ( ! empty( $categories ) && is_array( $categories ) ) sac_set_product_categories( $product_id, $categories );
-            $summary = $req->get_param( 'short_description' ) ?: sac_seo_summary( $req->get_param( 'description' ) ?: '' );
-            sac_apply_seo_request( $product_id, $req, true, $req->get_param( 'name' ), $summary );
+            sac_apply_seo_request( $product_id, $req );
             sac_apply_image_alt( $req );
             return rest_ensure_response( [ 'success' => true, 'product_id' => $product_id, 'seo' => sac_get_seo_fields( $product_id ) ] );
         },
@@ -1276,7 +895,7 @@ add_action( 'rest_api_init', function () {
         'methods' => 'GET', 'permission_callback' => 'sac_permission_read',
         'callback' => function ( WP_REST_Request $req ) {
             if ( ! class_exists( 'WooCommerce' ) ) return new WP_Error( 'sac_no_wc', 'WooCommerce 未啟用', [ 'status' => 400 ] );
-            $product = wc_get_product( (int) $req['id'] );
+            $product = wc_get_product( (int) $req->get_url_params()['id'] );
             if ( ! $product ) return new WP_Error( 'sac_not_found', '商品不存在', [ 'status' => 404 ] );
             return rest_ensure_response( sac_format_product( $product ) );
         },
@@ -1286,7 +905,7 @@ add_action( 'rest_api_init', function () {
         'methods' => 'POST', 'permission_callback' => 'sac_permission_write',
         'callback' => function ( WP_REST_Request $req ) {
             if ( ! class_exists( 'WooCommerce' ) ) return new WP_Error( 'sac_no_wc', 'WooCommerce 未啟用', [ 'status' => 400 ] );
-            $product = wc_get_product( (int) $req['id'] );
+            $product = wc_get_product( (int) $req->get_url_params()['id'] );
             if ( ! $product ) return new WP_Error( 'sac_not_found', '商品不存在', [ 'status' => 404 ] );
             $changed_fields = [];
             if ( $req->get_param( 'name' ) !== null ) { $product->set_name( sanitize_text_field( $req->get_param( 'name' ) ) ); $changed_fields[] = '名稱'; }
@@ -1317,7 +936,7 @@ add_action( 'rest_api_init', function () {
         'methods' => 'POST', 'permission_callback' => 'sac_permission_write',
         'callback' => function ( WP_REST_Request $req ) {
             if ( ! class_exists( 'WooCommerce' ) ) return new WP_Error( 'sac_no_wc', 'WooCommerce 未啟用', [ 'status' => 400 ] );
-            $product_id = (int) $req['id'];
+            $product_id = (int) $req->get_url_params()['id'];
             if ( ! wc_get_product( $product_id ) ) return new WP_Error( 'sac_not_found', '商品不存在', [ 'status' => 404 ] );
             wp_trash_post( $product_id );
             return rest_ensure_response( [ 'success' => true, 'product_id' => $product_id, 'note' => '已移入垃圾桶，可在後台還原' ] );
@@ -1328,7 +947,7 @@ add_action( 'rest_api_init', function () {
         'methods' => 'POST', 'permission_callback' => 'sac_permission_write', 'args' => [ 'stock_quantity' => [ 'required' => true ] ],
         'callback' => function ( WP_REST_Request $req ) {
             if ( ! class_exists( 'WooCommerce' ) ) return new WP_Error( 'sac_no_wc', 'WooCommerce 未啟用', [ 'status' => 400 ] );
-            $product = wc_get_product( (int) $req['id'] );
+            $product = wc_get_product( (int) $req->get_url_params()['id'] );
             if ( ! $product ) return new WP_Error( 'sac_not_found', '商品不存在', [ 'status' => 404 ] );
             $qty = (int) $req->get_param( 'stock_quantity' );
             $product->set_manage_stock( true );
@@ -1358,7 +977,7 @@ add_action( 'rest_api_init', function () {
         'methods' => 'GET', 'permission_callback' => 'sac_permission_read',
         'callback' => function ( WP_REST_Request $req ) {
             if ( ! class_exists( 'WooCommerce' ) ) return new WP_Error( 'sac_no_wc', 'WooCommerce 未啟用', [ 'status' => 400 ] );
-            $reveal = in_array( $req->get_param( 'reveal_pii' ), [ '1', 1, true, 'true' ], true );
+            $reveal = false;
             $orders = wc_get_orders( [ 'status' => $req->get_param( 'status' ) ?: 'processing', 'limit' => 20, 'orderby' => 'date', 'order' => 'DESC' ] );
             return rest_ensure_response( array_map( function ( $o ) use ( $reveal ) {
                 $name = $o->get_billing_first_name() . ' ' . $o->get_billing_last_name();
@@ -1410,7 +1029,7 @@ add_action( 'rest_api_init', function () {
     register_rest_route( SAC_NAMESPACE, '/form-submissions/unread', [
         'methods' => 'GET', 'permission_callback' => 'sac_permission_read',
         'callback' => function ( WP_REST_Request $req ) {
-            $reveal = in_array( $req->get_param( 'reveal_pii' ), [ '1', 1, true, 'true' ], true );
+            $reveal = false;
             $query = new WP_Query( [ 'post_type' => SAC_FORM_CPT, 'post_status' => 'publish', 'meta_key' => '_sac_read', 'meta_value' => '0', 'posts_per_page' => 20, 'no_found_rows' => true ] );
             return rest_ensure_response( array_map( function ( $p ) use ( $reveal ) {
                 $name = get_post_meta( $p->ID, '_name', true ); $email = get_post_meta( $p->ID, '_email', true );
@@ -1422,7 +1041,7 @@ add_action( 'rest_api_init', function () {
     register_rest_route( SAC_NAMESPACE, '/form-submissions/(?P<id>\d+)/mark-read', [
         'methods' => 'POST', 'permission_callback' => 'sac_permission_write',
         'callback' => function ( WP_REST_Request $req ) {
-            $entry_id = (int) $req['id'];
+            $entry_id = (int) $req->get_url_params()['id'];
             if ( get_post_type( $entry_id ) !== SAC_FORM_CPT ) return new WP_Error( 'sac_not_found', '表單送件不存在', [ 'status' => 404 ] );
             update_post_meta( $entry_id, '_sac_read', '1' );
             return rest_ensure_response( [ 'success' => true ] );
@@ -1491,119 +1110,48 @@ function sac_seo_summary( $content ) {
 }
 
 /** Apply only explicitly provided SEO fields on updates; add safe defaults on creation. */
-function sac_apply_seo_request( $post_id, WP_REST_Request $request, $creating = false, $title = '', $summary = '' ) {
+function sac_apply_seo_request( $post_id, WP_REST_Request $request ) {
+    $grant = sac_authenticate( $request );
+    if ( is_wp_error( $grant ) || is_wp_error( sac_oauth_require_scope( $grant, 'seo:write' ) ) ) return false;
     $params = [];
     foreach ( [ 'seo_title' => 'title', 'seo_description' => 'description', 'focus_keyword' => 'focus_keyword' ] as $input => $field ) {
         if ( $request->get_param( $input ) !== null ) $params[ $field ] = $request->get_param( $input );
     }
-    if ( $creating ) {
-        if ( ! isset( $params['title'] ) && $title !== '' ) $params['title'] = $title;
-        if ( ! isset( $params['description'] ) && $summary !== '' ) $params['description'] = sac_seo_summary( $summary );
-    }
-    if ( ! $params ) return false;
-    sac_update_seo_fields( $post_id, $params );
-    return true;
+    return $params && ! is_wp_error( sac_update_seo_fields( $post_id, $params ) );
 }
 
 function sac_apply_image_alt( WP_REST_Request $request ) {
-    if ( $request->get_param( 'image_alt' ) === null || ! $request->get_param( 'image_id' ) ) return false;
+    $grant = sac_authenticate( $request );
+    if ( is_wp_error( $grant ) || is_wp_error( sac_oauth_require_scope( $grant, 'media:update' ) )
+        || ! is_string( $request->get_param( 'image_alt' ) ) ) return false;
     $image_id = (int) $request->get_param( 'image_id' );
-    if ( ! wp_attachment_is_image( $image_id ) ) return false;
+    if ( ! wp_attachment_is_image( $image_id ) || ! current_user_can( 'edit_post', $image_id ) ) return false;
     update_post_meta( $image_id, '_wp_attachment_image_alt', sanitize_text_field( $request->get_param( 'image_alt' ) ) );
     return true;
 }
 
-/** SEO Core is the first-party source of truth when its module is enabled. */
-function sac_has_wumetax_seo_core() {
-    return class_exists( 'Wumetax_SEO_Core_v120' );
-}
-
-function sac_get_seo_fields( $post_id ) {
-    if ( sac_has_wumetax_seo_core() ) {
-        return [
-            'post_id'        => $post_id,
-            'title'          => (string) get_post_meta( $post_id, '_wu_seo_title', true ),
-            'description'    => (string) get_post_meta( $post_id, '_wu_seo_description', true ),
-            'focus_keyword'  => (string) get_post_meta( $post_id, '_sac_focus_keyword', true ),
-            'canonical'      => (string) get_post_meta( $post_id, '_wu_seo_canonical', true ),
-            'noindex'        => (bool) get_post_meta( $post_id, '_wu_seo_noindex', true ),
-            'nofollow'       => (bool) get_post_meta( $post_id, '_wu_seo_nofollow', true ),
-            'og_title'       => (string) get_post_meta( $post_id, '_wu_seo_og_title', true ),
-            'og_description' => (string) get_post_meta( $post_id, '_wu_seo_og_desc', true ),
-            'og_image_id'    => (int) get_post_meta( $post_id, '_wu_seo_og_image', true ),
-            'source'         => 'wumetax_seo_core',
-        ];
-    }
-
-    $has_seo_plugin = defined( 'WPSEO_VERSION' ) || class_exists( 'RankMath' );
-    $description = get_post_meta( $post_id, '_yoast_wpseo_metadesc', true ) ?: get_post_meta( $post_id, 'rank_math_description', true );
-    if ( ! $has_seo_plugin && empty( $description ) ) {
-        $post = get_post( $post_id );
-        $description = $post ? $post->post_excerpt : '';
-    }
-    return [
-        'post_id'       => $post_id,
-        'title'         => get_post_meta( $post_id, '_yoast_wpseo_title', true ) ?: get_post_meta( $post_id, 'rank_math_title', true ),
-        'description'   => $description,
-        'focus_keyword' => get_post_meta( $post_id, '_yoast_wpseo_focuskw', true ) ?: get_post_meta( $post_id, 'rank_math_focus_keyword', true ),
-        'og_image_id'   => get_post_meta( $post_id, '_yoast_wpseo_opengraph-image-id', true ),
-        'source'        => $has_seo_plugin ? 'seo_plugin' : 'post_excerpt_fallback',
-    ];
-}
-
-function sac_update_seo_fields( $post_id, $params ) {
-    if ( sac_has_wumetax_seo_core() ) {
-        $fields = [
-            'title'          => [ '_wu_seo_title', 'sanitize_text_field' ],
-            'description'    => [ '_wu_seo_description', 'sanitize_textarea_field' ],
-            'canonical'      => [ '_wu_seo_canonical', 'esc_url_raw' ],
-            'og_title'       => [ '_wu_seo_og_title', 'sanitize_text_field' ],
-            'og_description' => [ '_wu_seo_og_desc', 'sanitize_textarea_field' ],
-        ];
-        foreach ( $fields as $field => $definition ) {
-            if ( ! array_key_exists( $field, $params ) ) continue;
-            $value = call_user_func( $definition[1], $params[ $field ] );
-            if ( '' === $value ) delete_post_meta( $post_id, $definition[0] );
-            else update_post_meta( $post_id, $definition[0], $value );
-        }
-        foreach ( [ 'noindex' => '_wu_seo_noindex', 'nofollow' => '_wu_seo_nofollow' ] as $field => $meta_key ) {
-            if ( array_key_exists( $field, $params ) ) update_post_meta( $post_id, $meta_key, ! empty( $params[ $field ] ) ? 1 : 0 );
-        }
-        if ( array_key_exists( 'og_image_id', $params ) ) update_post_meta( $post_id, '_wu_seo_og_image', absint( $params['og_image_id'] ) );
-        if ( array_key_exists( 'focus_keyword', $params ) ) update_post_meta( $post_id, '_sac_focus_keyword', sanitize_text_field( $params['focus_keyword'] ) );
-        return;
-    }
-
-    $has_seo_plugin = defined( 'WPSEO_VERSION' ) || class_exists( 'RankMath' );
-    if ( isset( $params['title'] ) ) {
-        update_post_meta( $post_id, '_yoast_wpseo_title', sanitize_text_field( $params['title'] ) );
-        update_post_meta( $post_id, 'rank_math_title', sanitize_text_field( $params['title'] ) );
-    }
-    if ( isset( $params['description'] ) ) {
-        $desc = sanitize_text_field( $params['description'] );
-        update_post_meta( $post_id, '_yoast_wpseo_metadesc', $desc );
-        update_post_meta( $post_id, 'rank_math_description', $desc );
-        if ( ! $has_seo_plugin && get_post_type( $post_id ) === 'post' && ! get_post_field( 'post_excerpt', $post_id ) ) {
-            wp_update_post( [ 'ID' => $post_id, 'post_excerpt' => $desc ] );
-        }
-    }
-    if ( isset( $params['focus_keyword'] ) ) {
-        update_post_meta( $post_id, '_yoast_wpseo_focuskw', sanitize_text_field( $params['focus_keyword'] ) );
-        update_post_meta( $post_id, 'rank_math_focus_keyword', sanitize_text_field( $params['focus_keyword'] ) );
-    }
-    if ( isset( $params['og_image_id'] ) ) update_post_meta( $post_id, '_yoast_wpseo_opengraph-image-id', (int) $params['og_image_id'] );
+function sac_faq_block_exists( $post_id ) {
+    return has_block( 'yoast/faq-block', $post_id ) || has_block( 'rank-math/faq-block', $post_id );
 }
 
 function sac_sync_faq_schema( $post_id, $faqs ) {
-    if ( empty( $faqs ) ) { delete_post_meta( $post_id, '_sac_faq_schema' ); return; }
+    if ( empty( $faqs ) ) {
+        delete_post_meta( $post_id, '_sac_faq_schema' );
+        return ! metadata_exists( 'post', $post_id, '_sac_faq_schema' );
+    }
     $schema = [ '@context' => 'https://schema.org', '@type' => 'FAQPage', 'mainEntity' => array_map( fn( $f ) => [ '@type' => 'Question', 'name' => $f['question'], 'acceptedAnswer' => [ '@type' => 'Answer', 'text' => wp_strip_all_tags( $f['answer'] ) ] ], $faqs ) ];
-    update_post_meta( $post_id, '_sac_faq_schema', wp_slash( wp_json_encode( $schema, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ) ) );
+    $json = wp_json_encode( $schema, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT );
+    if ( $json === false ) return false;
+    update_post_meta( $post_id, '_sac_faq_schema', wp_slash( $json ) );
+    return get_post_meta( $post_id, '_sac_faq_schema', true ) === $json;
 }
 
 add_action( 'wp_head', function () {
     if ( ! is_singular() || ! isset( sac_content_types()[ get_post_type() ] ) || ! sac_content_extensions( get_post_type() )['faq'] ) return;
-    $schema = get_post_meta( get_the_ID(), '_sac_faq_schema', true );
-    if ( $schema ) echo '<script type="application/ld+json">' . $schema . '</script>' . "\n";
+    if ( sac_faq_block_exists( get_the_ID() ) ) return;
+    $stored = get_post_meta( get_the_ID(), '_sac_faq_schema', true );
+    $schema = is_string( $stored ) ? json_decode( $stored, true ) : null;
+    if ( $schema ) echo '<script type="application/ld+json">' . wp_json_encode( $schema, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT ) . '</script>' . "\n";
 } );
 
 add_filter( 'the_content', function ( $content ) {
@@ -1617,67 +1165,9 @@ add_filter( 'the_content', function ( $content ) {
 
 /**
  * ============================================================
- * 9. 一次性圖片上傳頁面
+ * 9. 轉址與優惠券
  * ============================================================
  */
-add_action( 'init', function () {
-    add_rewrite_rule( '^sac-upload/?$', 'index.php?sac_upload_page=1', 'top' );
-    add_rewrite_tag( '%sac_upload_page%', '1' );
-} );
-
-add_filter( 'query_vars', function ( $vars ) { $vars[] = 'sac_upload_page'; return $vars; } );
-
-add_action( 'template_redirect', function () {
-    if ( ! get_query_var( 'sac_upload_page' ) ) return;
-
-    $token = sanitize_text_field( $_GET['sac_token'] ?? '' );
-    $tokens = get_option( SAC_OPTION_UPLOAD_TOKENS, [] );
-    if ( empty( $tokens[ $token ] ) || $tokens[ $token ]['expires'] < time() ) {
-        wp_die( '上傳連結已失效或不存在，請重新向 AI 索取新連結。' );
-    }
-    $info = $tokens[ $token ];
-
-    if ( ( $_SERVER['REQUEST_METHOD'] ?? '' ) === 'POST' && ! empty( $_FILES['sac_files'] ) ) {
-        if ( ! isset( $_POST['sac_upload_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['sac_upload_nonce'] ) ), 'sac_upload_' . $token ) ) {
-            wp_die( '上傳驗證失敗，請重新開啟連結。' );
-        }
-        if ( $info['used'] >= $info['max_files'] ) wp_die( '此連結上傳次數已達上限。' );
-        require_once ABSPATH . 'wp-admin/includes/file.php';
-        require_once ABSPATH . 'wp-admin/includes/media.php';
-        require_once ABSPATH . 'wp-admin/includes/image.php';
-        $uploaded_ids = [];
-        $files = $_FILES['sac_files'];
-        $count = min( count( (array) $files['name'] ), $info['max_files'] - $info['used'] );
-        for ( $i = 0; $i < $count; $i++ ) {
-            if ( empty( $files['name'][ $i ] ) ) continue;
-            $checked = wp_check_filetype_and_ext( $files['tmp_name'][ $i ], $files['name'][ $i ] );
-            if ( empty( $checked['type'] ) || strpos( $checked['type'], 'image/' ) !== 0 ) continue;
-            $_FILES['sac_single'] = [ 'name' => $files['name'][ $i ], 'type' => $checked['type'], 'tmp_name' => $files['tmp_name'][ $i ], 'error' => $files['error'][ $i ], 'size' => $files['size'][ $i ] ];
-            $attachment_id = media_handle_upload( 'sac_single', 0 );
-            if ( ! is_wp_error( $attachment_id ) ) $uploaded_ids[] = $attachment_id;
-        }
-        $tokens[ $token ]['used'] += count( $uploaded_ids );
-        $tokens[ $token ]['media_ids'] = array_merge( $info['media_ids'], $uploaded_ids );
-        update_option( SAC_OPTION_UPLOAD_TOKENS, $tokens );
-        echo '<h2>上傳完成，共 ' . count( $uploaded_ids ) . ' 張圖片</h2><p>可以關閉此頁面，回到 AI 對話繼續操作。</p>';
-        exit;
-    }
-    ?>
-    <!DOCTYPE html>
-    <html lang="zh-Hant"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>圖片上傳</title></head>
-    <body style="font-family:sans-serif;max-width:480px;margin:40px auto;padding:0 16px;">
-        <h2>一次性圖片上傳</h2>
-        <p>剩餘可上傳張數：<?php echo (int) ( $info['max_files'] - $info['used'] ); ?></p>
-        <form method="post" enctype="multipart/form-data">
-            <?php wp_nonce_field( 'sac_upload_' . $token, 'sac_upload_nonce' ); ?>
-            <input type="file" name="sac_files[]" accept="image/*" multiple required style="display:block;margin-bottom:12px;">
-            <button type="submit" style="padding:10px 20px;">上傳</button>
-        </form>
-    </body></html>
-    <?php
-    exit;
-} );
-
 /** Legacy redirect and coupon tools remain available through the connector. */
 function sac_feature_enabled( $feature ) {
     return in_array( $feature, [ 'redirects', 'coupons' ], true );
@@ -1865,7 +1355,7 @@ add_action( 'rest_api_init', function () {
         'methods' => 'POST', 'permission_callback' => function ( $req ) { return sac_feature_permission( 'coupons', true, $req ); },
         'callback' => function ( WP_REST_Request $req ) {
             if ( ! class_exists( 'WooCommerce' ) ) return new WP_Error( 'sac_no_wc', 'WooCommerce 未啟用', [ 'status' => 400 ] );
-            $id = (int) $req['id'];
+            $id = (int) $req->get_url_params()['id'];
             if ( get_post_type( $id ) !== 'shop_coupon' || get_post_status( $id ) === 'trash' ) return new WP_Error( 'sac_not_found', '優惠券不存在', [ 'status' => 404 ] );
             if ( get_post_status( $id ) === 'publish' && ! get_option( SAC_OPTION_ALLOW_COUPON_PUBLISH, false ) ) {
                 return new WP_Error( 'sac_coupon_publish_blocked', '修改已啟用的優惠券前，須由管理員在後台開啟 AI 優惠券直接生效權限', [ 'status' => 403 ] );
@@ -1883,7 +1373,7 @@ add_action( 'rest_api_init', function () {
         'methods' => 'POST', 'permission_callback' => function ( $req ) { return sac_feature_permission( 'coupons', true, $req ); },
         'callback' => function ( WP_REST_Request $req ) {
             if ( ! class_exists( 'WooCommerce' ) ) return new WP_Error( 'sac_no_wc', 'WooCommerce 未啟用', [ 'status' => 400 ] );
-            $id = (int) $req['id'];
+            $id = (int) $req->get_url_params()['id'];
             if ( get_post_type( $id ) !== 'shop_coupon' || get_post_status( $id ) === 'trash' ) return new WP_Error( 'sac_not_found', '優惠券不存在', [ 'status' => 404 ] );
             $code = get_the_title( $id );
             if ( ! wp_trash_post( $id ) ) return sac_coupon_error( '優惠券無法移入垃圾桶' );
