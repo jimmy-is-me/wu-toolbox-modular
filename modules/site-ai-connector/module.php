@@ -909,9 +909,17 @@ function sac_handle_mcp_request( WP_REST_Request $request ) {
         $args = $body['params']['arguments'] ?? [];
         $result = sac_mcp_call_tool( $tool_name, $args, $key );
         if ( is_wp_error( $result ) ) {
+            $details = [ 'code' => $result->get_error_code(), 'message' => $result->get_error_message() ];
+            $data = $result->get_error_data();
+            if ( is_string( $data['field'] ?? null ) ) $details['field'] = $data['field'];
+            if ( $details['code'] === 'sac_partial_save' && ! empty( $data['id'] ) ) $details['id'] = (int) $data['id'];
             return rest_ensure_response( [
                 'jsonrpc' => '2.0', 'id' => $id,
-                'result' => [ 'content' => [ [ 'type' => 'text', 'text' => $result->get_error_message() ] ], 'isError' => true ],
+                'result' => [
+                    'content' => [ [ 'type' => 'text', 'text' => isset( $details['id'] ) ? $details['message'] . ' 內容 ID：' . $details['id'] : $details['message'] ] ],
+                    'structuredContent' => $details,
+                    'isError' => true,
+                ],
             ] );
         }
         // The underlying write endpoint logs successful writes once.
@@ -920,6 +928,10 @@ function sac_handle_mcp_request( WP_REST_Request $request ) {
 
     return rest_ensure_response( [ 'jsonrpc' => '2.0', 'id' => $id, 'error' => [ 'code' => 404, 'message' => "未知的方法：{$method}" ] ] );
 }
+
+add_filter( 'rest_pre_serve_request', static function ( $served, $result, $request ) {
+    return $served || ( $request->get_route() === '/' . SAC_NAMESPACE . '/mcp' && $result->get_status() === 202 );
+}, 10, 3 );
 
 function sac_audit_key_id( $key ) {
     if ( ! is_string( $key ) || '' === $key ) return 'unknown';
@@ -947,7 +959,9 @@ function sac_audit_write( $response, $server, $request ) {
     if ( $success || ( $data['code'] ?? '' ) === 'sac_partial_save' ) sac_invalidate_cache();
     $params = $request->get_params();
     $url_params = $request->get_url_params();
-    $raw_id = $url_params['id'] ?? ( $success && is_array( $data ) ? ( $data['post_id'] ?? $data['id'] ?? '' ) : '' );
+    $saved_id = $success ? ( $data['post_id'] ?? $data['id'] ?? '' ) : '';
+    if ( ( $data['code'] ?? '' ) === 'sac_partial_save' ) $saved_id = $data['data']['id'] ?? '';
+    $raw_id = $url_params['id'] ?? $saved_id;
     $id = is_scalar( $raw_id ) && preg_match( '/^(?:\d+|r_[a-zA-Z0-9]+)$/', (string) $raw_id ) ? (string) $raw_id : '';
     if ( '' === $id && $success && is_array( $data ) ) $id = (string) absint( $data['post_id'] ?? $data['product_id'] ?? $data['coupon_id'] ?? $data['id'] ?? 0 );
     $target_type = 'other';

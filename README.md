@@ -23,7 +23,7 @@ v4.0.1 新增 SEO 列表、快速編輯、批次預覽、修改歷史、CSV 與�
 
 v4.2.7 將內建 LINE Pay 付款工具更新至 1.4.0，整合 CVE-2026-128833 修補與付款狀態查詢。 升級前已開始的付款可能仍使用舊回呼網址。如果顧客被導回購物車，請先在 WooCommerce 訂單的 LINE Pay 區塊查詢交易狀態，再決定是否收款或請顧客重新付款。
 
-[AI 連接器使用說明](docs/site-ai-connector.md)涵蓋平台設定、內容類型與欄位權限，以及舊金鑰和 API 的升級相容性。
+v4.2.8 擴充 [AI 連接器](docs/site-ai-connector.md)，集中工具與操作紀錄，支援透過 REST／MCP 管理授權的文章、頁面及自訂內容類型，並保留舊金鑰與文章 API。
 
 v4.2.6 新增 [IndexNow 自動通知與發布健檢](docs/SEO-INDEXNOW.md)。
 

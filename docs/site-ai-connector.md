@@ -60,7 +60,7 @@ add_filter( 'sac_content_field_definitions', function ( $fields, $type ) {
 }, 10, 2 );
 ```
 
-Pods 欄位可將讀寫回呼改為使用該 Pod 的 `field()`、`save()`。自製欄位可接到站點自己的儲存函式。第三方讀寫失敗時會回報欄位與處理方式。若建立過程發生欄位儲存錯誤，連接器會嘗試移除這次新增的內容。若更新已部分寫入，錯誤會回傳目標 ID 供後台核對。
+Pods 欄位可將讀寫回呼改為使用該 Pod 的 `field()`、`save()`。自製欄位可接到站點自己的儲存函式。第三方讀寫失敗時會回報欄位與處理方式。直接發佈前會先儲存分類、精選圖片與已綁定欄位。若建立過程發生儲存錯誤，連接器會嘗試移除這次新增的內容。若部分變更已儲存，REST 與 MCP 都會回傳目標 ID，具備編輯權限的管理員可從操作紀錄開啟內容核對。
 
 [ACF update_field](https://www.advancedcustomfields.com/resources/update_field/) · [Pods save](https://docs.pods.io/code/pods/save/)
 

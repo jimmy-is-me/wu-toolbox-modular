@@ -271,7 +271,11 @@ function sac_content_validate_custom( $values, $target ) {
         }
         $valid = rest_validate_value_from_schema( $value, [ 'type' => $field['type'] ?? 'string' ] + ( $field['schema'] ?? [] ), $name );
         if ( is_wp_error( $valid ) ) return sac_content_error( $name, $valid->get_error_message() );
-        $clean = $field['validate']( $value, $target['post'], $target['user'] );
+        try {
+            $clean = $field['validate']( $value, $target['post'], $target['user'] );
+        } catch ( Throwable $error ) {
+            return sac_content_error( $name, '欄位驗證失敗，請檢查欄位綁定。' );
+        }
         if ( is_wp_error( $clean ) ) return sac_content_error( $name, $clean->get_error_message() );
         $prepared[ $name ] = [ $field, $clean ];
     }
@@ -296,6 +300,7 @@ function sac_content_save( $request, $target, $values = null ) {
     $slug = $target['type']->name;
     $native = sac_content_native_fields( $slug );
     $values = $values ?? ( $request->get_json_params() ?: $request->get_body_params() );
+    if ( ! is_array( $values ) ) return sac_content_error( 'body', '請提供欄位與值組成的物件。' );
     if ( ! $post && array_key_exists( 'id', $values ) ) return sac_content_error( 'id', '建立草稿由 WordPress 分配 ID。' );
     $unknown = array_diff( array_keys( $values ), array_merge( array_keys( $native ), [ 'custom_fields', 'id', 'post_type' ] ) );
     if ( $unknown ) return sac_content_error( reset( $unknown ), '欄位未登錄。請先查看內容類型的欄位說明。' );
@@ -332,6 +337,15 @@ function sac_content_save( $request, $target, $values = null ) {
             if ( ! is_int( $term_id ) || $term_id < 1 || ! term_exists( $term_id, $taxonomy ) ) return sac_content_error( 'terms.' . $taxonomy, '找不到指定的分類項目 ID。' );
         }
     }
+    // Keep a new publication out of publish hooks until the secondary writes succeed.
+    $publication = $data['post_status'] ?? null;
+    if ( in_array( $publication, [ 'publish', 'private' ], true ) && $publication !== ( $post->post_status ?? null ) ) {
+        unset( $data['post_status'] );
+        if ( ! $post ) $data['post_status'] = 'draft';
+    } else {
+        $publication = null;
+    }
+
     $user_id = get_current_user_id();
     wp_set_current_user( $target['user']->ID );
     try {
@@ -347,8 +361,18 @@ function sac_content_save( $request, $target, $values = null ) {
             if ( (int) get_post_thumbnail_id( $id ) !== $thumbnail ) return sac_content_save_error( $id, 'featured_image_id', $post );
         }
         foreach ( $custom as $name => [ $field, $value ] ) {
-            $result = $field['write']( $id, $value, $target['user'] );
+            try {
+                $result = $field['write']( $id, $value, $target['user'] );
+            } catch ( Throwable $error ) {
+                $result = false;
+            }
             if ( $result !== true ) return sac_content_save_error( $id, $name, $post );
+        }
+        if ( $publication !== null ) {
+            $result = wp_update_post( [ 'ID' => $id, 'post_status' => $publication ], true );
+            if ( is_wp_error( $result ) || ! $result || get_post_status( $id ) !== $publication ) {
+                return sac_content_save_error( $id, 'status', $post );
+            }
         }
         return [ 'success' => true ] + sac_content_result( get_post( $id ), $target['user'] );
     } finally {

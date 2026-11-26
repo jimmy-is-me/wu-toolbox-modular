@@ -39,6 +39,7 @@ foreach ( [ SAC_OPTION_KEYS, SAC_OPTION_CONTENT_TYPES, SAC_OPTION_IP_ALLOWLIST, 
     $previous[ $option ] = get_option( $option, null );
 }
 $created = [];
+$terms_created = [];
 $legacy = 'fixture-legacy-write';
 $read = 'fixture-read';
 $write = 'fixture-scoped-write';
@@ -72,6 +73,8 @@ try {
     foreach ( [ 'post', 'page' ] as $type ) {
         $result = sac_fixture_call( '/content/' . $type, 'POST', $write, [ 'title' => $tag . $type, 'content' => '<p>Draft</p>' ] );
         $created[ $type ] = $result['id'];
+        $updated = sac_fixture_call( '/content/' . $type . '/' . $result['id'], 'POST', $write, [ 'title' => $tag . $type . '-updated' ] );
+        sac_fixture_check( $updated['title'] === $tag . $type . '-updated' && get_post_field( 'post_content', $result['id'] ) === '<p>Draft</p>', 'Native REST update preserves unspecified fields' );
         sac_fixture_check( $result['status'] === 'draft' && $result['post_type'] === $type && ! empty( $result['edit_url'] ), 'Native draft result' );
         sac_fixture_check( sac_fixture_call( '/content/' . $type, 'GET', $read, [ 'search' => $tag, 'page' => 1, 'per_page' => 1 ] )['items'][0]['id'] === $result['id'], 'Native list' );
     }
@@ -90,6 +93,8 @@ try {
             'validate' => static function ( $value ) { return sanitize_text_field( $value ); },
             'read' => static function ( $post ) { return get_post_meta( $post->ID, 'verified_source', true ); },
             'write' => static function ( $id, $value ) {
+                if ( $value === 'fixture-write-fails' ) return false;
+                if ( $value === 'fixture-write-throws' ) throw new RuntimeException( 'Fixture adapter failed' );
                 update_post_meta( $id, 'verified_source', $value );
                 return get_post_meta( $id, 'verified_source', true ) === $value;
             },
@@ -102,6 +107,7 @@ try {
     sac_fixture_call( '/content/post', 'POST', $limited_key, [ 'title' => 'Invalid user' ], 403 );
     foreach ( [ 'field_report' => 'report_region', 'work_sample' => 'work_industry' ] as $type => $tax ) {
         $term = wp_insert_term( $tag, $tax )['term_id'];
+        $terms_created[ $tax ] = $term;
         $description = sac_fixture_call( '/content-types/' . $type, 'GET', $read );
         sac_fixture_check( isset( $description['taxonomies']->$tax ) && $description['show_in_rest'] === ( $type === 'work_sample' ), 'CPT discovery and taxonomy binding' );
         $item_path = '/content-types/' . $type . '/terms/';
@@ -153,14 +159,64 @@ try {
     sac_fixture_call( $legacy_path . '/featured-image', 'POST', $legacy, [ 'media_id' => $attachment ] );
     sac_fixture_check( (int) get_post_thumbnail_id( $post['post_id'] ) === $attachment, 'Authorized legacy thumbnail' );
 
-    $mcp = sac_fixture_mcp( 'create_content', [ 'post_type' => 'page', 'title' => $tag . '-mcp' ], $write );
-    sac_fixture_check( empty( $mcp['isError'] ), 'MCP write via caller credential' );
-    $mcp_result = json_decode( $mcp['content'][0]['text'], true );
-    $created['mcp'] = $mcp_result['id'];
+    foreach ( [ 'post', 'page', 'field_report', 'work_sample' ] as $type ) {
+        $args = [ 'post_type' => $type, 'title' => $tag . '-mcp-' . $type ];
+        if ( $type === 'field_report' ) $args['custom_fields'] = [ 'verified_source' => 'Source from MCP' ];
+        $mcp = sac_fixture_mcp( 'create_content', $args, $write );
+        sac_fixture_check( empty( $mcp['isError'] ), 'MCP write via caller credential ' . $type );
+        $mcp_result = json_decode( $mcp['content'][0]['text'], true );
+        $created[ 'mcp-' . $type ] = $mcp_result['id'];
+        $mcp = sac_fixture_mcp( 'update_content', [ 'post_type' => $type, 'id' => $mcp_result['id'], 'title' => $args['title'] . '-updated' ], $write );
+        sac_fixture_check( empty( $mcp['isError'] ) && get_the_title( $mcp_result['id'] ) === $args['title'] . '-updated', 'MCP update ' . $type );
+    }
     sac_fixture_check( sac_fixture_mcp( 'create_content', [ 'post_type' => 'page', 'title' => 'Forbidden' ], $legacy )['isError'], 'MCP retains legacy type scope' );
-    sac_fixture_check( sac_fixture_mcp( 'update_content', [ 'post_type' => 'page', 'id' => $created['mcp'], 'title' => 'Forbidden' ], $read )['isError'], 'MCP retains readonly scope' );
+    sac_fixture_check( sac_fixture_mcp( 'update_content', [ 'post_type' => 'page', 'id' => $created['mcp-page'], 'title' => 'Forbidden' ], $read )['isError'], 'MCP retains readonly scope' );
     $logs = get_option( SAC_LOG_OPTION );
     sac_fixture_check( end( $logs )['key_id'] === sac_audit_key_id( $read ) && ! end( $logs )['success'], 'MCP audit logs denied operations once under original credential' );
+
+    $missing = sac_fixture_mcp( 'create_content', [ 'post_type' => 'field_report', 'title' => $tag . '-missing' ], $write );
+    sac_fixture_check( $missing['isError'] && $missing['structuredContent']['field'] === 'verified_source', 'MCP required field is actionable' );
+
+    update_option( SAC_OPTION_ALLOW_PUBLISH, true );
+    get_userdata( $author )->set_role( 'contributor' );
+    $contributor = sac_fixture_call( '/content/post', 'POST', $author_key, [ 'title' => $tag . '-contributor' ] );
+    $created['contributor'] = $contributor['id'];
+    $denied = sac_fixture_call( '/content/post/' . $contributor['id'], 'POST', $author_key, [ 'status' => 'publish' ], 403 );
+    sac_fixture_check( $denied['code'] === 'sac_publish_capability' && get_post_status( $contributor['id'] ) === 'draft', 'Draft permission does not grant publication rights' );
+
+    $published = [];
+    add_action( 'transition_post_status', static function ( $new_status, $old_status, $post ) use ( &$published, $tag ) {
+        if ( $new_status !== 'publish' || $old_status === 'publish' || strpos( $post->post_title, $tag . '-publication' ) !== 0 ) return;
+        $published[ $post->ID ] = get_post_meta( $post->ID, 'verified_source', true );
+    }, 10, 3 );
+    $failed_title = $tag . '-publication-denied';
+    $failed = sac_fixture_call( '/content/field_report', 'POST', $write, [
+        'title' => $failed_title,
+        'status' => 'publish',
+        'custom_fields' => [ 'verified_source' => 'fixture-write-fails' ],
+    ], 500 );
+    $leftovers = get_posts( [ 'post_type' => 'field_report', 'title' => $failed_title, 'post_status' => [ 'draft', 'publish' ], 'fields' => 'ids' ] );
+    foreach ( $leftovers as $id ) $created[] = $id;
+    sac_fixture_check( $failed['code'] === 'sac_field_save_failed' && ! $leftovers && ! $published, 'Failed create never publishes and removes its draft' );
+
+    $draft_id = $created['field_report'];
+    $partial = sac_fixture_mcp( 'update_content', [
+        'post_type' => 'field_report',
+        'id' => $draft_id,
+        'title' => $tag . '-publication-partial',
+        'status' => 'publish',
+        'custom_fields' => [ 'verified_source' => 'fixture-write-throws' ],
+    ], $write );
+    sac_fixture_check( $partial['isError'] && $partial['structuredContent']['code'] === 'sac_partial_save'
+        && $partial['structuredContent']['id'] === $draft_id && $partial['structuredContent']['field'] === 'verified_source', 'MCP partial update returns the affected ID and field' );
+    sac_fixture_check( get_post_status( $draft_id ) === 'draft' && ! $published && get_the_title( $draft_id ) === $tag . '-publication-partial', 'Partial update retains draft status and reports saved native fields' );
+    $logs = get_option( SAC_LOG_OPTION );
+    sac_fixture_check( end( $logs )['target_id'] === (string) $draft_id && end( $logs )['failure_reason'] === 'sac_partial_save', 'Partial MCP write can be located in the audit log' );
+
+    $success = sac_fixture_call( '/content/field_report/' . $draft_id, 'POST', $write, [
+        'status' => 'publish', 'custom_fields' => [ 'verified_source' => 'Complete before publishing' ],
+    ] );
+    sac_fixture_check( $success['status'] === 'publish' && $published === [ $draft_id => 'Complete before publishing' ], 'Authorized publication fires after required metadata is stored' );
 
     $schema = sac_fixture_call( '/openapi.json' );
     sac_fixture_check( $schema['paths']['/posts/{post_id}']['get']['operationId'] === 'get_post', 'OpenAPI legacy operation retained' );
@@ -179,9 +235,10 @@ try {
     sac_fixture_call( '/verify', 'GET', $write, [ 'challenge' => $challenge ], 400 );
     update_option( SAC_OPTION_IP_ALLOWLIST, [ 'enabled' => true, 'ips' => [ '192.0.2.90' ] ] );
     sac_fixture_call( '/content-types', 'GET', $write, [], 403 );
-    echo 'Verified native drafts, two CPTs (one without core REST), bindings, authorization, legacy routes, MCP, schemas, audit, connection and dependency (WooCommerce ' . ( class_exists( 'WooCommerce' ) ? 'on' : 'off' ) . ").\n";
+    echo 'Verified native drafts, two CPTs (one without core REST), bindings, authorization, publication order, partial saves, legacy routes, MCP, schemas, audit, connection and dependency (WooCommerce ' . ( class_exists( 'WooCommerce' ) ? 'on' : 'off' ) . ").\n";
 } finally {
     foreach ( array_reverse( $created ) as $id ) wp_delete_post( $id, true );
+    foreach ( $terms_created as $tax => $term_id ) wp_delete_term( $term_id, $tax );
     require_once ABSPATH . 'wp-admin/includes/user.php';
     wp_delete_user( $subscriber );
     wp_delete_user( $author );

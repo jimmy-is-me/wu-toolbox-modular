@@ -132,6 +132,9 @@ function sac_admin_failure( $code ) {
         'sac_content_type_mismatch' => '內容 ID 與類型不符，請先查詢目標。',
         'sac_required_field' => '缺少必填欄位，請依工具結果補齊。',
         'sac_publish_disabled' => '本站已關閉 AI 直接發佈。請建立草稿。',
+        'sac_publish_capability' => '金鑰綁定的使用者無法發佈此內容。',
+        'sac_partial_save' => '部分變更可能已儲存，請開啟內容核對。',
+        'sac_field_save_failed' => '欄位儲存失敗，本次新增的內容已移除。',
     ];
     return $messages[ $code ] ?? $code;
 }
@@ -407,7 +410,8 @@ function sac_render_operation_log() {
                 $target = $log['target_type'] ?? '';
                 $id = $log['target_id'] ?? '';
                 $success = $log['success'] ?? null;
-                $actual = $success && $id && preg_match( '/^[0-9]+$/D', (string) $id ) ? get_post_type( (int) $id ) : false;
+                $saved = $success || ( $log['failure_reason'] ?? '' ) === 'sac_partial_save';
+                $actual = $saved && $id && preg_match( '/^[0-9]+$/D', (string) $id ) ? get_post_type( (int) $id ) : false;
                 $types = [ 'product' => 'product', 'coupon' => 'shop_coupon', 'media' => 'attachment' ];
                 $edit = $actual && ( $types[ $target ] ?? $target ) === $actual ? get_edit_post_link( (int) $id ) : ''; ?>
                 <tr>
