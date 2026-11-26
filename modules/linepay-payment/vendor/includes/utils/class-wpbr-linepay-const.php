@@ -30,7 +30,7 @@ final class WPBR_LINEPay_Const {
 	const URI_CONFIRM = '/v3/payments/{transaction_id}/confirm';
 	const URI_DETAILS = '/v3/payments?transactionId={transaction_id}';
 	const URI_CHECK   = '/v3/payments/requests/{transaction_id}/check';
-	// const URI_DETAILS          = '/v3/payments?orderId={order_id}';
+	// const URI_DETAILS          = '/v2/payments?orderId={order_id}';
 	const URI_REFUND = '/v3/payments/{transaction_id}/refund';
 
 	const URI_CALLBACK_HANDLER = '/wc-api/linepay_payment';
@@ -74,4 +74,15 @@ final class WPBR_LINEPay_Const {
 	const AUTH_ALGRO             = 'sha256';
 	const REQUEST_TIME_FORMAT    = 'YmdHis';
 	const CONFIRM_URLTYPE_CLIENT = 'CLIENT';
+
+	// Action Scheduler.
+	const AS_HOOK_CONFIRM_RETRY  = 'linepay_tw_confirm_retry';
+	const AS_GROUP_CONFIRM_RETRY = 'linepay-tw-confirm-retry';
+
+	// Order meta keys for retry tracking.
+	const META_CONFIRM_RETRY_COUNT = '_linepay_confirm_retry_count';
+
+	// Retry defaults.
+	const DEFAULT_MAX_RETRY_COUNT = 3;
+	const DEFAULT_RETRY_INTERVAL  = 1; // minutes
 }

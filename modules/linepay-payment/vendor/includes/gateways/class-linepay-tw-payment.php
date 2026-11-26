@@ -215,12 +215,18 @@ class LINEPay_TW_Payment extends WC_Payment_Gateway {
 			return;
 		}
 
+		$message = '';
+
 		if ( $order->get_status() === 'on-hold' ) {
-			echo esc_html__( 'We have received your order, but the payment status need to be confirmed. Please contact the support.', 'wpbr-linepay-tw' );
+			$message = __( 'We have received your order, but the payment status need to be confirmed. Please contact the support.', 'wpbr-linepay-tw' );
 		}
 
 		if ( $order->get_status() === 'pending' ) {
-			echo esc_html__( 'We have received your order, but the order is awaiting payment. Please pay again.', 'wpbr-linepay-tw' ) . '</div>';
+			$message = __( 'We have received your order, but the order is awaiting payment. Please pay again.', 'wpbr-linepay-tw' );
+		}
+
+		if ( '' !== $message ) {
+			echo '<p class="woocommerce-info">' . esc_html( $message ) . '</p>';
 		}
 	}
 }

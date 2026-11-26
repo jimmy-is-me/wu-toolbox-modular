@@ -2,9 +2,9 @@
 Contributors: wpbrewer, bluestan
 Tags: WooCommerce, payment, LINE Pay, LINE, payment gateway
 Requires at least: 5.9
-Tested up to: 6.8
+Tested up to: 7.1
 Requires PHP: 8.0
-Stable tag: 1.3.3
+Stable tag: 1.4.0
 License: GPLv3
 License URI: https://www.gnu.org/licenses/gpl-3.0.html
 
@@ -25,6 +25,15 @@ Major features include:
 * Compatible with Cart & Checkout Blocks
 
 == Changelog ==
+
+= 1.4.0 - 2026-11-21 =
+* FIX - Security: Verify the order key and transaction ID in the LINE Pay callback (CVE-2026-128833)
+* FIX - Remove auth headers, payment tokens and card info from the debug log
+* FIX - Payment status handling when the customer cancels or confirm fails
+* FIX - Add capability check to the admin confirm payment action
+* FIX - Order details layout for orders awaiting payment
+* ADD - Auto-retry confirm payment
+* ADD - Check Payment Status button on the order edit page
 
 = 1.3.3 - 2025-11/24
 * FIX - Avoid multiple confirm api called

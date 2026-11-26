@@ -28,6 +28,19 @@ final class WUTM_LINEPay_Payment_Module {
         add_action('before_woocommerce_init', [__CLASS__, 'declare_compatibility']);
         add_action('woocommerce_blocks_loaded', [__CLASS__, 'register_block_checkout']);
         add_action('plugins_loaded', [__CLASS__, 'initialize'], 20);
+        add_action('wutm_module_toggled', [__CLASS__, 'on_module_toggled'], 10, 2);
+    }
+
+    public static function on_module_toggled(string $module, bool $enabled): void {
+        if ($module === 'linepay-payment' && !$enabled) {
+            self::cancel_scheduled_confirmations();
+        }
+    }
+
+    public static function cancel_scheduled_confirmations(): void {
+        if (!self::source_plugin_is_active() && function_exists('as_unschedule_all_actions') && class_exists('WPBR_LINEPay_Const', false)) {
+            as_unschedule_all_actions(WPBR_LINEPay_Const::AS_HOOK_CONFIRM_RETRY, null, WPBR_LINEPay_Const::AS_GROUP_CONFIRM_RETRY);
+        }
     }
 
     private static function source_plugin_is_active(): bool {
@@ -112,7 +125,7 @@ final class WUTM_LINEPay_Payment_Module {
             'WUTM_LINEPAY_BASENAME',
             'wu-toolbox-modular/modules/linepay-payment/vendor/wpbr-linepay-tw.php'
         );
-        defined('WUTM_LINEPAY_VERSION') || define('WUTM_LINEPAY_VERSION', '1.3.3');
+        defined('WUTM_LINEPAY_VERSION') || define('WUTM_LINEPAY_VERSION', '1.4.0');
     }
 
     public static function admin_notice(): void {
