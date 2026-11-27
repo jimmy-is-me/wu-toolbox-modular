@@ -11,6 +11,7 @@ function sac_changes_definitions() {
         ] ],
         'prepare_content_changes' => [ 'POST', '/content/{post_type}/{id}/changes', '準備文章變更並取得 WordPress 審核網址', $target + [
             'idempotency_key' => $key,
+            'purpose' => [ 'type' => 'string', 'in' => 'body', 'maxLength' => 280 ],
             'content' => [ 'type' => 'object', 'in' => 'body', 'description' => '可編輯的原生欄位、terms、custom_fields 或 featured_image_id。' ],
             'seo' => [ 'type' => 'object', 'in' => 'body' ],
             'media' => [ 'type' => 'object', 'in' => 'body', 'properties' => [
@@ -32,6 +33,7 @@ function sac_changes_definitions() {
             'frontend' => [ 'type' => 'boolean', 'in' => 'query' ],
         ] ],
         'rollback_content_changes' => [ 'POST', '/content-changes/{operation}/rollback', '準備還原變更及取得新審核網址', $change + [ 'idempotency_key' => $key ] ],
+        'retry_content_cache_purge' => [ 'POST', '/content-changes/{operation}/purge-cache', '重新清除已套用變更的相關快取', $change ],
         'cancel_content_changes' => [ 'POST', '/content-changes/{operation}/cancel', '取消待審核的變更', $change ],
     ];
     $tools = [];
@@ -166,7 +168,7 @@ function sac_change_validate( $request, $target, $values, $blocks = false ) {
 function sac_change_receipt( $row ) {
     $payload = $row['payload'];
     $state = (int) $row['state'];
-    $status = [ 'pending', 'applying', 'applied', 'failed', 'rejected', 'cancelled', 'conflicted' ][ $state ] ?? 'unavailable';
+    $status = [ 'pending', 'applying', 'applied', 'failed', 'rejected', 'cancelled', 'conflicted', 'revision_requested' ][ $state ] ?? 'unavailable';
     if ( $state === 0 && $payload['approval_expires'] <= time() ) $status = 'expired';
     return [
         'operation_id' => (int) $row['id'], 'change_set_id' => (int) $row['id'], 'post_id' => $payload['post_id'], 'post_type' => $payload['post_type'],
@@ -174,6 +176,7 @@ function sac_change_receipt( $row ) {
         'confirmation_expires_at' => gmdate( DATE_ATOM, $payload['approval_expires'] ),
         'confirmed_at' => $payload['confirmed_at'] ?? null, 'completed_at' => $payload['completed_at'] ?? null,
         'fields' => array_keys( $payload['expected'] ?? [] ), 'verification' => $payload['verification'] ?? null,
+        'cache_verification' => $payload['cache'] ?? [ 'state' => 'unavailable', 'cache_purge_status' => 'unavailable' ],
         'error_code' => $payload['error_code'] ?? null, 'recovery' => $payload['recovery'] ?? null,
     ];
 }
@@ -211,7 +214,7 @@ function sac_change_prepare( $request, $target, $data, $restore = null ) {
             return sac_oauth_error( 'sac_confirmation_version_conflict', '內容已有後續變更，請勿覆蓋較新的值。', 409 );
         }
         $payload = [
-            'request_hash' => $hash, 'approval_expires' => time() + 30 * MINUTE_IN_SECONDS,
+            'request_hash' => $hash, 'prepared_at' => time(), 'purpose' => sanitize_text_field( mb_substr( $data['purpose'] ?? '核對並套用選取的文章變更', 0, 280 ) ), 'approval_expires' => time() + 30 * MINUTE_IN_SECONDS,
             'post_id' => $post->ID, 'post_type' => $post->post_type, 'post_status' => $post->post_status,
             'values' => $values, 'expected' => $expected, 'before' => $before, 'blocks' => $blocks,
             'provider' => sac_seo_adapter()['source'] ?? null, 'scopes' => $grant['scopes'],
@@ -326,6 +329,8 @@ function sac_change_apply( $row, $request, $selected ) {
         $payload['values'] = $values;
         $payload['expected'] = $expected;
         $payload['before'] = $before;
+        $payload['approved_hash'] = sac_review_hash( sac_change_value( $expected ) );
+        $payload['cache_context'] = sac_change_cache_context( $target['post'] );
         $payload['confirmed_at'] = gmdate( DATE_ATOM );
         if ( ! sac_change_transition( $row, 0, 1, $payload ) ) return sac_oauth_error( 'sac_confirmation_already_used', '此變更已由其他請求處理。', 409 );
         $error = null;
@@ -357,6 +362,10 @@ function sac_change_apply( $row, $request, $selected ) {
         $payload['completed_at'] = gmdate( DATE_ATOM );
         if ( ! sac_change_transition( $row, 1, $error ? 3 : 2, $payload ) ) {
             return sac_oauth_error( 'sac_operation_receipt_failed', '寫入可能已完成，但結果無法記錄。請先核對 WordPress 內容。', 500 );
+        }
+        if ( ! $error && $target['post'] ) {
+            $payload['cache'] = sac_change_purge( $target['post'], $payload['cache_context'] );
+            sac_oauth_change( $row['id'], [ 'payload' => sac_review_json( $payload ) ] );
         }
         sac_change_audit( $row, $payload, ! $error );
         sac_invalidate_cache();
@@ -420,6 +429,10 @@ function sac_change_review_page() {
             $denied = sac_change_transition( $row, 0, 4, array_diff_key( $payload, array_flip( [ 'before', 'values' ] ) ) );
             wp_die( $denied ? '已拒絕此變更。' : '變更已由其他請求處理。', 'AI 連接器', [ 'response' => $denied ? 200 : 409 ] );
         }
+        if ( ( $_POST['decision'] ?? '' ) === 'revise' ) {
+            $saved = sac_change_transition( $row, 0, 7 );
+            wp_die( $saved ? '已要求重新調整。請在 AI 對話準備新的變更。' : '變更已由其他請求處理。', 'AI 連接器', [ 'response' => $saved ? 200 : 409 ] );
+        }
         if ( ( $_POST['decision'] ?? '' ) !== 'approve' ) wp_die( '請選擇核准或拒絕。', '', [ 'response' => 400 ] );
         $allowed = array_diff( array_keys( $payload['expected'] ), [ 'content' ] );
         foreach ( array_keys( $payload['expected']['content'] ?? [] ) as $field ) $allowed[] = 'content.' . $field;
@@ -429,9 +442,7 @@ function sac_change_review_page() {
         wp_die( esc_html( '操作 #' . $result['operation_id'] . ( $result['approval_status'] === 'applied' ? ' 已儲存並核對。' : ' 發生錯誤，請核對操作紀錄。' ) ),
             'AI 連接器', [ 'response' => 200 ] );
     }
-    $preview = '<p>' . esc_html( get_bloginfo( 'name' ) . ' · ' . $target['user']->display_name ) . '</p><p>'
-        . esc_html( $target['post']->post_title . ' #' . $payload['post_id'] . ' · ' . $payload['post_type'] . ' · ' . $payload['post_status'] ) . '</p>';
-    $preview .= '<p>' . esc_html( '審核組別 ' . count( $payload['expected'] ) . '。請展開並檢查所有選取變更。' ) . '</p><form method="post">';
+    $preview = sac_review_overview( $row, $target ) . '<form method="post">';
     $preview .= wp_nonce_field( 'sac_review_changes_' . $secret, '_wpnonce', true, false );
     $labels = [ 'content' => '文章資料、正文、分類與精選圖片', 'seo' => 'SEO 與社群分享', 'faqs' => 'FAQ', 'media' => '媒體庫圖片' ];
     foreach ( $payload['expected'] as $group => $values ) {
@@ -447,7 +458,7 @@ function sac_change_review_page() {
         }
         $preview .= '</fieldset>';
     }
-    $preview .= '<p><button class="button" name="decision" value="deny">拒絕變更</button> <button class="button button-primary" name="decision" value="approve">核准並套用</button></p></form>';
+    $preview .= '<p><button class="button" name="decision" value="deny">拒絕變更</button> <button class="button" name="decision" value="revise">要求重新調整</button> <button class="button button-primary" name="decision" value="approve">核准並套用</button></p></form></section>';
     wp_die( $preview, '審核 AI 文章變更', [ 'response' => 200 ] );
 }
 add_action( 'admin_post_sac_review_changes', 'sac_change_review_page' );
@@ -481,8 +492,25 @@ function sac_handle_change_tool( $request, $name ) {
         return sac_oauth_error( 'sac_change_not_found', '找不到此授權的變更紀錄。', 404 );
     }
     $payload = $row['payload'];
-    $target = sac_change_target( $request, $payload['post_type'], $payload['post_id'], in_array( $name, [ 'cancel_content_changes', 'rollback_content_changes' ], true ) );
+    $target = sac_change_target( $request, $payload['post_type'], $payload['post_id'], in_array( $name, [ 'cancel_content_changes', 'rollback_content_changes', 'retry_content_cache_purge' ], true ) );
     if ( is_wp_error( $target ) ) return $target;
+    if ( $name === 'retry_content_cache_purge' ) {
+        if ( (int) $row['state'] !== 2 ) return sac_oauth_error( 'sac_change_not_applied', '只可重試已儲存的變更。', 409 );
+        if ( ! sac_oauth_rate( 'retry_purge', 10, HOUR_IN_SECONDS, (string) $grant['id'] ) ) return sac_oauth_error( 'sac_rate_limit', '請稍後再清除快取。', 429 );
+        $lock = sac_post_write_lock( $payload['post_id'] );
+        if ( is_wp_error( $lock ) ) return $lock;
+        try {
+            $row = sac_oauth_row( 'changes', (int) $row['id'], true );
+            if ( ! $row || ! sac_change_grant( $row ) ) return sac_oauth_error( 'sac_change_not_found', '變更授權已失效。', 404 );
+            $row['payload']['cache'] = sac_change_purge( $target['post'], $row['payload']['cache_context'] ?? [] );
+            if ( sac_oauth_change( $row['id'], [ 'payload' => sac_review_json( $row['payload'] ) ] ) === false ) {
+                return sac_oauth_error( 'sac_cache_receipt_failed', '無法記錄快取結果。請重新核對前台。', 500 );
+            }
+            return sac_change_receipt( $row );
+        } finally {
+            sac_post_write_unlock( $lock );
+        }
+    }
     if ( $name === 'rollback_content_changes' ) {
         if ( (int) $row['state'] !== 2 ) return sac_oauth_error( 'sac_rollback_unavailable', '只有已完成核對的變更可準備還原。', 409 );
         $input = [ 'idempotency_key' => $request->get_param( 'idempotency_key' ) ];
@@ -512,9 +540,45 @@ function sac_handle_change_tool( $request, $name ) {
         $actual = sac_change_snapshot( $target, $payload['expected'] );
         if ( is_wp_error( $actual ) ) return $actual;
         $receipt['verification'] = sac_change_verification( $actual, $payload['expected'] );
+        $db = in_array( 'mismatch', $receipt['verification'], true ) ? 'mismatch' : 'verified';
+        $receipt['database_verification'] = [ 'state' => $db, 'items' => $receipt['verification'], 'checked_at' => gmdate( DATE_ATOM ) ];
+        $receipt['verification_status'] = $db === 'verified' ? 'pending' : 'mismatch';
+        foreach ( [ 'frontend', 'structured_data', 'media', 'sitemap' ] as $section ) $receipt[ $section . '_verification' ] = [ 'state' => 'pending' ];
         if ( rest_sanitize_boolean( $request->get_param( 'frontend' ) ) ) {
-            $receipt['frontend'] = is_wp_error( sac_oauth_require_scope( $grant, 'seo:read' ) )
-                ? [ 'state' => 'permission_denied' ] : sac_public_seo( $target['post'] );
+            if ( is_wp_error( sac_oauth_require_scope( $grant, 'seo:read' ) ) ) {
+                foreach ( [ 'frontend', 'structured_data', 'media', 'sitemap' ] as $section ) $receipt[ $section . '_verification' ] = [ 'state' => 'unavailable', 'reason' => 'permission_denied' ];
+            } elseif ( ! sac_oauth_rate( 'verify_public', 30, HOUR_IN_SECONDS, (string) $grant['id'] ) ) {
+                return sac_oauth_error( 'sac_rate_limit', '公開驗收過於頻繁，請稍後再試。', 429 );
+            } else {
+                $receipt = array_replace( $receipt, sac_verify_public_change( $target['post'], $payload ) );
+                $sitemap = sac_public_sitemap( $target['post'], true );
+                $sitemap_state = $sitemap['state'] ?? 'unavailable';
+                if ( $sitemap_state === 'verified' && empty( $sitemap['found'] ) ) {
+                    $sitemap_state = ! empty( $payload['values']['seo']['noindex'] ) ? 'not_applicable' : 'mismatch';
+                }
+                $receipt['sitemap_verification'] = array_replace( $sitemap, [ 'state' => $sitemap_state ] );
+            }
+            $receipt['frontend'] = $receipt['frontend_verification'];
+            $states = array_map( static fn( $key ) => $receipt[ $key . '_verification' ]['state'], [ 'frontend', 'structured_data', 'media', 'sitemap' ] );
+            if ( $db === 'verified' ) {
+                $receipt['verification_status'] = in_array( 'stale_cache', $states, true ) ? 'stale_cache' :
+                    ( array_diff( $states, [ 'verified', 'not_applicable' ] ) || ( $receipt['cache_verification']['cache_purge_status'] ?? '' ) === 'failed' ? 'partial' : 'verified' );
+            }
+            $lock = sac_post_write_lock( $payload['post_id'] );
+            if ( is_string( $lock ) ) {
+                try {
+                    $latest = sac_oauth_row( 'changes', (int) $row['id'], true );
+                    if ( $latest && (int) $latest['state'] === 2 ) {
+                        $latest['payload']['last_public_verification'] = [
+                            'state' => $receipt['verification_status'], 'frontend' => $receipt['frontend_verification']['state'],
+                            'sitemap' => $receipt['sitemap_verification']['state'], 'checked_at' => gmdate( DATE_ATOM ),
+                        ];
+                        sac_oauth_change( $row['id'], [ 'payload' => sac_review_json( $latest['payload'] ) ] );
+                    }
+                } finally {
+                    sac_post_write_unlock( $lock );
+                }
+            }
         }
     }
     return $receipt;

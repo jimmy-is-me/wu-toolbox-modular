@@ -510,12 +510,20 @@ final class WUTM_Page_Cache {
 		self::invalidate_matching( $post_id, array( $post_type ), is_wp_error( $terms ) ? array() : array_map( 'absint', $terms ), $reason );
 	}
 
-	private static function invalidate_matching( int $post_id, array $post_types, array $term_ids, string $reason ): void {
+	/** Purge the same related pages as native save hooks, including variants and former terms. */
+	public static function purge_content( WP_Post $post, array $previous_terms, array $urls ): array {
+		$terms = wp_get_object_terms( $post->ID, get_object_taxonomies( $post->post_type ), array( 'fields' => 'tt_ids' ) );
+		if ( is_wp_error( $terms ) ) return array( 'state' => 'failed', 'code' => 'term_lookup_failed' );
+		return self::invalidate_matching( $post->ID, array( $post->post_type ), array_merge( $previous_terms, $terms ), 'AI 內容變更', $urls );
+	}
+
+	private static function invalidate_matching( int $post_id, array $post_types, array $term_ids, string $reason, array $urls = array() ): array {
 		$cache_lock = self::acquire_cache_lock( LOCK_EX, false );
 		if ( false === $cache_lock ) {
-			return;
+			return array( 'state' => 'failed', 'code' => 'cache_lock_unavailable' );
 		}
 		$count = 0;
+		$purged = $failed = array();
 		self::rotate_generation();
 		foreach ( glob( self::cache_dir() . '*.html.gz.json' ) ?: array() as $meta_file ) {
 			if ( is_link( $meta_file ) ) continue;
@@ -532,14 +540,25 @@ final class WUTM_Page_Cache {
 			}
 			$matches_term = (bool) array_intersect( array_map( 'absint', (array) ( $meta['terms'] ?? array() ) ), $term_ids );
 			$matches_front = in_array( 'front', $contexts, true );
-			if ( ! $matches_post && ! $matches_type && ! $matches_term && ! $matches_front ) continue;
+			$url = (string) ( $meta['url'] ?? '' );
+			if ( ! $matches_post && ! $matches_type && ! $matches_term && ! $matches_front && ! in_array( $url, $urls, true ) ) continue;
 
 			$cache_file = substr( $meta_file, 0, -5 );
-			if ( is_file( $cache_file ) && @unlink( $cache_file ) ) $count++;
+			if ( is_file( $cache_file ) ) {
+				if ( ! @unlink( $cache_file ) ) {
+					$failed[] = $url;
+					continue;
+				}
+				$count++;
+				$purged[] = $url;
+			}
 			@unlink( $meta_file );
 		}
 		self::release_cache_lock( $cache_lock );
 		self::record_invalidation( $reason, $count, 'related' );
+		return array( 'state' => $failed ? 'failed' : 'purged', 'count' => $count,
+			'purged_urls' => array_values( array_unique( array_filter( $purged ) ) ),
+			'failed_urls' => array_values( array_unique( array_filter( $failed ) ) ) );
 	}
 
 	private static function record_invalidation( string $reason, int $count, string $scope ): void {

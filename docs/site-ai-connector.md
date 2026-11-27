@@ -71,6 +71,23 @@ WU Toolbox Modular v4.2.9 將 AI 連接器改為 WordPress 原生 OAuth。新版
 - 還原範圍涵蓋可透過現有適配器精確回寫的批次欄位。第三方的儲存附帶動作須由管理員在 WordPress 檢查。
 - 仍需在有 Google Search Console 授權、外部 CDN 或正式 ChatGPT 連線的暫用站驗證各自的實際回應。
 
+### v4.3.2 驗收與快取
+
+- 在審核頁核對文章、風險、適用欄位、搜尋／社群分享模擬與圖片來源。可要求重新調整，由 AI 重新準備一筆審核。
+- 更新後呼叫 `verify_content_changes` 並提供 `frontend: true`。分別閱讀資料庫、快取、公開 HTML、Sitemap、結構化資料與圖片結果。前台重新取匿名 HTML、重新讀取 Sitemap。偵測到快取標頭且有實際內容差異時回報 `stale_cache`。HTTP 200、未授權、挑戰頁和無法對應的版型輸出各有獨立狀態。
+- `retry_content_cache_purge` 只重跑已套用變更的快取清除。它沿用 WU Page Cache 的文章、類型、分類及裝置／語系變體配對，並帶入原網址與原分類。也會清除對應的 SEO 診斷暫存。有啟用 LiteSpeed 外掛時呼叫既有文章清除接點。本站已有 WU 快取功能的版本沒有 Cloudflare API 設定，Cloudflare 回報 `unavailable`。站長可在 CDN 按 URL 清除並再次驗收。
+- **AI 連接器 → 操作紀錄**可查看最近 60 筆 Change Set 的核准、快取與前台驗收狀態。詳細逐項比對以 MCP 回傳為準。
+- 用 `get_capabilities` 核對版本、可用工具和工具清單雜湊。若客戶端仍顯示舊清單，重新整理工具即可。Scope 名稱和既有 OAuth 授權沿用。
+
+### v4.3.2 圖片傳輸
+
+1. 可使用既有 HTTPS、Base64、multipart、平台可讀取的檔案參照和一次性上傳連結。平台只提供內部附件識別碼時，改用一次性連結。
+2. 分段仍呼叫 `upload_media`。每次提供相同的 `upload_id`（16 至 80 字元）、`sha256`（原始檔案）、`chunk_count`（1 至 24），並附零起算的 `chunk_index` 與單段 `base64`。每段最多 512 KiB，檔案合計受 8 MiB 與主機上限較低者限制。分段會保存 30 分鐘。
+3. 全段到齊後，省略 `chunk_index` 和 `base64`，送出 `complete_upload: true` 與希望保留的檔名、圖片欄位、品質、尺寸及來源資料。組合後重新驗證 SHA-256、尺寸、實際格式，並由 WordPress 解碼及另存。完成回傳 Media ID。重送相同工作階段和參數時會沿用同一附件。
+4. 單次傳輸可傳 `idempotency_key` 或 `deduplicate: true`。去重依同一 OAuth 授權、原始檔案 SHA-256 和上傳設定。選填 `source_url`、`source_type`、`creator`、`license`、`attribution`、`generated_by_ai`。審核資料呈現提供的來源聲明。請填寫可確認的資料。
+
+本版在傳輸完成時建立附件，由另一筆 Change Set 審核後綁定精選圖片及 OG Image。待擴充項目包括核准前的私有圖片預覽、Cloudflare API 指定網址清除、較完整的第三方版型與連結診斷，以及在操作紀錄中心直接檢視全部欄位差異。正式 ChatGPT 檔案傳輸、實際 CDN 與已授權 Google Property 須在可用的暫用站驗收。
+
 ### 自訂欄位適配器
 
 使用 sac_content_field_definitions 登錄要公開的欄位。適配器提供 label、type、schema、required、authorize、validate、read、write。authorize 接收操作、使用者、文章或 null、文章類型。validate 必須唯讀，回傳正規化值或 WP_Error。write 接收 ID、值及使用者，成功回傳 true 並自行核對實際儲存結果。必填但由編輯器管理的欄位可提供 is_present。

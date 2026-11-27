@@ -179,7 +179,8 @@ async function main() {
         };
         const longContent = '<!-- wp:paragraph --><p>' + '長篇內容 '.repeat(7000) + 'LAST-CHAPTER-431</p><!-- /wp:paragraph -->'
             + '<!-- wp:greenshift-blocks/row {"className":"fixture-preserved"} --><section><!-- wp:block {"ref":99} /--></section><!-- /wp:greenshift-blocks/row -->';
-        const long = await call('update_content', {content: longContent});
+        const fullContent = longContent + Array.from({length: 67}, (_, i) => '<!-- wp:paragraph --><p>Original paragraph ' + i + '</p><!-- /wp:paragraph -->').join('');
+        const long = await call('update_content', {content: fullContent});
         await page.goto(long.structuredContent.review_url);
         assert.match(await page.locator('body').textContent(), /LAST-CHAPTER-431/);
         const independent = await call('update_content_faq', {faqs: [{question: 'Independent 431', answer: 'Approval survives a separate native update'}]});
@@ -188,7 +189,7 @@ async function main() {
         const faqToken = await approveLegacy(independent);
         const titleToken = await approveLegacy(titleChange);
         await tool('update_content', {...subject, title: title + ' revised', confirmation_token: titleToken});
-        await tool('update_content', {...subject, content: longContent, confirmation_token: longToken});
+        await tool('update_content', {...subject, content: fullContent, confirmation_token: longToken});
         await tool('update_content_faq', {...subject, faqs: [{question: 'Independent 431', answer: 'Approval survives a separate native update'}], confirmation_token: faqToken});
 
         const conflictA = await call('update_content', {title: 'Concurrent A'});
@@ -200,11 +201,12 @@ async function main() {
         assert.equal(blocked.structuredContent.code, 'sac_confirmation_version_conflict');
 
         const index = (await tool('list_content_blocks', subject)).data;
+        assert.equal(index.total, 70);
         const paragraph = index.blocks.find(block => block.name === 'core/paragraph');
         const table = '<!-- wp:table --><figure class="wp-block-table"><table><tbody><tr><td>Comparison 431</td></tr></tbody></table></figure><!-- /wp:table -->';
         const batchArgs = {...subject, idempotency_key: randomBytes(16).toString('hex'), content: {excerpt: 'Batch excerpt'},
             faqs: Array.from({length: 15}, (_, i) => ({question: 'Question ' + i, answer: 'Answer ' + i})), block_version: index.version,
-            block_edits: [{operation: 'insert_after', path: paragraph.path, hash: paragraph.hash, markup: table}]};
+            block_edits: [{operation: 'insert_after', path: paragraph.path, hash: paragraph.hash, markup: table + Array.from({length: 18}, (_, i) => '<!-- wp:paragraph --><p>New paragraph ' + i + '</p><!-- /wp:paragraph -->').join('')}]};
         if (uploadedId) {
             batchArgs.media = {id: uploadedId, alt_text: 'Updated in batch', caption: 'Batch caption'};
             batchArgs.content.featured_image_id = uploadedId;
@@ -225,6 +227,8 @@ async function main() {
         }
         const readback = (await tool('get_content', subject)).data;
         assert.ok(readback.content.includes(table));
+        assert.equal((await tool('list_content_blocks', subject)).data.total, 89);
+        assert.ok(readback.content.endsWith('<!-- wp:paragraph --><p>Original paragraph 66</p><!-- /wp:paragraph -->'));
         assert.ok(readback.content.includes('<!-- wp:greenshift-blocks/row {"className":"fixture-preserved"} --><section><!-- wp:block {"ref":99} /--></section><!-- /wp:greenshift-blocks/row -->'));
         assert.equal((await tool('get_content_faq', subject)).data.faqs.length, 15);
         assert.equal((await tool('prepare_content_changes', batchArgs)).data.approval_status, 'applied');

@@ -41,6 +41,7 @@ function sac_public_fetch( $url ) {
         return [ 'url' => $url, 'status' => $status, 'chain' => $chain, 'body' => $body,
             'type' => (string) wp_remote_retrieve_header( $response, 'content-type' ),
             'robots' => implode( ', ', (array) wp_remote_retrieve_header( $response, 'x-robots-tag' ) ),
+            'cache_headers' => array_filter( array_map( static fn( $name ) => (string) wp_remote_retrieve_header( $response, $name ), [ 'age', 'cf-cache-status', 'x-cache' ] ) ),
             'challenge' => 'challenge' === strtolower( trim( (string) wp_remote_retrieve_header( $response, 'cf-mitigated' ) ) ),
             'error' => strlen( $body ) >= 2 * MB_IN_BYTES ? '公開回應超過 2 MiB。' : null ];
     }
@@ -84,7 +85,8 @@ function sac_public_seo( $post ) {
     $headings = [];
     foreach ( $xpath->query( '//h1|//h2|//h3|//h4' ) as $tag ) {
         if ( count( $headings ) >= 120 ) break;
-        $headings[] = [ 'level' => (int) substr( $tag->tagName, 1 ), 'text' => wp_html_excerpt( trim( $tag->textContent ), 500 ) ];
+        $headings[] = [ 'level' => (int) substr( $tag->tagName, 1 ), 'text' => wp_html_excerpt( trim( $tag->textContent ), 500 ),
+            'region' => $xpath->evaluate( 'boolean(ancestor::article|ancestor::main)', $tag ) ? 'content_region' : 'page_layout' ];
     }
     $schemas = [];
     foreach ( $xpath->query( '//script[@type="application/ld+json"]' ) as $tag ) {
@@ -116,12 +118,25 @@ function sac_public_seo( $post ) {
         'h1_count' => $xpath->query( '//h1' )->length, 'headings' => $headings, 'schema' => $schemas,
         'images' => [ 'total' => $xpath->query( '//img' )->length, 'missing_alt_attribute' => $xpath->query( '//img[not(@alt)]' )->length ],
         'links' => $links ] + $observed;
+    $result['observations'] = [
+        'duplicate_canonical' => count( $canonicals ) > 1,
+        'description_missing' => ! array_filter( $meta['description'] ?? [] ),
+        'h1_count' => $result['h1_count'],
+    ];
     set_transient( $key, $result, 5 * MINUTE_IN_SECONDS );
     return $result;
 }
 
-function sac_public_sitemap_document( $url ) {
-    if ( sac_has_wumetax_seo_core() ) return Wumetax_SEO_Core_v120::run_sitemap_diagnostic( $url, 3 );
+function sac_public_sitemap_document( $url, $fresh = false ) {
+    if ( sac_has_wumetax_seo_core() ) {
+        if ( ! $fresh ) return Wumetax_SEO_Core_v120::run_sitemap_diagnostic( $url, 3 );
+        $response = sac_public_fetch( $url );
+        if ( empty( $response['error'] ) && empty( $response['challenge'] ) && ( $response['status'] ?? 0 ) === 200 ) {
+            $response['xml'] = Wumetax_SEO_Core_v120::inspect_xml( $response['body'] );
+        }
+        unset( $response['body'] );
+        return $response;
+    }
     $response = sac_public_fetch( $url );
     if ( empty( $response['error'] ) && empty( $response['challenge'] ) && ( $response['status'] ?? 0 ) === 200
         && class_exists( 'DOMDocument' ) && ! preg_match( '/<!DOCTYPE|<!ENTITY/i', $response['body'] ) ) {
@@ -142,7 +157,7 @@ function sac_public_sitemap_document( $url ) {
     return $response;
 }
 
-function sac_public_sitemap( $post ) {
+function sac_public_sitemap( $post, $fresh = false ) {
     $target = sac_public_post_url( $post );
     if ( ! $target ) return [ 'state' => 'unavailable', 'code' => 'sac_post_not_public' ];
     $provider = sac_seo_provider_info()['provider'];
@@ -150,8 +165,8 @@ function sac_public_sitemap( $post ) {
     $url = apply_filters( 'sac_diagnostic_sitemap_url', $url, $provider );
     $key = 'sac_sitemap_' . md5( $url . ':' . $target );
     $cached = get_transient( $key );
-    if ( is_array( $cached ) ) return $cached;
-    $root = sac_public_sitemap_document( $url );
+    if ( ! $fresh && is_array( $cached ) ) return $cached;
+    $root = sac_public_sitemap_document( $url, $fresh );
     $result = [ 'source' => 'public_sitemap', 'root_url' => $url, 'target_url' => $target, 'checked_at' => gmdate( DATE_ATOM ),
         'checked' => [], 'state' => 'unavailable', 'found' => null ];
     if ( empty( $root['xml']['valid'] ) ) {
@@ -166,7 +181,7 @@ function sac_public_sitemap( $post ) {
     $failed = false;
     $found = false;
     foreach ( $children ? array_slice( $children, 0, 4 ) : [ $url ] as $source ) {
-        $data = $source === $url ? $root : sac_public_sitemap_document( $source );
+        $data = $source === $url ? $root : sac_public_sitemap_document( $source, $fresh );
         $valid = ! empty( $data['xml']['valid'] ) && empty( $data['xml']['index'] );
         $result['checked'][] = [ 'url' => $source, 'status' => $data['status'] ?? null, 'valid' => $valid ];
         if ( ! $valid ) $failed = true;

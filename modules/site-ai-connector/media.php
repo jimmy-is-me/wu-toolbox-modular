@@ -78,10 +78,12 @@ function sac_media_item( $id ) {
         'file_size' => $meta['filesize'] ?? ( $file && is_file( $file ) ? filesize( $file ) : null ),
         'uploaded_at' => get_post_datetime( $post, 'date', 'gmt' )?->format( DATE_ATOM ),
         'post_id' => (int) $post->post_parent,
+        'sha256' => get_post_meta( $id, '_sac_media_sha256', true ),
+        'rights' => (object) (array) get_post_meta( $id, '_sac_media_rights', true ),
     ];
 }
 
-function sac_media_store_image( $path, $fields, $session_id = 0 ) {
+function sac_media_store_image( $path, $fields, $session_id = 0, $extra_meta = [] ) {
     $type = sac_media_image( $path );
     if ( is_wp_error( $type ) ) return $type;
     foreach ( [ 'title', 'description', 'caption', 'alt_text', 'filename' ] as $key ) {
@@ -100,6 +102,10 @@ function sac_media_store_image( $path, $fields, $session_id = 0 ) {
         if ( ( $size['width'] > $width || $size['height'] > $height ) && is_wp_error( $editor->resize( $width, $height, false ) ) ) {
             return sac_oauth_error( 'sac_image_resize', 'WordPress 無法調整圖片尺寸。', 415 );
         }
+    }
+    if ( isset( $fields['quality'] ) ) {
+        $quality = filter_var( $fields['quality'], FILTER_VALIDATE_INT, [ 'options' => [ 'min_range' => 1, 'max_range' => 100 ] ] );
+        if ( ! $quality || is_wp_error( $editor->set_quality( $quality ) ) ) return sac_content_error( 'quality', '品質須為 1 至 100。' );
     }
     if ( rest_sanitize_boolean( $fields['convert_webp'] ?? false ) ) $type = [ 'extension' => 'webp', 'mime' => 'image/webp' ];
     $basename = sanitize_file_name( pathinfo( $fields['filename'] ?? 'image', PATHINFO_FILENAME ) ) ?: 'image';
@@ -120,7 +126,9 @@ function sac_media_store_image( $path, $fields, $session_id = 0 ) {
             'post_title' => sanitize_text_field( $fields['title'] ?? $basename ),
             'post_content' => sanitize_textarea_field( $fields['description'] ?? '' ),
             'post_excerpt' => sanitize_textarea_field( $fields['caption'] ?? '' ),
-            'meta_input' => $session_id ? [ '_sac_upload_session' => $session_id ] : [],
+                        'meta_input' => $extra_meta + ( $session_id ? [ '_sac_upload_session' => $session_id ] : [] ) + [
+                '_sac_media_rights' => wp_slash( sac_media_rights( $fields ) ), '_sac_media_sha256' => hash_file( 'sha256', $path ),
+            ],
         ] );
         if ( is_wp_error( $id ) ) return sac_oauth_error( 'sac_media_save', 'WordPress 無法將圖片加入媒體庫。', 500 );
         if ( isset( $fields['alt_text'] ) ) update_post_meta( $id, '_wp_attachment_image_alt', sanitize_text_field( $fields['alt_text'] ) );
@@ -133,6 +141,12 @@ function sac_media_store_image( $path, $fields, $session_id = 0 ) {
 function sac_media_upload( $request ) {
     $fields = $request->get_json_params() ?: $request->get_body_params();
     $files = $request->get_file_params();
+    $grant = sac_authenticate( $request );
+    if ( is_wp_error( $grant ) ) return $grant;
+    if ( array_key_exists( 'upload_id', $fields ) ) {
+        if ( isset( $fields['file'] ) || isset( $fields['url'] ) || $files ) return sac_content_error( 'upload_id', '分段不可同時指定其他來源。' );
+        return sac_media_chunk( $fields, $grant );
+    }
     $direct = $fields['file'] ?? null;
     $remote = $fields['url'] ?? null;
     if ( $direct !== null ) {
@@ -145,13 +159,13 @@ function sac_media_upload( $request ) {
     $base64 = $fields['base64'] ?? null;
     $file = $files['image'] ?? null;
     if ( (int) ( $remote !== null ) + (int) ( $base64 !== null ) + (int) ( $file !== null ) !== 1 ) {
-        return sac_oauth_error( 'sac_image_source', '每次請提供一個圖片來源。' );
+        return sac_oauth_error( 'sac_image_source', '請提供可讀取的 HTTPS 網址、檔案內容或 multipart 圖片。若平台只有內部附件 ID，請使用 create_upload_link。' );
     }
     if ( $file !== null ) {
         if ( ( $file['error'] ?? null ) !== UPLOAD_ERR_OK || ! is_string( $file['tmp_name'] ?? null ) || ! is_uploaded_file( $file['tmp_name'] ) ) {
             return sac_oauth_error( 'sac_image_file', '圖片上傳失敗。' );
         }
-        return sac_media_store_image( $file['tmp_name'], $fields + [ 'filename' => $file['name'] ] );
+        return sac_media_store_once( $file['tmp_name'], $fields + [ 'filename' => $file['name'] ], $grant, $fields['idempotency_key'] ?? '' );
     }
     require_once ABSPATH . 'wp-admin/includes/file.php';
     $tmp = wp_tempnam( 'sac-upload' );
@@ -167,7 +181,7 @@ function sac_media_upload( $request ) {
             $bytes = base64_decode( $base64, true );
             if ( $bytes === false || file_put_contents( $tmp, $bytes ) !== strlen( $bytes ) ) return sac_oauth_error( 'sac_image_base64', '無法讀取 Base64 圖片。' );
         }
-        return sac_media_store_image( $tmp, $fields );
+        return sac_media_store_once( $tmp, $fields, $grant, $fields['idempotency_key'] ?? '' );
     } finally {
         wp_delete_file( $tmp );
     }
@@ -307,15 +321,21 @@ function sac_media_definitions() {
         'max_width' => [ 'type' => 'integer', 'in' => 'body', 'minimum' => 1, 'maximum' => 6000 ],
         'max_height' => [ 'type' => 'integer', 'in' => 'body', 'minimum' => 1, 'maximum' => 6000 ],
         'convert_webp' => [ 'type' => 'boolean', 'in' => 'body' ],
+        'quality' => [ 'type' => 'integer', 'in' => 'body', 'minimum' => 1, 'maximum' => 100 ],
+        'chunk_count' => [ 'type' => 'integer', 'in' => 'body', 'minimum' => 1, 'maximum' => 24 ],
+        'chunk_index' => [ 'type' => 'integer', 'in' => 'body', 'minimum' => 0, 'maximum' => 23 ],
+        'complete_upload' => [ 'type' => 'boolean', 'in' => 'body' ],
+        'deduplicate' => [ 'type' => 'boolean', 'in' => 'body' ],
+        'generated_by_ai' => [ 'type' => 'boolean', 'in' => 'body' ],
     ];
-    foreach ( [ 'filename', 'title', 'description', 'caption', 'alt_text', 'url', 'base64' ] as $name ) $body[ $name ] = [ 'type' => 'string', 'in' => 'body' ];
+    foreach ( [ 'filename', 'title', 'description', 'caption', 'alt_text', 'url', 'base64', 'sha256', 'idempotency_key', 'upload_id', 'source_url', 'source_type', 'creator', 'license', 'attribution' ] as $name ) $body[ $name ] = [ 'type' => 'string', 'in' => 'body' ];
     $file_properties = array_fill_keys( [ 'download_url', 'file_id', 'mime_type', 'file_name' ], [ 'type' => 'string' ] );
     $file = [ 'file' => [ 'type' => 'object', 'in' => 'body', 'properties' => $file_properties,
         'required' => [ 'download_url', 'file_id' ], 'additionalProperties' => false ] ];
     $id = [ 'id' => [ 'type' => 'integer', 'in' => 'path', 'required' => true ] ];
     return [
         [ 'name' => 'upload_media', 'path' => '/media/upload', 'method' => 'POST', 'need_write' => true,
-            'summary' => '上傳圖片', 'description' => '提供實際可取得的 HTTPS 圖片或 Base64。若平台只有內部檔案引用，使用一次性上傳連結。', 'params' => $body + $file ],
+            'summary' => '上傳圖片', 'description' => '提供實際可取得的 HTTPS 圖片或 Base64。支援以 upload_id、chunk_index、chunk_count 和 sha256 傳送分段，並以 complete_upload 組合。若平台只有內部檔案引用，使用一次性上傳連結。', 'params' => $body + $file ],
         [ 'name' => 'get_media', 'path' => '/media/{id}', 'method' => 'GET', 'need_write' => false,
             'summary' => '查閱圖片', 'description' => '查閱媒體 ID、網址、標題、說明及替代文字。', 'params' => $id ],
         [ 'name' => 'update_media', 'path' => '/media/{id}', 'method' => 'POST', 'need_write' => true,

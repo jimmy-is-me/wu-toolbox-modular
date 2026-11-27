@@ -1,0 +1,15 @@
+body:has(.sac-review) { box-sizing: border-box; max-width: 1050px; background: #f5f7fa; border: 0; padding: 20px; box-shadow: none; }
+.sac-review { color: #152237; }
+.sac-review header, .sac-review fieldset, .sac-review-preview { margin: 0 0 16px; padding: 18px; border: 1px solid #e2e9f0; border-radius: 12px; background: #fff; box-shadow: 0 2px 6px #23354b0c; }
+.sac-review h1 { margin: 0 0 6px; border: 0; color: #12324f; font-size: 26px; }
+.sac-review dl, .sac-review-media, .sac-review-serp { display: grid; grid-template-columns: repeat(auto-fit,minmax(min(100%,210px),1fr)); gap: 10px; }
+.sac-review dt { color: #4b6077; font-weight: 600; }
+.sac-review dd { margin: 0; overflow-wrap: anywhere; }
+.sac-review summary, .sac-review label { cursor: pointer; }
+.sac-review summary { padding: 6px 0; font-weight: 600; }
+.sac-review figure, .sac-review article { min-width: 0; margin: 10px 0; padding: 12px; border: 1px solid #edf0f4; border-radius: 8px; overflow-wrap: anywhere; }
+.sac-review figure img { width: auto; max-width: 100%; height: auto; }
+.sac-review figure dl { grid-template-columns: auto minmax(0,1fr); }
+.sac-review form button { margin: 3px; }
+.sac-review pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 28rem; overflow: auto; }
+@media (max-width: 500px) { body:has(.sac-review) { margin: 0; padding: 10px; } .sac-review header, .sac-review fieldset { padding: 12px; } }
