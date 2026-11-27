@@ -31,6 +31,7 @@ function sac_oauth_create_grant( $client, $user, $params, $scopes, $types, $conf
             || ! sac_oauth_insert( 'consent', $confirmation, time() + 2 * DAY_IN_SECONDS ) ) return null;
         $grant = sac_oauth_insert( 'grant', sac_oauth_random(), time() + sac_oauth_grant_seconds(), [
             'issuer' => sac_oauth_issuer(), 'resource' => $params['resource'], 'scopes' => $scopes,
+            'requested_scopes' => sac_oauth_scope_array( $params['scope'] ?? '' ),
             'account' => sac_oauth_account_stamp( $user ), 'types' => $types, 'created' => time(),
         ], $client['id'], 0, $user->ID );
         $code = sac_oauth_random();

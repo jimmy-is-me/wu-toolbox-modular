@@ -1,9 +1,31 @@
 <?php
 defined( 'ABSPATH' ) || exit;
 
-function sac_mcp_tools_list( $grant ) {
+function sac_mcp_definitions() {
+    $tools = array_column( sac_get_tool_definitions(), null, 'name' );
+    $prepare = $tools['prepare_content_changes'];
+    $validate = $prepare;
+    $validate['name'] = 'validate_content_changes';
+    $validate['summary'] = $validate['description'] = '唯讀驗證整合式變更與缺少的權限，不建立審核。';
+    $validate['need_write'] = false;
+    unset( $validate['params']['dry_run'] );
+    $tools[$validate['name']] = $validate;
+
+    $terms = $prepare;
+    $terms['name'] = 'prepare_content_terms_changes';
+    $terms['summary'] = $terms['description'] = '準備文章或自訂內容的分類變更，交由 WordPress 人工審核。整合式變更請使用 prepare_content_changes。';
+    $terms['params'] = array_intersect_key( $prepare['params'], array_flip( [ 'post_type', 'id', 'expected_status', 'idempotency_key', 'purpose', 'content' ] ) );
+    $terms['params']['idempotency_key']['required'] = true;
+    $terms['params']['content']['required'] = true;
+    $terms['params']['content']['properties'] = array_intersect_key( $prepare['params']['content']['properties'], [ 'terms' => true ] );
+    $terms['params']['content']['required_properties'] = [ 'terms' ];
+    $tools[$terms['name']] = $terms;
+    return $tools;
+}
+
+function sac_mcp_tools_list( $grant, $definitions = null ) {
     $tools = [];
-    foreach ( sac_get_tool_definitions() as $tool ) {
+    foreach ( $definitions ?? sac_mcp_definitions() as $tool ) {
         $scope = sac_oauth_tool_scope( $tool );
         if ( empty( $tool['available'] ) || ! in_array( $scope, sac_oauth_scopes(), true )
             || ! user_can( $grant['user_id'], sac_oauth_tool_capability( $scope ) ) ) continue;
@@ -19,16 +41,16 @@ function sac_mcp_tools_list( $grant ) {
             if ( in_array( $scope, [ 'seo:read', 'faq:read', 'taxonomy:read' ], true ) ) $scopes[] = 'content:read';
             if ( in_array( $scope, [ 'seo:write', 'faq:write', 'media:update' ], true ) ) $scopes[] = 'content:update';
         }
-        $security = [ [ 'type' => 'oauth2', 'scopes' => $scopes ] ];
-        if ( $tool['name'] === 'prepare_content_changes' ) {
+        if ( $tool['name'] === 'prepare_content_changes' ) $scopes = sac_change_scope_policy()['base'];
+        if ( $tool['name'] === 'prepare_content_terms_changes' ) {
             $policy = sac_change_scope_policy();
-            $security = [ [ 'type' => 'oauth2', 'scopes' => [ 'content:read' ] ] ];
+            $scopes = array_merge( $policy['base'], $policy['by_field']['content.terms'] );
+            $properties['content']['required'] = $tool['params']['content']['required_properties'];
+            unset( $properties['content']['required_properties'] );
         }
+        if ( array_diff( $scopes, sac_oauth_scopes() ) ) continue;
+        $security = [ [ 'type' => 'oauth2', 'scopes' => $scopes ] ];
         $meta = [ 'securitySchemes' => $security ];
-        if ( $tool['name'] === 'prepare_content_changes' ) {
-            $meta['wumetax.com/conditionalScopes'] = $policy;
-            $meta['wumetax.com/conditionalScopes']['dry_run_entry'] = [ 'content:read' ];
-        }
         if ( $tool['name'] === 'upload_media' ) $meta['openai/fileParams'] = [ 'file' ];
         $tools[] = [
             'name' => $tool['name'], 'description' => $tool['description'] . ( $tool['name'] === 'prepare_content_changes' ? ' 正式準備需要 content:read、content:update，依提交欄位追加分類、SEO、FAQ 與媒體 Scope。先用 dry_run=true 檢查。若需追加授權，應用程式應以原權限加上授權挑戰要求的 Scope，重新取得使用者明確同意後再重試。' : '' ),
@@ -46,8 +68,13 @@ function sac_mcp_tools_list( $grant ) {
 
 function sac_mcp_validation_schema( $tool, $name, $parameter ) {
     // The Change Set preflight collects nested failures with complete paths.
-    if ( $tool['name'] === 'prepare_content_changes' && in_array( $name, [ 'content', 'seo', 'media', 'faqs' ], true ) ) return [ 'type' => $parameter['type'] ];
-    return sac_parameter_schema( $parameter );
+    if ( in_array( $tool['name'], [ 'prepare_content_changes', 'validate_content_changes' ], true ) && in_array( $name, [ 'content', 'seo', 'media', 'faqs' ], true ) ) return [ 'type' => $parameter['type'] ];
+    $schema = sac_parameter_schema( $parameter );
+    if ( isset( $parameter['required_properties'] ) ) {
+        $schema['required'] = $parameter['required_properties'];
+        unset( $schema['required_properties'] );
+    }
+    return $schema;
 }
 
 function sac_mcp_call_tool( $tool, $args, WP_REST_Request $outer ) {
@@ -78,6 +105,7 @@ function sac_mcp_call_tool( $tool, $args, WP_REST_Request $outer ) {
     sac_authenticate( $request, sac_authenticate( $outer ) );
     if ( $confirm !== '' ) $request->set_header( 'x-sac-confirmation', $confirm );
     $params = array_diff_key( $args, $path_keys );
+    if ( $tool['name'] === 'validate_content_changes' ) $params['dry_run'] = true;
     if ( $tool['method'] === 'GET' ) {
         $request->set_query_params( $params );
     } else {
@@ -180,16 +208,28 @@ function sac_handle_mcp_request( WP_REST_Request $request ) {
     if ( $method !== 'tools/call' ) return sac_mcp_rpc( $id, [ 'code' => -32601, 'message' => 'MCP 方法不存在。' ], true, $modern, $modern ? 404 : 200 );
     $name = $params['name'] ?? '';
     if ( ! is_string( $name ) ) return sac_mcp_rpc( $id, [ 'code' => -32602, 'message' => '工具名稱格式錯誤。' ], true );
-    $definitions = array_column( sac_get_tool_definitions(), null, 'name' );
+    $definitions = sac_mcp_definitions();
     if ( empty( $definitions[ $name ]['available'] ) ) return sac_mcp_rpc( $id, [ 'code' => -32602, 'message' => '工具不存在或已停用。' ], true );
-    sac_mcp_diagnostic_context( $request, [ 'tool' => $name ] );
+    $listed = sac_mcp_tools_list( $grant, [ $definitions[$name] ] );
+    sac_mcp_diagnostic_context( $request, [ 'tool' => $name, 'tool_declared_scopes' => $listed[0]['securitySchemes'][0]['scopes'] ?? [] ] );
     $permission = sac_oauth_require_scope( $grant, sac_oauth_request_tool_scope( $definitions[ $name ], $params['arguments']['dry_run'] ?? null ) );
-    if ( is_wp_error( $permission ) && $permission->get_error_code() === 'insufficient_scope' ) return $permission;
     $result = is_wp_error( $permission ) ? $permission : sac_mcp_call_tool( $definitions[ $name ], $params['arguments'] ?? [], $request );
     if ( is_wp_error( $result ) ) {
         $scope_report = $result->get_error_data()['scope_report'] ?? [];
-        if ( $scope_report ) sac_mcp_diagnostic_context( $request, [ 'scope_report' => $scope_report ] );
-        if ( in_array( $result->get_error_data()['status'] ?? 0, [ 401, 403 ], true ) && in_array( $result->get_error_code(), [ 'invalid_token', 'insufficient_scope' ], true ) ) return $result;
+        if ( $scope_report ) sac_mcp_diagnostic_context( $request, [ 'scope_report' => $scope_report + ( $grant['scope_report'] ?? [] ) ] );
+        if ( $result->get_error_code() === 'insufficient_scope' ) {
+            $scope = $result->get_error_data()['scope'] ?? '';
+            $challenge = 'Bearer resource_metadata="' . esc_url_raw( sac_oauth_metadata_url( true ) )
+                . '", error="insufficient_scope", error_description="Additional OAuth scopes are required", scope="' . $scope . '"';
+            $response = sac_mcp_rpc( $id, [
+                'content' => [ [ 'type' => 'text', 'text' => $result->get_error_message() ] ],
+                'structuredContent' => [ 'code' => 'insufficient_scope', 'scope_report' => $scope_report ],
+                'isError' => true, '_meta' => [ 'mcp/www_authenticate' => [ $challenge ] ],
+            ], false, $modern, 403 );
+            $response->header( 'WWW-Authenticate', $challenge );
+            return $response;
+        }
+        if ( $result->get_error_code() === 'invalid_token' ) return $result;
         $details = [ 'success' => false, 'code' => $result->get_error_code(), 'message' => $result->get_error_message(), 'data' => null, 'warnings' => [], 'operation_id' => null ];
         $extra = $result->get_error_data();
         foreach ( [ 'field', 'id', 'review_url', 'confirmation_url', 'confirmation_token', 'confirmation_expires_at', 'confirmation_required', 'approval_status', 'change_set_id', 'max_request_bytes', 'actual_status', 'scope_report' ] as $key ) {

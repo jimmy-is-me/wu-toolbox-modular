@@ -157,7 +157,8 @@ function sac_oauth_access( WP_REST_Request $request ) {
     return [
         'id' => (int) $grant['id'], 'client' => (int) $grant['client'], 'user_id' => $user->ID,
         'scopes' => $effective,
-        'scope_report' => sac_oauth_scope_report( $client, $grant['payload']['scopes'], $effective ),
+        'scope_report' => sac_oauth_scope_report( $client, $grant['payload']['scopes'], $effective )
+            + [ 'authorization_requested_scopes' => $grant['payload']['requested_scopes'] ?? null ],
         'content_scope' => $grant['payload']['types'],
     ];
 }

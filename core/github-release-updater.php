@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+            <h4>4.3.6</h4><ul><li>新增唯讀變更驗證及分類審核工具，標準宣告 taxonomy:write。</li><li>補上工具層級授權挑戰與 Scope 診斷，保留舊版 Dry Run 及人工審核。</li></ul>
             <h4>4.3.5</h4><ul><li>修正隱藏登入攔截 OAuth 授權及獨立安裝目錄的登入網址，加入登入返回驗證。</li><li>重新授權顯示先前與新增權限，補上相容性檢查及不含憑證的 OAuth 診斷。</li></ul>
             <h4>4.3.4</h4><ul><li>修正 AI MCP 權限探索與追加授權，新增客戶端與使用者權限比較。</li><li>Dry Run 顯示缺少的 Scope 與修正方式，保留人工授權、權杖輪替及文章審核。</li></ul>
             <h4>4.3.3</h4><ul><li>Change Set 支援草稿狀態前置條件、Dry Run 與欄位錯誤路徑，保留人工審核及原有發佈權限。</li><li>改善 MCP 錯誤與 OAuth 授權區分、同一客戶端重連重試，加入可複製的 MCP 診斷。</li></ul>

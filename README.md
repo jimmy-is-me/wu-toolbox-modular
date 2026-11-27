@@ -21,6 +21,8 @@ License: GPL-2.0-or-later.
 
 v4.0.1 新增 SEO 列表、快速編輯、批次預覽、修改歷史、CSV 與按需技術診斷，完整操作與驗證界線見 [SEO 管理與診斷](docs/SEO-4.0.1.md)。
 
+v4.3.6 新增唯讀變更驗證與分類審核工具，並以標準 MCP 工具宣告公開所需 OAuth Scope。升級後請重新整理工具並確認追加授權。詳見 [AI 連接器操作文件](docs/site-ai-connector.md)。
+
 v4.3.5 修正 AI 連接器與隱藏登入的相容性，重新授權會列出先前同意與本次新增的權限。從「AI 連接器 → 連線總覽」檢查登入與 OAuth。有效授權可以沿用，追加 Scope 須重新確認。詳見 [AI 連接器操作文件](docs/site-ai-connector.md)。
 
 v4.3.4 改善 OAuth 權限探索與追加授權，Dry Run 顯示實際缺少的 Scope。站長可更新舊客戶端的註冊權限，新增授權仍須使用者同意。詳見 [AI 連接器操作文件](docs/site-ai-connector.md)。

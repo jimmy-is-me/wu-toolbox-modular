@@ -53,6 +53,7 @@ function sac_mcp_diagnostic_dispatch( $request ) {
         'request_bytes' => strlen( $request->get_body() ), 'duration_ms' => (int) ( ( microtime( true ) - $started ) * 1000 ),
         'exception_type' => $context['exception_type'] ?? null, 'oauth_challenge' => $scope_challenge,
         'approval_status' => $tool_data['approval_status'] ?? null,
+        'tool_declared_scopes' => $context['tool_declared_scopes'] ?? [],
     ];
     $scope_fields = array_flip( [ 'client_id', 'site_allowed_scopes', 'client_registered_scopes', 'client_allowed_scopes',
         'grant_scopes', 'access_scopes', 'required_scopes', 'missing_scopes', 'site_disabled_scopes', 'client_blocked_scopes', 'next_action' ] );
