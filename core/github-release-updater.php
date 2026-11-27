@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+            <h4>4.3.7</h4><ul><li>修正非主帳號可見的未開放模組選單，更新外掛開發者名稱。</li><li>新增獨立外掛分類與 WP Booking 預約模組，首次開啟自動安裝並沿用 Wu Toolbox 授權。</li></ul>
             <h4>4.3.6</h4><ul><li>新增唯讀變更驗證及分類審核工具，標準宣告 taxonomy:write。</li><li>補上工具層級授權挑戰與 Scope 診斷，保留舊版 Dry Run 及人工審核。</li></ul>
             <h4>4.3.5</h4><ul><li>修正隱藏登入攔截 OAuth 授權及獨立安裝目錄的登入網址，加入登入返回驗證。</li><li>重新授權顯示先前與新增權限，補上相容性檢查及不含憑證的 OAuth 診斷。</li></ul>
             <h4>4.3.4</h4><ul><li>修正 AI MCP 權限探索與追加授權，新增客戶端與使用者權限比較。</li><li>Dry Run 顯示缺少的 Scope 與修正方式，保留人工授權、權杖輪替及文章審核。</li></ul>
@@ -441,7 +442,7 @@ final class WUTM_GitHub_Release_Updater {
             'name' => 'WU Toolbox Modular',
             'slug' => 'wu-toolbox-modular',
             'version' => $version,
-            'author' => '<a href="https://wumetax.com/" target="_blank" rel="noopener noreferrer">Wumetax</a>',
+            'author' => '<a href="https://wumetax.com/" target="_blank" rel="noopener noreferrer">Wumetax 末特數位科技</a>',
             'author_profile' => 'https://wumetax.com/',
             'homepage' => 'https://wumetax.com/',
             'short_description' => '依需求開啟獨立功能的 WordPress 模組化工具箱。',

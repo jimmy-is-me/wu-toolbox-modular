@@ -37,6 +37,7 @@ function wutm_module_is_shared(string $key): bool {
 }
 function wutm_shared_module_available(string $key, array $module): bool {
     if (!wutm_is_enabled($key)) return false;
+    if ($key === 'wp-booking' && (!function_exists('wutm_third_party_plugin_active') || !wutm_third_party_plugin_active($key))) return false;
     if (!empty($module['requires_module']) && !wutm_is_enabled((string) $module['requires_module'])) return false;
     if (($module['requires'] ?? '') === 'woocommerce' && !class_exists('WooCommerce')) return false;
     if (($module['requires'] ?? '') === 'translatepress' && !class_exists('TRP_Translate_Press')) return false;
@@ -121,17 +122,42 @@ function wutm_render_toolbox_visibility(): void {
     <?php
 }
 
-/** One Toolbox dashboard; retain original registered page hooks. */
+function wutm_restricted_module_menu_targets(): array {
+    $targets = [];
+    foreach (wutm_modules() as $key => $module) {
+        if (!wutm_is_enabled($key)) continue;
+        $shared = wutm_module_can_share($key, $module) && wutm_module_is_shared($key) && wutm_shared_module_available($key, $module);
+        $pages = array_merge(['wu-' . $key, $module['settings_page'] ?? ''], (array) ($module['related_pages'] ?? []));
+        parse_str((string) parse_url($module['settings_url'] ?? '', PHP_URL_QUERY), $query);
+        if (!empty($query['page'])) $pages[] = $query['page'];
+        foreach (array_filter($pages) as $page) $targets[$page] = ($targets[$page] ?? false) || $shared;
+    }
+    return $targets;
+}
+
+/** Retain registered page hooks while removing inaccessible navigation entries. */
 add_action('admin_menu', function (): void {
     if (!current_user_can('manage_options')) return;
-    global $submenu;
-    if (!wutm_toolbox_can_manage()) {
-        if (!wutm_toolbox_can_view()) { remove_menu_page('wu-toolbox-modular'); return; }
-        $submenu['wu-toolbox-modular'] = array_values(array_filter($submenu['wu-toolbox-modular'] ?? [], static function ($entry): bool {
-            $slug = (string) ($entry[2] ?? '');
-            if ($slug === 'wu-toolbox-modular' || wutm_is_shared_menu_target($slug)) return true;
-            foreach (wutm_toolbox_shared_modules() as $module) if (in_array($slug, (array) ($module['related_pages'] ?? []), true)) return true;
-            return false;
+    if (wutm_toolbox_can_manage()) return;
+    global $menu, $submenu;
+    $targets = wutm_restricted_module_menu_targets();
+    $visibility = static function ($entry) use ($targets): ?bool {
+        $slug = (string) ($entry[2] ?? '');
+        if (isset($targets[$slug])) return $targets[$slug];
+        foreach ($targets as $page => $show) {
+            if (function_exists('wutm_menu_slug_matches') && wutm_menu_slug_matches($slug, $page)) return $show;
+        }
+        return null;
+    };
+    foreach ((array) $menu as $entry) {
+        if ($visibility($entry) === false) remove_menu_page($entry[2]);
+    }
+    foreach ((array) $submenu as $parent => $entries) {
+        $submenu[$parent] = array_values(array_filter($entries, static function ($entry) use ($parent, $visibility): bool {
+            $show = $visibility($entry);
+            if ($parent !== 'wu-toolbox-modular') return $show !== false;
+            return ($entry[2] ?? '') === $parent || $show === true;
         }));
     }
+    if (!wutm_toolbox_can_view()) remove_menu_page('wu-toolbox-modular');
 }, PHP_INT_MAX);
