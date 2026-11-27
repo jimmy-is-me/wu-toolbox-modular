@@ -5,6 +5,7 @@ require_once __DIR__ . '/module-icons.php';
 
 function wutm_third_party_plugin_file(string $key): string {
     $plugins = [
+        'wp-booking' => 'wp-booking/wp-booking.php',
         'wp-downgrade' => 'wp-downgrade/wp-downgrade.php',
         'wordfence' => 'wordfence/wordfence.php',
         'rank-math-seo' => 'seo-by-rank-math/rank-math.php',
@@ -74,7 +75,7 @@ function wutm_render_admin_page_content(): void {
     $licensed = function_exists('wutm_license_is_valid') && wutm_dashboard_optional('license-status', static function (): bool { return wutm_license_is_valid(); }, false);
     $real_modules = array_filter($modules, static function (array $module): bool { return empty($module['navigation']); });
     $enabled = count(array_filter($real_modules, static function (array $module, string $key): bool {
-        return wutm_is_enabled($key)
+        return (wutm_is_enabled($key) && ($key !== 'wp-booking' || wutm_third_party_plugin_active($key)))
             || (($module['tag'] ?? '') === '第三方外掛' && wutm_third_party_plugin_active($key));
     }, ARRAY_FILTER_USE_BOTH));
     $dashboard_degraded = (bool) wutm_dashboard_problems();
@@ -106,7 +107,7 @@ function wutm_render_admin_page_content(): void {
         <?php foreach ($items as $key => $module):
             $is_navigation = !empty($module['navigation']);
             $parent_enabled = $is_navigation && wutm_is_enabled((string) ($module['parent_module'] ?? ''));
-            $module_enabled = wutm_is_enabled($key);
+            $module_enabled = wutm_is_enabled($key) && ($key !== 'wp-booking' || wutm_third_party_plugin_active($key));
             $third_party_active = !empty($module['tag']) && $module['tag'] === '第三方外掛' && wutm_third_party_plugin_active($key);
             $on = $module_enabled || $third_party_active;
             $requires = $module['requires'] ?? '';
@@ -211,7 +212,7 @@ function wutm_render_admin_page_content(): void {
             input.addEventListener('input',function(){if(!input.value.trim()){results.hidden=true;list.replaceChildren();clearMatches();}});
         }
     }());
-    document.addEventListener('change',function(e){if(!e.target.matches('.wutm-switch input'))return;const i=e.target;i.disabled=true;fetch(ajaxurl,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({action:'wutm_toggle_module',module:i.dataset.module,enabled:i.checked?1:0,nonce:'<?php echo esc_js(wp_create_nonce('wutm_toggle_module')); ?>'})}).then(r=>r.json()).then(r=>{const card=i.closest('.wutm-card');if(!r.success){i.checked=!i.checked;const message=r.data&&r.data.message?r.data.message:'設定儲存失敗。';const slot=document.querySelector('.wutm-notice-slot');if(slot){const notice=document.createElement('div');notice.className='notice notice-error';notice.innerHTML='<p></p>';notice.querySelector('p').textContent=message;slot.replaceChildren(notice)}return}card.classList.toggle('on',i.checked);const share=card.querySelector('.wutm-share-toggle');if(share)share.disabled=!i.checked;document.dispatchEvent(new Event('wutm-module-state-changed'));const link=card.querySelector('.wutm-settings');if(i.checked&&!link){const a=document.createElement('a');a.className='wutm-settings';a.href=card.dataset.settingsUrl;a.textContent=card.dataset.navigation==='1'?'開啟':'設定';card.querySelector('.wutm-card-actions').appendChild(a)}else if(!i.checked&&link){link.remove()}}).catch(()=>i.checked=!i.checked).finally(()=>i.disabled=false)});
+    document.addEventListener('change',function(e){if(!e.target.matches('.wutm-switch input'))return;const i=e.target;i.disabled=true;fetch(ajaxurl,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({action:'wutm_toggle_module',module:i.dataset.module,enabled:i.checked?1:0,nonce:'<?php echo esc_js(wp_create_nonce('wutm_toggle_module')); ?>'})}).then(r=>r.json()).then(r=>{const card=i.closest('.wutm-card');if(!r.success){i.checked=!i.checked;const message=r.data&&r.data.message?r.data.message:'設定儲存失敗。';const slot=document.querySelector('.wutm-notice-slot');if(slot){const notice=document.createElement('div');notice.className='notice notice-error';notice.innerHTML='<p></p>';notice.querySelector('p').textContent=message;slot.replaceChildren(notice)}return}if(i.dataset.module==='wp-booking'){window.location.reload();return}card.classList.toggle('on',i.checked);const share=card.querySelector('.wutm-share-toggle');if(share)share.disabled=!i.checked;document.dispatchEvent(new Event('wutm-module-state-changed'));const link=card.querySelector('.wutm-settings');if(i.checked&&!link){const a=document.createElement('a');a.className='wutm-settings';a.href=card.dataset.settingsUrl;a.textContent=card.dataset.navigation==='1'?'開啟':'設定';card.querySelector('.wutm-card-actions').appendChild(a)}else if(!i.checked&&link){link.remove()}}).catch(()=>i.checked=!i.checked).finally(()=>i.disabled=false)});
     document.addEventListener('change',function(e){
         const input=e.target;if(!input.matches('.wutm-share-toggle'))return;
         const old=!input.checked;input.disabled=true;

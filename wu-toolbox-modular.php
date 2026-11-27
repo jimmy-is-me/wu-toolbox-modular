@@ -3,8 +3,8 @@
  * Plugin Name: Wu Toolbox Modular
  * Plugin URI: https://wumetax.com/
  * Description: Wu Toolbox 的按需載入模組化版本。每項功能獨立，只有啟用後才會載入。
- * Version: 4.3.6
- * Author: Wumetax
+ * Version: 4.3.7
+ * Author: Wumetax 末特數位科技
  * Author URI: https://wumetax.com/
  * License: GPL-2.0-or-later
  * Text Domain: wu-toolbox-modular
@@ -14,7 +14,7 @@
 defined('ABSPATH') || exit;
 
 define('WUTM_FILE', __FILE__);
-define('WUTM_VERSION', '4.3.6');
+define('WUTM_VERSION', '4.3.7');
 define('WUTM_PATH', plugin_dir_path(__FILE__));
 define('WUTM_URL', plugin_dir_url(__FILE__));
 
@@ -162,6 +162,12 @@ add_action('wp_ajax_wutm_toggle_module', function () {
             'message' => '請先完成 Wu Toolbox 授權驗證，才能啟用新模組。',
             'license_url' => admin_url('admin.php?page=wu-toolbox-modular#wutm-license'),
         ], 403);
+    }
+
+    if ($key === 'wp-booking' && $enable) {
+        require_once WUTM_PATH . 'core/wp-booking-installer.php';
+        $installed = wutm_enable_wp_booking();
+        if (is_wp_error($installed)) wp_send_json_error(['message' => $installed->get_error_message()], 400);
     }
 
     update_option(wutm_module_option($key), $enable ? 1 : 0, false);

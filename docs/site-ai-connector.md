@@ -97,6 +97,10 @@ WU Toolbox Modular v4.2.9 將 AI 連接器改為 WordPress 原生 OAuth。新版
 - 從 **AI 連接器 → 操作紀錄 → AI MCP 診斷** 複製請求編號、時間和錯誤分類。最多每小時保存 90 筆，保留 3 天。若請求先由 CDN 或 WAF 拒絕，請對照該服務的回應與事件紀錄。
 - Change Set JSON 上限為 768 KiB。請求或快照超限時依錯誤拆分正文，或改用 Gutenberg 區塊操作。工具驗證錯誤以 MCP 工具結果回傳。真正失效的權杖和可補授權的 Scope 使用 HTTP 授權挑戰。
 
+### v4.3.7 後台入口
+
+啟用 Toolbox 的其他管理員可見性限制後，主帳號需明確開放 AI 連接器，其他管理員才會看到該模組的側邊選單。OAuth Client、既有授權及工具 Scope 沿用 v4.3.6。
+
 ### v4.3.6 MCP 工具權限
 
 重新整理工具清單後使用 `validate_content_changes` 唯讀檢查欄位與權限。舊版 `prepare_content_changes(dry_run: true)` 仍可使用。獨立分類變更可用 `prepare_content_terms_changes`，其標準工具宣告列出 `content:read`、`content:update`、`taxonomy:read` 和 `taxonomy:write`。分類只是完整變更的一部分時，直接提交一份 `prepare_content_changes` 並完成一次人工審核。正式準備按請求欄位再次驗證權限。
