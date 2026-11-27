@@ -384,16 +384,30 @@ try {
     sac_fixture_assert( $verified_draft['database_verification']['state'] === 'verified' && $verified_draft['frontend_verification']['state'] === 'not_applicable',
         'Draft has independent database and public verification' );
     $limited_token = sac_fixture_request( '/oauth/token', 'POST', '', sac_fixture_authorize( $client, $admin, [ 'content:read', 'content:update' ], $redirect ) )['access_token'];
+    $descriptors = array_column( sac_fixture_mcp( 'tools/list', $limited_token )['result']['tools'], null, 'name' );
+    foreach ( [
+        'validate_content_changes' => [ 'content:read' ],
+        'prepare_content_changes' => [ 'content:read', 'content:update' ],
+        'prepare_content_terms_changes' => [ 'content:read', 'content:update', 'taxonomy:read', 'taxonomy:write' ],
+    ] as $tool => $declared ) {
+        $expected = [ [ 'type' => 'oauth2', 'scopes' => $declared ] ];
+        sac_fixture_assert( $descriptors[$tool]['securitySchemes'] === $expected
+            && $descriptors[$tool]['_meta']['securitySchemes'] === $expected, 'Tool scopes are mirrored in tools/list: ' . $tool );
+    }
     $limited_request = [ 'name' => 'prepare_content_changes', 'arguments' => $draft_target + [ 'dry_run' => true,
         'faqs' => [ [ 'question' => 'Scope?', 'answer' => 'Required.' ] ], 'content' => [ 'terms' => [ 'report_region' => [ $term ] ] ] ] ];
     $dry_scope = sac_fixture_mcp( 'tools/call', $limited_token, $limited_request )['result'];
     sac_fixture_assert( $dry_scope['isError'] && $dry_scope['structuredContent']['data']['dry_run']
         && in_array( 'taxonomy:write', $dry_scope['structuredContent']['data']['missing_scopes'], true ), 'Conditional scope diagnostics do not issue an OAuth challenge' );
     unset( $limited_request['arguments']['dry_run'] );
+    $validate = sac_fixture_tool( 'validate_content_changes', $limited_request['arguments'], $limited_token );
+    sac_fixture_assert( $validate['structuredContent']['data']['dry_run'] && empty( $validate['structuredContent']['data']['confirmation_url'] ), 'Dedicated validation cannot create a review' );
     $limited_request['arguments']['idempotency_key'] = sac_oauth_random();
     $challenge = sac_fixture_mcp( 'tools/call', $limited_token, $limited_request, 403 );
-    sac_fixture_assert( $challenge['code'] === 'insufficient_scope' && ! array_diff( [ 'faq:read', 'faq:write', 'taxonomy:read', 'taxonomy:write' ],
-        explode( ' ', $challenge['data']['scope'] ) ), 'All missing feature scopes are challenged together' );
+    $tool_challenge = $challenge['result']['_meta']['mcp/www_authenticate'][0] ?? '';
+    foreach ( [ 'faq:read', 'faq:write', 'taxonomy:read', 'taxonomy:write', 'error_description=' ] as $part ) {
+        sac_fixture_assert( str_contains( $tool_challenge, $part ), 'Missing scope challenge detail: ' . $part );
+    }
     update_option( 'sac_oauth_scopes', array_values( array_diff( $scopes, [ 'faq:write' ] ) ), false );
     try {
         $disabled = sac_fixture_mcp( 'tools/call', $limited_token, $limited_request );
@@ -429,7 +443,14 @@ try {
     $full['idempotency_key'] = sac_oauth_random();
     $full['content']['title'] = 'Complete draft after additional consent';
     if ( isset( $full['seo'], $media ) ) $full['seo']['og_image_id'] = $media['attachment_id'];
-    $full_prepared = sac_fixture_request( $draft_path, 'POST', $after_consent, $full );
+    $terms_review = sac_fixture_tool( 'prepare_content_terms_changes', $draft_target + [
+        'idempotency_key' => sac_oauth_random(), 'expected_status' => 'draft',
+        'content' => [ 'terms' => [ 'report_region' => [] ] ],
+    ], $after_consent )['structuredContent']['data'];
+    sac_fixture_assert( ! empty( $terms_review['confirmation_required'] )
+        && in_array( $term, wp_get_object_terms( $report, 'report_region', [ 'fields' => 'ids' ] ), true ),
+        'The classification tool creates a review without changing assigned terms' );
+    $full_prepared = sac_fixture_tool( 'prepare_content_changes', $draft_target + $full, $after_consent )['structuredContent']['data'];
     sac_fixture_assert( get_post( $report )->post_title !== $full['content']['title'], 'Additional consent cannot apply the Change Set' );
     $applied_with_scope = $apply( $full_prepared['operation_id'], array_merge( $selected, [ 'content.title' ] ) );
     sac_fixture_assert( ! is_wp_error( $applied_with_scope ) && $applied_with_scope['approval_status'] === 'applied'

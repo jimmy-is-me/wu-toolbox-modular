@@ -97,6 +97,12 @@ WU Toolbox Modular v4.2.9 將 AI 連接器改為 WordPress 原生 OAuth。新版
 - 從 **AI 連接器 → 操作紀錄 → AI MCP 診斷** 複製請求編號、時間和錯誤分類。最多每小時保存 90 筆，保留 3 天。若請求先由 CDN 或 WAF 拒絕，請對照該服務的回應與事件紀錄。
 - Change Set JSON 上限為 768 KiB。請求或快照超限時依錯誤拆分正文，或改用 Gutenberg 區塊操作。工具驗證錯誤以 MCP 工具結果回傳。真正失效的權杖和可補授權的 Scope 使用 HTTP 授權挑戰。
 
+### v4.3.6 MCP 工具權限
+
+重新整理工具清單後使用 `validate_content_changes` 唯讀檢查欄位與權限。舊版 `prepare_content_changes(dry_run: true)` 仍可使用。獨立分類變更可用 `prepare_content_terms_changes`，其標準工具宣告列出 `content:read`、`content:update`、`taxonomy:read` 和 `taxonomy:write`。分類只是完整變更的一部分時，直接提交一份 `prepare_content_changes` 並完成一次人工審核。正式準備按請求欄位再次驗證權限。
+
+缺少已開放的權限時，正式工具回傳 HTTP 403、WWW-Authenticate 及工具結果內的 `mcp/www_authenticate`。從操作紀錄比對工具宣告、OAuth 授權請求與權杖生效範圍。若平台要求重新授權，沿用原本的 OAuth Client，確認同意後以 `verify_connection` 核對 Scope。
+
 ### v4.3.5 登入相容性與重新授權
 
 - 授權端點使用 WordPress 的 `wp_login_url()`，遵守 `login_url` 及安全跳轉規則。隱藏登入啟用時，僅明確登錄的 OAuth 授權與審核入口可把訪客帶入登入流程。預設登入路徑仍受隱藏登入保護。若 WordPress 使用不同路徑的站點與安裝網址，自訂登入由站點公開路徑提供。不同網域的部署還須由 WordPress 與登入外掛正確共用登入工作階段。
