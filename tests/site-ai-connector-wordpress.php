@@ -218,6 +218,59 @@ try {
     sac_fixture_assert( get_post_status( $post ) === 'publish', 'Approved publish completed' );
     sac_fixture_request( '/content/post/' . $post, 'POST', $access, [ 'title' => "$tag requires review" ], 409 );
 
+    $path = '/content/post/' . $post . '/changes';
+    $params = [ 'idempotency_key' => sac_oauth_random(), 'content' => [ 'title' => "$tag batched", 'excerpt' => 'Excerpt intentionally excluded' ],
+        'faqs' => [ [ 'question' => 'One confirmation?', 'answer' => 'Yes.' ] ] ];
+    $prepared = sac_fixture_request( $path, 'POST', $access, $params );
+    $operation = $prepared['operation_id'];
+    sac_fixture_assert( sac_fixture_request( $path, 'POST', $access, $params )['operation_id'] === $operation, 'Batch idempotency preserves operation ID' );
+    sac_fixture_request( $path, 'POST', $access, array_replace( $params, [ 'content' => [ 'title' => 'Conflicting request' ] ] ), 409 );
+    $apply = static function ( $id, $fields ) {
+        $row = sac_oauth_row( 'changes', $id, true );
+        return sac_change_apply( $row, new WP_REST_Request( 'POST', '/' . SAC_NAMESPACE . '/content-changes/' . $id ), $fields );
+    };
+    $receipt = $apply( $operation, [ 'content.title', 'faqs' ] );
+    sac_fixture_assert( ! is_wp_error( $receipt ) && $receipt['approval_status'] === 'applied'
+        && get_post( $post )->post_title === "$tag batched" && get_post( $post )->post_excerpt !== 'Excerpt intentionally excluded', 'Selective review executes only approved fields' );
+    $readback = sac_fixture_request( '/content-changes/' . $operation . '/verify', 'GET', $access );
+    sac_fixture_assert( $readback['verification'] === [ 'content.title' => 'verified', 'faqs' => 'verified' ], 'Reread proves saved values' );
+    sac_fixture_assert( is_wp_error( $apply( $operation, [ 'content.title' ] ) ), 'Applying the same operation cannot repeat' );
+    $restore = sac_fixture_request( '/content-changes/' . $operation . '/rollback', 'POST', $access, [ 'idempotency_key' => sac_oauth_random() ] );
+    $restored = $apply( $restore['operation_id'], [ 'content.title', 'faqs' ] );
+    sac_fixture_assert( ! is_wp_error( $restored ) && $restored['approval_status'] === 'applied' && get_post( $post )->post_title !== "$tag batched", 'Rollback uses a separately approved set' );
+
+    $params = [ 'idempotency_key' => sac_oauth_random(), 'content' => [ 'title' => 'Expired' ] ];
+    $expired = sac_fixture_request( $path, 'POST', $access, $params )['operation_id'];
+    $row = sac_oauth_row( 'changes', $expired, true );
+    $row['payload']['approval_expires'] = time() - 1;
+    sac_oauth_change( $expired, [ 'payload' => wp_json_encode( $row['payload'] ) ] );
+    sac_fixture_assert( is_wp_error( $apply( $expired, [ 'content.title' ] ) )
+        && sac_fixture_request( '/content-changes/' . $expired, 'GET', $access )['approval_status'] === 'expired', 'Expired batches cannot write' );
+
+    $original_title = get_post( $report )->post_title;
+    $failed = sac_fixture_request( '/content/field_report/' . $report . '/changes', 'POST', $access, [
+        'idempotency_key' => sac_oauth_random(), 'content' => [ 'title' => 'Restore this title on failure', 'custom_fields' => [ 'verified_source' => 'fixture adapter failure' ] ],
+    ] )['operation_id'];
+    $failure = $apply( $failed, [ 'content.title', 'content.custom_fields' ] );
+    sac_fixture_assert( ! is_wp_error( $failure ) && $failure['approval_status'] === 'failed' && $failure['recovery'] === 'restored'
+        && get_post( $report )->post_title === $original_title, 'Partial adapter failure restores a saved native field and records the failure' );
+
+    $http = static function ( $response, $args, $url ) use ( $post ) {
+        if ( $url !== get_permalink( $post ) ) return $response;
+        return [ 'headers' => [ 'content-type' => 'text/html; charset=utf-8', 'x-robots-tag' => 'noindex' ], 'response' => [ 'code' => 200, 'message' => 'OK' ],
+            'body' => '<html><head><title>Fixture rendered SEO</title><meta name="description" content="Rendered"><link rel="canonical" href="' . esc_url( $url ) . '"></head><body><h1>CAPTCHA tutorial</h1><img src="sample.png"></body></html>' ];
+    };
+    add_filter( 'pre_http_request', $http, 10, 3 );
+    try {
+        $rendered = sac_fixture_request( '/content/post/' . $post . '/rendered-seo', 'GET', $access );
+        if ( class_exists( 'DOMDocument' ) ) {
+            sac_fixture_assert( $rendered['state'] === 'verified' && $rendered['robots'] === 'noindex' && $rendered['h1_count'] === 1
+                && $rendered['images']['missing_alt_attribute'] === 1, 'Anonymous HTML diagnostic reads headers, canonical, headings and ALT with a mocked HTTP response' );
+        }
+    } finally {
+        remove_filter( 'pre_http_request', $http, 10 );
+    }
+
     $subscriber_id = wp_insert_user( [ 'user_login' => sanitize_title( $tag ) . '-subscriber', 'user_pass' => sac_oauth_random(), 'role' => 'subscriber' ] );
     sac_fixture_assert( ! is_wp_error( $subscriber_id ), 'Fixture subscriber created' );
     $users[] = $subscriber_id;
@@ -239,6 +292,8 @@ try {
     remove_filter( 'pre_option_home', $admin_subdir );
     $read = sac_fixture_request( '/oauth/token', 'POST', '', sac_fixture_authorize( $client, $admin, [ 'content:read' ], $redirect ) )['access_token'];
     sac_fixture_request( '/content/post', 'POST', $read, [ 'title' => 'Blocked' ], 403 );
+    sac_fixture_request( $path, 'POST', $read, $params, 403 );
+    sac_fixture_request( '/content-changes/' . $operation, 'GET', $read, [], 404 );
     sac_fixture_mcp( 'tools/call', $read, [ 'name' => 'create_content', 'arguments' => [ 'title' => 'Blocked', 'post_type' => 'post' ] ], 403 );
     sac_oauth_change( sac_oauth_row( 'access', $read )['id'], [ 'expires' => time() - 1 ] );
     sac_fixture_request( '/verify', 'GET', $read, [], 401 );
@@ -255,7 +310,7 @@ try {
     sac_fixture_request( '/oauth/revoke', 'POST', '', [ 'client_id' => $client, 'token' => $extra['access_token'] ] );
     sac_fixture_request( '/verify', 'GET', $extra['access_token'], [], 401 );
     sac_fixture_assert( get_current_user_id() === $admin->ID, 'REST restores the original WordPress user' );
-    echo 'OAuth, MCP, scoped CPT writes, confirmation, media and audit passed (WooCommerce ' . ( class_exists( 'WooCommerce' ) ? 'on' : 'off' ) . ").\n";
+    echo 'OAuth, MCP, scoped CPT writes, confirmation, media, batch verification, rollback and frontend diagnostics passed (WooCommerce ' . ( class_exists( 'WooCommerce' ) ? 'on' : 'off' ) . ").\n";
 } finally {
     foreach ( $clients as $client_id ) {
         $client_row = sac_oauth_row( 'client', $client_id );

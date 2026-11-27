@@ -53,7 +53,7 @@ function sac_oauth_insert( $kind, $secret, $expires, $payload = [], $client = 0,
     global $wpdb;
     $saved = $wpdb->insert( sac_oauth_table(), [
         'kind' => $kind, 'digest' => hash( 'sha256', $secret ), 'expires' => $expires,
-        'payload' => wp_json_encode( $payload ), 'client' => $client, 'family' => $family,
+        'payload' => wp_json_encode( $payload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES ), 'client' => $client, 'family' => $family,
         'owner' => $owner, 'touched' => time(),
     ], [ '%s', '%s', '%d', '%s', '%d', '%d', '%d', '%d' ] );
     return $saved === 1 ? (int) $wpdb->insert_id : 0;

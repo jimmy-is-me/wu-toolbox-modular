@@ -159,14 +159,18 @@ function sac_handle_mcp_request( WP_REST_Request $request ) {
     $result = sac_mcp_call_tool( $definitions[ $name ], $params['arguments'] ?? [], $request );
     if ( is_wp_error( $result ) ) {
         if ( in_array( $result->get_error_data()['status'] ?? 0, [ 401, 403 ], true ) && in_array( $result->get_error_code(), [ 'invalid_token', 'insufficient_scope' ], true ) ) return $result;
-        $details = [ 'code' => $result->get_error_code(), 'message' => $result->get_error_message() ];
+        $details = [ 'success' => false, 'code' => $result->get_error_code(), 'message' => $result->get_error_message(), 'data' => null, 'warnings' => [], 'operation_id' => null ];
         $extra = $result->get_error_data();
-        foreach ( [ 'field', 'id', 'review_url', 'confirmation_token' ] as $key ) {
+        foreach ( [ 'field', 'id', 'review_url', 'confirmation_url', 'confirmation_token', 'confirmation_expires_at', 'confirmation_required', 'approval_status', 'change_set_id' ] as $key ) {
             if ( isset( $extra[ $key ] ) ) $details[ $key ] = $extra[ $key ];
         }
+        $details['next_action'] = $details['code'] === 'sac_confirmation_required' ? 'open_wordpress_review' : ( ( $extra['status'] ?? 0 ) === 429 ? 'retry_later' : 'check_error' );
         return sac_mcp_rpc( $id, [ 'content' => [ [ 'type' => 'text', 'text' => wp_json_encode( $details, JSON_UNESCAPED_UNICODE ) ] ], 'structuredContent' => $details, 'isError' => true ], false, $modern );
     }
-    $details = [ 'data' => $result['value'], 'operation_id' => $result['operation_id'] ?: null ];
+    $value = $result['value'];
+    $details = [ 'success' => ( $value['success'] ?? true ) !== false, 'code' => $value['error_code'] ?? null,
+        'message' => null, 'data' => $value, 'warnings' => [], 'operation_id' => $value['operation_id'] ?? ( $result['operation_id'] ?: null ),
+        'next_action' => ! empty( $value['confirmation_required'] ) ? 'open_wordpress_review' : null ];
     return sac_mcp_rpc( $id, [ 'content' => [ [ 'type' => 'text', 'text' => wp_json_encode( $details, JSON_UNESCAPED_UNICODE ) ] ], 'structuredContent' => $details ], false, $modern );
 }
 

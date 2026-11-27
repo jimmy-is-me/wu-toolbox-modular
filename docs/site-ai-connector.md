@@ -32,7 +32,7 @@ WU Toolbox Modular v4.2.9 將 AI 連接器改為 WordPress 原生 OAuth。新版
 - OAuth 使用 Authorization Code、PKCE S256、HTTPS、RFC 8707 Resource 與 RFC 9207 回呼 Issuer。支援 DCR 與預先註冊。DCR 僅接受設定中精確允許的回呼，預設為 https://chatgpt.com/connector_platform_oauth_redirect 。若平台顯示不同回呼，先核對平台連線管理頁，再加入完整網址。CIMD 未啟用。
 - WordPress 位於子目錄時，Metadata 仍從網域根目錄的 /.well-known/ 服務，後面加上實際 Issuer 或 MCP 路徑。主機必須將對應的兩條路徑交給該 WordPress 的 index.php，並保留原始 REQUEST_URI。若主機已有其他 OAuth 外掛，檢查命名空間專用路徑及回傳的 issuer 值。已有外部路由接手時，可用 sac_oauth_external_metadata 過濾器將相應的探索路徑交給主機處理。
 - Apache 或 Nginx 讓 OAuth 端點及 MCP 收到標準 Authorization 標頭。PHP-FPM 可在該站 FastCGI 設定保留 HTTP_AUTHORIZATION，避免代理移除標頭。
-- Cloudflare 只針對本站實際的兩條探索路徑、REST 命名空間 /wp-json/site-ai/v1/，以及 /wp-admin/admin-post.php 的 sac_oauth_authorize、sac_confirm_change 和 sac_upload_image 動作套用 Bypass cache。使用預設永久連結時同樣涵蓋 rest_route=/site-ai/v1/ 的請求。
+- Cloudflare 只針對本站實際的兩條探索路徑、REST 命名空間 /wp-json/site-ai/v1/，以及 /wp-admin/admin-post.php 的 sac_oauth_authorize、sac_confirm_change、sac_review_changes 和 sac_upload_image 動作套用 Bypass cache。使用預設永久連結時同樣涵蓋 rest_route=/site-ai/v1/ 的請求。
 - 若 WAF 或 Bot 防護攔到官方呼叫，以以上路徑及所需方法縮小例外。站點使用 HTTPS，反向代理由主機轉送可信的 HTTPS 狀態，避免讓任意外部 Forwarded 標頭決定安全連線。
 - 先用匿名 GET 核對兩個 Metadata 檔，再以匿名 POST 確認 MCP 回傳 401 及 WWW-Authenticate resource_metadata。完成授權後測試工具呼叫。若回傳 CDN 挑戰 HTML，依實際規則及事件紀錄排查。
 
@@ -44,6 +44,32 @@ WU Toolbox Modular v4.2.9 將 AI 連接器改為 WordPress 原生 OAuth。新版
 - **圖片**：支援 multipart 的 image 欄位、Base64、可直接取得的 HTTPS 網址及 ChatGPT 的 file 參照物件。若 ChatGPT 只提供平台內部路徑，請使用 create_upload_link 取得 10 分鐘的一次性連結，由同一 WordPress 帳號登入後上傳，再查詢 Attachment ID 並設定精選圖片。檔案大小以 8 MiB 和主機上傳上限較低者為準。僅接受以 WordPress 圖片編輯器能安全解碼和重新儲存的 PNG、JPEG 或 WebP。重名上傳由 WordPress 產生新檔名。
 - **已發佈內容**：伺服器回傳 WordPress 審核連結。授權者核對原內容與預計變更，親自確認後才可重送相同操作。一旦權限或目標狀態變更，請重新產生審核。部分寫入失敗會回報目標 ID。
 - **刪除**：一般內容由站長在 WordPress 處理。已開放的電商垃圾桶操作需要使用者確認及 WooCommerce 權限，且 WordPress 必須啟用垃圾桶。
+
+### v4.3.1 批次審核
+
+1. 用 `list_content_types`、`describe_content_type` 確認本站授權及欄位。用 `analyze_content` 取得需要的資料，例如 `include: ["fields", "outline", "seo", "faq"]`。正文或公開 HTTP 診斷請按需加入。
+2. 修改 Gutenberg 時先呼叫 `list_content_blocks`。用回傳的正文 `version`、區塊 `path` 和 `hash` 指定插入、取代、刪除或移動位置。提供 `block_path` 可查單個區塊原始標記。區塊路徑依原始資料排序，內容變更後要重新查詢。
+3. 呼叫 `prepare_content_changes`，提供內容類型、文章 ID、變更內容和 16 至 80 字元的 `idempotency_key`。同一次網路重試沿用原識別碼。一般欄位放在 `content` 物件，SEO 放在 `seo`，完整 FAQ 放在 `faqs`。用 `featured_image_id` 和 `seo.og_image_id` 關聯媒體庫圖片。若要一併更新同一張圖片的標題、ALT、Caption 或 Description，可把媒體 ID 與要改的欄位放在 `media`。
+4. 開啟回傳的 `confirmation_url`，以原授權帳號登入。展開需要核對的項目，可取消勾選單個原生內容欄位、整組 SEO 或整組 FAQ。按「核准並套用」後由 WordPress 儲存及核對，無須再送一次正文。審核連結有效 30 分鐘。
+5. 用 `get_content_change_status` 查詢狀態，用 `verify_content_changes` 重新核對實際資料。選用 `frontend: true` 核對匿名 HTTP 回應。已儲存資料與匿名前台可能因快取而有差異，請用兩組結果各自判讀。
+6. 用 `list_content_operations` 查詢套用紀錄，用 `cancel_content_changes` 取消待審核變更。若需要還原，用 `rollback_content_changes` 和新的識別碼準備另一筆審核。只有現有欄位仍等於前次保存結果，且原值可透過同一適配器安全寫回時，才能準備還原。部分失敗會報告已復原或須手動核對。
+
+**AI 操作範例**
+
+> 請先核對這篇自訂內容的欄位與 Gutenberg 版本。把新摘要、SEO 描述及 15 組 FAQ 放入同一批審核。比較表插在指定區塊後，保留既有分類、自訂欄位和正文。準備完成後提供 WordPress 審核連結。等我核准，再用操作編號核對已儲存的資料。
+
+- 一般內容請求上限為 768 KiB，變更及伺服器預覽合計依流程最多 1.5 MiB。較大的原始內容可用精準區塊操作減少傳輸量，仍受預覽儲存上限保護。批次變更快照與收據保留 7 天，精簡操作紀錄保留 30 天。資料皆按站點儲存，原有 OAuth 資料表沿用。
+- 既有單筆操作與舊版確認流程仍可使用。同一文章的標題、獨立 SEO 欄位、FAQ 各自比對核准時的資料。發佈仍需既有單筆確認與站點權限。
+- 手動上傳的連結有效 10 分鐘。已完成收據可在連結失效後查詢，工作階段保留 24 小時。舊版 `check_upload_link.status` 已完成仍為 `uploaded`，新版程式可讀 `upload_status: "completed"`。直接上傳可選擇最大寬、高和 WebP 轉換，依 WordPress 主機的圖片編輯器能力而定。
+- `audit_content_seo` 查看公開頁面的 HTTP、轉址、標題、Canonical、Robots、社群標記、標題層級、Schema 類型及圖片 ALT 統計。Sitemap 工具只驗證本次已讀取的 XML 範圍，搜尋引擎收錄須另由 Search Console 查詢。
+- Search Console 預設關閉。先在 **WU SEO → 搜尋成效** 連接 Google，再在 **AI 連接器 → 進階安全設定** 開放 AI 讀取。OAuth 使用者需具備 WordPress 站點管理權限與 SEO 查詢授權。用 `analyze_content` 選擇 `gsc`，選用 7、28 或 90 天、三碼國家與裝置，稍後重查背景同步。使用既有 Google 帳號和屬性。
+- OAuth 無須重新連接。刷新 MCP 工具清單即可。已撤銷授權或需要新增 Scope 時，依原流程重新授權。
+
+### 目前範圍
+
+- All in One SEO 透過公開 HTML 與 Sitemap 診斷。該外掛的資料庫欄位寫入、第三方 FAQ 編輯器、外站連結逐一驗證、分段上傳及未關聯媒體自動清理仍待後續支援。
+- 還原範圍涵蓋可透過現有適配器精確回寫的批次欄位。第三方的儲存附帶動作須由管理員在 WordPress 檢查。
+- 仍需在有 Google Search Console 授權、外部 CDN 或正式 ChatGPT 連線的暫用站驗證各自的實際回應。
 
 ### 自訂欄位適配器
 
@@ -57,7 +83,7 @@ ACF、Pods 及原生 Post Meta 由維護者依型別和權限註冊適配器。�
 - 權杖為 PHP 安全亂數產生的 Opaque Token。資料庫僅保留雜湊，交換在 InnoDB 交易內鎖定客戶端、一次性憑證和授權。Refresh Token 輪替後再次使用舊值會撤銷該授權。變更密碼、角色或能力也會使既有憑證失效。其他停權機制可接 sac_oauth_account_allowed。
 - 伺服器驗證 Issuer、Resource、WordPress 帳號、Client、Grant、Scope、內容類型及物件能力。發佈與修改公開內容還需短效、一次性確認。服務不採用 MCP Session ID。
 - 遠端圖片只接受公開 IPv4 上的 HTTPS 直接下載。DNS 驗證後固定連線 IP，保持 TLS 憑證檢查，拒絕重導、私有網路、Loopback、特殊位址、非允許格式和超限內容。
-- 過期資料每日分批清理。客戶端註冊、OAuth 交換及工具請求有分開的頻率上限。操作紀錄僅保存工具、時間、狀態、授權識別與目標，新增紀錄保存 30 天。短效審核預覽於核准後移除。
+- 過期資料每日分批清理。客戶端註冊、OAuth 交換及工具請求有分開的頻率上限。操作紀錄僅保存工具、時間、狀態、授權識別與目標，新增紀錄保存 30 天。舊式單筆審核預覽於核准後移除。批次審核快照依上述期限保存。
 - OAuth 使用 RFC 8414、RFC 9728、RFC 7636、RFC 8707、RFC 9207、RFC 7591 與 RFC 7009 的相關流程，以及 RFC 9700 的安全要求。此版使用 PHP 安全亂數、雜湊及 WordPress／InnoDB，採 Opaque Token 避免引入 JWT 簽章金鑰或全站 Composer 依賴。MCP 支援 2026-07-28 的無狀態 HTTP 流程，並保留 2025-11-25、2025-06-18 和 2025-03-26 的握手相容性。
 
 ## 測試與正式站驗收

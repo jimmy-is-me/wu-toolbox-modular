@@ -32,9 +32,23 @@ function sac_seo_adapter() {
     return [];
 }
 
+function sac_seo_provider_info() {
+    $adapter = sac_seo_adapter();
+    $provider = $adapter['source'] ?? ( defined( 'AIOSEO_VERSION' ) ? 'all_in_one_seo' : 'wordpress' );
+    $versions = [ 'yoast' => 'WPSEO_VERSION', 'rank_math' => 'RANK_MATH_VERSION', 'seopress' => 'SEOPRESS_VERSION', 'all_in_one_seo' => 'AIOSEO_VERSION' ];
+    $constant = $versions[ $provider ] ?? '';
+    $version = $constant && defined( $constant ) ? constant( $constant ) : ( $provider === 'wumetax_seo_core' ? WUMETAX_SEO_Core_v120::VERSION : ( $provider === 'wordpress' ? get_bloginfo( 'version' ) : null ) );
+    $fields = array_keys( array_diff_key( $adapter, array_flip( [ 'source', 'robots', 'social_image_url' ] ) ) );
+    if ( isset( $adapter['robots'] ) ) $fields = array_merge( $fields, [ 'noindex', 'nofollow' ] );
+    $writable = $fields;
+    if ( isset( $adapter['social_image_url'] ) && ! in_array( 'og_image_id', $writable, true ) ) $writable[] = 'og_image_id';
+    return [ 'provider' => $provider, 'version' => $version, 'stored_readable_fields' => $fields, 'writable_fields' => $writable,
+        'rendered_diagnostics' => true, 'sitemap_diagnostics' => true ];
+}
+
 function sac_get_seo_fields( $post_id ) {
     $adapter = sac_seo_adapter();
-    $result = [ 'post_id' => $post_id, 'source' => $adapter['source'] ?? null ];
+    $result = [ 'post_id' => $post_id, 'source' => $adapter['source'] ?? null, 'provider_details' => sac_seo_provider_info() ];
     foreach ( array_diff_key( $adapter, array_flip( [ 'source', 'robots', 'social_image_url' ] ) ) as $field => $key ) {
         $value = get_post_meta( $post_id, $key, true );
         if ( in_array( $field, [ 'noindex', 'nofollow' ], true ) ) {
@@ -51,7 +65,7 @@ function sac_get_seo_fields( $post_id ) {
     return $result;
 }
 
-function sac_update_seo_fields( $post_id, $fields ) {
+function sac_prepare_seo_fields( $post_id, $fields ) {
     $adapter = sac_seo_adapter();
     if ( ! $adapter ) return sac_oauth_error( 'sac_seo_unavailable', '本站沒有啟用受支援的 SEO 外掛。', 409 );
     if ( ! is_array( $fields ) || ! $fields ) return sac_content_error( 'seo', '請提供至少一個 SEO 欄位。' );
@@ -91,6 +105,16 @@ function sac_update_seo_fields( $post_id, $fields ) {
         }
         $updates[ $adapter[ $field ] ] = $clean;
     }
+    return $updates;
+}
+
+function sac_update_seo_fields( $post_id, $fields ) {
+    $updates = sac_prepare_seo_fields( $post_id, $fields );
+    if ( is_wp_error( $updates ) ) return $updates;
+    return sac_store_seo_fields( $post_id, $updates, sac_seo_adapter()['source'] );
+}
+
+function sac_store_seo_fields( $post_id, $updates, $source ) {
     foreach ( $updates as $key => $value ) {
         if ( $value === '' ) delete_post_meta( $post_id, $key );
         else update_post_meta( $post_id, $key, wp_slash( $value ) );
@@ -100,6 +124,6 @@ function sac_update_seo_fields( $post_id, $fields ) {
         }
     }
     clean_post_cache( $post_id );
-    do_action( 'sac_content_seo_updated', $post_id, $adapter['source'] );
+    do_action( 'sac_content_seo_updated', $post_id, $source );
     return true;
 }

@@ -70,6 +70,42 @@ trait WUTM_SEO_Dashboard {
         return [ 'range'=>$range,'type'=>$type,'value'=>$type ? $value : '' ];
     }
 
+    /** Read Search Console data for an already authorized connector administrator. */
+    public static function connector_search_data( int $id, array $input ): array {
+        if ( ! current_user_can( 'manage_options' ) || ! get_option( 'sac_gsc_read', false ) ) return [ 'state' => 'permission_denied' ];
+        $scope = self::google_scope();
+        if ( ! $scope ) return [ 'state' => 'unavailable', 'code' => 'gsc_not_connected' ];
+        $post = self::dashboard_post( $id );
+        if ( ! $post ) return [ 'state' => 'unsupported', 'code' => 'gsc_content_not_supported' ];
+        $days = (int) ( $input['days'] ?? 28 );
+        if ( ! in_array( $days, [ 7, 28, 90 ], true ) ) $days = 28;
+        $end = ( new DateTimeImmutable( 'today', new DateTimeZone( 'America/Los_Angeles' ) ) )->modify( '-3 days' );
+        $start = $end->modify( '-' . ( $days - 1 ) . ' days' );
+        $range = self::dashboard_range( [
+            'start' => $start->format( 'Y-m-d' ), 'end' => $end->format( 'Y-m-d' ), 'compare' => true,
+            'device' => $input['device'] ?? '', 'country' => $input['country'] ?? '',
+        ] );
+        if ( is_wp_error( $range ) ) return [ 'state' => 'error', 'code' => $range->get_error_code(), 'message' => $range->get_error_message() ];
+        $result = [ 'source' => 'google_search_console', 'state' => 'verified', 'date_range' => $range ];
+        $queue = [
+            'performance' => [ [ 'range' => $range, 'type' => 'page', 'value' => get_permalink( $post ) ], [ 'total', 'daily', 'queries', 'prior_total', 'prior_daily' ] ],
+            'inspect' => [ [ $id ], [ $id ] ],
+            'sitemaps' => [ [], [ 'local', 'submitted', 'children' ] ],
+        ];
+        foreach ( $queue as $kind => [ $params, $steps ] ) {
+            $job_id = self::dashboard_queue( $scope, $kind, $params, $steps );
+            if ( is_wp_error( $job_id ) ) {
+                $result[ $kind ] = [ 'state' => 'error', 'code' => $job_id->get_error_code(), 'message' => $job_id->get_error_message() ];
+                $result['state'] = 'warning';
+                continue;
+            }
+            $job = get_transient( 'wu_seo_job_' . $job_id );
+            $result[ $kind ] = is_array( $job ) ? self::dashboard_public_job( $job ) : [ 'state' => 'pending' ];
+            if ( ( $job['state'] ?? 'pending' ) !== 'ready' ) $result['state'] = 'warning';
+        }
+        return $result;
+    }
+
     public static function dashboard_ajax(): void {
         if ( ! current_user_can( 'manage_options' ) || ( $_SERVER['REQUEST_METHOD'] ?? '' ) !== 'POST' ||
             ! check_ajax_referer( 'wu_seo_dashboard', 'nonce', false ) ) wp_send_json_error( [ 'message'=>'權限驗證失敗，請重新整理。' ], 403 );

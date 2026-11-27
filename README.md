@@ -21,6 +21,8 @@ License: GPL-2.0-or-later.
 
 v4.0.1 新增 SEO 列表、快速編輯、批次預覽、修改歷史、CSV 與按需技術診斷，完整操作與驗證界線見 [SEO 管理與診斷](docs/SEO-4.0.1.md)。
 
+v4.3.1 擴充 AI 連接器的文章變更流程。長文審核可分段展開，獨立欄位各自檢查衝突，批次變更經 WordPress 核准後直接套用並逐項核對。另改善圖片上傳收據，新增公開 SEO 與 Sitemap 診斷。已授權的 OAuth 連線可沿用，請重新整理 MCP 工具清單。詳見 [AI 連接器操作文件](docs/site-ai-connector.md)。
+
 v4.3.0 更新 AI 連接器後台，以緊湊欄位、固定位置的複製按鈕和分頁工作區呈現連線設定。
 
 v4.2.9 將 [AI 連接器](docs/site-ai-connector.md) 升級為原生 OAuth。新版使用 PKCE S256、個別授權與細項權限，可管理 CPT 草稿、SEO、FAQ 和圖片。舊固定金鑰需要改用 OAuth 授權。

@@ -17,6 +17,7 @@ function sac_oauth_admin_action() {
     if ( $action === 'save_security' ) {
         $scopes = array_values( array_intersect( array_keys( sac_oauth_scope_labels() ), (array) ( $options['oauth_scopes'] ?? [] ) ) );
         if ( isset( $options['enabled'] ) && ! in_array( 'content:read', $scopes, true ) ) return [ '啟用連線時請至少開放內容查詢。', true ];
+        update_option( 'sac_gsc_read', ! empty( $options['gsc_read'] ), false );
         update_option( 'sac_oauth_enabled', ! empty( $options['enabled'] ), false );
         update_option( 'sac_oauth_dcr', ! empty( $options['dcr'] ), false );
         update_option( 'sac_oauth_scopes', $scopes, false );
@@ -198,6 +199,7 @@ function sac_oauth_admin_security() {
         <p><label>授權期限（天） <input type="number" name="grant_days" min="1" max="90" value="<?php echo (int) get_option( 'sac_oauth_grant_days', 30 ); ?>"></label></p>
         <p><label>Access Token 期限（秒） <input type="number" name="access_seconds" min="60" max="3600" value="<?php echo (int) get_option( 'sac_oauth_access_seconds', 900 ); ?>"></label></p>
         <p><label><input type="checkbox" name="allow_publish" value="1" <?php checked( get_option( SAC_OPTION_ALLOW_PUBLISH, false ) ); ?>> 允許原授權者確認後發佈草稿</label></p>
+        <p><label><input type="checkbox" name="gsc_read" value="1" <?php checked( get_option( 'sac_gsc_read', false ) ); ?>> 允許具 SEO 查詢權限的網站管理員透過 AI 讀取 WU SEO 的 Search Console 資料</label></p>
         <fieldset><legend>本站開放的 OAuth Scope</legend>
             <?php foreach ( sac_oauth_scope_labels() as $scope => $label ) : ?>
                 <p><label><input type="checkbox" name="oauth_scopes[]" value="<?php echo esc_attr( $scope ); ?>" <?php checked( in_array( $scope, sac_oauth_scopes(), true ) ); ?>> <?php echo esc_html( $label . ' · ' . $scope ); ?></label></p>

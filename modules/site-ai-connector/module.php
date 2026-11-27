@@ -26,7 +26,7 @@ define( 'SAC_CACHE_TTL', 60 ); // 唯讀查詢快取秒數，降低重複對話�
 define( 'SAC_OPTION_REDIRECTS', 'sac_redirects' );
 define( 'SAC_LOG_MAX', 200 );
 foreach ( [ 'oauth-store', 'oauth-server', 'oauth-tokens', 'oauth-authorize', 'oauth-permissions',
-    'confirmation', 'mcp-server', 'media', 'seo', 'content', 'lab-adapter', 'connection' ] as $component ) {
+    'confirmation', 'mcp-server', 'media', 'seo', 'content', 'blocks', 'changes', 'diagnostics', 'lab-adapter', 'connection' ] as $component ) {
     require_once __DIR__ . '/' . $component . '.php';
 }
 if ( is_admin() ) require_once __DIR__ . '/admin.php';
@@ -61,7 +61,7 @@ add_action( 'admin_menu', function () {
 function sac_get_tool_definitions() {
     $has_wc = class_exists( 'WooCommerce' );
 
-    return array_merge( sac_content_tool_definitions(), sac_connection_tool_definitions(), array_map( static function ( $tool ) {
+    return array_merge( sac_content_tool_definitions(), sac_changes_definitions(), sac_diagnostic_definitions(), sac_connection_tool_definitions(), array_map( static function ( $tool ) {
         return $tool + [ 'available' => true, 'group' => '圖片上傳', 'scenario' => $tool['summary'], 'prompt' => $tool['description'] ];
     }, sac_media_definitions() ), [
         [
@@ -722,12 +722,11 @@ add_action( 'rest_api_init', function () {
     register_rest_route( SAC_NAMESPACE, '/upload-link/(?P<token>[a-f0-9]{64})', [
         'methods' => 'GET', 'permission_callback' => 'sac_permission_read',
         'callback' => static function ( $request ) {
-            $grant = sac_authenticate( $request );
-            $row = sac_oauth_row( 'upload', $request->get_url_params()['token'] );
-            if ( ! $row || (int) $row['expires'] <= time() || (int) $row['family'] !== $grant['id'] ) {
-                return sac_oauth_error( 'sac_not_found', '找不到此授權下的有效連結。', 404 );
-            }
-            return $row['payload'] ?: [ 'status' => (int) $row['state'] ? 'processing' : 'waiting' ];
+            $receipt = sac_media_upload_status( $request );
+            if ( is_wp_error( $receipt ) ) return $receipt;
+            $receipt['upload_status'] = $receipt['status'];
+            if ( $receipt['status'] === 'completed' ) $receipt['status'] = 'uploaded';
+            return $receipt;
         },
     ] );
 

@@ -293,7 +293,7 @@ function sac_content_validate_custom( $values, $target ) {
     return $prepared;
 }
 
-function sac_content_save( $request, $target, $values = null ) {
+function sac_content_save( $request, $target, $values = null, $mode = 'review', $preserve_blocks = false ) {
     $post = $target['post'];
     $slug = $target['type']->name;
     $native = sac_content_native_fields( $slug );
@@ -303,6 +303,7 @@ function sac_content_save( $request, $target, $values = null ) {
     $unknown = array_diff( array_keys( $values ), array_merge( array_keys( $native ), [ 'custom_fields', 'id', 'post_type' ] ) );
     if ( $unknown ) return sac_content_error( reset( $unknown ), '欄位未登錄。請先查看內容類型的欄位說明。' );
     $grant = sac_authenticate( $request );
+    if ( is_wp_error( $grant ) ) return $grant;
     foreach ( [ 'terms' => 'taxonomy:write', 'featured_image_id' => 'media:update' ] as $field => $scope ) {
         if ( ! array_key_exists( $field, $values ) ) continue;
         $permission = sac_oauth_require_scope( $grant, $scope );
@@ -314,7 +315,8 @@ function sac_content_save( $request, $target, $values = null ) {
         if ( ! array_key_exists( $field, $values ) ) continue;
         if ( ! $native[ $field ] || ! is_string( $values[ $field ] ) ) return sac_content_error( $field, '此類型未啟用此欄位，或欄位格式錯誤。' );
         $cleaners = [ 'title' => 'sanitize_text_field', 'content' => 'wp_kses_post', 'excerpt' => 'sanitize_textarea_field', 'slug' => 'sanitize_title' ];
-        $data[ $column ] = $cleaners[ $field ]( $values[ $field ] );
+        $data[ $column ] = $field === 'content' && $preserve_blocks && user_can( $target['user'], 'unfiltered_html' )
+            ? $values[ $field ] : $cleaners[ $field ]( $values[ $field ] );
     }
     if ( ! $post && $native['title'] && empty( $data['post_title'] ) && ( $data['post_title'] ?? '' ) !== '0' ) {
         return sac_content_error( 'title', '請提供必填標題。', 'sac_required_field' );
@@ -370,8 +372,23 @@ function sac_content_save( $request, $target, $values = null ) {
         $publication = null;
     }
 
-    $review = sac_content_review( $request, $target );
-    if ( is_wp_error( $review ) ) return $review;
+    if ( $mode === 'validate' ) {
+        $expected = [];
+        foreach ( $native_columns as $field => $column ) {
+            if ( array_key_exists( $column, $data ) ) $expected[ $field ] = $data[ $column ];
+        }
+        foreach ( [ 'parent_id' => 'post_parent', 'author_id' => 'post_author' ] as $field => $column ) {
+            if ( array_key_exists( $column, $data ) ) $expected[ $field ] = $data[ $column ];
+        }
+        if ( $terms ) $expected['terms'] = $terms;
+        if ( $thumbnail !== null ) $expected['featured_image_id'] = $thumbnail;
+        if ( $custom ) $expected['custom_fields'] = array_map( static fn( $entry ) => $entry[1], $custom );
+        return $expected;
+    }
+    if ( $mode === 'review' ) {
+        $review = sac_content_review( $request, $target );
+        if ( is_wp_error( $review ) ) return $review;
+    }
     $user_id = get_current_user_id();
     wp_set_current_user( $target['user']->ID );
     try {
@@ -543,8 +560,13 @@ function sac_content_faq( $request, $post_id, $write ) {
     if ( ! $write ) {
         return [ 'post_id' => $post_id, 'title' => get_the_title( $post_id ), 'status' => get_post_status( $post_id ), 'faqs' => get_post_meta( $post_id, '_sac_faq_list', true ) ?: [] ];
     }
-    $faqs = $request->get_param( 'faqs' );
-    if ( ! is_array( $faqs ) ) return sac_content_error( 'faqs', '請提供完整問答陣列。' );
+    $clean = sac_content_prepare_faq( $request->get_param( 'faqs' ), $post_id );
+    if ( is_wp_error( $clean ) ) return $clean;
+    return sac_content_store_faq( $post_id, $clean );
+}
+
+function sac_content_prepare_faq( $faqs, $post_id, $content = null ) {
+    if ( ! is_array( $faqs ) || count( $faqs ) > 200 ) return sac_content_error( 'faqs', '請提供完整問答陣列。' );
     $clean = [];
     foreach ( $faqs as $index => $item ) {
         if ( ! is_array( $item ) || ! is_string( $item['question'] ?? null ) || ! is_string( $item['answer'] ?? null ) || trim( $item['question'] ) === '' ) {
@@ -552,7 +574,11 @@ function sac_content_faq( $request, $post_id, $write ) {
         }
         $clean[] = [ 'question' => sanitize_text_field( $item['question'] ), 'answer' => wp_kses_post( $item['answer'] ) ];
     }
-    if ( $clean && sac_faq_block_exists( $post_id ) ) return sac_oauth_error( 'sac_faq_block_exists', '此內容已有 SEO 外掛的 FAQ 區塊，請在原區塊編輯。', 409 );
+    if ( $clean && ( $content === null ? sac_faq_block_exists( $post_id ) : ( has_block( 'yoast/faq-block', $content ) || has_block( 'rank-math/faq-block', $content ) ) ) ) return sac_oauth_error( 'sac_faq_block_exists', '此內容已有 SEO 外掛的 FAQ 區塊，請在原區塊編輯。', 409 );
+    return $clean;
+}
+
+function sac_content_store_faq( $post_id, $clean ) {
     update_post_meta( $post_id, '_sac_faq_list', wp_slash( $clean ) );
     if ( get_post_meta( $post_id, '_sac_faq_list', true ) !== $clean || ! sac_sync_faq_schema( $post_id, $clean ) ) {
         return new WP_Error( 'sac_partial_save', 'FAQ 或結構化資料可能已部分更新，請到後台核對。', [ 'status' => 500, 'id' => $post_id ] );
