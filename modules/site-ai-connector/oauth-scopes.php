@@ -52,13 +52,21 @@ function sac_oauth_add_client_scopes( $id, $requested ) {
     }
 }
 
-function sac_oauth_log_failure( $stage, $code, $reason, $client, $requested, $details = [] ) {
-    if ( get_option( 'sac_oauth_schema' ) !== '1' || ! sac_oauth_rate( 'oauth_scope_diagnostics', 60, HOUR_IN_SECONDS ) ) return;
+/** Store structured outcomes only. Never pass request parameters or credentials here. */
+function sac_oauth_log_flow( $stage, $code, $reason, $client = [], $requested = '', $details = [] ) {
+    $budget = $code ? 'oauth_diagnostics_errors' : 'oauth_diagnostics_success';
+    if ( get_option( 'sac_oauth_schema' ) !== '1' || ! sac_oauth_rate( $budget, 30, HOUR_IN_SECONDS ) ) return;
     $scope = array_values( array_intersect( array_keys( sac_oauth_scope_labels() ), sac_oauth_scope_array( $requested ) ) );
     $record = [
-        'request_id' => wp_generate_uuid4(), 'time' => gmdate( DATE_ATOM ), 'stage' => $stage,
+        'request_id' => $details['request_id'] ?? wp_generate_uuid4(), 'time' => gmdate( DATE_ATOM ), 'stage' => $stage,
         'wordpress_code' => $code, 'reason' => $reason, 'authorization_requested_scopes' => $scope,
-        'grant_id' => $details['grant_id'] ?? null,
-    ] + sac_oauth_scope_report( $client, $details['grant_scopes'] ?? [], null, $scope );
+        'grant_id' => isset( $details['grant_id'] ) ? (int) $details['grant_id'] : null,
+        'http_status' => isset( $details['http_status'] ) ? (int) $details['http_status'] : null,
+        'oauth_error' => $code ?: null,
+        'logged_in' => is_user_logged_in(),
+        'hidden_login' => (bool) apply_filters( 'wutm_hidden_login_active', false ),
+        'login_url_filter' => (bool) has_filter( 'login_url' ),
+    ] + sac_oauth_scope_report( $client, $details['grant_scopes'] ?? [], $details['access_scopes'] ?? null, $scope );
+    $record += array_intersect_key( $details, array_flip( [ 'login_method', 'return_verified', 'redirect_validated' ] ) );
     sac_oauth_insert( 'mcpdiag', sac_oauth_random(), time() + 3 * DAY_IN_SECONDS, $record );
 }

@@ -472,11 +472,20 @@ try {
     remove_filter( 'sac_oauth_account_allowed', '__return_false' );
 
     $refresh = [ 'grant_type' => 'refresh_token', 'resource' => sac_oauth_resource(), 'refresh_token' => $issued['refresh_token'], 'client_id' => $client ];
+    $access_row = sac_oauth_row( 'access', $access );
+    sac_oauth_change( $access_row['id'], [ 'expires' => time() + 5 ] );
+    sac_fixture_request( '/verify', 'GET', $access );
+    sac_oauth_change( $access_row['id'], [ 'expires' => time() - 1 ] );
+    sac_fixture_request( '/verify', 'GET', $access, [], 401 );
     $rotated = sac_fixture_request( '/oauth/token', 'POST', '', array_diff_key( $refresh, [ 'resource' => true ] ) );
+    sac_fixture_request( '/verify', 'GET', $rotated['access_token'] );
     sac_fixture_assert( $rotated['refresh_token'] !== $issued['refresh_token'], 'Refresh rotation' );
     sac_fixture_request( '/oauth/token', 'POST', '', $refresh, 400 );
     sac_fixture_request( '/verify', 'GET', $rotated['access_token'], [], 401 );
     $extra = sac_fixture_request( '/oauth/token', 'POST', '', sac_fixture_authorize( $client, $admin, [ 'content:read' ], $redirect ) );
+    sac_oauth_change( sac_oauth_row( 'refresh', $extra['refresh_token'] )['id'], [ 'expires' => time() - 1 ] );
+    sac_fixture_request( '/oauth/token', 'POST', '', [ 'grant_type' => 'refresh_token', 'client_id' => $client, 'refresh_token' => $extra['refresh_token'] ], 400 );
+    sac_fixture_request( '/verify', 'GET', $extra['access_token'] );
     sac_fixture_request( '/oauth/revoke', 'POST', '', [ 'client_id' => $client, 'token' => $extra['access_token'] ] );
     sac_fixture_request( '/verify', 'GET', $extra['access_token'], [], 401 );
     sac_fixture_assert( get_current_user_id() === $admin->ID, 'REST restores the original WordPress user' );

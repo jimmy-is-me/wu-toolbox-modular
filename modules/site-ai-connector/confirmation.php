@@ -142,7 +142,10 @@ function sac_review_page_start() {
     if ( ! is_user_logged_in() ) {
         if ( ( $_SERVER['REQUEST_METHOD'] ?? '' ) !== 'GET' ) wp_die( '請重新登入。', '', [ 'response' => 403 ] );
         $action = sanitize_key( (string) ( $_GET['action'] ?? '' ) );
-        wp_safe_redirect( wp_login_url( add_query_arg( [ 'action' => $action, 'request' => $token ], admin_url( 'admin-post.php' ) ) ) );
+        $target = add_query_arg( [ 'action' => $action, 'request' => $token ], admin_url( 'admin-post.php' ) );
+        $login = sac_oauth_login_destination( $target );
+        if ( ! $login['url'] ) wp_die( 'WordPress 登入跳轉無法使用。請站長檢查登入相容性。', '', [ 'response' => 403 ] );
+        wp_safe_redirect( $login['url'] );
         exit;
     }
     return $token;
@@ -182,6 +185,9 @@ function sac_confirm_page() {
 }
 add_action( 'admin_post_sac_confirm_change', 'sac_confirm_page' );
 add_action( 'admin_post_nopriv_sac_confirm_change', 'sac_confirm_page' );
+add_filter( 'wutm_hidden_login_public_admin_post', static function ( $allowed, $action, $method ) {
+    return $allowed || ( $method === 'GET' && in_array( $action, [ 'sac_confirm_change', 'sac_review_changes', 'sac_upload_image' ], true ) );
+}, 10, 3 );
 
 function sac_content_review( $request, $target ) {
     $post = $target['post'];

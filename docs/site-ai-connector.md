@@ -97,6 +97,15 @@ WU Toolbox Modular v4.2.9 將 AI 連接器改為 WordPress 原生 OAuth。新版
 - 從 **AI 連接器 → 操作紀錄 → AI MCP 診斷** 複製請求編號、時間和錯誤分類。最多每小時保存 90 筆，保留 3 天。若請求先由 CDN 或 WAF 拒絕，請對照該服務的回應與事件紀錄。
 - Change Set JSON 上限為 768 KiB。請求或快照超限時依錯誤拆分正文，或改用 Gutenberg 區塊操作。工具驗證錯誤以 MCP 工具結果回傳。真正失效的權杖和可補授權的 Scope 使用 HTTP 授權挑戰。
 
+### v4.3.5 登入相容性與重新授權
+
+- 授權端點使用 WordPress 的 `wp_login_url()`，遵守 `login_url` 及安全跳轉規則。隱藏登入啟用時，僅明確登錄的 OAuth 授權與審核入口可把訪客帶入登入流程。預設登入路徑仍受隱藏登入保護。若 WordPress 使用不同路徑的站點與安裝網址，自訂登入由站點公開路徑提供。不同網域的部署還須由 WordPress 與登入外掛正確共用登入工作階段。
+- 登入返回具有 15 分鐘有效期，簽章綁定原始授權參數。返回時驗證登入工作階段與簽章，同意時另驗證 WordPress Nonce。OAuth 客戶端仍須自行比對回呼的 `state` 與 `iss`，權杖端點仍驗證 PKCE S256、單次授權碼及精確回呼網址。
+- **AI 連接器 → 連線總覽 → 登入與 OAuth 相容性檢查** 可核對登入方式、Metadata、公開授權端點與最近實際登入返回結果。執行檢查會探測本站公開端點，實際帳號登入須在應用程式內完成。若主機或 WAF 阻擋本站探測，請一併查看該服務紀錄。
+- **操作紀錄 → AI MCP 診斷** 分列探索、註冊、授權、登入跳轉、登入返回、使用者同意、授權碼、權杖交換及更新。OAuth 流程診斷每小時最多 60 筆，保留三天。診斷只含允許的 Scope、識別碼、狀態及原因，不記錄登入路徑、完整回呼參數或權杖。
+- 需要追加 Scope 時，在原本的應用程式發起新一輪授權，請求既有與本次必要 Scope 的聯集。同意頁會列出先前權限及本次新增權限。若應用程式無法自動追加，可用同一個 OAuth Client 重新完成完整授權。使用者可拒絕新增權限並繼續使用既有授權。Refresh Token 輪替只更新既有範圍。客戶端應共用一次更新結果，避免多個請求同時重用同一 Refresh Token。
+- 以 `verify_connection` 確認 `access_scopes` 含所需 Scope，重新讀取既有文章與附件。先跑無分類的小型 Dry Run，再加入分類並跑完整 Dry Run。資料正確才以同一識別碼送出一份 Change Set。草稿作業填入 `expected_status: "draft"`，經 WordPress 人工審核後再讀取文章與驗收結果。
+
 ### v4.3.4 追加 OAuth 權限
 
 1. 升級後在 ChatGPT 重新整理工具清單，呼叫 `verify_connection`。`scopes` 是目前權杖實際可用的權限。`scope_report` 分列本站、客戶端與使用者同意的權限。
@@ -124,7 +133,7 @@ ACF、Pods 及原生 Post Meta 由維護者依型別和權限註冊適配器。�
 
 - PHP 整合測試在已啟用 AI 連接器的暫用 WordPress 執行下列指令。
   `php tests/site-ai-connector-wordpress.php /path/to/wordpress`。如暫用站使用自訂公開網域，執行前明確設定 `WUTM_SAC_DISPOSABLE_FIXTURE=1`。
-- Chrome 與 MCP SDK 的 HTTP 整合測試需安裝 playwright-core 及 @modelcontextprotocol/sdk。設定 SAC_TEST_URL、SAC_TEST_LOGIN、SAC_TEST_PASSWORD、SAC_TEST_CHROME。測試站需允許指定 ChatGPT 回呼及測試 Scope，開啟草稿發佈確認。選用 SAC_TEST_IMAGE 可測試圖片連結，SAC_TEST_SEO=1 可測試啟用中的 SEO 適配器。執行 node tests/site-ai-connector-browser.cjs。測試會建立、寫入及發佈暫用內容，只能在可棄置的站點使用。
+- Chrome 與 MCP SDK 的 HTTP 整合測試需安裝 playwright-core 及 @modelcontextprotocol/sdk。設定 SAC_TEST_URL、SAC_TEST_LOGIN、SAC_TEST_PASSWORD、SAC_TEST_CHROME。測試站需允許指定 ChatGPT 回呼及測試 Scope，開啟草稿發佈確認。若測試隱藏登入，設定 SAC_TEST_HIDDEN_LOGIN=1 及 SAC_TEST_LOGIN_PATH。以暫用 HTTPS 子目錄測試時可指定 SAC_TEST_HOME 與 SAC_TEST_LOCAL_TLS=1（只用於本機自簽憑證測試）。選用 SAC_TEST_IMAGE 可測試圖片連結，SAC_TEST_SEO=1 可測試啟用中的 SEO 適配器。執行 node tests/site-ai-connector-browser.cjs。測試會建立、寫入及發佈暫用內容，只能在可棄置的站點使用。
 - 測試站的本機 HTTP 模式需同時定義 WUTM_SAC_LOCAL_TEST 與 WordPress local 環境，且域名必須是 localhost 或 127.0.0.1。正式站維持 HTTPS。
 - GitHub CI 重跑 WordPress 整合測試及全站既有檢查。原生 ChatGPT 連線使用自有帳號與可達 HTTPS 測試站驗收。請先測查詢，再依方案測草稿和實際檔案參照。正式站的 Cloudflare 設定、外部 SEO 外掛的前台輸出，以及 ACF／Pods 的站點專屬欄位需在各自環境核對。
 

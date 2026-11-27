@@ -63,8 +63,47 @@ function sac_oauth_consent_types( $user, $scopes ) {
     return $types;
 }
 
+// Keep the public action available through the Toolbox login guard. The handler
+// still requires a registered client, valid callback, login, PKCE and consent.
+add_filter( 'wutm_hidden_login_public_admin_post', static function ( $allowed, $action ) {
+    return $allowed || $action === 'sac_oauth_authorize';
+}, 10, 2 );
+
+function sac_oauth_login_destination( $target ) {
+    $login = wp_login_url( $target );
+    $safe = is_string( $login ) ? wp_validate_redirect( $login, '' ) : '';
+    $origin = $safe ? sac_oauth_origin( $safe ) : '';
+    $same_endpoint = $origin === sac_oauth_origin( $target )
+        && wp_parse_url( $safe, PHP_URL_PATH ) === wp_parse_url( $target, PHP_URL_PATH );
+    $valid = $origin && ! $same_endpoint && ( ! is_ssl() || wp_parse_url( $safe, PHP_URL_SCHEME ) === 'https' );
+    return [
+        'url' => $valid ? $safe : '',
+        'method' => apply_filters( 'wutm_hidden_login_active', false ) ? 'toolbox'
+            : ( has_filter( 'login_url' ) ? 'wordpress_filtered' : 'wordpress' ),
+    ];
+}
+
+function sac_oauth_login_return_signature( $params, $expiry ) {
+    return hash_hmac( 'sha256', $expiry . ':' . wp_json_encode( $params ), wp_salt( 'nonce' ) );
+}
+
+function sac_oauth_previous_scopes( $client_id, $user_id ) {
+    global $wpdb;
+    $table = sac_oauth_table();
+    $ids = $wpdb->get_col( $wpdb->prepare(
+        "SELECT id FROM $table WHERE kind='grant' AND client=%d AND owner=%d AND state=0 AND expires>%d ORDER BY id DESC LIMIT 20",
+        $client_id, $user_id, time()
+    ) );
+    foreach ( $ids as $id ) {
+        $grant = sac_oauth_row( 'grant', $id, true );
+        if ( sac_oauth_valid_grant( $grant ) ) return $grant['payload']['scopes'];
+    }
+    return [];
+}
+
 function sac_oauth_authorize_page() {
     nocache_headers();
+    header( 'Cache-Control: no-store, private' );
     header( 'Referrer-Policy: no-referrer' );
     header( "Content-Security-Policy: frame-ancestors 'none'; base-uri 'none'" );
     header( 'X-Frame-Options: DENY' );
@@ -75,50 +114,98 @@ function sac_oauth_authorize_page() {
     if ( ! sac_oauth_rate( 'authorize', 80, MINUTE_IN_SECONDS, (string) ( $_SERVER['REMOTE_ADDR'] ?? '' ) ) ) {
         wp_die( '授權請求次數已達上限。', '', [ 'response' => 429 ] );
     }
+    $request_id = wp_generate_uuid4();
+    header( 'X-SAC-Request-Id: ' . $request_id );
     $params = sac_oauth_authorize_parameters( $method === 'POST' ? $_POST : $_GET );
     $client_id = $params['client_id'] ?? '';
     $client = preg_match( '/^wutm_[a-f0-9]{64}$/D', $client_id ) ? sac_oauth_row( 'client', $client_id ) : null;
+    $log = static function ( $stage, $code, $reason, $status, $details = [] ) use ( $client, $params, $request_id ) {
+        sac_oauth_log_flow( $stage, $code, $reason, $client ?? [], $params['scope'] ?? '',
+            $details + [ 'http_status' => $status, 'request_id' => $request_id ] );
+    };
     if ( ! sac_oauth_live( $client ) || ! in_array( $params['redirect_uri'], $client['payload']['redirect_uris'], true ) ) {
+        $log( 'oauth_authorize', 'invalid_request', $client ? 'redirect_uri_mismatch' : 'invalid_client', 400, [ 'redirect_validated' => false ] );
         wp_die( '客戶端或回呼網址無效。', '', [ 'response' => 400 ] );
     }
     if ( $params['response_type'] !== 'code' ) sac_oauth_callback( $params, [ 'error' => 'unsupported_response_type' ] );
     if ( $params['resource'] !== sac_oauth_resource() ) {
-        sac_oauth_log_failure( 'oauth_authorize', 'invalid_target', 'resource_mismatch', $client, $params['scope'] );
+        $log( 'oauth_authorize', 'invalid_target', 'resource_mismatch', 303 );
         sac_oauth_callback( $params, [ 'error' => 'invalid_target' ] );
     }
     if ( $params['code_challenge_method'] !== 'S256' || ! preg_match( '/^[a-zA-Z0-9_-]{43}$/D', $params['code_challenge'] ) ) {
+        $log( 'oauth_authorize', 'invalid_request', 'pkce_s256_required', 303 );
         sac_oauth_callback( $params, [ 'error' => 'invalid_request', 'error_description' => 'PKCE S256 is required.' ] );
     }
     $client_scopes = sac_oauth_client_ceiling( $client );
     $scopes = $params['scope'] === '' ? array_intersect( [ 'content:read' ], $client_scopes ) : sac_oauth_scope_array( $params['scope'] );
     if ( ! $scopes || array_diff( $scopes, $client_scopes ) ) {
         $reason = ! $scopes || array_diff( $scopes, sac_oauth_scopes() ) ? 'site_scope_restricted' : 'client_scope_restricted';
-        sac_oauth_log_failure( 'oauth_authorize', 'invalid_scope', $reason, $client, $params['scope'] );
+        $log( 'oauth_authorize', 'invalid_scope', $reason, 303 );
         sac_oauth_callback( $params, [ 'error' => 'invalid_scope', 'error_description' => $reason === 'client_scope_restricted'
             ? 'The site administrator must allow the requested scope for this OAuth client.' : 'The requested scope is unavailable on this site.' ] );
     }
+    $return = $method === 'GET' ? ( $_GET['sac_login_return'] ?? null ) : null;
+    if ( $return !== null ) {
+        $valid_return = is_string( $return ) && preg_match( '/^([0-9]{1,12})\.([a-f0-9]{64})$/D', $return, $parts )
+            && (int) $parts[1] >= time() && hash_equals( sac_oauth_login_return_signature( $params, $parts[1] ), $parts[2] );
+        if ( ! $valid_return || ! is_user_logged_in() ) {
+            $log( 'oauth_login_return', 'access_denied', $valid_return ? 'login_session_missing' : 'return_invalid_or_expired',
+                403, [ 'return_verified' => false ] );
+            wp_die( '無法繼續 OAuth 登入。請確認瀏覽器允許本站登入 Cookie，並由應用程式重新開始授權。', '', [ 'response' => 403 ] );
+        }
+        $log( 'oauth_login_return', '', 'login_return_verified', 200, [ 'return_verified' => true ] );
+    }
     if ( ! is_user_logged_in() ) {
-        if ( $method === 'POST' ) wp_die( '請重新登入，並由應用程式重新開始授權。', '', [ 'response' => 403 ] );
-        $target = sac_oauth_url( 'authorize' ) . '&' . http_build_query( $params, '', '&', PHP_QUERY_RFC3986 );
-        wp_safe_redirect( wp_login_url( $target ) );
+        if ( $method === 'POST' ) {
+            $log( 'oauth_consent', 'access_denied', 'login_session_missing', 403 );
+            wp_die( '請重新登入，並由應用程式重新開始授權。', '', [ 'response' => 403 ] );
+        }
+        $expiry = time() + 15 * MINUTE_IN_SECONDS;
+        $return = $expiry . '.' . sac_oauth_login_return_signature( $params, $expiry );
+        $target = sac_oauth_url( 'authorize' ) . '&' . http_build_query( $params + [ 'sac_login_return' => $return ], '', '&', PHP_QUERY_RFC3986 );
+        $login = sac_oauth_login_destination( $target );
+        if ( ! $login['url'] ) {
+            $log( 'oauth_login_redirect', 'invalid_request', 'login_destination_rejected', 403, [ 'login_method' => $login['method'], 'redirect_validated' => false ] );
+            wp_die( 'WordPress 登入跳轉無法使用。請站長查看「登入與 OAuth 相容性檢查」。', '', [ 'response' => 403 ] );
+        }
+        $log( 'oauth_login_redirect', '', 'login_redirect_sent', 302, [ 'login_method' => $login['method'], 'redirect_validated' => true ] );
+        wp_safe_redirect( $login['url'], 302, 'WU Toolbox OAuth Login' );
         exit;
     }
     $user = sac_oauth_account( get_current_user_id() );
-    if ( ! $user ) sac_oauth_callback( $params, [ 'error' => 'access_denied' ] );
+    if ( ! $user ) {
+        $log( 'oauth_consent', 'access_denied', 'wordpress_account_restricted', 303 );
+        sac_oauth_callback( $params, [ 'error' => 'access_denied' ] );
+    }
     $types = sac_oauth_consent_types( $user, $scopes );
     $fingerprint = hash( 'sha256', wp_json_encode( $params ) );
     $action = 'sac_oauth_approve_' . $fingerprint;
     if ( $method === 'POST' ) {
         $nonce = is_string( $_POST['_wpnonce'] ?? null ) ? wp_unslash( $_POST['_wpnonce'] ) : '';
-        if ( ! wp_verify_nonce( $nonce, $action ) ) wp_die( '授權頁已逾時，請重試。', '', [ 'response' => 403 ] );
+        if ( ! wp_verify_nonce( $nonce, $action ) ) {
+            $log( 'oauth_consent', 'access_denied', 'consent_nonce_invalid', 403 );
+            wp_die( '授權頁已逾時，請重試。', '', [ 'response' => 403 ] );
+        }
         if ( ( $_POST['decision'] ?? '' ) !== 'approve' ) {
-            sac_oauth_log_failure( 'oauth_authorize', 'access_denied', 'consent_declined', $client, $params['scope'] );
+            $log( 'oauth_consent', 'access_denied', 'consent_declined', 303 );
             sac_oauth_callback( $params, [ 'error' => 'access_denied' ] );
         }
         $code = sac_oauth_create_grant( $client, $user, $params, $scopes, $types, $user->ID . ':' . $fingerprint );
-        if ( ! $code ) sac_oauth_callback( $params, [ 'error' => 'server_error', 'error_description' => '無法完成授權，請重新開始。' ] );
+        if ( ! $code ) {
+            $log( 'oauth_code', 'server_error', 'code_not_issued', 303 );
+            sac_oauth_callback( $params, [ 'error' => 'server_error', 'error_description' => '無法完成授權，請重新開始。' ] );
+        }
+        $issued = sac_oauth_row( 'code', $code );
+        $log( 'oauth_code', '', 'consent_approved', 303, [
+            'grant_id' => $issued['family'] ?? null, 'grant_scopes' => $scopes,
+        ] );
         sac_oauth_callback( $params, [ 'code' => $code ] );
     }
+    $previous = sac_oauth_previous_scopes( $client['id'], $user->ID );
+    $added = array_diff( $scopes, $previous );
+    $omitted = array_diff( $previous, $scopes );
+    $labels = sac_oauth_scope_labels();
+    $log( 'oauth_authorize', '', 'consent_shown', 200, [ 'redirect_validated' => true ] );
     $title = '授權 AI 應用程式';
     header( 'Content-Type: text/html; charset=UTF-8' );
     ?>
@@ -137,8 +224,15 @@ function sac_oauth_authorize_page() {
     回呼 <?php echo esc_html( $params['redirect_uri'] ); ?><br>
     登入帳號 <?php echo esc_html( $user->user_login ); ?><br>
     授權期限 <?php echo esc_html( (string) ( sac_oauth_grant_seconds() / DAY_IN_SECONDS ) ); ?> 天</p>
-    <h2>請求的權限</h2>
-    <ul><?php foreach ( $scopes as $scope ) : ?><li><?php echo esc_html( sac_oauth_scope_labels()[ $scope ] ); ?></li><?php endforeach; ?></ul>
+    <?php if ( $previous ) : ?>
+        <h2>先前已同意的權限</h2>
+        <p><?php echo esc_html( implode( '、', array_intersect_key( $labels, array_flip( $previous ) ) ) ); ?></p>
+        <?php if ( $omitted ) : ?><p>本次新權杖不包含 <?php echo esc_html( implode( '、', array_intersect_key( $labels, array_flip( $omitted ) ) ) ); ?>。</p><?php endif; ?>
+    <?php endif; ?>
+    <h2>本次請求的權限</h2>
+    <ul><?php foreach ( $scopes as $scope ) : ?>
+        <li><?php echo esc_html( $labels[ $scope ] ); ?><?php if ( $previous && in_array( $scope, $added, true ) ) : ?> <strong>本次新增</strong><?php endif; ?></li>
+    <?php endforeach; ?></ul>
     <h2>內容類型與可用操作</h2>
     <ul><?php if ( ! $types ) : ?><li>目前帳號沒有適用的內容權限。</li><?php endif; ?>
     <?php foreach ( $types as $slug => $ops ) : ?><li><?php echo esc_html( get_post_type_object( $slug )->label . ' · ' . implode( '、', array_map( static function ( $op ) { return sac_oauth_scope_labels()[ 'content:' . $op ]; }, $ops ) ) ); ?></li><?php endforeach; ?></ul>
