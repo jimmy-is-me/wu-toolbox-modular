@@ -17,6 +17,7 @@ async function main() {
         const context = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] });
         const page = await context.newPage();
         page.setDefaultTimeout(12000);
+        await context.route('**/*', route => new URL(route.request().url()).origin === new URL(base).origin ? route.continue() : route.abort());
         const redirect = 'https://chatgpt.com/connector_platform_oauth_redirect';
         await context.route(redirect + '**', route => route.fulfill({ status: 200, body: 'Simulated registration callback' }));
         const resource = base + '/wp-json/site-ai/v1/mcp';
@@ -135,6 +136,7 @@ async function main() {
         }
         await tool('update_content_faq', {post_type: postType, id, faqs: [{question: 'Fixture question', answer: 'Fixture answer'}]});
         if (process.env.SAC_TEST_SEO === '1') await tool('update_content_seo', {post_type: postType, id, title: 'Fixture SEO', description: 'Fixture SEO description'});
+        let uploadedId;
         if (process.env.SAC_TEST_IMAGE) {
             const upload = (await tool('create_upload_link', {})).data;
             await page.goto(upload.upload_url);
@@ -145,10 +147,14 @@ async function main() {
             const receipt = (await tool('check_upload_link', {token: upload.token})).data;
             assert.equal(receipt.status, 'uploaded');
             assert.equal(receipt.alt_text, 'Fixture ALT');
+            assert.equal(receipt.upload_status, 'completed');
+            assert.ok(receipt.width > 0 && receipt.height > 0 && receipt.file_size > 0);
+            uploadedId = receipt.media_id;
             await tool('set_content_featured_image', {post_type: postType, id, featured_image_id: receipt.attachment_id});
             assert.equal((await tool('get_content', {post_type: postType, id})).data.featured_image_id, receipt.attachment_id);
             const reused = await page.goto(upload.upload_url);
-            assert.equal(reused.status(), 403);
+            assert.equal(reused.status(), 200);
+            assert.match(await page.locator('body').innerText(), /已上傳圖片/);
         }
 
         const prepare = await sdk.callTool({name: 'publish_content', arguments: {post_type: postType, id}});
@@ -162,6 +168,69 @@ async function main() {
         assert.ok(replay.isError);
         const operation = await tool('get_operation_result', {id: published.operation_id});
         assert.equal(operation.data.target_id, String(id));
+
+        const subject = {post_type: postType, id};
+        const call = (name, args) => sdk.callTool({name, arguments: {...subject, ...args}});
+        const approveLegacy = async pending => {
+            assert.equal(pending.structuredContent.code, 'sac_confirmation_required');
+            await page.goto(pending.structuredContent.review_url);
+            await page.getByRole('button', {name: '確認變更'}).click();
+            return pending.structuredContent.confirmation_token;
+        };
+        const longContent = '<!-- wp:paragraph --><p>' + '長篇內容 '.repeat(7000) + 'LAST-CHAPTER-431</p><!-- /wp:paragraph -->'
+            + '<!-- wp:greenshift-blocks/row {"className":"fixture-preserved"} --><section><!-- wp:block {"ref":99} /--></section><!-- /wp:greenshift-blocks/row -->';
+        const long = await call('update_content', {content: longContent});
+        await page.goto(long.structuredContent.review_url);
+        assert.match(await page.locator('body').textContent(), /LAST-CHAPTER-431/);
+        const independent = await call('update_content_faq', {faqs: [{question: 'Independent 431', answer: 'Approval survives a separate native update'}]});
+        const titleChange = await call('update_content', {title: title + ' revised'});
+        const longToken = await approveLegacy(long);
+        const faqToken = await approveLegacy(independent);
+        const titleToken = await approveLegacy(titleChange);
+        await tool('update_content', {...subject, title: title + ' revised', confirmation_token: titleToken});
+        await tool('update_content', {...subject, content: longContent, confirmation_token: longToken});
+        await tool('update_content_faq', {...subject, faqs: [{question: 'Independent 431', answer: 'Approval survives a separate native update'}], confirmation_token: faqToken});
+
+        const conflictA = await call('update_content', {title: 'Concurrent A'});
+        const conflictB = await call('update_content', {title: 'Concurrent B'});
+        const tokenA = await approveLegacy(conflictA);
+        const tokenB = await approveLegacy(conflictB);
+        await tool('update_content', {...subject, title: 'Concurrent A', confirmation_token: tokenA});
+        const blocked = await call('update_content', {title: 'Concurrent B', confirmation_token: tokenB});
+        assert.equal(blocked.structuredContent.code, 'sac_confirmation_version_conflict');
+
+        const index = (await tool('list_content_blocks', subject)).data;
+        const paragraph = index.blocks.find(block => block.name === 'core/paragraph');
+        const table = '<!-- wp:table --><figure class="wp-block-table"><table><tbody><tr><td>Comparison 431</td></tr></tbody></table></figure><!-- /wp:table -->';
+        const batchArgs = {...subject, idempotency_key: randomBytes(16).toString('hex'), content: {excerpt: 'Batch excerpt'},
+            faqs: Array.from({length: 15}, (_, i) => ({question: 'Question ' + i, answer: 'Answer ' + i})), block_version: index.version,
+            block_edits: [{operation: 'insert_after', path: paragraph.path, hash: paragraph.hash, markup: table}]};
+        if (uploadedId) {
+            batchArgs.media = {id: uploadedId, alt_text: 'Updated in batch', caption: 'Batch caption'};
+            batchArgs.content.featured_image_id = uploadedId;
+        }
+        if (process.env.SAC_TEST_SEO === '1') batchArgs.seo = {description: 'Batch SEO description', ...(uploadedId ? {og_image_id: uploadedId} : {})};
+        const pending = (await tool('prepare_content_changes', batchArgs)).data;
+        assert.equal(pending.approval_status, 'pending');
+        assert.equal((await tool('prepare_content_changes', batchArgs)).data.operation_id, pending.operation_id);
+        await page.goto(pending.confirmation_url);
+        await page.getByRole('button', {name: '核准並套用'}).click();
+        assert.match(await page.locator('body').innerText(), /已儲存並核對/);
+        const applied = (await tool('verify_content_changes', {operation: pending.operation_id})).data;
+        assert.equal(applied.approval_status, 'applied');
+        assert.ok(Object.values(applied.verification).every(state => state === 'verified'));
+        if (uploadedId) {
+            assert.equal((await tool('get_media', {id: uploadedId})).data.alt_text, 'Updated in batch');
+            assert.equal(applied.verification['content.featured_image_id'], 'verified');
+        }
+        const readback = (await tool('get_content', subject)).data;
+        assert.ok(readback.content.includes(table));
+        assert.ok(readback.content.includes('<!-- wp:greenshift-blocks/row {"className":"fixture-preserved"} --><section><!-- wp:block {"ref":99} /--></section><!-- /wp:greenshift-blocks/row -->'));
+        assert.equal((await tool('get_content_faq', subject)).data.faqs.length, 15);
+        assert.equal((await tool('prepare_content_changes', batchArgs)).data.approval_status, 'applied');
+        const analysis = (await tool('analyze_content', {...subject, include: ['outline', 'seo', 'gsc']})).data;
+        assert.equal(analysis.sections.outline.state, 'verified');
+        assert.equal(analysis.sections.gsc.state, 'unavailable');
 
         await page.goto(base + '/wp-admin/admin.php?page=wu-ai-operation-log');
         assert.equal(new URL(page.url()).searchParams.get('tab'), 'logs');
@@ -197,7 +266,7 @@ async function main() {
         assert.equal(revoked.status(), 200);
         assert.equal((await context.request.get(resource, {headers: auth})).status(), 401);
         await sdk.close();
-        console.log('Browser OAuth consent and denial, one-use code, SDK calls, modern headers, authenticated upload, audit link and revocation passed. Lab fixture: ' + isLab);
+        console.log('Browser OAuth consent and denial, one-use code, SDK calls, modern headers, authenticated upload, long content reviews, conflicts, batch apply, audit link and revocation passed. Lab fixture: ' + isLab);
     } finally {
         await browser.close();
     }

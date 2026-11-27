@@ -7,7 +7,7 @@ function sac_oauth_tool_scope( $tool ) {
     $write = $tool['need_write'];
     if ( str_starts_with( $path, '/wc/' ) ) return $write ? 'woo:write' : 'woo:read';
     if ( str_contains( $name, 'faq' ) ) return $write ? 'faq:write' : 'faq:read';
-    if ( str_contains( $name, 'seo' ) ) return $write ? 'seo:write' : 'seo:read';
+    if ( str_contains( $name, 'seo' ) || $name === 'get_content_sitemap_status' ) return $write ? 'seo:write' : 'seo:read';
     if ( $name === 'list_content_terms' ) return 'taxonomy:read';
     if ( in_array( $name, [ 'set_featured_image', 'set_content_featured_image' ], true ) || $name === 'update_media_alt' || $name === 'update_media' ) return 'media:update';
     if ( $name === 'upload_media' || $name === 'create_upload_link' ) return 'media:upload';
@@ -47,9 +47,10 @@ function sac_oauth_require_scope( $grant, $scope ) {
 }
 
 /** Every REST entry shares this authorization, including internal MCP dispatch. */
-function sac_authenticate( WP_REST_Request $request ) {
+function sac_authenticate( WP_REST_Request $request, $verified_browser_grant = null ) {
     static $cache;
     $cache ??= new WeakMap();
+    if ( $verified_browser_grant !== null ) return $cache[ $request ] = $verified_browser_grant;
     if ( isset( $cache[ $request ] ) ) return $cache[ $request ];
     $ready = sac_oauth_ready();
     if ( is_wp_error( $ready ) ) return $ready;
@@ -60,6 +61,9 @@ function sac_authenticate( WP_REST_Request $request ) {
 function sac_permission_read( WP_REST_Request $request ) {
     $grant = sac_authenticate( $request );
     if ( is_wp_error( $grant ) ) return $grant;
+    if ( strlen( $request->get_body() ) > ( str_starts_with( $request->get_route(), '/' . SAC_NAMESPACE . '/media/upload' ) ? 12 * MB_IN_BYTES : sac_review_max_bytes() ) ) {
+        return sac_oauth_error( 'sac_request_too_large', '請求超過大小上限，請拆分變更。', 413 );
+    }
     $tool = sac_oauth_route_tool( $request );
     if ( ! $tool || empty( $tool['available'] ) ) return sac_oauth_error( 'sac_tool_disabled', '此工具目前不可用。', 403 );
     if ( ! sac_oauth_rate( 'tool', 180, MINUTE_IN_SECONDS, (string) $grant['id'] ) ) {

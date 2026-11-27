@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+            <h4>4.3.1</h4><ul><li>增加 AI 文章批次審核、精準 Gutenberg 區塊操作、寫入核對及受審核的還原。長文可分段展開，獨立欄位的審核各自判斷衝突。</li><li>改善媒體上傳狀態和收據。新增公開頁面 SEO、Sitemap 診斷及選用的 Search Console 讀取。</li></ul>
             <h4>4.3.0</h4><ul><li>更新 AI 連接器後台工作區，對齊連線欄位和複製按鈕，改善窄畫面的欄位排列。</li></ul>
             <h4>4.2.9</h4><ul><li>AI 連接器新增 WordPress 原生 OAuth、PKCE S256、動態註冊、授權撤銷及細項權限，舊固定金鑰停止使用。</li><li>支援自訂 CPT、SEO、FAQ、圖片上傳、操作紀錄及已發佈內容的 WordPress 人工確認。</li></ul>
             <h4>4.2.8</h4><ul><li>AI 連接器集中工具入口與操作紀錄，支援透過 REST 與 MCP 查詢、建立及更新文章、頁面與已授權的自訂內容類型。</li><li>保留舊金鑰與文章 API。直接發佈前先完成欄位寫入，部分儲存失敗時回傳內容 ID。</li></ul>
