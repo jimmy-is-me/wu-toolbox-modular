@@ -2,6 +2,10 @@ name: Build WordPress release
 
 on:
   push:
+    branches: [main]
+    paths:
+      - 'wu-toolbox-modular.php'
+      - '.github/workflows/release.yml'
     tags:
       - 'v*'
 
@@ -13,22 +17,47 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Resolve release version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
+          PLUGIN_VERSION="$(grep -E '^[[:space:]]*\* Version:' wu-toolbox-modular.php | sed -E 's/^[[:space:]]*\* Version:[[:space:]]*//' | tr -d '\r')"
+          test -n "$PLUGIN_VERSION"
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            TAG="$GITHUB_REF_NAME"
+          else
+            TAG="v$PLUGIN_VERSION"
+            if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null; then
+              echo "Tag $TAG already exists; not replacing it."
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            else
+              test "$?" -eq 2
+            fi
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "skip=false" >> "$GITHUB_OUTPUT"
       - name: Validate PHP syntax
+        if: steps.version.outputs.skip == 'false'
         shell: bash
         run: |
           set -euo pipefail
           find . -type f -name '*.php' -not -path './.git/*' -print0 | xargs -0 -n1 php -l
       - name: Validate shared admin presentation ownership
+        if: steps.version.outputs.skip == 'false'
         run: |
           php tests/admin-design.php
           php tests/module-access.php
           php tests/product-unpublish.php
           node --check assets/js/admin-design.js
       - name: Validate tag and plugin version
+        if: steps.version.outputs.skip == 'false'
         shell: bash
         run: |
           set -euo pipefail
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          RELEASE_TAG="${{ steps.version.outputs.tag }}"
+          TAG_VERSION="${RELEASE_TAG#v}"
           PLUGIN_VERSION="$(grep -E '^[[:space:]]*\* Version:' wu-toolbox-modular.php | sed -E 's/^[[:space:]]*\* Version:[[:space:]]*//' | tr -d '\r')"
           test -n "$PLUGIN_VERSION"
           # Accept shorthand tags such as v1.2 as the equivalent of 1.2.0.
@@ -37,6 +66,7 @@ jobs:
           test "$NORMALIZED_TAG" = "$PLUGIN_VERSION"
           grep -Fq "<h4>${PLUGIN_VERSION}</h4>" core/github-release-updater.php
       - name: Build installable plugin ZIP
+        if: steps.version.outputs.skip == 'false'
         shell: bash
         run: |
           set -euo pipefail
@@ -58,8 +88,19 @@ jobs:
           cd "$STAGE"
           zip -qr "$GITHUB_WORKSPACE/wu-toolbox-modular.zip" wu-toolbox-modular
           unzip -l "$GITHUB_WORKSPACE/wu-toolbox-modular.zip" | grep -q 'wu-toolbox-modular/wu-toolbox-modular.php'
+      - name: Create version tag on main
+        if: steps.version.outputs.skip == 'false' && github.ref_type == 'branch'
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git tag "$RELEASE_TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$RELEASE_TAG"
       - name: Create GitHub Release and upload ZIP
+        if: steps.version.outputs.skip == 'false'
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
           generate_release_notes: true
           files: wu-toolbox-modular.zip
