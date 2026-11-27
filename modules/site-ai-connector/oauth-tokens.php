@@ -68,7 +68,7 @@ function sac_oauth_exchange( $request ) {
     if ( ! in_array( $mode, [ 'authorization_code', 'refresh_token' ], true ) ) {
         return sac_oauth_error( 'unsupported_grant_type', '不支援此授權方式。' );
     }
-    if ( ( $body['resource'] ?? '' ) !== sac_oauth_resource() ) return sac_oauth_error( 'invalid_target', '資源網址不符。' );
+    if ( ( $mode !== 'refresh_token' || array_key_exists( 'resource', $body ) ) && ( $body['resource'] ?? '' ) !== sac_oauth_resource() ) return sac_oauth_error( 'invalid_target', '資源網址不符。' );
     $client = sac_oauth_auth_client( $request );
     if ( is_wp_error( $client ) ) return $client;
     $code_flow = $mode === 'authorization_code';
@@ -137,10 +137,13 @@ function sac_oauth_revoke_token( $request ) {
 
 function sac_oauth_access( WP_REST_Request $request ) {
     $header = $request->get_header( 'authorization' );
-    if ( ! preg_match( '/^Bearer ([a-f0-9]{64})$/iD', (string) $header, $matches ) ) {
+    if ( ! preg_match( '/^Bearer +([a-f0-9]{64})$/iD', trim( (string) $header ), $matches ) ) {
         return sac_oauth_error( $header ? 'invalid_token' : 'sac_authorization_required', '請透過 OAuth 授權連線。', 401 );
     }
     $access = sac_oauth_row( 'access', $matches[1] );
+    if ( $access && (int) $access['expires'] <= time() ) {
+        return new WP_Error( 'invalid_token', 'Access Token 已到期，請使用 Refresh Token。', [ 'status' => 401, 'reason' => 'access_expired' ] );
+    }
     $grant = sac_oauth_live( $access ) ? sac_oauth_row( 'grant', $access['family'], true ) : null;
     $user = sac_oauth_valid_grant( $grant );
     if ( ! $user || $access['client'] !== $grant['client'] || ! sac_oauth_live( sac_oauth_row( 'client', $grant['client'], true ) ) ) {

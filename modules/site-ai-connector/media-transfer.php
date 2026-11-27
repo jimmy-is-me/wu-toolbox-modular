@@ -25,12 +25,13 @@ function sac_media_store_once( $path, $fields, $grant, $key = '' ) {
     if ( ! is_string( $key ) || ( $key !== '' && ! preg_match( '/^[a-zA-Z0-9_-]{16,80}$/D', $key ) ) ) return sac_content_error( 'idempotency_key', '請提供 16 至 80 字元的識別碼。' );
     $options = array_intersect_key( $fields, array_flip( [ 'filename', 'title', 'description', 'caption', 'alt_text', 'quality', 'max_width', 'max_height', 'convert_webp' ] ) );
     $payload_hash = sac_review_hash( [ $sha, sac_change_value( $options ), sac_change_value( sac_media_rights( $fields ) ) ] );
-    $marker = hash( 'sha256', $grant['id'] . ':' . ( $key ?: $payload_hash ) );
+    $legacy_marker = hash( 'sha256', $grant['id'] . ':' . ( $key ?: $payload_hash ) );
+    $marker = hash( 'sha256', 'client:' . $grant['client'] . ':' . $grant['user_id'] . ':' . ( $key ?: $payload_hash ) );
     $lock = sac_post_write_lock( 'media:' . $marker );
     if ( is_wp_error( $lock ) ) return $lock;
     try {
         $posts = get_posts( [ 'post_type' => 'attachment', 'post_status' => 'inherit', 'author' => $grant['user_id'],
-            'meta_key' => '_sac_media_receipt', 'meta_value' => $marker, 'numberposts' => 1, 'fields' => 'ids' ] );
+            'meta_query' => [ [ 'key' => '_sac_media_receipt', 'value' => [ $marker, $legacy_marker ], 'compare' => 'IN' ] ], 'numberposts' => 1, 'fields' => 'ids' ] );
         if ( $posts ) {
             $id = (int) $posts[0];
             if ( ! wp_attachment_is_image( $id ) || ! current_user_can( 'read_post', $id ) || ! current_user_can( 'edit_post', $id ) ) {

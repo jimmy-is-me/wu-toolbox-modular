@@ -174,6 +174,11 @@ function sac_render_tools_page( $group ) {
 
 function sac_render_operation_log() {
     sac_render_change_log();
+    $diagnostics = sac_mcp_diagnostic_rows();
+    echo '<details class="sac-panel"><summary>AI MCP 診斷</summary><p>最近 40 筆，保留 3 天。可複製請求編號及錯誤資訊。</p>';
+    if ( $diagnostics ) sac_admin_copy( 'sac_mcp_diagnostic_json', '診斷紀錄', wp_json_encode( $diagnostics, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE ), 8 );
+    else echo '<p>目前沒有診斷紀錄。</p>';
+    echo '</details>';
     $logs = array_merge( sac_oauth_operation_log(), array_reverse( (array) get_option( SAC_LOG_OPTION, [] ) ) );
     ?>
     <section class="sac-panel">

@@ -37,6 +37,9 @@ function sac_oauth_tool_capability( $scope ) {
 }
 
 function sac_oauth_require_scope( $grant, $scope ) {
+    if ( ! in_array( $scope, sac_oauth_scopes(), true ) ) {
+        return new WP_Error( 'sac_scope_disabled', '本站尚未開放此操作。請由管理員查核設定。', [ 'status' => 403, 'scope' => $scope ] );
+    }
     if ( ! in_array( $scope, $grant['scopes'], true ) ) {
         return new WP_Error( 'insufficient_scope', '此授權缺少操作所需的權限。', [ 'status' => 403, 'scope' => $scope ] );
     }
@@ -61,8 +64,9 @@ function sac_authenticate( WP_REST_Request $request, $verified_browser_grant = n
 function sac_permission_read( WP_REST_Request $request ) {
     $grant = sac_authenticate( $request );
     if ( is_wp_error( $grant ) ) return $grant;
-    if ( strlen( $request->get_body() ) > ( str_starts_with( $request->get_route(), '/' . SAC_NAMESPACE . '/media/upload' ) ? 12 * MB_IN_BYTES : sac_review_max_bytes() ) ) {
-        return sac_oauth_error( 'sac_request_too_large', '請求超過大小上限，請拆分變更。', 413 );
+    $limit = str_ends_with( $request->get_route(), '/media/upload' ) ? 12 * MB_IN_BYTES : sac_review_max_bytes();
+    if ( strlen( $request->get_body() ) > $limit ) {
+        return new WP_Error( 'sac_request_too_large', '請求超過大小上限，請拆分變更。', [ 'status' => 413, 'max_request_bytes' => $limit ] );
     }
     $tool = sac_oauth_route_tool( $request );
     if ( ! $tool || empty( $tool['available'] ) ) return sac_oauth_error( 'sac_tool_disabled', '此工具目前不可用。', 403 );
@@ -81,7 +85,7 @@ function sac_permission_read( WP_REST_Request $request ) {
     }
     foreach ( $tool['params'] as $name => $parameter ) {
         if ( $parameter['in'] === 'path' || ! $request->has_param( $name ) ) continue;
-        $valid = rest_validate_value_from_schema( $request->get_param( $name ), sac_parameter_schema( $parameter ), $name );
+        $valid = rest_validate_value_from_schema( $request->get_param( $name ), sac_mcp_validation_schema( $tool, $name, $parameter ), $name );
         if ( is_wp_error( $valid ) ) return sac_content_error( $name, $valid->get_error_message() );
     }
     if ( ! $tool['need_write'] ) return true;
@@ -149,7 +153,7 @@ add_filter( 'rest_post_dispatch', static function ( $response, $server, $request
         $scope = $data['data']['scope'] ?? ( in_array( 'content:read', sac_oauth_scopes(), true ) ? 'content:read' : '' );
         if ( $code === 'insufficient_scope' ) {
             $grant = sac_authenticate( $request );
-            if ( ! is_wp_error( $grant ) ) $scope = implode( ' ', array_unique( array_merge( $grant['scopes'], [ $scope ] ) ) );
+            if ( ! is_wp_error( $grant ) ) $scope = implode( ' ', array_unique( array_merge( $grant['scopes'], explode( ' ', $scope ) ) ) );
         }
         if ( $scope ) $header .= ', scope="' . $scope . '"';
         $response->header( 'WWW-Authenticate', $header );

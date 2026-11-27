@@ -26,7 +26,7 @@ function sac_review_overview( $row, $target ) {
     $count = 0;
     foreach ( $values as $group => $items ) $count += $group === 'faqs' ? 1 : count( $items );
     $context = [ '網站' => get_bloginfo( 'name' ), '文章' => $post->post_title . ' #' . $post->ID,
-        '內容類型' => $post->post_type, '授權帳號' => $target['user']->display_name, '審核編號' => '#' . $row['id'],
+        '內容類型' => $post->post_type, '目前／預期狀態' => $post->post_status . '／' . $payload['post_status'], '授權帳號' => $target['user']->display_name, '審核編號' => '#' . $row['id'],
         '申請時間' => wp_date( 'Y-m-d H:i', $payload['prepared_at'] ?? ( $payload['approval_expires'] - 30 * MINUTE_IN_SECONDS ) ),
         '審核期限' => wp_date( 'Y-m-d H:i', $payload['approval_expires'] ), '變更欄位' => $count, '風險' => $high ? '高' : '一般' ];
     $css = add_query_arg( 'ver', WUTM_VERSION, WUTM_URL . 'modules/site-ai-connector/review.css' );

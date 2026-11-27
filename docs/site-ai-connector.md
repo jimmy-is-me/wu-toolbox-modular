@@ -88,6 +88,15 @@ WU Toolbox Modular v4.2.9 將 AI 連接器改為 WordPress 原生 OAuth。新版
 
 本版在傳輸完成時建立附件，由另一筆 Change Set 審核後綁定精選圖片及 OG Image。待擴充項目包括核准前的私有圖片預覽、Cloudflare API 指定網址清除、較完整的第三方版型與連結診斷，以及在操作紀錄中心直接檢視全部欄位差異。正式 ChatGPT 檔案傳輸、實際 CDN 與已授權 Google Property 須在可用的暫用站驗收。
 
+### v4.3.3 草稿更新與重新連線
+
+- 先用 `get_content` 核對 ID、CPT 與目前狀態，再呼叫 `prepare_content_changes` 並設定 `expected_status: "draft"`、`dry_run: true`。Dry Run 回傳欄位路徑與錯誤，保留所有文章資料，也不建立審核。
+- 相同的 `content.status` 只會回傳提示。`content.custom_fields.status` 由本站 CPT 欄位設定驗證。正式發佈仍走 `publish_content` 的既有人工審核。
+- Dry Run 通過後，移除 `dry_run`，加入 `idempotency_key`，提交一次完整變更。在 WordPress 核准後用 `verify_content_changes` 核對草稿與欄位。公開驗收與 Sitemap 對草稿顯示 `not_applicable`。
+- 同一站點、OAuth 客戶端與授權帳號可使用相同識別碼取回既有變更。若平台建立了新的 OAuth 客戶端，先用原連線查詢先前操作狀態，再決定是否提交新變更。既有授權與 Scope 可沿用。升級後請重新探索工具清單。
+- 從 **AI 連接器 → 操作紀錄 → AI MCP 診斷** 複製請求編號、時間和錯誤分類。最多每小時保存 90 筆，保留 3 天。若請求先由 CDN 或 WAF 拒絕，請對照該服務的回應與事件紀錄。
+- Change Set JSON 上限為 768 KiB。請求或快照超限時依錯誤拆分正文，或改用 Gutenberg 區塊操作。工具驗證錯誤以 MCP 工具結果回傳。真正失效的權杖和可補授權的 Scope 使用 HTTP 授權挑戰。
+
 ### 自訂欄位適配器
 
 使用 sac_content_field_definitions 登錄要公開的欄位。適配器提供 label、type、schema、required、authorize、validate、read、write。authorize 接收操作、使用者、文章或 null、文章類型。validate 必須唯讀，回傳正規化值或 WP_Error。write 接收 ID、值及使用者，成功回傳 true 並自行核對實際儲存結果。必填但由編輯器管理的欄位可提供 is_present。

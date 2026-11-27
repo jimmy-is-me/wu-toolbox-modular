@@ -100,6 +100,14 @@ try {
     $terms['report_region'] = $term;
     add_filter( 'sac_content_field_definitions', static function ( $fields, $type ) {
         if ( $type !== 'field_report' ) return $fields;
+        $fields['status'] = [
+            'type' => 'string', 'authorize' => '__return_true', 'validate' => 'sanitize_key',
+            'read' => static fn( $post ) => get_post_meta( $post->ID, '_fixture_project_status', true ),
+            'write' => static function ( $id, $value ) {
+                update_post_meta( $id, '_fixture_project_status', $value );
+                return get_post_meta( $id, '_fixture_project_status', true ) === $value;
+            },
+        ];
         $fields['verified_source'] = [
             'type' => 'string', 'required' => true, 'authorize' => '__return_true',
             'validate' => 'sanitize_text_field',
@@ -341,6 +349,56 @@ try {
         sac_fixture_request( '/media/upload', 'POST', $access, $upload + [ 'chunk_index' => 0, 'base64' => base64_encode( 'different' ) ], 409 );
     }
 
+    $draft_path = '/content/field_report/' . $report . '/changes';
+    $draft_target = [ 'id' => $report, 'post_type' => 'field_report' ];
+    $draft_status = get_post_status( $report );
+    $bad = sac_fixture_tool( 'prepare_content_changes', $draft_target + [ 'dry_run' => true, 'expected_status' => 'publish',
+        'content' => [ 'status' => 'publish', 'custom_fields' => [ 'status' => [ 'incorrect' ] ], 'terms' => [ 'report_region' => [ 0 ] ] ] ], $access );
+    $bad_fields = array_column( $bad['structuredContent']['data']['errors'], 'field' );
+    sac_fixture_assert( $bad['isError'] && ! array_diff( [ 'expected_status', 'content.status', 'content.custom_fields.status', 'content.terms.report_region' ], $bad_fields ),
+        'Dry run reports multiple full field paths as an MCP tool error' );
+    $protected_status = sac_fixture_request( $draft_path, 'POST', $access, [ 'idempotency_key' => sac_oauth_random(), 'content' => [ 'status' => 'publish' ] ], 400 );
+    sac_fixture_assert( $protected_status['data']['field'] === 'content.status', 'Change Set cannot publish content' );
+    $data = [ 'expected_status' => $draft_status, 'content' => [
+        'status' => $draft_status, 'content' => '<!-- wp:paragraph --><p>' . str_repeat( '測試 HTML 中文 &amp; 特殊字元 ', 800 ) . '</p><!-- /wp:paragraph -->',
+        'custom_fields' => [ 'status' => 'live' ], 'terms' => [ 'report_region' => [ $term ] ],
+    ], 'faqs' => array_fill( 0, 15, [ 'question' => '問題', 'answer' => '<strong>答案</strong>' ] ) ];
+    if ( isset( $media ) ) $data['content']['featured_image_id'] = $media['attachment_id'];
+    if ( sac_content_extensions( 'field_report' )['seo'] ) $data['seo'] = [ 'title' => 'SEO 草稿', 'description' => '中文描述' ];
+    $dry = sac_fixture_request( $draft_path, 'POST', $access, [ 'dry_run' => true ] + $data );
+    sac_fixture_assert( $dry['success'] && $dry['warnings'][0]['field'] === 'content.status' && empty( $dry['operation_id'] )
+        && get_post_meta( $report, '_fixture_project_status', true ) === '', 'Dry run never writes or creates approval' );
+    $data['idempotency_key'] = sac_oauth_random();
+    $prepared = sac_fixture_request( $draft_path, 'POST', $access, $data );
+    $renewed = sac_fixture_request( '/oauth/token', 'POST', '', sac_fixture_authorize( $client, $admin, $scopes, $redirect ) )['access_token'];
+    $resumed = sac_fixture_request( $draft_path, 'POST', $renewed, array_reverse( $data, true ) );
+    sac_fixture_assert( $resumed['operation_id'] === $prepared['operation_id'], 'Same owner and client reuse operation after OAuth reconnect' );
+    $selected = [ 'content.content', 'content.custom_fields', 'content.terms', 'faqs' ];
+    if ( isset( $media ) ) $selected[] = 'content.featured_image_id';
+    if ( isset( $data['seo'] ) ) $selected[] = 'seo';
+    $applied_draft = $apply( $prepared['operation_id'], $selected );
+    sac_fixture_assert( ! is_wp_error( $applied_draft ) && $applied_draft['approval_status'] === 'applied' && get_post_status( $report ) === $draft_status
+        && get_post_meta( $report, '_fixture_project_status', true ) === 'live', 'Integrated approved write preserves draft and allows CPT custom status' );
+    $verified_draft = sac_fixture_request( '/content-changes/' . $prepared['operation_id'] . '/verify', 'GET', $renewed, [ 'frontend' => true ] );
+    sac_fixture_assert( $verified_draft['database_verification']['state'] === 'verified' && $verified_draft['frontend_verification']['state'] === 'not_applicable',
+        'Draft has independent database and public verification' );
+    $limited_token = sac_fixture_request( '/oauth/token', 'POST', '', sac_fixture_authorize( $client, $admin, [ 'content:read', 'content:update' ], $redirect ) )['access_token'];
+    $limited_request = [ 'name' => 'prepare_content_changes', 'arguments' => $draft_target + [ 'dry_run' => true,
+        'faqs' => [ [ 'question' => 'Scope?', 'answer' => 'Required.' ] ], 'content' => [ 'terms' => [ 'report_region' => [ $term ] ] ] ] ];
+    $challenge = sac_fixture_mcp( 'tools/call', $limited_token, $limited_request, 403 );
+    sac_fixture_assert( $challenge['code'] === 'insufficient_scope' && ! array_diff( [ 'faq:read', 'faq:write', 'taxonomy:read', 'taxonomy:write' ],
+        explode( ' ', $challenge['data']['scope'] ) ), 'All missing feature scopes are challenged together' );
+    update_option( 'sac_oauth_scopes', array_values( array_diff( $scopes, [ 'faq:write' ] ) ), false );
+    try {
+        $disabled = sac_fixture_mcp( 'tools/call', $limited_token, $limited_request );
+        sac_fixture_assert( $disabled['result']['isError'] && $disabled['result']['structuredContent']['code'] === 'sac_scope_disabled', 'Site-disabled scope does not demand reauthorization' );
+    } finally {
+        update_option( 'sac_oauth_scopes', $scopes, false );
+    }
+
+    $oversized = sac_fixture_tool( 'prepare_content_changes', $draft_target + [ 'dry_run' => true, 'content' => [ 'content' => str_repeat( '中', 270000 ) ] ], $access );
+    sac_fixture_assert( $oversized['isError'] && $oversized['structuredContent']['max_request_bytes'] === sac_review_max_bytes(), 'Oversized tool call reports its actual limit' );
+
     $subscriber_id = wp_insert_user( [ 'user_login' => sanitize_title( $tag ) . '-subscriber', 'user_pass' => sac_oauth_random(), 'role' => 'subscriber' ] );
     sac_fixture_assert( ! is_wp_error( $subscriber_id ), 'Fixture subscriber created' );
     $users[] = $subscriber_id;
@@ -372,7 +430,7 @@ try {
     remove_filter( 'sac_oauth_account_allowed', '__return_false' );
 
     $refresh = [ 'grant_type' => 'refresh_token', 'resource' => sac_oauth_resource(), 'refresh_token' => $issued['refresh_token'], 'client_id' => $client ];
-    $rotated = sac_fixture_request( '/oauth/token', 'POST', '', $refresh );
+    $rotated = sac_fixture_request( '/oauth/token', 'POST', '', array_diff_key( $refresh, [ 'resource' => true ] ) );
     sac_fixture_assert( $rotated['refresh_token'] !== $issued['refresh_token'], 'Refresh rotation' );
     sac_fixture_request( '/oauth/token', 'POST', '', $refresh, 400 );
     sac_fixture_request( '/verify', 'GET', $rotated['access_token'], [], 401 );

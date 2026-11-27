@@ -57,14 +57,16 @@ async function main() {
         await page.locator('#user_pass').fill(password);
         await page.locator('#wp-submit').click();
         await page.getByRole('heading', {name: '授權 AI 應用程式'}).waitFor();
-        await page.getByRole('button', {name: '拒絕授權'}).click();
+        await Promise.all([page.waitForURL(url => url.href.startsWith(redirect + '?')),
+            page.getByRole('button', {name: '拒絕授權'}).click()]);
         let callback = new URL(page.url());
         assert.equal(callback.searchParams.get('error'), 'access_denied');
         assert.equal(callback.searchParams.get('iss'), asm.issuer);
         assert.equal(callback.searchParams.get('state'), state);
 
         await page.goto(authorization.href);
-        await page.getByRole('button', {name: '同意授權'}).click();
+        await Promise.all([page.waitForURL(url => url.href.startsWith(redirect + '?')),
+            page.getByRole('button', {name: '同意授權'}).click()]);
         callback = new URL(page.url());
         assert.equal(callback.searchParams.get('iss'), asm.issuer);
         assert.equal(callback.searchParams.get('state'), state);
@@ -108,7 +110,9 @@ async function main() {
         assert.equal((await modern('tools/list', {}, {header: 'tools/call'})).status(), 400);
         const toolList = await modern('tools/list', {});
         assert.equal(toolList.status(), 200);
-        assert.ok((await toolList.json()).result.tools.some(entry => entry.name === 'verify_connection'));
+        const modernTools = (await toolList.json()).result;
+        assert.equal(modernTools.resultType, 'complete');
+        assert.ok(modernTools.tools.some(entry => entry.name === 'verify_connection'));
 
         const types = (await tool('list_content_types', {})).data.types;
         const isLab = types.some(type => type.post_type === 'wumetax_lab');
@@ -125,6 +129,15 @@ async function main() {
                 status: 'prototype', order: 101, challenge: 'Challenge', approach: 'Approach', result: 'Result'};
         }
         const created = await tool('create_content', fields);
+        const rejectedField = await context.request.post(resource, {headers: auth, data: {
+            jsonrpc: '2.0', id: 'invalid-field', method: 'tools/call', params: {name: 'prepare_content_changes', arguments: {
+                post_type: postType, id: created.data.id, idempotency_key: randomBytes(16).toString('hex'), content: {status: 'publish'},
+            }},
+        }});
+        assert.equal(rejectedField.status(), 200);
+        assert.equal(rejectedField.headers()['www-authenticate'], undefined);
+        assert.ok(rejectedField.headers()['x-sac-request-id']);
+        assert.equal((await rejectedField.json()).result.structuredContent.field, 'content.status');
         const id = created.data.id;
         assert.equal(created.data.status, 'draft');
         assert.ok(created.data.edit_url);

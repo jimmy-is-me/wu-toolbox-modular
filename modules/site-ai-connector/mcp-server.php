@@ -36,12 +36,18 @@ function sac_mcp_tools_list( $grant ) {
     return $tools;
 }
 
+function sac_mcp_validation_schema( $tool, $name, $parameter ) {
+    // The Change Set preflight collects nested failures with complete paths.
+    if ( $tool['name'] === 'prepare_content_changes' && in_array( $name, [ 'content', 'seo', 'media', 'faqs' ], true ) ) return [ 'type' => $parameter['type'] ];
+    return sac_parameter_schema( $parameter );
+}
+
 function sac_mcp_call_tool( $tool, $args, WP_REST_Request $outer ) {
     if ( ! is_array( $args ) || ( $args && array_keys( $args ) === range( 0, count( $args ) - 1 ) ) ) return sac_oauth_error( 'sac_invalid_arguments', '工具參數須為物件。' );
     $confirm = $args['confirmation_token'] ?? '';
     if ( isset( $args['confirmation_token'] ) && ( ! $tool['need_write'] || ! is_string( $confirm ) ) ) return sac_oauth_error( 'sac_invalid_arguments', '確認欄位格式錯誤。' );
     unset( $args['confirmation_token'] );
-    if ( array_diff_key( $args, $tool['params'] ) ) return sac_oauth_error( 'sac_invalid_arguments', '包含未知工具參數。' );
+    if ( $unknown = array_diff_key( $args, $tool['params'] ) ) return sac_content_error( (string) array_key_first( $unknown ), '包含未知工具參數。', 'sac_invalid_arguments' );
     $path = $tool['path'];
     $path_keys = [];
     foreach ( $tool['params'] as $key => $parameter ) {
@@ -49,7 +55,7 @@ function sac_mcp_call_tool( $tool, $args, WP_REST_Request $outer ) {
             if ( ( $parameter['required'] ?? false ) === true ) return sac_content_error( $key, '缺少工具必填參數。', 'sac_required_field' );
             continue;
         }
-        $valid = rest_validate_value_from_schema( $args[ $key ], sac_parameter_schema( $parameter ), $key );
+        $valid = rest_validate_value_from_schema( $args[ $key ], sac_mcp_validation_schema( $tool, $key, $parameter ), $key );
         if ( is_wp_error( $valid ) ) return sac_content_error( $key, $valid->get_error_message() );
         if ( $parameter['in'] === 'path' ) {
             if ( ! is_scalar( $args[ $key ] ) || ! preg_match( '/^[a-zA-Z0-9_-]+$/D', (string) $args[ $key ] ) ) {
@@ -61,15 +67,28 @@ function sac_mcp_call_tool( $tool, $args, WP_REST_Request $outer ) {
     }
     $request = new WP_REST_Request( $tool['method'], '/' . SAC_NAMESPACE . $path );
     $request->set_header( 'authorization', $outer->get_header( 'authorization' ) );
+    sac_authenticate( $request, sac_authenticate( $outer ) );
     if ( $confirm !== '' ) $request->set_header( 'x-sac-confirmation', $confirm );
     $params = array_diff_key( $args, $path_keys );
     if ( $tool['method'] === 'GET' ) {
         $request->set_query_params( $params );
     } else {
         $request->set_header( 'content-type', 'application/json' );
-        $request->set_body( wp_json_encode( (object) $params ) );
+        $encoded = sac_review_json( (object) $params );
+        if ( $encoded === false ) return sac_oauth_error( 'sac_invalid_arguments', '無法編碼工具參數。' );
+        $request->set_body( $encoded );
     }
-    $result = rest_do_request( $request );
+    $actor = get_current_user_id();
+    try {
+        $result = rest_do_request( $request );
+    } catch ( Throwable $error ) {
+        wp_set_current_user( $actor );
+        $lock = sac_legacy_review_lock( $request );
+        if ( $lock ) sac_post_write_unlock( $lock );
+        return new WP_Error( 'sac_internal_error', 'WordPress 無法完成工具操作。請以請求編號檢查診斷。', [
+            'status' => 500, 'exception_type' => $error instanceof TypeError ? 'TypeError' : ( $error instanceof Error ? 'Error' : 'Exception' ),
+        ] );
+    }
     $result = sac_audit_operation( $result, rest_get_server(), $request );
     if ( $result->is_error() ) return $result->as_error();
     return [ 'value' => $result->get_data(), 'operation_id' => (int) ( array_change_key_case( $result->get_headers() )['x-sac-operation-id'] ?? 0 ) ];
@@ -95,6 +114,7 @@ function sac_handle_mcp_request( WP_REST_Request $request ) {
     if ( $origin && ! in_array( $origin, $origins, true ) ) return sac_oauth_error( 'sac_origin', '請求來源不受信任。', 403 );
     $grant = sac_authenticate( $request );
     if ( is_wp_error( $grant ) ) return $grant;
+    sac_mcp_diagnostic_context( $request, [ 'grant_id' => $grant['id'] ] );
     if ( $request->get_method() !== 'POST' ) {
         $response = sac_oauth_response( [ 'code' => 'sac_no_stream', 'message' => '此端點採用無狀態 Streamable HTTP JSON。' ], 405 );
         $response->header( 'Allow', 'POST' );
@@ -102,7 +122,7 @@ function sac_handle_mcp_request( WP_REST_Request $request ) {
     }
     $supported = [ '2025-03-26', '2025-06-18', '2025-11-25' ];
     $version = $request->get_header( 'mcp-protocol-version' );
-    if ( strlen( $request->get_body() ) > 12 * MB_IN_BYTES ) return sac_oauth_error( 'sac_request_size', 'MCP 請求過大。', 413 );
+    if ( strlen( $request->get_body() ) > 12 * MB_IN_BYTES ) return new WP_Error( 'sac_request_size', 'MCP 請求過大。', [ 'status' => 413, 'max_request_bytes' => 12 * MB_IN_BYTES ] );
     if ( ! sac_oauth_rate( 'mcp', 180, MINUTE_IN_SECONDS, (string) $grant['id'] ) ) return sac_oauth_error( 'sac_rate_limit', 'MCP 請求頻率超過限制。', 429 );
     $body = json_decode( $request->get_body(), true, 64 );
     if ( json_last_error() !== JSON_ERROR_NONE ) return sac_mcp_rpc( null, [ 'code' => -32700, 'message' => 'JSON 解析失敗。' ], true );
@@ -148,35 +168,38 @@ function sac_handle_mcp_request( WP_REST_Request $request ) {
             'instructions' => $instructions,
         ] );
     }
-    if ( $method === 'tools/list' ) return sac_mcp_rpc( $id, [ 'tools' => sac_mcp_tools_list( $grant ) ], false, $modern );
+    if ( $method === 'tools/list' ) return sac_mcp_rpc( $id, [ 'tools' => sac_mcp_tools_list( $grant ) ] + ( $modern ? [ 'resultType' => 'complete' ] : [] ), false, $modern );
     if ( $method !== 'tools/call' ) return sac_mcp_rpc( $id, [ 'code' => -32601, 'message' => 'MCP 方法不存在。' ], true, $modern, $modern ? 404 : 200 );
     $name = $params['name'] ?? '';
     if ( ! is_string( $name ) ) return sac_mcp_rpc( $id, [ 'code' => -32602, 'message' => '工具名稱格式錯誤。' ], true );
     $definitions = array_column( sac_get_tool_definitions(), null, 'name' );
     if ( empty( $definitions[ $name ]['available'] ) ) return sac_mcp_rpc( $id, [ 'code' => -32602, 'message' => '工具不存在或已停用。' ], true );
+    sac_mcp_diagnostic_context( $request, [ 'tool' => $name ] );
     $permission = sac_oauth_require_scope( $grant, sac_oauth_tool_scope( $definitions[ $name ] ) );
-    if ( is_wp_error( $permission ) ) return $permission;
-    $result = sac_mcp_call_tool( $definitions[ $name ], $params['arguments'] ?? [], $request );
+    if ( is_wp_error( $permission ) && $permission->get_error_code() === 'insufficient_scope' ) return $permission;
+    $result = is_wp_error( $permission ) ? $permission : sac_mcp_call_tool( $definitions[ $name ], $params['arguments'] ?? [], $request );
     if ( is_wp_error( $result ) ) {
         if ( in_array( $result->get_error_data()['status'] ?? 0, [ 401, 403 ], true ) && in_array( $result->get_error_code(), [ 'invalid_token', 'insufficient_scope' ], true ) ) return $result;
         $details = [ 'success' => false, 'code' => $result->get_error_code(), 'message' => $result->get_error_message(), 'data' => null, 'warnings' => [], 'operation_id' => null ];
         $extra = $result->get_error_data();
-        foreach ( [ 'field', 'id', 'review_url', 'confirmation_url', 'confirmation_token', 'confirmation_expires_at', 'confirmation_required', 'approval_status', 'change_set_id' ] as $key ) {
+        foreach ( [ 'field', 'id', 'review_url', 'confirmation_url', 'confirmation_token', 'confirmation_expires_at', 'confirmation_required', 'approval_status', 'change_set_id', 'max_request_bytes', 'actual_status' ] as $key ) {
             if ( isset( $extra[ $key ] ) ) $details[ $key ] = $extra[ $key ];
         }
+        $details['tool_status'] = $extra['status'] ?? 400;
+        sac_mcp_diagnostic_context( $request, $details + [ 'exception_type' => $extra['exception_type'] ?? null ] );
         $details['next_action'] = $details['code'] === 'sac_confirmation_required' ? 'open_wordpress_review' : ( ( $extra['status'] ?? 0 ) === 429 ? 'retry_later' : 'check_error' );
-        return sac_mcp_rpc( $id, [ 'content' => [ [ 'type' => 'text', 'text' => wp_json_encode( $details, JSON_UNESCAPED_UNICODE ) ] ], 'structuredContent' => $details, 'isError' => true ], false, $modern );
+        return sac_mcp_rpc( $id, [ 'content' => [ [ 'type' => 'text', 'text' => wp_json_encode( $details, JSON_UNESCAPED_UNICODE ) ] ], 'structuredContent' => $details, 'isError' => true ] + ( $modern ? [ 'resultType' => 'complete' ] : [] ), false, $modern );
     }
     $value = $result['value'];
     $details = [ 'success' => ( $value['success'] ?? true ) !== false, 'code' => $value['error_code'] ?? null,
-        'message' => null, 'data' => $value, 'warnings' => [], 'operation_id' => $value['operation_id'] ?? ( $result['operation_id'] ?: null ),
+        'message' => null, 'data' => $value, 'warnings' => $value['warnings'] ?? [], 'operation_id' => $value['operation_id'] ?? ( $result['operation_id'] ?: null ),
         'next_action' => ! empty( $value['confirmation_required'] ) ? 'open_wordpress_review' : null ];
-    return sac_mcp_rpc( $id, [ 'content' => [ [ 'type' => 'text', 'text' => wp_json_encode( $details, JSON_UNESCAPED_UNICODE ) ] ], 'structuredContent' => $details ], false, $modern );
+    return sac_mcp_rpc( $id, [ 'content' => [ [ 'type' => 'text', 'text' => wp_json_encode( $details, JSON_UNESCAPED_UNICODE ) ] ], 'structuredContent' => $details, 'isError' => ! $details['success'] ] + ( $modern ? [ 'resultType' => 'complete' ] : [] ), false, $modern );
 }
 
 add_action( 'rest_api_init', static function () {
     register_rest_route( SAC_NAMESPACE, '/mcp', [
-        'methods' => [ 'GET', 'POST', 'DELETE' ], 'permission_callback' => '__return_true', 'callback' => 'sac_handle_mcp_request',
+        'methods' => [ 'GET', 'POST', 'DELETE' ], 'permission_callback' => '__return_true', 'callback' => 'sac_mcp_diagnostic_dispatch',
     ] );
 } );
 
