@@ -173,6 +173,7 @@ function sac_render_tools_page( $group ) {
 }
 
 function sac_render_operation_log() {
+    sac_render_change_log();
     $logs = array_merge( sac_oauth_operation_log(), array_reverse( (array) get_option( SAC_LOG_OPTION, [] ) ) );
     ?>
     <section class="sac-panel">

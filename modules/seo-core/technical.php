@@ -98,6 +98,7 @@ trait WUTM_SEO_Technical {
             $result = [ 'url' => $url, 'status' => $status, 'chain' => $chain, 'type' => (string) wp_remote_retrieve_header( $response, 'content-type' ), 'body' => $body, 'robots' => $robots ];
             $result['challenge'] = 'challenge' === strtolower( trim( (string) wp_remote_retrieve_header( $response, 'cf-mitigated' ) ) );
             $result['cloudflare'] = (bool) wp_remote_retrieve_header( $response, 'cf-ray' );
+            $result['cache_headers'] = array_filter( array_map( static fn( $name ) => (string) wp_remote_retrieve_header( $response, $name ), [ 'age', 'cf-cache-status', 'x-cache' ] ) );
             if ( strlen( $body ) >= 2097152 ) { $result['error'] = '回應超過 2 MB 診斷上限，未驗證完整內容；請另用伺服器工具驗證。'; }
             return $result;
         }

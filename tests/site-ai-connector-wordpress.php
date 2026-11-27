@@ -271,6 +271,76 @@ try {
         remove_filter( 'pre_http_request', $http, 10 );
     }
 
+    $more = sac_fixture_request( $path, 'POST', $access, [ 'idempotency_key' => sac_oauth_random(),
+        'content' => [ 'title' => 'Verified updated heading' ],
+        'faqs' => [ [ 'question' => 'New question for preview', 'answer' => 'Current answer' ] ] ] )['operation_id'];
+    $result = $apply( $more, [ 'content.title', 'faqs' ] );
+    sac_fixture_assert( ! is_wp_error( $result ) && $result['approval_status'] === 'applied', 'Frontend fixture change applied' );
+    $old = true;
+    $public_url = get_permalink( $post );
+    $mock_public = static function ( $response, $args, $url ) use ( &$old, $public_url ) {
+        if ( $url !== $public_url ) return new WP_Error( 'sac_fixture_unavailable' );
+        $heading = $old ? 'Old cached heading' : 'Verified updated heading';
+        $faq = $old ? '' : '<p>New question for preview</p><p>Current answer</p><script type="application/ld+json">{"@type":"FAQPage","mainEntity":[{"@type":"Question","name":"New question for preview","acceptedAnswer":{"text":"Current answer"}}]}</script>';
+        return [ 'headers' => [ 'content-type' => 'text/html', 'cf-cache-status' => $old ? 'HIT' : 'MISS' ], 'response' => [ 'code' => 200 ],
+            'body' => '<html><body><article><h1>' . $heading . '</h1>' . $faq . '</article></body></html>' ];
+    };
+    add_filter( 'pre_http_request', $mock_public, 10, 3 );
+    try {
+        if ( class_exists( 'DOMDocument' ) ) {
+            $verify_route = '/content-changes/' . $more . '/verify';
+            $stale = sac_fixture_request( $verify_route, 'GET', $access, [ 'frontend' => true ] );
+            sac_fixture_assert( $stale['database_verification']['state'] === 'verified' && $stale['frontend_verification']['state'] === 'stale_cache'
+                && $stale['structured_data_verification']['state'] === 'mismatch', 'Old cached HTML cannot pass public verification' );
+            $old = false;
+            $fresh = sac_fixture_request( $verify_route, 'GET', $access, [ 'frontend' => true ] );
+            sac_fixture_assert( $fresh['frontend_verification']['state'] === 'verified' && $fresh['structured_data_verification']['state'] === 'verified'
+                && $fresh['verification_status'] === 'partial', 'Fresh HTML and FAQ schema pass independently of an unavailable sitemap' );
+            sac_fixture_request( '/content-changes/' . $more . '/purge-cache', 'POST', $access );
+            sac_fixture_assert( get_post( $post )->post_title === 'Verified updated heading', 'Cache retry does not rewrite content' );
+        }
+    } finally {
+        remove_filter( 'pre_http_request', $mock_public, 10 );
+    }
+
+    require_once dirname( __DIR__ ) . '/modules/page-cache/module.php';
+    $dir = trailingslashit( WP_CONTENT_DIR ) . 'cache/wutm-page-cache/';
+    wp_mkdir_p( $dir );
+    $related = $dir . hash( 'sha256', $tag . ' related' ) . '.html.gz';
+    $unrelated = $dir . hash( 'sha256', $tag . ' unrelated' ) . '.html.gz';
+    try {
+        foreach ( [ $related => $post, $unrelated => $report ] as $file => $id ) {
+            file_put_contents( $file, gzencode( 'test cache' ) );
+            file_put_contents( $file . '.json', wp_json_encode( [ 'post_id' => $id, 'url' => get_permalink( $id ), 'contexts' => [] ] ) );
+        }
+        $retry = sac_fixture_request( '/content-changes/' . $more . '/purge-cache', 'POST', $access );
+        sac_fixture_assert( ! is_file( $related ) && is_file( $unrelated )
+            && in_array( get_permalink( $post ), $retry['cache_verification']['purged_urls'], true ), 'Scoped purge removes matching disk entry and reports its URL' );
+    } finally {
+        foreach ( [ $related, $unrelated ] as $file ) {
+            if ( is_file( $file ) ) unlink( $file );
+            if ( is_file( $file . '.json' ) ) unlink( $file . '.json' );
+        }
+    }
+
+    $caps = sac_fixture_request( '/capabilities', 'GET', $access, [ 'client_tool_hash' => 'stale-hash' ] );
+    sac_fixture_assert( $caps['plugin_version'] === WUTM_VERSION && $caps['client_tool_list_current'] === false
+        && in_array( 'base64_chunks', $caps['media_transports'], true ), 'Capabilities detect stale client tool inventory' );
+    if ( isset( $png ) ) {
+        $split = str_split( $png, (int) ceil( strlen( $png ) / 2 ) );
+        $upload = [ 'upload_id' => sac_oauth_random(), 'sha256' => hash( 'sha256', $png ), 'chunk_count' => 2 ];
+        sac_fixture_request( '/media/upload', 'POST', $access, $upload + [ 'chunk_index' => 1, 'base64' => base64_encode( $split[1] ) ] );
+        sac_fixture_request( '/media/upload', 'POST', $access, $upload + [ 'complete_upload' => true ], 409 );
+        sac_fixture_request( '/media/upload', 'POST', $access, $upload + [ 'chunk_index' => 0, 'base64' => base64_encode( $split[0] ) ] );
+        $finish = $upload + [ 'complete_upload' => true, 'license' => 'Fixture licence', 'generated_by_ai' => false ];
+        $first = sac_fixture_request( '/media/upload', 'POST', $access, $finish );
+        $posts[] = $first['media_id'];
+        $again = sac_fixture_request( '/media/upload', 'POST', $access, $finish );
+        sac_fixture_assert( $first['media_id'] === $again['media_id'] && $again['reused'] && $first['sha256'] === $upload['sha256']
+            && $first['rights']->license === 'Fixture licence', 'Chunk assembly and retry return the same accessible attachment and declared rights' );
+        sac_fixture_request( '/media/upload', 'POST', $access, $upload + [ 'chunk_index' => 0, 'base64' => base64_encode( 'different' ) ], 409 );
+    }
+
     $subscriber_id = wp_insert_user( [ 'user_login' => sanitize_title( $tag ) . '-subscriber', 'user_pass' => sac_oauth_random(), 'role' => 'subscriber' ] );
     sac_fixture_assert( ! is_wp_error( $subscriber_id ), 'Fixture subscriber created' );
     $users[] = $subscriber_id;
