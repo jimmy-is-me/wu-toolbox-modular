@@ -226,6 +226,9 @@ add_action( 'rest_api_init', static function () {
                         $requested = $request->get_json_params()['scope'] ?? '';
                         if ( ! $error ) $client = sac_oauth_row( 'client', $response->get_data()['client_id'] );
                     }
+                    if ( ! $error && $handler === 'sac_oauth_exchange' ) {
+                        $context['access_scopes'] = sac_oauth_scope_array( $response->get_data()['scope'] );
+                    }
                     sac_oauth_log_flow( $stage, $error, $details['reason'] ?? ( $error ?: 'accepted' ), $client, $requested,
                         $context + [ 'http_status' => $response->get_status(), 'request_id' => $request_id ] );
                 }
