@@ -20,10 +20,18 @@ function sac_mcp_tools_list( $grant ) {
             if ( in_array( $scope, [ 'seo:write', 'faq:write', 'media:update' ], true ) ) $scopes[] = 'content:update';
         }
         $security = [ [ 'type' => 'oauth2', 'scopes' => $scopes ] ];
+        if ( $tool['name'] === 'prepare_content_changes' ) {
+            $policy = sac_change_scope_policy();
+            $security = [ [ 'type' => 'oauth2', 'scopes' => [ 'content:read' ] ] ];
+        }
         $meta = [ 'securitySchemes' => $security ];
+        if ( $tool['name'] === 'prepare_content_changes' ) {
+            $meta['wumetax.com/conditionalScopes'] = $policy;
+            $meta['wumetax.com/conditionalScopes']['dry_run_entry'] = [ 'content:read' ];
+        }
         if ( $tool['name'] === 'upload_media' ) $meta['openai/fileParams'] = [ 'file' ];
         $tools[] = [
-            'name' => $tool['name'], 'description' => $tool['description'],
+            'name' => $tool['name'], 'description' => $tool['description'] . ( $tool['name'] === 'prepare_content_changes' ? ' 正式準備需要 content:read、content:update，依分類、SEO、FAQ 與媒體欄位追加相應 Scope。Dry Run 可先檢查權限。' : '' ),
             'inputSchema' => [ 'type' => 'object', 'properties' => (object) $properties, 'required' => $required, 'additionalProperties' => false ],
             'securitySchemes' => $security, '_meta' => $meta,
             'annotations' => [
@@ -114,7 +122,7 @@ function sac_handle_mcp_request( WP_REST_Request $request ) {
     if ( $origin && ! in_array( $origin, $origins, true ) ) return sac_oauth_error( 'sac_origin', '請求來源不受信任。', 403 );
     $grant = sac_authenticate( $request );
     if ( is_wp_error( $grant ) ) return $grant;
-    sac_mcp_diagnostic_context( $request, [ 'grant_id' => $grant['id'] ] );
+    sac_mcp_diagnostic_context( $request, [ 'grant_id' => $grant['id'], 'scope_report' => $grant['scope_report'] ?? [] ] );
     if ( $request->get_method() !== 'POST' ) {
         $response = sac_oauth_response( [ 'code' => 'sac_no_stream', 'message' => '此端點採用無狀態 Streamable HTTP JSON。' ], 405 );
         $response->header( 'Allow', 'POST' );
@@ -175,25 +183,28 @@ function sac_handle_mcp_request( WP_REST_Request $request ) {
     $definitions = array_column( sac_get_tool_definitions(), null, 'name' );
     if ( empty( $definitions[ $name ]['available'] ) ) return sac_mcp_rpc( $id, [ 'code' => -32602, 'message' => '工具不存在或已停用。' ], true );
     sac_mcp_diagnostic_context( $request, [ 'tool' => $name ] );
-    $permission = sac_oauth_require_scope( $grant, sac_oauth_tool_scope( $definitions[ $name ] ) );
+    $permission = sac_oauth_require_scope( $grant, sac_oauth_request_tool_scope( $definitions[ $name ], $params['arguments']['dry_run'] ?? null ) );
     if ( is_wp_error( $permission ) && $permission->get_error_code() === 'insufficient_scope' ) return $permission;
     $result = is_wp_error( $permission ) ? $permission : sac_mcp_call_tool( $definitions[ $name ], $params['arguments'] ?? [], $request );
     if ( is_wp_error( $result ) ) {
+        $scope_report = $result->get_error_data()['scope_report'] ?? [];
+        if ( $scope_report ) sac_mcp_diagnostic_context( $request, [ 'scope_report' => $scope_report ] );
         if ( in_array( $result->get_error_data()['status'] ?? 0, [ 401, 403 ], true ) && in_array( $result->get_error_code(), [ 'invalid_token', 'insufficient_scope' ], true ) ) return $result;
         $details = [ 'success' => false, 'code' => $result->get_error_code(), 'message' => $result->get_error_message(), 'data' => null, 'warnings' => [], 'operation_id' => null ];
         $extra = $result->get_error_data();
-        foreach ( [ 'field', 'id', 'review_url', 'confirmation_url', 'confirmation_token', 'confirmation_expires_at', 'confirmation_required', 'approval_status', 'change_set_id', 'max_request_bytes', 'actual_status' ] as $key ) {
+        foreach ( [ 'field', 'id', 'review_url', 'confirmation_url', 'confirmation_token', 'confirmation_expires_at', 'confirmation_required', 'approval_status', 'change_set_id', 'max_request_bytes', 'actual_status', 'scope_report' ] as $key ) {
             if ( isset( $extra[ $key ] ) ) $details[ $key ] = $extra[ $key ];
         }
         $details['tool_status'] = $extra['status'] ?? 400;
         sac_mcp_diagnostic_context( $request, $details + [ 'exception_type' => $extra['exception_type'] ?? null ] );
-        $details['next_action'] = $details['code'] === 'sac_confirmation_required' ? 'open_wordpress_review' : ( ( $extra['status'] ?? 0 ) === 429 ? 'retry_later' : 'check_error' );
+        $details['next_action'] = $scope_report['next_action']
+            ?? ( $details['code'] === 'sac_confirmation_required' ? 'open_wordpress_review' : ( ( $extra['status'] ?? 0 ) === 429 ? 'retry_later' : 'check_error' ) );
         return sac_mcp_rpc( $id, [ 'content' => [ [ 'type' => 'text', 'text' => wp_json_encode( $details, JSON_UNESCAPED_UNICODE ) ] ], 'structuredContent' => $details, 'isError' => true ] + ( $modern ? [ 'resultType' => 'complete' ] : [] ), false, $modern );
     }
     $value = $result['value'];
     $details = [ 'success' => ( $value['success'] ?? true ) !== false, 'code' => $value['error_code'] ?? null,
         'message' => null, 'data' => $value, 'warnings' => $value['warnings'] ?? [], 'operation_id' => $value['operation_id'] ?? ( $result['operation_id'] ?: null ),
-        'next_action' => ! empty( $value['confirmation_required'] ) ? 'open_wordpress_review' : null ];
+        'next_action' => $value['next_action'] ?? ( ! empty( $value['confirmation_required'] ) ? 'open_wordpress_review' : null ) ];
     return sac_mcp_rpc( $id, [ 'content' => [ [ 'type' => 'text', 'text' => wp_json_encode( $details, JSON_UNESCAPED_UNICODE ) ] ], 'structuredContent' => $details, 'isError' => ! $details['success'] ] + ( $modern ? [ 'resultType' => 'complete' ] : [] ), false, $modern );
 }
 

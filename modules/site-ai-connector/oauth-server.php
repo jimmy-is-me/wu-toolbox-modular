@@ -91,7 +91,7 @@ function sac_oauth_endpoint_result( $result ) {
 function sac_oauth_metadata( $protected = false ) {
     if ( $protected ) return [
         'resource' => sac_oauth_resource(), 'authorization_servers' => [ sac_oauth_issuer() ],
-        'scopes_supported' => array_values( array_intersect( [ 'content:read' ], sac_oauth_scopes() ) ),
+        'scopes_supported' => sac_oauth_scopes(),
         'bearer_methods_supported' => [ 'header' ], 'resource_name' => get_bloginfo( 'name' ) . ' AI 連接器',
     ];
     $data = [
@@ -168,7 +168,7 @@ function sac_oauth_client_registration( $params, $dynamic = true ) {
     $public = [ 'client_id' => $client_id, 'client_name' => $name ?: 'OAuth 應用程式', 'redirect_uris' => $redirects,
         'token_endpoint_auth_method' => $method, 'grant_types' => [ 'authorization_code', 'refresh_token' ],
         'response_types' => [ 'code' ], 'scope' => implode( ' ', $scopes ), 'client_id_issued_at' => time() ];
-    $stored = $public + [ 'dynamic' => $dynamic, 'secret_hash' => $secret ? hash( 'sha256', $secret ) : '' ];
+    $stored = $public + [ 'dynamic' => $dynamic, 'scope_policy' => $scope === '' ? 'site' : 'explicit', 'secret_hash' => $secret ? hash( 'sha256', $secret ) : '' ];
     $expiry = $dynamic ? time() + 7 * DAY_IN_SECONDS : PHP_INT_MAX;
     if ( ! sac_oauth_insert( 'client', $client_id, $expiry, $stored ) ) return sac_oauth_error( 'server_error', '無法儲存 OAuth 客戶端。', 500 );
     if ( $secret !== '' ) $public += [ 'client_secret' => $secret, 'client_secret_expires_at' => 0 ];
@@ -208,7 +208,14 @@ add_action( 'rest_api_init', static function () {
             'methods' => 'POST', 'permission_callback' => '__return_true',
             'callback' => static function ( $request ) use ( $handler ) {
                 $ready = sac_oauth_ready();
-                return sac_oauth_endpoint_result( is_wp_error( $ready ) ? $ready : $handler( $request ) );
+                $result = is_wp_error( $ready ) ? $ready : $handler( $request );
+                if ( $handler === 'sac_oauth_exchange' && is_wp_error( $result ) ) {
+                    $data = (array) $result->get_error_data();
+                    $context = sac_mcp_diagnostic_context( $request );
+                    sac_oauth_log_failure( 'oauth_token', $result->get_error_code(), $data['reason'] ?? $result->get_error_code(),
+                        $context['oauth_client'] ?? [], $request->get_body_params()['scope'] ?? '', $context );
+                }
+                return sac_oauth_endpoint_result( $result );
             },
         ] );
     }

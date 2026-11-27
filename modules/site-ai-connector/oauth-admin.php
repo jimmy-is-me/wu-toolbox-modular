@@ -33,6 +33,11 @@ function sac_oauth_admin_action() {
     }
     if ( $action === 'test_metadata' ) return sac_oauth_admin_test();
     if ( ! sac_oauth_install() ) return [ 'OAuth 資料庫尚未就緒。', true ];
+    if ( $action === 'extend_client_scopes' ) {
+        $result = sac_oauth_add_client_scopes( absint( $options['row_id'] ?? 0 ), $options['client_scopes'] ?? [] );
+        return is_wp_error( $result ) ? [ $result->get_error_message(), true ]
+            : [ '已更新客戶端可請求的權限。使用者須在 WordPress 明確同意新授權。', false ];
+    }
     if ( $action === 'register_client' ) {
         $result = sac_oauth_client_registration( [
             'client_name' => $options['client_name'] ?? '',
@@ -157,7 +162,14 @@ function sac_oauth_admin_apps() {
         $live = sac_oauth_live( $client ) && sac_oauth_valid_grant( $row ); ?>
         <tr><td><?php echo esc_html( $client['payload']['client_name'] ?? '—' ); ?></td>
         <td><?php echo esc_html( $user ? $user->user_login : '—' ); ?></td>
-        <td><?php echo esc_html( implode( ' ', $row['payload']['scopes'] ?? [] ) ); ?></td>
+        <td><details><summary>比較權限</summary>
+        <?php $report = sac_oauth_scope_report( $client, $row['payload']['scopes'] ?? [], null, sac_oauth_scopes() );
+        foreach ( [ 'site_allowed_scopes' => '本站開放', 'client_registered_scopes' => '客戶端註冊', 'client_allowed_scopes' => '客戶端可請求',
+            'grant_scopes' => '使用者已同意', 'missing_scopes' => '相對本站開放的缺少權限', 'client_blocked_scopes' => '先更新客戶端設定' ] as $key => $label ) : ?>
+            <p><strong><?php echo esc_html( $label ); ?></strong><br><code><?php echo esc_html( implode( ' ', $report[ $key ] ) ?: '—' ); ?></code></p>
+        <?php endforeach; ?>
+        <?php if ( $report['missing_scopes'] ) : ?><p>只需為此次操作需要的權限追加授權。</p><?php endif; ?>
+        </details></td>
         <td><?php echo esc_html( wp_date( 'Y-m-d H:i', (int) ( $row['payload']['created'] ?? 0 ) ) . '／' . wp_date( 'Y-m-d H:i', (int) $row['touched'] ) ); ?></td>
         <td><?php echo esc_html( $live ? '有效至 ' . wp_date( 'Y-m-d H:i', (int) $row['expires'] ) : '已失效' ); ?></td>
         <td><?php if ( $live ) sac_oauth_admin_revoke_button( 'revoke_grant', (int) $row['id'], '撤銷授權' ); ?></td></tr>
@@ -169,6 +181,18 @@ function sac_oauth_admin_apps() {
         <details><summary><?php echo esc_html( $client['payload']['client_name'] . ( sac_oauth_live( $client ) ? '' : ' · 已撤銷' ) ); ?></summary>
         <p><code><?php echo esc_html( $client['payload']['client_id'] ); ?></code></p>
         <p><?php echo esc_html( implode( '、', $client['payload']['redirect_uris'] ) ); ?></p>
+        <?php $extra = array_diff( sac_oauth_scopes(), sac_oauth_client_ceiling( $client ) ); ?>
+        <?php if ( $extra && sac_oauth_live( $client ) ) : ?>
+            <form method="post"><?php wp_nonce_field( 'sac_admin_action' ); ?>
+                <input type="hidden" name="row_id" value="<?php echo (int) $client['id']; ?>">
+                <fieldset><legend>允許此客戶端請求額外權限</legend>
+                <?php foreach ( $extra as $scope ) : ?>
+                    <label><input type="checkbox" name="client_scopes[]" value="<?php echo esc_attr( $scope ); ?>"> <?php echo esc_html( $scope ); ?></label>
+                <?php endforeach; ?>
+                </fieldset>
+                <button class="button" name="sac_action" value="extend_client_scopes">儲存客戶端權限</button>
+            </form>
+        <?php endif; ?>
         <?php if ( sac_oauth_live( $client ) ) sac_oauth_admin_revoke_button( 'revoke_client', (int) $client['id'], '撤銷此客戶端及其授權' ); ?>
         </details>
     <?php endforeach; ?>

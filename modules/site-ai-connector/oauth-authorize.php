@@ -25,7 +25,8 @@ function sac_oauth_create_grant( $client, $user, $params, $scopes, $types, $conf
     if ( $wpdb->query( 'START TRANSACTION' ) === false ) return null;
     $done = false;
     try {
-        if ( ! sac_oauth_live( sac_oauth_row( 'client', $client['id'], true, true ) )
+        $locked_client = sac_oauth_row( 'client', $client['id'], true, true );
+        if ( ! sac_oauth_live( $locked_client ) || array_diff( $scopes, sac_oauth_client_ceiling( $locked_client ) )
             || sac_oauth_row( 'consent', $confirmation )
             || ! sac_oauth_insert( 'consent', $confirmation, time() + 2 * DAY_IN_SECONDS ) ) return null;
         $grant = sac_oauth_insert( 'grant', sac_oauth_random(), time() + sac_oauth_grant_seconds(), [
@@ -81,13 +82,21 @@ function sac_oauth_authorize_page() {
         wp_die( '客戶端或回呼網址無效。', '', [ 'response' => 400 ] );
     }
     if ( $params['response_type'] !== 'code' ) sac_oauth_callback( $params, [ 'error' => 'unsupported_response_type' ] );
-    if ( $params['resource'] !== sac_oauth_resource() ) sac_oauth_callback( $params, [ 'error' => 'invalid_target' ] );
+    if ( $params['resource'] !== sac_oauth_resource() ) {
+        sac_oauth_log_failure( 'oauth_authorize', 'invalid_target', 'resource_mismatch', $client, $params['scope'] );
+        sac_oauth_callback( $params, [ 'error' => 'invalid_target' ] );
+    }
     if ( $params['code_challenge_method'] !== 'S256' || ! preg_match( '/^[a-zA-Z0-9_-]{43}$/D', $params['code_challenge'] ) ) {
         sac_oauth_callback( $params, [ 'error' => 'invalid_request', 'error_description' => 'PKCE S256 is required.' ] );
     }
-    $client_scopes = array_intersect( sac_oauth_scope_array( $client['payload']['scope'] ), sac_oauth_scopes() );
+    $client_scopes = sac_oauth_client_ceiling( $client );
     $scopes = $params['scope'] === '' ? array_intersect( [ 'content:read' ], $client_scopes ) : sac_oauth_scope_array( $params['scope'] );
-    if ( ! $scopes || array_diff( $scopes, $client_scopes ) ) sac_oauth_callback( $params, [ 'error' => 'invalid_scope' ] );
+    if ( ! $scopes || array_diff( $scopes, $client_scopes ) ) {
+        $reason = ! $scopes || array_diff( $scopes, sac_oauth_scopes() ) ? 'site_scope_restricted' : 'client_scope_restricted';
+        sac_oauth_log_failure( 'oauth_authorize', 'invalid_scope', $reason, $client, $params['scope'] );
+        sac_oauth_callback( $params, [ 'error' => 'invalid_scope', 'error_description' => $reason === 'client_scope_restricted'
+            ? 'The site administrator must allow the requested scope for this OAuth client.' : 'The requested scope is unavailable on this site.' ] );
+    }
     if ( ! is_user_logged_in() ) {
         if ( $method === 'POST' ) wp_die( '請重新登入，並由應用程式重新開始授權。', '', [ 'response' => 403 ] );
         $target = sac_oauth_url( 'authorize' ) . '&' . http_build_query( $params, '', '&', PHP_QUERY_RFC3986 );
@@ -102,7 +111,10 @@ function sac_oauth_authorize_page() {
     if ( $method === 'POST' ) {
         $nonce = is_string( $_POST['_wpnonce'] ?? null ) ? wp_unslash( $_POST['_wpnonce'] ) : '';
         if ( ! wp_verify_nonce( $nonce, $action ) ) wp_die( '授權頁已逾時，請重試。', '', [ 'response' => 403 ] );
-        if ( ( $_POST['decision'] ?? '' ) !== 'approve' ) sac_oauth_callback( $params, [ 'error' => 'access_denied' ] );
+        if ( ( $_POST['decision'] ?? '' ) !== 'approve' ) {
+            sac_oauth_log_failure( 'oauth_authorize', 'access_denied', 'consent_declined', $client, $params['scope'] );
+            sac_oauth_callback( $params, [ 'error' => 'access_denied' ] );
+        }
         $code = sac_oauth_create_grant( $client, $user, $params, $scopes, $types, $user->ID . ':' . $fingerprint );
         if ( ! $code ) sac_oauth_callback( $params, [ 'error' => 'server_error', 'error_description' => '無法完成授權，請重新開始。' ] );
         sac_oauth_callback( $params, [ 'code' => $code ] );

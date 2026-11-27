@@ -54,6 +54,9 @@ function sac_mcp_diagnostic_dispatch( $request ) {
         'exception_type' => $context['exception_type'] ?? null, 'oauth_challenge' => $scope_challenge,
         'approval_status' => $tool_data['approval_status'] ?? null,
     ];
+    $scope_fields = array_flip( [ 'client_id', 'site_allowed_scopes', 'client_registered_scopes', 'client_allowed_scopes',
+        'grant_scopes', 'access_scopes', 'required_scopes', 'missing_scopes', 'site_disabled_scopes', 'client_blocked_scopes', 'next_action' ] );
+    $record += array_intersect_key( $tool_data, $scope_fields ) + ( $context['scope_report'] ?? [] );
     sac_oauth_insert( 'mcpdiag', sac_oauth_random(), time() + 3 * DAY_IN_SECONDS, $record );
     return $response;
 }
