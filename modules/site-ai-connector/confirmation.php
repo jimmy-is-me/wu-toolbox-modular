@@ -182,6 +182,9 @@ function sac_confirm_page() {
 }
 add_action( 'admin_post_sac_confirm_change', 'sac_confirm_page' );
 add_action( 'admin_post_nopriv_sac_confirm_change', 'sac_confirm_page' );
+add_filter( 'wutm_hidden_login_public_admin_post', static function ( $allowed, $action, $method ) {
+    return $allowed || ( $action === 'sac_confirm_change' && $method === 'GET' );
+}, 10, 3 );
 
 function sac_content_review( $request, $target ) {
     $post = $target['post'];

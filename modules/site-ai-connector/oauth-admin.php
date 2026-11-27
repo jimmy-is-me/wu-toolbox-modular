@@ -32,6 +32,12 @@ function sac_oauth_admin_action() {
         return [ '已儲存安全設定。', false ];
     }
     if ( $action === 'test_metadata' ) return sac_oauth_admin_test();
+    if ( $action === 'test_login' ) {
+        if ( ! sac_oauth_login_destination( sac_oauth_url( 'authorize' ) )['url'] ) {
+            return [ 'WordPress 登入網址無法安全跳轉。請檢查 WordPress 網址與登入外掛設定。', true ];
+        }
+        return sac_oauth_admin_test( true );
+    }
     if ( ! sac_oauth_install() ) return [ 'OAuth 資料庫尚未就緒。', true ];
     if ( $action === 'extend_client_scopes' ) {
         $result = sac_oauth_add_client_scopes( absint( $options['row_id'] ?? 0 ), $options['client_scopes'] ?? [] );
@@ -55,14 +61,15 @@ function sac_oauth_admin_action() {
     return [];
 }
 
-function sac_oauth_admin_test() {
+function sac_oauth_admin_test( $check_login = false ) {
     if ( ! sac_oauth_transport() ) return [ '請先完成 WordPress HTTPS 設定。', true ];
     $docs = [ [ sac_oauth_metadata_url(), 'issuer', sac_oauth_issuer() ], [ sac_oauth_metadata_url( true ), 'resource', sac_oauth_resource() ] ];
     foreach ( $docs as [ $url, $key, $value ] ) {
         $response = wp_safe_remote_get( $url, [ 'timeout' => 5, 'redirection' => 0, 'limit_response_size' => 16000 ] );
         $status = wp_remote_retrieve_response_code( $response );
         $body = json_decode( wp_remote_retrieve_body( $response ), true );
-        if ( $status !== 200 || ( $body[ $key ] ?? '' ) !== $value ) {
+        if ( $status !== 200 || ( $body[ $key ] ?? '' ) !== $value
+            || ( $check_login && ( $body['scopes_supported'] ?? [] ) !== sac_oauth_scopes() ) ) {
             return [ '探索測試失敗 ' . $url . ' · ' . ( is_wp_error( $response ) ? $response->get_error_message() : 'HTTP ' . $status . ' 或 Metadata 不符' ), true ];
         }
     }
@@ -74,6 +81,13 @@ function sac_oauth_admin_test() {
     $token = wp_safe_remote_post( sac_oauth_url( 'token' ), [ 'timeout' => 5, 'redirection' => 0, 'body' => [ 'grant_type' => 'authorization_code', 'resource' => sac_oauth_resource() ] ] );
     $body = json_decode( wp_remote_retrieve_body( $token ), true );
     if ( wp_remote_retrieve_response_code( $token ) !== 401 || ( $body['error'] ?? '' ) !== 'invalid_client' ) return [ 'Token 端點測試失敗。', true ];
+    if ( $check_login ) {
+        $authorize = wp_safe_remote_get( sac_oauth_url( 'authorize' ), [ 'timeout' => 5, 'redirection' => 0, 'limit_response_size' => 12000 ] );
+        $reached = wp_remote_retrieve_response_code( $authorize ) === 400 && wp_remote_retrieve_header( $authorize, 'x-sac-request-id' );
+        return $reached
+            ? [ '登入網址、探索文件、OAuth 授權與權杖端點均通過檢查。完整登入返回以最近的實際授權紀錄為準。', false ]
+            : [ '匿名 OAuth 授權端點尚未通過檢查。請查看登入外掛、CDN 或 WAF 的回應。', true ];
+    }
     update_option( 'sac_oauth_last_probe', time(), false );
     return [ '探索文件、MCP 授權挑戰與 Token 端點已回應。此檢查尚未執行使用者授權。', false ];
 }
@@ -100,6 +114,14 @@ function sac_oauth_admin_overview() {
         }
     }
     $probe = (int) get_option( 'sac_oauth_last_probe' );
+    $login = sac_oauth_login_destination( sac_oauth_url( 'authorize' ) );
+    $last_return = null;
+    foreach ( sac_mcp_diagnostic_rows() as $record ) {
+        if ( ( $record['stage'] ?? '' ) !== 'oauth_login_return' ) continue;
+        $last_return = $record;
+        break;
+    }
+    $login_labels = [ 'wordpress' => 'WordPress 預設機制', 'wordpress_filtered' => 'WordPress login_url 過濾器', 'toolbox' => 'WU Toolbox 隱藏登入' ];
     ?>
     <section class="sac-panel">
         <h2>本站服務狀態</h2>
@@ -115,6 +137,18 @@ function sac_oauth_admin_overview() {
             <dt>工具查詢／寫入</dt><dd><?php echo esc_html( ( $read ?: '尚無查詢' ) . '／' . ( $write ?: '尚無寫入' ) ); ?></dd>
         </dl>
         <form method="post"><?php wp_nonce_field( 'sac_admin_action' ); ?><button class="button button-primary" name="sac_action" value="test_metadata">測試本站端點</button></form>
+    </section>
+    <section class="sac-panel">
+        <h2>登入與 OAuth 相容性檢查</h2>
+        <dl>
+            <dt>WordPress 登入途徑</dt><dd><?php echo esc_html( $login_labels[ $login['method'] ] ); ?></dd>
+            <dt>登入跳轉目標</dt><dd><?php echo $login['url'] ? '通過安全檢查' : '需要檢查登入外掛或 WordPress 網址'; ?></dd>
+            <dt>login_url 過濾器</dt><dd><?php echo has_filter( 'login_url' ) ? '有外部過濾器' : '未偵測到'; ?></dd>
+            <dt>最近登入返回</dt><dd><?php echo esc_html( $last_return ? ( ( $last_return['return_verified'] ? '已驗證' : '失敗' ) . ' · ' . $last_return['time'] ) : '最近三天尚無紀錄' ); ?></dd>
+            <dt>Metadata 權限</dt><dd><code><?php echo esc_html( implode( ' ', sac_oauth_scopes() ) ?: '—' ); ?></code></dd>
+            <dt>個別應用程式權限</dt><dd><a href="<?php echo esc_url( sac_admin_url( 'apps' ) ); ?>">比較本站、客戶端與使用者授權</a></dd>
+        </dl>
+        <form method="post"><?php wp_nonce_field( 'sac_admin_action' ); ?><button class="button" name="sac_action" value="test_login">執行相容性檢查</button></form>
     </section>
     <?php
 }

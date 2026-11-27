@@ -31,7 +31,7 @@ function sac_mcp_tools_list( $grant ) {
         }
         if ( $tool['name'] === 'upload_media' ) $meta['openai/fileParams'] = [ 'file' ];
         $tools[] = [
-            'name' => $tool['name'], 'description' => $tool['description'] . ( $tool['name'] === 'prepare_content_changes' ? ' 正式準備需要 content:read、content:update，依分類、SEO、FAQ 與媒體欄位追加相應 Scope。Dry Run 可先檢查權限。' : '' ),
+            'name' => $tool['name'], 'description' => $tool['description'] . ( $tool['name'] === 'prepare_content_changes' ? ' 正式準備需要 content:read、content:update，依提交欄位追加分類、SEO、FAQ 與媒體 Scope。先用 dry_run=true 檢查。若需追加授權，應用程式應以原權限加上授權挑戰要求的 Scope，重新取得使用者明確同意後再重試。' : '' ),
             'inputSchema' => [ 'type' => 'object', 'properties' => (object) $properties, 'required' => $required, 'additionalProperties' => false ],
             'securitySchemes' => $security, '_meta' => $meta,
             'annotations' => [

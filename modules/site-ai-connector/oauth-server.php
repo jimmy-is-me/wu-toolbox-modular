@@ -124,6 +124,7 @@ add_action( 'parse_request', static function () {
         status_header( 503 );
         exit;
     }
+    sac_oauth_log_flow( 'oauth_discovery', '', $protected ? 'protected_metadata' : 'authorization_metadata', [], '', [ 'http_status' => 200 ] );
     if ( ( $_SERVER['REQUEST_METHOD'] ?? '' ) === 'HEAD' ) exit;
     wp_send_json( sac_oauth_metadata( $protected ) );
 }, 20 );
@@ -209,22 +210,37 @@ add_action( 'rest_api_init', static function () {
             'callback' => static function ( $request ) use ( $handler ) {
                 $ready = sac_oauth_ready();
                 $result = is_wp_error( $ready ) ? $ready : $handler( $request );
-                if ( $handler === 'sac_oauth_exchange' && is_wp_error( $result ) ) {
-                    $data = (array) $result->get_error_data();
+                $response = sac_oauth_endpoint_result( $result );
+                if ( in_array( $handler, [ 'sac_oauth_exchange', 'sac_oauth_register' ], true ) ) {
+                    $request_id = wp_generate_uuid4();
+                    $response->header( 'X-SAC-Request-Id', $request_id );
+                    $body = $request->get_body_params();
+                    $stage = $handler === 'sac_oauth_register' ? 'oauth_registration'
+                        : ( ( $body['grant_type'] ?? '' ) === 'refresh_token' ? 'oauth_refresh' : 'oauth_token' );
                     $context = sac_mcp_diagnostic_context( $request );
-                    sac_oauth_log_failure( 'oauth_token', $result->get_error_code(), $data['reason'] ?? $result->get_error_code(),
-                        $context['oauth_client'] ?? [], $request->get_body_params()['scope'] ?? '', $context );
+                    $error = is_wp_error( $result ) ? $result->get_error_code() : '';
+                    $details = $error ? (array) $result->get_error_data() : [];
+                    $client = $context['oauth_client'] ?? [];
+                    $requested = $body['scope'] ?? '';
+                    if ( $stage === 'oauth_registration' ) {
+                        $requested = $request->get_json_params()['scope'] ?? '';
+                        if ( ! $error ) $client = sac_oauth_row( 'client', $response->get_data()['client_id'] );
+                    }
+                    sac_oauth_log_flow( $stage, $error, $details['reason'] ?? ( $error ?: 'accepted' ), $client, $requested,
+                        $context + [ 'http_status' => $response->get_status(), 'request_id' => $request_id ] );
                 }
-                return sac_oauth_endpoint_result( $result );
+                return $response;
             },
         ] );
     }
     register_rest_route( SAC_NAMESPACE, '/oauth/resource-metadata', [
         'methods' => 'GET', 'permission_callback' => '__return_true',
         'callback' => static function () {
-            return sac_oauth_transport() && get_option( 'sac_oauth_enabled', true )
-                ? sac_oauth_response( sac_oauth_metadata( true ) )
-                : sac_oauth_response( [ 'error' => 'temporarily_unavailable' ], 503 );
+            if ( ! sac_oauth_transport() || ! get_option( 'sac_oauth_enabled', true ) ) {
+                return sac_oauth_response( [ 'error' => 'temporarily_unavailable' ], 503 );
+            }
+            sac_oauth_log_flow( 'oauth_discovery', '', 'protected_metadata', [], '', [ 'http_status' => 200 ] );
+            return sac_oauth_response( sac_oauth_metadata( true ) );
         },
     ] );
 } );

@@ -14,13 +14,17 @@ async function main() {
     assert.ok(['localhost', '127.0.0.1'].includes(new URL(base).hostname), 'The browser fixture only runs locally.');
     const browser = await chromium.launch({executablePath});
     try {
-        const context = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] });
+        const context = await browser.newContext({
+            ignoreHTTPSErrors: process.env.SAC_TEST_LOCAL_TLS === '1',
+            permissions: ['clipboard-read', 'clipboard-write'],
+        });
         const page = await context.newPage();
         page.setDefaultTimeout(12000);
         await context.route('**/*', route => new URL(route.request().url()).origin === new URL(base).origin ? route.continue() : route.abort());
         const redirect = 'https://chatgpt.com/connector_platform_oauth_redirect';
         await context.route(redirect + '**', route => route.fulfill({ status: 200, body: 'Simulated registration callback' }));
-        const resource = base + '/wp-json/site-ai/v1/mcp';
+        const contentBase = process.env.SAC_TEST_HOME || base;
+        const resource = contentBase + '/wp-json/site-ai/v1/mcp';
         const unauthenticated = await context.request.post(resource, {data: {jsonrpc: '2.0', id: 1, method: 'ping'}});
         assert.equal(unauthenticated.status(), 401);
         assert.match(unauthenticated.headers()['cache-control'], /no-store/);
@@ -53,8 +57,31 @@ async function main() {
             response_type: 'code', scope: client.scope, state,
             code_challenge: createHash('sha256').update(verifier).digest('base64url'), code_challenge_method: 'S256',
         })) authorization.searchParams.set(key, value);
+        const wrongCallback = new URL(authorization);
+        wrongCallback.searchParams.set('redirect_uri', 'https://unregistered.example/callback');
+        const refused = await context.request.get(wrongCallback.href, {maxRedirects: 0});
+        assert.equal(refused.status(), 400);
+        assert.equal(refused.headers().location, undefined);
+
+        const hidden = process.env.SAC_TEST_HIDDEN_LOGIN === '1';
+        if (hidden) {
+            const direct = await context.request.get(base + '/wp-login.php', {maxRedirects: 0});
+            const admin = await context.request.get(base + '/wp-admin/admin-post.php?action=unknown', {maxRedirects: 0});
+            assert.equal(direct.headers().location, contentBase + '/');
+            assert.equal(admin.headers().location, contentBase + '/');
+        }
         await page.goto(authorization.href);
-        assert.ok(new URL(page.url()).pathname.endsWith('/wp-login.php'));
+        const loginUrl = new URL(page.url());
+        assert.ok(loginUrl.pathname.endsWith(process.env.SAC_TEST_LOGIN_PATH || '/wp-login.php'), loginUrl.pathname);
+        const returnUrl = new URL(loginUrl.searchParams.get('redirect_to'));
+        assert.equal(returnUrl.searchParams.get('state'), state);
+        assert.equal(returnUrl.searchParams.get('resource'), resource);
+        assert.equal(returnUrl.searchParams.get('code_challenge'), authorization.searchParams.get('code_challenge'));
+        assert.match(returnUrl.searchParams.get('sac_login_return'), /^\d+\.[a-f0-9]{64}$/);
+        assert.equal((await context.request.get(returnUrl.href, {maxRedirects: 0})).status(), 403);
+        const tampered = new URL(returnUrl.href);
+        tampered.searchParams.set('state', 'different-state');
+        assert.equal((await context.request.get(tampered.href, {maxRedirects: 0})).status(), 403);
         await page.locator('#user_login').fill(login);
         await page.locator('#user_pass').fill(password);
         await page.locator('#wp-submit').click();
@@ -90,6 +117,9 @@ async function main() {
         await page.waitForURL(url => url.href.startsWith(redirect + '?'));
         assert.equal(new URL(page.url()).searchParams.get('error'), 'invalid_scope');
 
+        await page.goto(base + '/wp-admin/admin.php?page=site-ai-connector');
+        await page.getByRole('heading', {name: '登入與 OAuth 相容性檢查'}).waitFor();
+        await page.getByText(/^已驗證 · /).waitFor();
         await page.goto(base + '/wp-admin/admin.php?page=site-ai-connector&tab=apps');
         const registeredClient = page.locator('details').filter({hasText: client.client_id});
         await registeredClient.locator('summary').click();
@@ -97,6 +127,16 @@ async function main() {
         await registeredClient.getByRole('button', {name: '儲存客戶端權限'}).click();
         await page.getByText('已更新客戶端可請求的權限。使用者須在 WordPress 明確同意新授權。').waitFor();
 
+        await page.goto(authorization.href);
+        await page.getByRole('heading', {name: '先前已同意的權限'}).waitFor();
+        await page.getByText('指派分類 本次新增').waitFor();
+        await Promise.all([page.waitForURL(url => url.href.startsWith(redirect + '?')),
+            page.getByRole('button', {name: '拒絕授權'}).click()]);
+        const unmodified = await context.request.get(contentBase + '/wp-json/site-ai/v1/verify', {
+            headers: {Authorization: 'Bearer ' + tokens.access_token},
+        });
+        assert.equal(unmodified.status(), 200);
+        assert.ok(!(await unmodified.json()).scopes.includes('taxonomy:write'));
         await page.goto(authorization.href);
         await Promise.all([page.waitForURL(url => url.href.startsWith(redirect + '?')),
             page.getByRole('button', {name: '同意授權'}).click()]);
@@ -107,6 +147,10 @@ async function main() {
         tokens = await incremented.json();
         assert.ok(tokens.scope.split(' ').includes('taxonomy:write'));
         const auth = {Authorization: 'Bearer ' + tokens.access_token};
+        const parallelCalls = await Promise.all([1, 2, 3].map(id => context.request.post(resource, {
+            headers: auth, data: {jsonrpc: '2.0', id, method: 'ping'},
+        })));
+        assert.deepEqual(parallelCalls.map(response => response.status()), [200, 200, 200]);
         const notify = await context.request.post(resource, {headers: auth, data: {jsonrpc: '2.0', method: 'notifications/initialized'}});
         assert.equal(notify.status(), 202);
         assert.equal((await notify.body()).length, 0);

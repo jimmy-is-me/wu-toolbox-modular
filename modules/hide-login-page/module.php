@@ -38,6 +38,7 @@ final class WU_Hide_Login_Page {
         add_filter('site_url', [$this, 'modify_login_url'], 10, 4);
         add_filter('network_site_url', [$this, 'modify_login_url'], 10, 3);
         add_filter('wp_redirect', [$this, 'modify_redirect_url'], 10, 2);
+        add_filter('wutm_hidden_login_active', [$this, 'is_enabled']);
         add_action('update_option_' . self::OPTION, [$this, 'maybe_flush_rewrite_rules'], 10, 3);
 
         add_action('login_enqueue_scripts', [$this, 'login_appearance']);
@@ -387,6 +388,10 @@ final class WU_Hide_Login_Page {
         exit;
     }
 
+    public function is_enabled(): bool {
+        return !empty($this->options['enabled']);
+    }
+
     public function modify_login_url($url, $path = '', $scheme = null, $blog_id = null) {
         if (empty($this->options['enabled'])) return $url;
         return $this->replace_core_login_path($url);
@@ -424,14 +429,17 @@ final class WU_Hide_Login_Page {
 
     private function replace_core_login_path($url) {
         $url = (string) $url;
-        $path = (string) wp_parse_url($url, PHP_URL_PATH);
-        if ($path === '' || basename($path) !== 'wp-login.php') return $url;
+        $parts = wp_parse_url($url);
+        $site = wp_parse_url(get_option('siteurl'));
+        $network = wp_parse_url(network_home_url());
+        if (basename($parts['path'] ?? '') !== 'wp-login.php'
+            || !in_array($parts['host'] ?? '', array_filter([$site['host'] ?? '', $network['host'] ?? '']), true)) {
+            return $url;
+        }
 
-        $path_position = strpos($url, $path);
-        if ($path_position === false) return $url;
-
-        $custom_path = substr($path, 0, -strlen('wp-login.php')) . rawurlencode($this->slug());
-        return substr_replace($url, $custom_path, $path_position, strlen($path));
+        $custom = home_url('/' . rawurlencode($this->slug()) . '/', $parts['scheme'] ?? null);
+        return $custom . (isset($parts['query']) ? '?' . $parts['query'] : '')
+            . (isset($parts['fragment']) ? '#' . $parts['fragment'] : '');
     }
 
     private function request_path() {
@@ -452,7 +460,19 @@ final class WU_Hide_Login_Page {
             || (function_exists('wp_is_json_request') && wp_is_json_request())) {
             return true;
         }
-        if (isset($_SERVER['REQUEST_METHOD']) && strtoupper($_SERVER['REQUEST_METHOD']) === 'OPTIONS') return true;
+        $method = $_SERVER['REQUEST_METHOD'] ?? '';
+        if ($method === 'OPTIONS') return true;
+
+        // Explicitly opted-in public actions still run their own authentication and authorization.
+        if ($this->request_path() === wp_parse_url(admin_url('admin-post.php'), PHP_URL_PATH)
+            && in_array($method, ['GET', 'POST'], true)) {
+            $action = $_REQUEST['action'] ?? null;
+            if (is_string($action) && sanitize_key($action) === $action && has_action('admin_post_nopriv_' . $action)
+                && apply_filters('wutm_hidden_login_public_admin_post', false, $action, $method)) {
+                return true;
+            }
+        }
+
         $uri = isset($_SERVER['REQUEST_URI']) ? wp_unslash($_SERVER['REQUEST_URI']) : '';
         return strpos($uri, 'admin-ajax.php') !== false
             || strpos($uri, 'wp-cron.php') !== false
