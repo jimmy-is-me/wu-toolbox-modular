@@ -168,7 +168,7 @@ function sac_handle_mcp_request( WP_REST_Request $request ) {
             'instructions' => $instructions,
         ] );
     }
-    if ( $method === 'tools/list' ) return sac_mcp_rpc( $id, [ 'tools' => sac_mcp_tools_list( $grant ) ], false, $modern );
+    if ( $method === 'tools/list' ) return sac_mcp_rpc( $id, [ 'tools' => sac_mcp_tools_list( $grant ) ] + ( $modern ? [ 'resultType' => 'complete' ] : [] ), false, $modern );
     if ( $method !== 'tools/call' ) return sac_mcp_rpc( $id, [ 'code' => -32601, 'message' => 'MCP 方法不存在。' ], true, $modern, $modern ? 404 : 200 );
     $name = $params['name'] ?? '';
     if ( ! is_string( $name ) ) return sac_mcp_rpc( $id, [ 'code' => -32602, 'message' => '工具名稱格式錯誤。' ], true );
@@ -188,13 +188,13 @@ function sac_handle_mcp_request( WP_REST_Request $request ) {
         $details['tool_status'] = $extra['status'] ?? 400;
         sac_mcp_diagnostic_context( $request, $details + [ 'exception_type' => $extra['exception_type'] ?? null ] );
         $details['next_action'] = $details['code'] === 'sac_confirmation_required' ? 'open_wordpress_review' : ( ( $extra['status'] ?? 0 ) === 429 ? 'retry_later' : 'check_error' );
-        return sac_mcp_rpc( $id, [ 'content' => [ [ 'type' => 'text', 'text' => wp_json_encode( $details, JSON_UNESCAPED_UNICODE ) ] ], 'structuredContent' => $details, 'isError' => true ], false, $modern );
+        return sac_mcp_rpc( $id, [ 'content' => [ [ 'type' => 'text', 'text' => wp_json_encode( $details, JSON_UNESCAPED_UNICODE ) ] ], 'structuredContent' => $details, 'isError' => true ] + ( $modern ? [ 'resultType' => 'complete' ] : [] ), false, $modern );
     }
     $value = $result['value'];
     $details = [ 'success' => ( $value['success'] ?? true ) !== false, 'code' => $value['error_code'] ?? null,
         'message' => null, 'data' => $value, 'warnings' => $value['warnings'] ?? [], 'operation_id' => $value['operation_id'] ?? ( $result['operation_id'] ?: null ),
         'next_action' => ! empty( $value['confirmation_required'] ) ? 'open_wordpress_review' : null ];
-    return sac_mcp_rpc( $id, [ 'content' => [ [ 'type' => 'text', 'text' => wp_json_encode( $details, JSON_UNESCAPED_UNICODE ) ] ], 'structuredContent' => $details, 'isError' => ! $details['success'] ], false, $modern );
+    return sac_mcp_rpc( $id, [ 'content' => [ [ 'type' => 'text', 'text' => wp_json_encode( $details, JSON_UNESCAPED_UNICODE ) ] ], 'structuredContent' => $details, 'isError' => ! $details['success'] ] + ( $modern ? [ 'resultType' => 'complete' ] : [] ), false, $modern );
 }
 
 add_action( 'rest_api_init', static function () {

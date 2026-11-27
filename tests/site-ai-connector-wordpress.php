@@ -382,6 +382,20 @@ try {
     $verified_draft = sac_fixture_request( '/content-changes/' . $prepared['operation_id'] . '/verify', 'GET', $renewed, [ 'frontend' => true ] );
     sac_fixture_assert( $verified_draft['database_verification']['state'] === 'verified' && $verified_draft['frontend_verification']['state'] === 'not_applicable',
         'Draft has independent database and public verification' );
+    $limited_token = sac_fixture_request( '/oauth/token', 'POST', '', sac_fixture_authorize( $client, $admin, [ 'content:read', 'content:update' ], $redirect ) )['access_token'];
+    $limited_request = [ 'name' => 'prepare_content_changes', 'arguments' => $draft_target + [ 'dry_run' => true,
+        'faqs' => [ [ 'question' => 'Scope?', 'answer' => 'Required.' ] ], 'content' => [ 'terms' => [ 'report_region' => [ $term ] ] ] ] ];
+    $challenge = sac_fixture_mcp( 'tools/call', $limited_token, $limited_request, 403 );
+    sac_fixture_assert( $challenge['code'] === 'insufficient_scope' && ! array_diff( [ 'faq:read', 'faq:write', 'taxonomy:read', 'taxonomy:write' ],
+        explode( ' ', $challenge['data']['scope'] ) ), 'All missing feature scopes are challenged together' );
+    update_option( 'sac_oauth_scopes', array_values( array_diff( $scopes, [ 'faq:write' ] ) ), false );
+    try {
+        $disabled = sac_fixture_mcp( 'tools/call', $limited_token, $limited_request );
+        sac_fixture_assert( $disabled['result']['isError'] && $disabled['result']['structuredContent']['code'] === 'sac_scope_disabled', 'Site-disabled scope does not demand reauthorization' );
+    } finally {
+        update_option( 'sac_oauth_scopes', $scopes, false );
+    }
+
     $oversized = sac_fixture_tool( 'prepare_content_changes', $draft_target + [ 'dry_run' => true, 'content' => [ 'content' => str_repeat( '中', 270000 ) ] ], $access );
     sac_fixture_assert( $oversized['isError'] && $oversized['structuredContent']['max_request_bytes'] === sac_review_max_bytes(), 'Oversized tool call reports its actual limit' );
 

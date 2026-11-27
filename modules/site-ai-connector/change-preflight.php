@@ -11,6 +11,27 @@ function sac_change_error_path( $error, $group, $custom = [] ) {
     return new WP_Error( $error->get_error_code(), $error->get_error_message(), $data );
 }
 
+function sac_change_preflight_scopes( $request, $values ) {
+    $grant = sac_authenticate( $request );
+    if ( is_wp_error( $grant ) ) return $grant;
+    $required = [ 'content:read', 'content:update' ];
+    if ( isset( $values['seo'] ) ) $required = array_merge( $required, [ 'seo:read', 'seo:write' ] );
+    if ( array_key_exists( 'faqs', $values ) ) $required = array_merge( $required, [ 'faq:read', 'faq:write' ] );
+    if ( isset( $values['content']['terms'] ) ) $required = array_merge( $required, [ 'taxonomy:read', 'taxonomy:write' ] );
+    if ( isset( $values['media'] ) || isset( $values['content']['featured_image_id'] ) ) $required = array_merge( $required, [ 'media:read', 'media:update' ] );
+    if ( isset( $values['seo']['og_image_id'] ) ) $required[] = 'media:read';
+    $missing = false;
+    foreach ( array_unique( $required ) as $scope ) {
+        $result = sac_oauth_require_scope( $grant, $scope );
+        if ( ! is_wp_error( $result ) ) continue;
+        if ( $result->get_error_code() !== 'insufficient_scope' ) return $result;
+        $missing = true;
+    }
+    return $missing ? new WP_Error( 'insufficient_scope', '此變更需要額外 OAuth 權限。', [
+        'status' => 403, 'scope' => implode( ' ', array_unique( $required ) ),
+    ] ) : true;
+}
+
 function sac_change_preflight( $request, $target, $data, $restore = null ) {
     $dry = rest_sanitize_boolean( $data['dry_run'] ?? false );
     $post = $target['post'];
@@ -52,6 +73,12 @@ function sac_change_preflight( $request, $target, $data, $restore = null ) {
         return [ 'success' => true, 'no_changes' => true, 'dry_run' => $dry, 'confirmation_required' => false,
             'post_id' => $post->ID, 'post_type' => $post->post_type, 'actual_status' => $post->post_status, 'warnings' => $warnings ];
     }
+    $scopes = sac_change_preflight_scopes( $request, $values );
+    if ( is_wp_error( $scopes ) ) {
+        if ( ! $errors ) return $scopes;
+        $errors[] = $scopes;
+        $values = [];
+    }
     $expected = sac_change_validate( $request, $target, $values, $blocks );
     if ( is_wp_error( $expected ) ) {
         if ( ! $dry ) return $expected;
@@ -74,9 +101,7 @@ function sac_change_preflight( $request, $target, $data, $restore = null ) {
         if ( count( $checks ) > 64 ) $warnings[] = [ 'code' => 'sac_preflight_limit', 'message' => '個別驗證以 64 項為限，請分批檢查剩餘項目。' ];
     }
     if ( $dry ) {
-        foreach ( $errors as $error ) {
-            if ( $error->get_error_code() === 'insufficient_scope' ) return $error;
-        }
+
         if ( ! $errors ) {
             $before = sac_change_snapshot( $target, $expected );
             $estimate = is_wp_error( $before ) ? false : sac_review_json( [ $values, $expected, $before ] );

@@ -153,7 +153,7 @@ add_filter( 'rest_post_dispatch', static function ( $response, $server, $request
         $scope = $data['data']['scope'] ?? ( in_array( 'content:read', sac_oauth_scopes(), true ) ? 'content:read' : '' );
         if ( $code === 'insufficient_scope' ) {
             $grant = sac_authenticate( $request );
-            if ( ! is_wp_error( $grant ) ) $scope = implode( ' ', array_unique( array_merge( $grant['scopes'], [ $scope ] ) ) );
+            if ( ! is_wp_error( $grant ) ) $scope = implode( ' ', array_unique( array_merge( $grant['scopes'], explode( ' ', $scope ) ) ) );
         }
         if ( $scope ) $header .= ', scope="' . $scope . '"';
         $response->header( 'WWW-Authenticate', $header );

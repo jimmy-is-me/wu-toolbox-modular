@@ -110,7 +110,9 @@ async function main() {
         assert.equal((await modern('tools/list', {}, {header: 'tools/call'})).status(), 400);
         const toolList = await modern('tools/list', {});
         assert.equal(toolList.status(), 200);
-        assert.ok((await toolList.json()).result.tools.some(entry => entry.name === 'verify_connection'));
+        const modernTools = (await toolList.json()).result;
+        assert.equal(modernTools.resultType, 'complete');
+        assert.ok(modernTools.tools.some(entry => entry.name === 'verify_connection'));
 
         const types = (await tool('list_content_types', {})).data.types;
         const isLab = types.some(type => type.post_type === 'wumetax_lab');
