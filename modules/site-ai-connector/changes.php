@@ -272,10 +272,11 @@ function sac_change_prepare( $request, $target, $data, $restore = null ) {
 function sac_change_grant( $row ) {
     $grant = sac_oauth_row( 'grant', $row['family'], true );
     $user = sac_oauth_valid_grant( $grant );
+    $client = sac_oauth_row( 'client', $row['client'], true );
     if ( ! $user || (int) $grant['client'] !== (int) $row['client'] || (int) $user->ID !== (int) $row['owner']
-        || ! sac_oauth_live( sac_oauth_row( 'client', $row['client'], true ) ) ) return null;
+        || ! sac_oauth_live( $client ) ) return null;
     return [ 'id' => (int) $grant['id'], 'client' => (int) $grant['client'], 'user_id' => $user->ID,
-        'scopes' => array_values( array_intersect( $row['payload']['scopes'], $grant['payload']['scopes'], sac_oauth_scopes() ) ),
+        'scopes' => array_values( array_intersect( $row['payload']['scopes'], $grant['payload']['scopes'], sac_oauth_client_ceiling( $client ) ) ),
         'content_scope' => $grant['payload']['types'] ];
 }
 
@@ -508,7 +509,7 @@ function sac_handle_change_tool( $request, $name ) {
     $grant = sac_authenticate( $request );
     if ( is_wp_error( $grant ) ) return $grant;
     if ( isset( $path['id'] ) ) {
-        $target = sac_change_target( $request, $path['post_type'], (int) $path['id'], $name === 'prepare_content_changes' );
+        $target = sac_change_target( $request, $path['post_type'], (int) $path['id'], $name === 'prepare_content_changes' && ! rest_sanitize_boolean( $request->get_json_params()['dry_run'] ?? null ) );
         if ( is_wp_error( $target ) ) return $target;
         if ( $name === 'list_content_blocks' ) return sac_list_blocks( $target['post'], $request->get_param( 'block_path' ), max( 0, (int) $request->get_param( 'offset' ) ) );
         if ( $name === 'prepare_content_changes' ) return sac_change_prepare( $request, $target, $request->get_json_params() ?: [] );

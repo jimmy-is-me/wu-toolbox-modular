@@ -11,25 +11,43 @@ function sac_change_error_path( $error, $group, $custom = [] ) {
     return new WP_Error( $error->get_error_code(), $error->get_error_message(), $data );
 }
 
+function sac_change_scope_policy() {
+    return [
+        'base' => [ 'content:read', 'content:update' ],
+        'by_field' => [
+            'content.terms' => [ 'taxonomy:read', 'taxonomy:write' ],
+            'seo' => [ 'seo:read', 'seo:write' ],
+            'faqs' => [ 'faq:read', 'faq:write' ],
+            'content.featured_image_id' => [ 'media:read', 'media:update' ],
+            'seo.og_image_id' => [ 'media:read' ],
+            'media' => [ 'media:read', 'media:update' ],
+        ],
+    ];
+}
+
 function sac_change_preflight_scopes( $request, $values ) {
     $grant = sac_authenticate( $request );
     if ( is_wp_error( $grant ) ) return $grant;
-    $required = [ 'content:read', 'content:update' ];
-    if ( isset( $values['seo'] ) ) $required = array_merge( $required, [ 'seo:read', 'seo:write' ] );
-    if ( array_key_exists( 'faqs', $values ) ) $required = array_merge( $required, [ 'faq:read', 'faq:write' ] );
-    if ( isset( $values['content']['terms'] ) ) $required = array_merge( $required, [ 'taxonomy:read', 'taxonomy:write' ] );
-    if ( isset( $values['media'] ) || isset( $values['content']['featured_image_id'] ) ) $required = array_merge( $required, [ 'media:read', 'media:update' ] );
-    if ( isset( $values['seo']['og_image_id'] ) ) $required[] = 'media:read';
-    $missing = false;
-    foreach ( array_unique( $required ) as $scope ) {
-        $result = sac_oauth_require_scope( $grant, $scope );
-        if ( ! is_wp_error( $result ) ) continue;
-        if ( $result->get_error_code() !== 'insufficient_scope' ) return $result;
-        $missing = true;
+    $policy = sac_change_scope_policy();
+    $required = $policy['base'];
+    foreach ( $policy['by_field'] as $path => $scopes ) {
+        $parts = explode( '.', $path, 2 );
+        $present = count( $parts ) === 1 ? array_key_exists( $parts[0], $values )
+            : is_array( $values[ $parts[0] ] ?? null ) && array_key_exists( $parts[1], $values[ $parts[0] ] );
+        if ( $present ) $required = array_merge( $required, $scopes );
     }
-    return $missing ? new WP_Error( 'insufficient_scope', '此變更需要額外 OAuth 權限。', [
-        'status' => 403, 'scope' => implode( ' ', array_unique( $required ) ),
-    ] ) : true;
+    $required = array_values( array_unique( $required ) );
+    $client = sac_oauth_row( 'client', $grant['client'], true );
+    $report = sac_oauth_scope_report( $client, $grant['scope_report']['grant_scopes'] ?? $grant['scopes'], $grant['scopes'], $required );
+    $data = [ 'status' => 403, 'scope' => implode( ' ', $required ), 'scope_report' => $report ];
+    if ( $report['site_disabled_scopes'] ) return new WP_Error( 'sac_scope_disabled', '本站尚未開放此變更所需的權限。', $data );
+    if ( $report['client_blocked_scopes'] ) return new WP_Error( 'sac_client_scope_restricted', '請由站長先為此 OAuth 客戶端開放缺少的權限。', $data );
+    foreach ( $required as $scope ) {
+        if ( ! user_can( $grant['user_id'], sac_oauth_tool_capability( $scope ) ) ) {
+            return new WP_Error( 'sac_capability', '目前 WordPress 帳號無權執行此變更。', $data );
+        }
+    }
+    return $report['missing_scopes'] ? new WP_Error( 'insufficient_scope', '此變更需要額外 OAuth 權限。', $data ) : true;
 }
 
 function sac_change_preflight( $request, $target, $data, $restore = null ) {
@@ -75,9 +93,16 @@ function sac_change_preflight( $request, $target, $data, $restore = null ) {
     }
     $scopes = sac_change_preflight_scopes( $request, $values );
     if ( is_wp_error( $scopes ) ) {
-        if ( ! $errors ) return $scopes;
-        $errors[] = $scopes;
-        $values = [];
+        if ( ! $dry ) return $scopes;
+        $report = $scopes->get_error_data()['scope_report'] ?? [];
+        return [ 'success' => false, 'dry_run' => true, 'error_code' => $scopes->get_error_code(),
+            'message' => $scopes->get_error_message(), 'errors' => array_map( static fn( $error ) => [
+                'field' => $error->get_error_data()['field'] ?? null, 'code' => $error->get_error_code(), 'message' => $error->get_error_message(),
+            ], $errors ), 'warnings' => $warnings ] + $report;
+    }
+    if ( $dry ) {
+        $write_target = sac_change_target( $request, $post->post_type, $post->ID, true );
+        if ( is_wp_error( $write_target ) ) return $write_target;
     }
     $expected = sac_change_validate( $request, $target, $values, $blocks );
     if ( is_wp_error( $expected ) ) {

@@ -92,7 +92,7 @@ add_action( 'rest_api_init', static function () {
                 'features' => [ 'change_sets' => true, 'gutenberg' => true, 'frontend_comparison' => true, 'related_page_cache' => is_callable( [ 'WUTM_Page_Cache', 'purge_content' ] ) ],
                 'media_transports' => [ 'https', 'base64', 'multipart_rest', 'mcp_file_reference', 'base64_chunks', 'browser_upload_link' ],
                 'change_set' => [ 'input_schema' => array_column( $tools, 'inputSchema', 'name' )['prepare_content_changes'] ?? null,
-                    'dry_run' => true, 'max_request_bytes' => sac_review_max_bytes(), 'manual_review' => true,
+                    'scope_policy' => sac_change_scope_policy(), 'dry_run' => true, 'max_request_bytes' => sac_review_max_bytes(), 'manual_review' => true,
                     'status_policy' => 'expected_status asserts the current state. Matching content.status is ignored. content.custom_fields.status follows the CPT field policy.',
                     'error_actions' => [ 'sac_status_conflict' => 'reread_content', 'sac_request_too_large' => 'split_change', 'insufficient_scope' => 'authorize_required_scope' ] ],
                 'seo' => sac_seo_provider_info(), 'gsc' => [ 'supported' => sac_has_wumetax_seo_core(), 'enabled' => (bool) get_option( 'sac_gsc_read', false ) ],
@@ -105,7 +105,7 @@ add_action( 'rest_api_init', static function () {
             $grant = sac_authenticate( $request );
             return [
                 'connected' => true, 'site' => get_bloginfo( 'name' ), 'resource' => sac_oauth_resource(),
-                'user_id' => $grant['user_id'], 'scopes' => $grant['scopes'], 'grant_id' => $grant['id'],
+                'user_id' => $grant['user_id'], 'scopes' => $grant['scopes'], 'grant_id' => $grant['id'], 'scope_report' => $grant['scope_report'] ?? [],
             ];
         },
     ] );

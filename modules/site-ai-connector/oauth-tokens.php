@@ -71,41 +71,44 @@ function sac_oauth_exchange( $request ) {
     if ( ( $mode !== 'refresh_token' || array_key_exists( 'resource', $body ) ) && ( $body['resource'] ?? '' ) !== sac_oauth_resource() ) return sac_oauth_error( 'invalid_target', '資源網址不符。' );
     $client = sac_oauth_auth_client( $request );
     if ( is_wp_error( $client ) ) return $client;
+    sac_mcp_diagnostic_context( $request, [ 'oauth_client' => $client ] );
     $code_flow = $mode === 'authorization_code';
     $kind = $code_flow ? 'code' : 'refresh';
     $secret = $body[ $code_flow ? 'code' : 'refresh_token' ] ?? '';
-    $invalid = sac_oauth_error( 'invalid_grant', '授權碼或更新權杖無效。' );
-    if ( ! is_string( $secret ) || ! preg_match( '/^[a-f0-9]{64}$/D', $secret ) ) return $invalid;
+    $invalid = static fn( $reason ) => new WP_Error( 'invalid_grant', '授權碼或更新權杖無效。', [ 'status' => 400, 'reason' => $reason ] );
+    if ( ! is_string( $secret ) || ! preg_match( '/^[a-f0-9]{64}$/D', $secret ) ) return $invalid( 'credential_format' );
 
     global $wpdb;
     if ( $wpdb->query( 'START TRANSACTION' ) === false ) return sac_oauth_error( 'server_error', '無法驗證授權。', 500 );
     $committed = false;
     try {
         $locked_client = sac_oauth_row( 'client', $client['id'], true, true );
-        if ( ! sac_oauth_live( $locked_client ) ) return $invalid;
+        if ( ! sac_oauth_live( $locked_client ) ) return $invalid( 'client_inactive' );
         $credential = sac_oauth_row( $kind, $secret, false, true );
-        if ( ! $credential || $credential['client'] !== $client['id'] || (int) $credential['expires'] <= time() ) return $invalid;
+        if ( ! $credential || $credential['client'] !== $client['id'] ) return $invalid( 'credential_unknown_or_client_mismatch' );
+        if ( (int) $credential['expires'] <= time() ) return $invalid( 'credential_expired' );
         $grant = sac_oauth_row( 'grant', $credential['family'], true, true );
-        if ( ! sac_oauth_valid_grant( $grant ) || $grant['client'] !== $client['id'] ) return $invalid;
+        if ( ! sac_oauth_valid_grant( $grant ) || $grant['client'] !== $client['id'] ) return $invalid( 'grant_invalid_or_revoked' );
+        sac_mcp_diagnostic_context( $request, [ 'grant_id' => (int) $grant['id'], 'grant_scopes' => $grant['payload']['scopes'] ] );
         if ( (int) $credential['state'] !== 0 ) {
             if ( ! $code_flow && sac_oauth_change( $grant['id'], [ 'state' => 1 ] ) === 1 ) {
                 $committed = $wpdb->query( 'COMMIT' ) !== false;
                 if ( ! $committed ) return sac_oauth_error( 'server_error', '無法撤銷重複使用的授權。', 500 );
             }
-            return $invalid;
+            return $invalid( $code_flow ? 'authorization_code_reused' : 'refresh_token_reused' );
         }
         if ( $code_flow ) {
             $verifier = $body['code_verifier'] ?? '';
             $redirect = $body['redirect_uri'] ?? '';
             if ( ! is_string( $verifier ) || ! preg_match( '/^[a-zA-Z0-9._~-]{43,128}$/D', $verifier )
                 || ! hash_equals( $credential['payload']['challenge'], rtrim( strtr( base64_encode( hash( 'sha256', $verifier, true ) ), '+/', '-_' ), '=' ) )
-                || $redirect !== $credential['payload']['redirect_uri'] ) return $invalid;
+                || $redirect !== $credential['payload']['redirect_uri'] ) return $invalid( 'pkce_or_redirect_mismatch' );
         }
         $scopes = $code_flow ? $grant['payload']['scopes'] : $credential['payload']['scopes'];
-        $allowed = array_values( array_intersect( $scopes, sac_oauth_scopes() ) );
+        $allowed = array_values( array_intersect( $scopes, $grant['payload']['scopes'], sac_oauth_client_ceiling( $locked_client ) ) );
         if ( isset( $body['scope'] ) ) {
             $requested = sac_oauth_scope_array( $body['scope'] );
-            if ( ! $requested || array_diff( $requested, $allowed ) ) return sac_oauth_error( 'invalid_scope', '無法在交換時擴大權限。' );
+            if ( ! $requested || array_diff( $requested, $allowed ) ) return new WP_Error( 'invalid_scope', '無法在交換時擴大權限。', [ 'status' => 400, 'reason' => 'token_scope_expansion_denied' ] );
             $allowed = $requested;
         }
         if ( ! $allowed ) return sac_oauth_error( 'invalid_scope', '授權範圍已撤銷。' );
@@ -146,12 +149,15 @@ function sac_oauth_access( WP_REST_Request $request ) {
     }
     $grant = sac_oauth_live( $access ) ? sac_oauth_row( 'grant', $access['family'], true ) : null;
     $user = sac_oauth_valid_grant( $grant );
-    if ( ! $user || $access['client'] !== $grant['client'] || ! sac_oauth_live( sac_oauth_row( 'client', $grant['client'], true ) ) ) {
+    $client = $user ? sac_oauth_row( 'client', $grant['client'], true ) : null;
+    if ( ! $user || $access['client'] !== $grant['client'] || ! sac_oauth_live( $client ) ) {
         return sac_oauth_error( 'invalid_token', '授權已過期或撤銷。', 401 );
     }
+    $effective = array_values( array_intersect( $access['payload']['scopes'], $grant['payload']['scopes'], sac_oauth_client_ceiling( $client ) ) );
     return [
         'id' => (int) $grant['id'], 'client' => (int) $grant['client'], 'user_id' => $user->ID,
-        'scopes' => array_values( array_intersect( $access['payload']['scopes'], $grant['payload']['scopes'], sac_oauth_scopes() ) ),
+        'scopes' => $effective,
+        'scope_report' => sac_oauth_scope_report( $client, $grant['payload']['scopes'], $effective ),
         'content_scope' => $grant['payload']['types'],
     ];
 }

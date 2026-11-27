@@ -32,11 +32,13 @@ async function main() {
         const asm = await (await context.request.get(asmUrl)).json();
         assert.equal(asm.issuer, issuer.href);
         assert.deepEqual(asm.code_challenge_methods_supported, ['S256']);
+        assert.ok(prm.scopes_supported.includes('taxonomy:write'));
         const registered = await context.request.post(asm.registration_endpoint, {data: {
             client_name: 'OAuth fixture Browser',
             redirect_uris: [redirect],
             token_endpoint_auth_method: 'client_secret_basic',
             grant_types: ['authorization_code', 'refresh_token'],
+            scope: asm.scopes_supported.filter(scope => scope !== 'taxonomy:write').join(' '),
             response_types: ['code'],
         }});
         assert.equal(registered.status(), 201);
@@ -48,7 +50,7 @@ async function main() {
         const all = asm.scopes_supported.join(' ');
         for (const [key, value] of Object.entries({
             client_id: client.client_id, redirect_uri: redirect, resource,
-            response_type: 'code', scope: all, state,
+            response_type: 'code', scope: client.scope, state,
             code_challenge: createHash('sha256').update(verifier).digest('base64url'), code_challenge_method: 'S256',
         })) authorization.searchParams.set(key, value);
         await page.goto(authorization.href);
@@ -78,7 +80,32 @@ async function main() {
         const exchange = () => context.request.post(asm.token_endpoint, {form: tokenForm, headers: {Authorization: basic}});
         const parallel = await Promise.all([exchange(), exchange()]);
         assert.deepEqual(parallel.map(response => response.status()).sort(), [200, 400]);
-        const tokens = await parallel.find(response => response.status() === 200).json();
+        let tokens = await parallel.find(response => response.status() === 200).json();
+        assert.ok(!tokens.scope.split(' ').includes('taxonomy:write'));
+        const extraVerifier = randomBytes(32).toString('base64url');
+        authorization.searchParams.set('scope', all);
+        authorization.searchParams.set('state', randomBytes(18).toString('base64url'));
+        authorization.searchParams.set('code_challenge', createHash('sha256').update(extraVerifier).digest('base64url'));
+        await page.goto(authorization.href);
+        await page.waitForURL(url => url.href.startsWith(redirect + '?'));
+        assert.equal(new URL(page.url()).searchParams.get('error'), 'invalid_scope');
+
+        await page.goto(base + '/wp-admin/admin.php?page=site-ai-connector&tab=apps');
+        const registeredClient = page.locator('details').filter({hasText: client.client_id});
+        await registeredClient.locator('summary').click();
+        await registeredClient.getByRole('checkbox', {name: 'taxonomy:write', exact: true}).check();
+        await registeredClient.getByRole('button', {name: '儲存客戶端權限'}).click();
+        await page.getByText('已更新客戶端可請求的權限。使用者須在 WordPress 明確同意新授權。').waitFor();
+
+        await page.goto(authorization.href);
+        await Promise.all([page.waitForURL(url => url.href.startsWith(redirect + '?')),
+            page.getByRole('button', {name: '同意授權'}).click()]);
+        const incremented = await context.request.post(asm.token_endpoint, {headers: {Authorization: basic}, form: {
+            ...tokenForm, code: new URL(page.url()).searchParams.get('code'), code_verifier: extraVerifier,
+        }});
+        assert.equal(incremented.status(), 200);
+        tokens = await incremented.json();
+        assert.ok(tokens.scope.split(' ').includes('taxonomy:write'));
         const auth = {Authorization: 'Bearer ' + tokens.access_token};
         const notify = await context.request.post(resource, {headers: auth, data: {jsonrpc: '2.0', method: 'notifications/initialized'}});
         assert.equal(notify.status(), 202);

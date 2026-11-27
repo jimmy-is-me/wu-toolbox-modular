@@ -131,6 +131,7 @@ try {
 
     $protected = sac_fixture_request( '/oauth/resource-metadata' );
     sac_fixture_assert( $protected['resource'] === sac_oauth_resource() && $protected['authorization_servers'] === [ sac_oauth_issuer() ], 'Resource metadata is consistent' );
+    sac_fixture_assert( $protected['scopes_supported'] === sac_oauth_scopes(), 'Protected metadata advertises all site-enabled scopes' );
     $metadata = sac_oauth_metadata();
     sac_fixture_assert( $metadata['code_challenge_methods_supported'] === [ 'S256' ] && ! isset( $metadata['client_id_metadata_document_supported'] ), 'Metadata advertises only implemented methods' );
     $registration = [ 'client_name' => 'OAuth fixture', 'redirect_uris' => [ $redirect ], 'token_endpoint_auth_method' => 'none',
@@ -385,6 +386,11 @@ try {
     $limited_token = sac_fixture_request( '/oauth/token', 'POST', '', sac_fixture_authorize( $client, $admin, [ 'content:read', 'content:update' ], $redirect ) )['access_token'];
     $limited_request = [ 'name' => 'prepare_content_changes', 'arguments' => $draft_target + [ 'dry_run' => true,
         'faqs' => [ [ 'question' => 'Scope?', 'answer' => 'Required.' ] ], 'content' => [ 'terms' => [ 'report_region' => [ $term ] ] ] ] ];
+    $dry_scope = sac_fixture_mcp( 'tools/call', $limited_token, $limited_request )['result'];
+    sac_fixture_assert( $dry_scope['isError'] && $dry_scope['structuredContent']['data']['dry_run']
+        && in_array( 'taxonomy:write', $dry_scope['structuredContent']['data']['missing_scopes'], true ), 'Conditional scope diagnostics do not issue an OAuth challenge' );
+    unset( $limited_request['arguments']['dry_run'] );
+    $limited_request['arguments']['idempotency_key'] = sac_oauth_random();
     $challenge = sac_fixture_mcp( 'tools/call', $limited_token, $limited_request, 403 );
     sac_fixture_assert( $challenge['code'] === 'insufficient_scope' && ! array_diff( [ 'faq:read', 'faq:write', 'taxonomy:read', 'taxonomy:write' ],
         explode( ' ', $challenge['data']['scope'] ) ), 'All missing feature scopes are challenged together' );
@@ -395,6 +401,42 @@ try {
     } finally {
         update_option( 'sac_oauth_scopes', $scopes, false );
     }
+
+    $without_taxonomy = array_values( array_diff( $scopes, [ 'taxonomy:write' ] ) );
+    $legacy_client = sac_fixture_request( '/oauth/register', 'POST', '', $registration + [ 'scope' => implode( ' ', $without_taxonomy ) ], 201 )['client_id'];
+    $clients[] = $legacy_client;
+    $legacy_row = sac_oauth_row( 'client', $legacy_client );
+    $legacy_tokens = sac_fixture_request( '/oauth/token', 'POST', '', sac_fixture_authorize( $legacy_client, $admin, $without_taxonomy, $redirect ) );
+    $legacy_access = $legacy_tokens['access_token'];
+    $minimal = sac_fixture_tool( 'prepare_content_changes', $draft_target + [ 'dry_run' => true, 'content' => [ 'title' => 'Without terms' ] ], $legacy_access );
+    sac_fixture_assert( $minimal['structuredContent']['data']['success'] === true, 'Dry Run without terms succeeds on restricted grant' );
+    $with_terms = $draft_target + [ 'dry_run' => true, 'content' => [ 'terms' => [ 'report_region' => [ $term ] ] ] ];
+    $limited_dry = sac_fixture_tool( 'prepare_content_changes', $with_terms, $legacy_access )['structuredContent']['data'];
+    sac_fixture_assert( $limited_dry['missing_scopes'] === [ 'taxonomy:write' ] && $limited_dry['next_action'] === 'update_client_scopes', 'Legacy client cap is distinguished from missing consent' );
+    sac_fixture_assert( sac_oauth_add_client_scopes( (int) $legacy_row['id'], [ 'taxonomy:write' ] ) === true, 'Site admin can extend a legacy registration' );
+    sac_fixture_assert( ! in_array( 'taxonomy:write', sac_fixture_request( '/verify', 'GET', $legacy_access )['scopes'], true ), 'Registration update does not widen the grant' );
+    $after_admin = sac_fixture_tool( 'prepare_content_changes', $with_terms, $legacy_access )['structuredContent']['data'];
+    sac_fixture_assert( $after_admin['missing_scopes'] === [ 'taxonomy:write' ] && $after_admin['next_action'] === 'authorize_required_scope', 'Consent remains required after registration update' );
+    $refresh_legacy = [ 'client_id' => $legacy_client, 'grant_type' => 'refresh_token', 'refresh_token' => $legacy_tokens['refresh_token'] ];
+    sac_fixture_request( '/oauth/token', 'POST', '', $refresh_legacy + [ 'scope' => 'taxonomy:write' ], 400 );
+    $rotated_legacy = sac_fixture_request( '/oauth/token', 'POST', '', $refresh_legacy );
+    sac_fixture_assert( ! in_array( 'taxonomy:write', explode( ' ', $rotated_legacy['scope'] ), true ), 'Refresh retains the original grant' );
+    $after_consent = sac_fixture_request( '/oauth/token', 'POST', '', sac_fixture_authorize( $legacy_client, $admin, $scopes, $redirect ) )['access_token'];
+    sac_fixture_assert( in_array( 'taxonomy:write', sac_fixture_request( '/verify', 'GET', $after_consent )['scopes'], true ), 'The explicitly consented grant includes taxonomy write' );
+    sac_fixture_assert( sac_fixture_tool( 'prepare_content_changes', $with_terms, $after_consent )['structuredContent']['data']['success'], 'Taxonomy Dry Run succeeds after consent' );
+
+    $full = $data;
+    $full['idempotency_key'] = sac_oauth_random();
+    $full['content']['title'] = 'Complete draft after additional consent';
+    if ( isset( $full['seo'], $media ) ) $full['seo']['og_image_id'] = $media['attachment_id'];
+    $full_prepared = sac_fixture_request( $draft_path, 'POST', $after_consent, $full );
+    sac_fixture_assert( get_post( $report )->post_title !== $full['content']['title'], 'Additional consent cannot apply the Change Set' );
+    $applied_with_scope = $apply( $full_prepared['operation_id'], array_merge( $selected, [ 'content.title' ] ) );
+    sac_fixture_assert( ! is_wp_error( $applied_with_scope ) && $applied_with_scope['approval_status'] === 'applied'
+        && get_post( $report )->post_title === $full['content']['title'] && get_post_status( $report ) === 'draft'
+        && count( get_post_meta( $report, '_sac_faq_list', true ) ) === 15, 'All authorized changes execute once and preserve the existing draft' );
+    sac_fixture_assert( sac_fixture_request( $draft_path, 'POST', $after_consent, $full )['operation_id'] === $full_prepared['operation_id'],
+        'Retry after consent reuses the same operation' );
 
     $oversized = sac_fixture_tool( 'prepare_content_changes', $draft_target + [ 'dry_run' => true, 'content' => [ 'content' => str_repeat( '中', 270000 ) ] ], $access );
     sac_fixture_assert( $oversized['isError'] && $oversized['structuredContent']['max_request_bytes'] === sac_review_max_bytes(), 'Oversized tool call reports its actual limit' );

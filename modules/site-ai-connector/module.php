@@ -25,7 +25,7 @@ define( 'SAC_FORM_CPT', 'sac_form_entry' );
 define( 'SAC_CACHE_TTL', 60 ); // 唯讀查詢快取秒數，降低重複對話造成的資料庫負擔
 define( 'SAC_OPTION_REDIRECTS', 'sac_redirects' );
 define( 'SAC_LOG_MAX', 200 );
-foreach ( [ 'oauth-store', 'oauth-server', 'oauth-tokens', 'oauth-authorize', 'oauth-permissions',
+foreach ( [ 'oauth-store', 'oauth-scopes', 'oauth-server', 'oauth-tokens', 'oauth-authorize', 'oauth-permissions',
     'confirmation', 'mcp-server', 'mcp-diagnostics', 'media', 'media-transfer', 'seo', 'content', 'blocks', 'change-preflight', 'changes', 'diagnostics', 'verification', 'review-ui', 'lab-adapter', 'connection' ] as $component ) {
     require_once __DIR__ . '/' . $component . '.php';
 }

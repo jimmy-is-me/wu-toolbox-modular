@@ -97,6 +97,14 @@ WU Toolbox Modular v4.2.9 將 AI 連接器改為 WordPress 原生 OAuth。新版
 - 從 **AI 連接器 → 操作紀錄 → AI MCP 診斷** 複製請求編號、時間和錯誤分類。最多每小時保存 90 筆，保留 3 天。若請求先由 CDN 或 WAF 拒絕，請對照該服務的回應與事件紀錄。
 - Change Set JSON 上限為 768 KiB。請求或快照超限時依錯誤拆分正文，或改用 Gutenberg 區塊操作。工具驗證錯誤以 MCP 工具結果回傳。真正失效的權杖和可補授權的 Scope 使用 HTTP 授權挑戰。
 
+### v4.3.4 追加 OAuth 權限
+
+1. 升級後在 ChatGPT 重新整理工具清單，呼叫 `verify_connection`。`scopes` 是目前權杖實際可用的權限。`scope_report` 分列本站、客戶端與使用者同意的權限。
+2. 以 `prepare_content_changes` 搭配 `dry_run: true` 檢查完整欄位。若缺少 `taxonomy:write` 等權限，查看 `missing_scopes` 和 `next_action`。Dry Run 保留文章原狀，也不建立審核。
+3. 若回傳 `update_client_scopes`，從 **AI 連接器 → 已授權的應用程式 → OAuth 客戶端** 選擇相同 Client ID，勾選需要的權限並儲存。升級前的註冊範圍會保留。新版註冊時省略 Scope 的客戶端依本站開放清單決定可請求權限。明確指定 Scope 的客戶端可由站長按需追加。
+4. 若回傳 `authorize_required_scope`，從原應用程式重新發起 OAuth 授權，使用者在 WordPress 核對並同意所需範圍。Refresh Token 只更新同一授權的權杖。再次呼叫 `verify_connection` 確認新增 Scope 已生效，再提交正式 Change Set 並人工審核。
+5. 重新授權若失敗，從 **操作紀錄 → AI MCP 診斷** 查看 `oauth_authorize`、`oauth_token` 和請求範圍。遇到 `check_site_policy` 時，由站長先核對進階安全設定。現有客戶端仍可使用時可保留 Client ID。
+
 ### 自訂欄位適配器
 
 使用 sac_content_field_definitions 登錄要公開的欄位。適配器提供 label、type、schema、required、authorize、validate、read、write。authorize 接收操作、使用者、文章或 null、文章類型。validate 必須唯讀，回傳正規化值或 WP_Error。write 接收 ID、值及使用者，成功回傳 true 並自行核對實際儲存結果。必填但由編輯器管理的欄位可提供 is_present。

@@ -18,6 +18,11 @@ function sac_oauth_tool_scope( $tool ) {
     return str_starts_with( $name, 'create_' ) ? 'content:create' : 'content:update';
 }
 
+function sac_oauth_request_tool_scope( $tool, $dry_run = null ) {
+    return $tool['name'] === 'prepare_content_changes' && rest_sanitize_boolean( $dry_run )
+        ? 'content:read' : sac_oauth_tool_scope( $tool );
+}
+
 function sac_oauth_route_tool( $request ) {
     $path = substr( $request->get_route(), strlen( '/' . SAC_NAMESPACE ) );
     $method = $request->get_method() === 'HEAD' ? 'GET' : $request->get_method();
@@ -73,7 +78,7 @@ function sac_permission_read( WP_REST_Request $request ) {
     if ( ! sac_oauth_rate( 'tool', 180, MINUTE_IN_SECONDS, (string) $grant['id'] ) ) {
         return sac_oauth_error( 'sac_rate_limit', '請求頻率超過限制。', 429 );
     }
-    $scope = sac_oauth_tool_scope( $tool );
+    $scope = sac_oauth_request_tool_scope( $tool, $request->get_json_params()['dry_run'] ?? null );
     $allowed = sac_oauth_require_scope( $grant, $scope );
     if ( is_wp_error( $allowed ) ) return $allowed;
     $path = (array) $request->get_url_params();
@@ -151,10 +156,6 @@ add_filter( 'rest_post_dispatch', static function ( $response, $server, $request
         $code = $data['code'] ?? '';
         if ( in_array( $code, [ 'invalid_token', 'insufficient_scope' ], true ) ) $header .= ', error="' . $code . '"';
         $scope = $data['data']['scope'] ?? ( in_array( 'content:read', sac_oauth_scopes(), true ) ? 'content:read' : '' );
-        if ( $code === 'insufficient_scope' ) {
-            $grant = sac_authenticate( $request );
-            if ( ! is_wp_error( $grant ) ) $scope = implode( ' ', array_unique( array_merge( $grant['scopes'], explode( ' ', $scope ) ) ) );
-        }
         if ( $scope ) $header .= ', scope="' . $scope . '"';
         $response->header( 'WWW-Authenticate', $header );
     }
