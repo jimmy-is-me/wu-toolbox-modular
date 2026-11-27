@@ -91,6 +91,10 @@ add_action( 'rest_api_init', static function () {
                 'transport' => 'streamable_http', 'tools' => array_column( $tools, 'name' ), 'scopes' => $grant['scopes'], 'content_types' => $content,
                 'features' => [ 'change_sets' => true, 'gutenberg' => true, 'frontend_comparison' => true, 'related_page_cache' => is_callable( [ 'WUTM_Page_Cache', 'purge_content' ] ) ],
                 'media_transports' => [ 'https', 'base64', 'multipart_rest', 'mcp_file_reference', 'base64_chunks', 'browser_upload_link' ],
+                'change_set' => [ 'input_schema' => array_column( $tools, 'inputSchema', 'name' )['prepare_content_changes'] ?? null,
+                    'dry_run' => true, 'max_request_bytes' => sac_review_max_bytes(), 'manual_review' => true,
+                    'status_policy' => 'expected_status asserts the current state. Matching content.status is ignored. content.custom_fields.status follows the CPT field policy.',
+                    'error_actions' => [ 'sac_status_conflict' => 'reread_content', 'sac_request_too_large' => 'split_change', 'insufficient_scope' => 'authorize_required_scope' ] ],
                 'seo' => sac_seo_provider_info(), 'gsc' => [ 'supported' => sac_has_wumetax_seo_core(), 'enabled' => (bool) get_option( 'sac_gsc_read', false ) ],
             ];
         },
@@ -109,6 +113,13 @@ add_action( 'rest_api_init', static function () {
         'methods' => 'GET', 'permission_callback' => 'sac_permission_read',
         'callback' => static function ( $request ) {
             $grant = sac_authenticate( $request );
+            $change = sac_oauth_row( 'changes', (int) $request->get_url_params()['id'], true );
+            if ( sac_change_owned_by( $change, $grant ) ) {
+                $data = $change['payload'];
+                $target = sac_change_target( $request, $data['post_type'], $data['post_id'], false );
+                if ( is_wp_error( $target ) ) return $target;
+                return sac_change_receipt( $change );
+            }
             $row = sac_oauth_row( 'audit', (int) $request->get_url_params()['id'], true );
             return sac_oauth_live( $row ) && (int) $row['family'] === $grant['id'] ? $row['payload']
                 : sac_oauth_error( 'sac_not_found', '找不到此授權可查閱的操作。', 404 );

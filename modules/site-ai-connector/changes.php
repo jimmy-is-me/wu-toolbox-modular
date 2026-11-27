@@ -5,20 +5,28 @@ function sac_changes_definitions() {
     $target = [ 'post_type' => [ 'type' => 'string', 'in' => 'path', 'required' => true ], 'id' => [ 'type' => 'integer', 'in' => 'path', 'required' => true ] ];
     $change = [ 'operation' => [ 'type' => 'integer', 'in' => 'path', 'required' => true ] ];
     $key = [ 'type' => 'string', 'in' => 'body', 'required' => true, 'description' => '同一次請求重試時使用相同的 16 至 80 字元識別碼。' ];
+    $legacy_tools = array_column( sac_content_tool_definitions(), 'params', 'name' );
+    $native = array_diff_key( $legacy_tools['update_content'], $target );
+    $native['status'] = [ 'type' => 'string', 'description' => '現況提示。只接受與文章目前相同的狀態。' ];
+    foreach ( $native as $field => $schema ) $native[ $field ] = sac_parameter_schema( $schema );
+    $seo = array_map( 'sac_parameter_schema', array_diff_key( $legacy_tools['update_content_seo'], $target ) );
+    $faq = sac_parameter_schema( $legacy_tools['update_content_faq']['faqs'] );
     $params = [
         'list_content_blocks' => [ 'GET', '/content/{post_type}/{id}/blocks', '列出 Gutenberg 區塊及版本', $target + [
             'offset' => [ 'type' => 'integer', 'in' => 'query' ], 'block_path' => [ 'type' => 'string', 'in' => 'query' ],
         ] ],
         'prepare_content_changes' => [ 'POST', '/content/{post_type}/{id}/changes', '準備文章變更並取得 WordPress 審核網址', $target + [
-            'idempotency_key' => $key,
+                        'idempotency_key' => array_replace( $key, [ 'required' => false, 'description' => '正式準備時必填。Dry Run 可省略。' ] ),
+            'dry_run' => [ 'type' => 'boolean', 'in' => 'body', 'description' => '唯讀驗證，不建立審核。' ],
+            'expected_status' => [ 'type' => 'string', 'in' => 'body', 'description' => '文章預期的目前狀態，例如 draft。' ],
             'purpose' => [ 'type' => 'string', 'in' => 'body', 'maxLength' => 280 ],
-            'content' => [ 'type' => 'object', 'in' => 'body', 'description' => '可編輯的原生欄位、terms、custom_fields 或 featured_image_id。' ],
-            'seo' => [ 'type' => 'object', 'in' => 'body' ],
+            'content' => [ 'type' => 'object', 'in' => 'body', 'properties' => $native, 'additionalProperties' => false ],
+            'seo' => [ 'type' => 'object', 'in' => 'body', 'properties' => $seo, 'additionalProperties' => false ],
             'media' => [ 'type' => 'object', 'in' => 'body', 'properties' => [
                 'id' => [ 'type' => 'integer' ], 'title' => [ 'type' => 'string' ], 'alt_text' => [ 'type' => 'string' ],
                 'caption' => [ 'type' => 'string' ], 'description' => [ 'type' => 'string' ],
             ], 'required' => [ 'id' ], 'additionalProperties' => false ],
-            'faqs' => [ 'type' => 'array', 'in' => 'body', 'items' => [ 'type' => 'object' ] ],
+            'faqs' => $faq + [ 'in' => 'body', 'maxItems' => 200 ],
             'block_version' => [ 'type' => 'string', 'in' => 'body' ],
             'block_edits' => [ 'type' => 'array', 'in' => 'body', 'items' => [ 'type' => 'object', 'properties' => [
                 'operation' => [ 'type' => 'string', 'enum' => [ 'insert_before', 'insert_after', 'prepend', 'append', 'replace', 'delete', 'move_before', 'move_after' ] ],
@@ -117,7 +125,9 @@ function sac_change_validate( $request, $target, $values, $blocks = false ) {
         }
     }
     if ( ! empty( $values['content'] ) ) {
-        if ( array_intersect_key( $values['content'], array_flip( [ 'status', 'id', 'post_type' ] ) ) ) return sac_content_error( 'content', '批次變更不修改文章發佈狀態或識別資料。' );
+        foreach ( [ 'status', 'id', 'post_type' ] as $protected ) {
+            if ( array_key_exists( $protected, $values['content'] ) ) return sac_content_error( 'content.' . $protected, '批次變更不修改文章狀態或識別資料。' );
+        }
         foreach ( [ 'terms' => 'taxonomy:read', 'featured_image_id' => 'media:read' ] as $field => $scope ) {
             if ( array_key_exists( $field, $values['content'] ) ) {
                 $allowed = sac_oauth_require_scope( $grant, $scope );
@@ -125,7 +135,7 @@ function sac_change_validate( $request, $target, $values, $blocks = false ) {
             }
         }
         $native = sac_content_save( $request, $target, $values['content'], 'validate', $blocks );
-        if ( is_wp_error( $native ) ) return $native;
+        if ( is_wp_error( $native ) ) return sac_change_error_path( $native, 'content', $values['content']['custom_fields'] ?? [] );
         if ( $blocks && array_key_exists( 'content', $values['content'] ) && ( $native['content'] ?? null ) !== ( $values['content']['content'] ?? null ) ) {
             return sac_content_error( 'block_edits', '以目前帳號的 HTML 權限儲存會連帶變更原有區塊，請使用 WordPress 編輯器。' );
         }
@@ -143,7 +153,7 @@ function sac_change_validate( $request, $target, $values, $blocks = false ) {
             if ( is_wp_error( $allowed ) ) return $allowed;
         }
         $seo = sac_prepare_seo_fields( $post->ID, $values['seo'] );
-        if ( is_wp_error( $seo ) ) return $seo;
+        if ( is_wp_error( $seo ) ) return sac_change_error_path( $seo, 'seo' );
         $expected['seo'] = array_map( static fn( $v ) => is_array( $v ) ? $v : (string) $v, $seo );
     }
     if ( array_key_exists( 'faqs', $values ) ) {
@@ -158,11 +168,16 @@ function sac_change_validate( $request, $target, $values, $blocks = false ) {
         }
         $value = $values['media'];
         $media = sac_prepare_media_fields( $value['id'] ?? 0, array_diff_key( $value, [ 'id' => true ] ) );
-        if ( is_wp_error( $media ) ) return $media;
+        if ( is_wp_error( $media ) ) return sac_change_error_path( $media, 'media' );
         if ( ! $media ) return sac_content_error( 'media', '至少提供一個圖片欄位。' );
         $expected['media'] = [ 'id' => $value['id'] ] + $media;
     }
     return $expected ?: sac_content_error( 'changes', '至少提供一項可執行變更。' );
+}
+
+function sac_change_owned_by( $row, $grant ) {
+    return $row && (int) $row['expires'] > time() && (int) $row['client'] === $grant['client'] && (int) $row['owner'] === $grant['user_id']
+        && ( (int) $row['family'] === $grant['id'] || ! array_diff( $row['payload']['scopes'] ?? [], $grant['scopes'] ) );
 }
 
 function sac_change_receipt( $row ) {
@@ -174,7 +189,7 @@ function sac_change_receipt( $row ) {
         'operation_id' => (int) $row['id'], 'change_set_id' => (int) $row['id'], 'post_id' => $payload['post_id'], 'post_type' => $payload['post_type'],
         'approval_status' => $status, 'confirmation_required' => $status === 'pending',
         'confirmation_expires_at' => gmdate( DATE_ATOM, $payload['approval_expires'] ),
-        'confirmed_at' => $payload['confirmed_at'] ?? null, 'completed_at' => $payload['completed_at'] ?? null,
+        'expected_status' => $payload['post_status'], 'warnings' => $payload['warnings'] ?? [], 'confirmed_at' => $payload['confirmed_at'] ?? null, 'completed_at' => $payload['completed_at'] ?? null,
         'fields' => array_keys( $payload['expected'] ?? [] ), 'verification' => $payload['verification'] ?? null,
         'cache_verification' => $payload['cache'] ?? [ 'state' => 'unavailable', 'cache_purge_status' => 'unavailable' ],
         'error_code' => $payload['error_code'] ?? null, 'recovery' => $payload['recovery'] ?? null,
@@ -183,31 +198,35 @@ function sac_change_receipt( $row ) {
 
 function sac_change_prepare( $request, $target, $data, $restore = null ) {
     $grant = sac_authenticate( $request );
+    if ( rest_sanitize_boolean( $data['dry_run'] ?? false ) ) return sac_change_preflight( $request, $target, $data, $restore );
     $key = $data['idempotency_key'] ?? '';
     if ( ! is_string( $key ) || ! preg_match( '/^[a-zA-Z0-9_-]{16,80}$/D', $key ) ) return sac_content_error( 'idempotency_key', '請使用 16 至 80 字元的請求識別碼。' );
-    $hash = sac_review_hash( [ $target['post']->ID, $data, $restore['id'] ?? null ] );
-    $secret = hash_hmac( 'sha256', 'sac-change:' . $grant['id'] . ':' . $key, wp_salt( 'nonce' ) );
+    $old_hash = sac_review_hash( [ $target['post']->ID, $data, $restore['id'] ?? null ] );
+    $hash = sac_review_hash( [ $target['post']->ID, sac_change_value( $data ), $restore['id'] ?? null ] );
+    $secret = hash_hmac( 'sha256', 'sac-change-client:' . $grant['client'] . ':' . $grant['user_id'] . ':' . $key, wp_salt( 'nonce' ) );
     $row = sac_oauth_row( 'changes', $secret );
-    if ( $row && ! hash_equals( $row['payload']['request_hash'], $hash ) ) return sac_oauth_error( 'sac_idempotency_conflict', '同一識別碼已用於不同變更。', 409 );
+    if ( ! $row ) {
+        global $wpdb;
+        $table = sac_oauth_table();
+        $families = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM $table WHERE kind='grant' AND client=%d AND owner=%d ORDER BY id DESC LIMIT 24", $grant['client'], $grant['user_id'] ) );
+        foreach ( array_unique( array_merge( [ $grant['id'] ], array_map( 'intval', $families ) ) ) as $family ) {
+            $legacy = hash_hmac( 'sha256', 'sac-change:' . $family . ':' . $key, wp_salt( 'nonce' ) );
+            $old = sac_oauth_row( 'changes', $legacy );
+            if ( $old && (int) $old['expires'] > time() ) {
+                $row = $old;
+                $secret = $legacy;
+                break;
+            }
+        }
+    }
+    if ( $row && ! sac_change_owned_by( $row, $grant ) ) return sac_oauth_error( 'sac_change_not_found', '找不到此授權的變更紀錄。', 404 );
+    if ( $row && ! in_array( $row['payload']['request_hash'], [ $hash, $old_hash ], true ) ) return sac_oauth_error( 'sac_idempotency_conflict', '同一識別碼已用於不同變更。', 409 );
     if ( ! $row ) {
         if ( ! sac_oauth_rate( 'prepare_changes', 8, HOUR_IN_SECONDS, (string) $grant['id'] ) ) return sac_oauth_error( 'sac_rate_limit', '變更準備過於頻繁，請稍後重試。', 429 );
-        $values = array_intersect_key( $data, array_flip( [ 'content', 'seo', 'faqs', 'media' ] ) );
-        if ( ( isset( $values['content'] ) && ! is_array( $values['content'] ) ) || ( isset( $values['seo'] ) && ! is_array( $values['seo'] ) ) ) {
-            return sac_content_error( 'changes', '文章與 SEO 參數須為物件。' );
-        }
+        $prepared = sac_change_preflight( $request, $target, $data, $restore );
+        if ( is_wp_error( $prepared ) || ! empty( $prepared['no_changes'] ) ) return $prepared;
+        [ 'values' => $values, 'expected' => $expected, 'blocks' => $blocks, 'warnings' => $warnings ] = $prepared;
         $post = $target['post'];
-        $blocks = array_key_exists( 'block_edits', $data ) || ! empty( $restore['blocks'] );
-        if ( array_key_exists( 'block_edits', $data ) ) {
-            if ( isset( $values['content']['content'] ) ) return sac_content_error( 'block_edits', '整篇正文與區塊操作請擇一。' );
-            $edited = sac_apply_block_edits( $post->post_content, $data['block_version'] ?? null, $data['block_edits'] );
-            if ( is_wp_error( $edited ) ) return $edited;
-            $values['content']['content'] = $edited;
-        }
-        $expected = sac_change_validate( $request, $target, $values, $blocks );
-        if ( is_wp_error( $expected ) ) return $expected;
-        if ( $restore && sac_change_value( $expected ) !== sac_change_value( $restore['before'] ) ) {
-            return sac_oauth_error( 'sac_rollback_unsupported', '部分原始值無法透過現有欄位適配器安全還原，請在 WordPress 編輯器核對。', 409 );
-        }
         $before = sac_change_snapshot( $target, $expected );
         if ( is_wp_error( $before ) ) return $before;
         if ( $restore && sac_change_value( $before ) !== sac_change_value( $restore['after'] ) ) {
@@ -215,7 +234,7 @@ function sac_change_prepare( $request, $target, $data, $restore = null ) {
         }
         $payload = [
             'request_hash' => $hash, 'prepared_at' => time(), 'purpose' => sanitize_text_field( mb_substr( $data['purpose'] ?? '核對並套用選取的文章變更', 0, 280 ) ), 'approval_expires' => time() + 30 * MINUTE_IN_SECONDS,
-            'post_id' => $post->ID, 'post_type' => $post->post_type, 'post_status' => $post->post_status,
+            'post_id' => $post->ID, 'post_type' => $post->post_type, 'post_status' => $post->post_status, 'warnings' => $warnings,
             'values' => $values, 'expected' => $expected, 'before' => $before, 'blocks' => $blocks,
             'provider' => sac_seo_adapter()['source'] ?? null, 'scopes' => $grant['scopes'],
             'restores_operation' => $restore['id'] ?? null,
@@ -229,6 +248,21 @@ function sac_change_prepare( $request, $target, $data, $restore = null ) {
         if ( ! hash_equals( $row['payload']['request_hash'], $hash ) ) return sac_oauth_error( 'sac_idempotency_conflict', '同一識別碼已用於不同變更。', 409 );
     }
     $receipt = sac_change_receipt( $row );
+    if ( $receipt['confirmation_required'] && (int) $row['family'] !== $grant['id'] && ! sac_change_grant( $row ) ) {
+        $check = sac_change_preflight( $request, $target, $data, $restore );
+        if ( is_wp_error( $check ) ) return $check;
+        $required = array_intersect( $row['payload']['scopes'], sac_oauth_scopes() );
+        if ( array_diff( $required, $grant['scopes'] ) ) {
+            return sac_oauth_error( 'sac_reconnect_review_scope', '請以原權限重新授權，或使用新的識別碼準備新審核。', 403 );
+        }
+        global $wpdb;
+        $table = sac_oauth_table();
+        $updated = $wpdb->query( $wpdb->prepare(
+            "UPDATE $table SET family=%d WHERE id=%d AND family=%d AND client=%d AND owner=%d AND state=0",
+            $grant['id'], $row['id'], $row['family'], $grant['client'], $grant['user_id']
+        ) );
+        if ( $updated !== 1 ) return sac_oauth_error( 'sac_content_busy', '審核狀態剛變更，請重試查詢。', 409 );
+    }
     if ( $receipt['confirmation_required'] ) {
         $receipt['confirmation_url'] = add_query_arg( [ 'action' => 'sac_review_changes', 'request' => $secret ], admin_url( 'admin-post.php' ) );
     }
@@ -305,6 +339,10 @@ function sac_change_apply( $row, $request, $selected ) {
         clean_post_cache( $payload['post_id'] );
         $target = sac_change_target( $request, $payload['post_type'], $payload['post_id'], true );
         if ( is_wp_error( $target ) ) return $target;
+        if ( $target['post']->post_status !== $payload['post_status'] ) {
+            sac_change_transition( $row, 0, 6 );
+            return sac_oauth_error( 'sac_confirmation_version_conflict', '文章狀態已變更，請重新準備審核。', 409 );
+        }
         $fields = array_fill_keys( $selected, true );
         $values = array_intersect_key( $payload['values'], $fields );
         $reviewed_before = array_intersect_key( $payload['before'], $fields );
@@ -354,6 +392,7 @@ function sac_change_apply( $row, $request, $selected ) {
         $target['post'] = get_post( $payload['post_id'] );
         $actual = $target['post'] ? sac_change_snapshot( $target, $expected ) : null;
         $payload['verification'] = is_array( $actual ) ? sac_change_verification( $actual, $expected ) : [];
+        $payload['verification']['post_status'] = $target['post'] && $target['post']->post_status === $payload['post_status'] ? 'verified' : 'mismatch';
         $error = $error ?: ( count( $payload['verification'] ) && ! in_array( 'mismatch', $payload['verification'], true ) ? null : 'sac_verification_failed' );
         if ( $error && $target['post'] ) {
             $payload['recovery'] = sac_change_recover( $request, $target, $payload, $attempted );
@@ -477,18 +516,18 @@ function sac_handle_change_tool( $request, $name ) {
         $table = sac_oauth_table();
         $before = (int) $request->get_param( 'before' );
         $results = $wpdb->get_col( $wpdb->prepare(
-            "SELECT id FROM $table WHERE kind = 'changes' AND family = %d AND owner = %d AND expires > %d AND id < %d ORDER BY id DESC LIMIT 100",
-            $grant['id'], $grant['user_id'], time(), $before > 0 ? $before : PHP_INT_MAX
+            "SELECT id FROM $table WHERE kind = 'changes' AND client = %d AND owner = %d AND expires > %d AND id < %d ORDER BY id DESC LIMIT 100",
+            $grant['client'], $grant['user_id'], time(), $before > 0 ? $before : PHP_INT_MAX
         ) );
         $receipts = [];
         foreach ( $results as $id ) {
             $row = sac_oauth_row( 'changes', (int) $id, true );
-            if ( $row && (int) $row['payload']['post_id'] === (int) $path['id'] ) $receipts[] = sac_change_receipt( $row );
+            if ( sac_change_owned_by( $row, $grant ) && (int) $row['payload']['post_id'] === (int) $path['id'] ) $receipts[] = sac_change_receipt( $row );
         }
         return [ 'operations' => $receipts, 'next_before' => count( $results ) === 100 ? (int) end( $results ) : null ];
     }
     $row = sac_oauth_row( 'changes', (int) $path['operation'], true );
-    if ( ! $row || (int) $row['family'] !== $grant['id'] || (int) $row['client'] !== $grant['client'] || (int) $row['owner'] !== $grant['user_id'] || (int) $row['expires'] <= time() ) {
+    if ( ! sac_change_owned_by( $row, $grant ) ) {
         return sac_oauth_error( 'sac_change_not_found', '找不到此授權的變更紀錄。', 404 );
     }
     $payload = $row['payload'];
@@ -540,11 +579,17 @@ function sac_handle_change_tool( $request, $name ) {
         $actual = sac_change_snapshot( $target, $payload['expected'] );
         if ( is_wp_error( $actual ) ) return $actual;
         $receipt['verification'] = sac_change_verification( $actual, $payload['expected'] );
-        $db = in_array( 'mismatch', $receipt['verification'], true ) ? 'mismatch' : 'verified';
+        $receipt['database_identity'] = [ 'post_id' => $target['post']->ID, 'post_type' => $target['post']->post_type,
+            'expected_status' => $payload['post_status'], 'actual_status' => $target['post']->post_status ];
+        $db = $target['post']->post_status !== $payload['post_status'] || in_array( 'mismatch', $receipt['verification'], true ) ? 'mismatch' : 'verified';
         $receipt['database_verification'] = [ 'state' => $db, 'items' => $receipt['verification'], 'checked_at' => gmdate( DATE_ATOM ) ];
         $receipt['verification_status'] = $db === 'verified' ? 'pending' : 'mismatch';
         foreach ( [ 'frontend', 'structured_data', 'media', 'sitemap' ] as $section ) $receipt[ $section . '_verification' ] = [ 'state' => 'pending' ];
-        if ( rest_sanitize_boolean( $request->get_param( 'frontend' ) ) ) {
+        if ( ! sac_public_post_url( $target['post'] ) ) {
+            foreach ( [ 'frontend', 'structured_data', 'media', 'sitemap' ] as $section ) $receipt[ $section . '_verification' ] = [ 'state' => 'not_applicable', 'reason' => 'content_not_public' ];
+            $receipt['frontend'] = $receipt['frontend_verification'];
+            $receipt['verification_status'] = $db;
+        } elseif ( rest_sanitize_boolean( $request->get_param( 'frontend' ) ) ) {
             if ( is_wp_error( sac_oauth_require_scope( $grant, 'seo:read' ) ) ) {
                 foreach ( [ 'frontend', 'structured_data', 'media', 'sitemap' ] as $section ) $receipt[ $section . '_verification' ] = [ 'state' => 'unavailable', 'reason' => 'permission_denied' ];
             } elseif ( ! sac_oauth_rate( 'verify_public', 30, HOUR_IN_SECONDS, (string) $grant['id'] ) ) {

@@ -125,6 +125,15 @@ async function main() {
                 status: 'prototype', order: 101, challenge: 'Challenge', approach: 'Approach', result: 'Result'};
         }
         const created = await tool('create_content', fields);
+        const rejectedField = await context.request.post(resource, {headers: auth, data: {
+            jsonrpc: '2.0', id: 'invalid-field', method: 'tools/call', params: {name: 'prepare_content_changes', arguments: {
+                post_type: postType, id: created.data.id, idempotency_key: randomBytes(16).toString('hex'), content: {status: 'publish'},
+            }},
+        }});
+        assert.equal(rejectedField.status(), 200);
+        assert.equal(rejectedField.headers()['www-authenticate'], undefined);
+        assert.ok(rejectedField.headers()['x-sac-request-id']);
+        assert.equal((await rejectedField.json()).result.structuredContent.field, 'content.status');
         const id = created.data.id;
         assert.equal(created.data.status, 'draft');
         assert.ok(created.data.edit_url);

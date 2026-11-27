@@ -26,7 +26,7 @@ define( 'SAC_CACHE_TTL', 60 ); // 唯讀查詢快取秒數，降低重複對話�
 define( 'SAC_OPTION_REDIRECTS', 'sac_redirects' );
 define( 'SAC_LOG_MAX', 200 );
 foreach ( [ 'oauth-store', 'oauth-server', 'oauth-tokens', 'oauth-authorize', 'oauth-permissions',
-    'confirmation', 'mcp-server', 'media', 'media-transfer', 'seo', 'content', 'blocks', 'changes', 'diagnostics', 'verification', 'review-ui', 'lab-adapter', 'connection' ] as $component ) {
+    'confirmation', 'mcp-server', 'mcp-diagnostics', 'media', 'media-transfer', 'seo', 'content', 'blocks', 'change-preflight', 'changes', 'diagnostics', 'verification', 'review-ui', 'lab-adapter', 'connection' ] as $component ) {
     require_once __DIR__ . '/' . $component . '.php';
 }
 if ( is_admin() ) require_once __DIR__ . '/admin.php';
