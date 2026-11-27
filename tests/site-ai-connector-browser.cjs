@@ -57,14 +57,16 @@ async function main() {
         await page.locator('#user_pass').fill(password);
         await page.locator('#wp-submit').click();
         await page.getByRole('heading', {name: '授權 AI 應用程式'}).waitFor();
-        await page.getByRole('button', {name: '拒絕授權'}).click();
+        await Promise.all([page.waitForURL(url => url.href.startsWith(redirect + '?')),
+            page.getByRole('button', {name: '拒絕授權'}).click()]);
         let callback = new URL(page.url());
         assert.equal(callback.searchParams.get('error'), 'access_denied');
         assert.equal(callback.searchParams.get('iss'), asm.issuer);
         assert.equal(callback.searchParams.get('state'), state);
 
         await page.goto(authorization.href);
-        await page.getByRole('button', {name: '同意授權'}).click();
+        await Promise.all([page.waitForURL(url => url.href.startsWith(redirect + '?')),
+            page.getByRole('button', {name: '同意授權'}).click()]);
         callback = new URL(page.url());
         assert.equal(callback.searchParams.get('iss'), asm.issuer);
         assert.equal(callback.searchParams.get('state'), state);
