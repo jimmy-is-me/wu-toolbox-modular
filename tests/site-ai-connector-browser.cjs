@@ -299,6 +299,16 @@ async function main() {
         const pending = (await tool('prepare_content_changes', batchArgs)).data;
         assert.equal(pending.approval_status, 'pending');
         assert.equal((await tool('prepare_content_changes', batchArgs)).data.operation_id, pending.operation_id);
+        const guest = await browser.newContext({ignoreHTTPSErrors: process.env.SAC_TEST_LOCAL_TLS === '1'});
+        try {
+            const loginRedirect = await guest.request.get(pending.confirmation_url, {maxRedirects: 0});
+            assert.equal(loginRedirect.status(), 302);
+            const destination = new URL(loginRedirect.headers().location);
+            assert.equal(destination.pathname, loginUrl.pathname);
+            assert.equal(destination.searchParams.get('redirect_to'), pending.confirmation_url);
+        } finally {
+            await guest.close();
+        }
         await page.goto(pending.confirmation_url);
         await page.getByRole('button', {name: '核准並套用'}).click();
         assert.match(await page.locator('body').innerText(), /已儲存並核對/);
