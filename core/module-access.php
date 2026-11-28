@@ -136,7 +136,7 @@ function wutm_restricted_module_menu_targets(): array {
 }
 
 /** Retain registered page hooks while removing inaccessible navigation entries. */
-add_action('admin_menu', function (): void {
+function wutm_prune_restricted_module_menus(): void {
     if (!current_user_can('manage_options')) return;
     if (wutm_toolbox_can_manage()) return;
     global $menu, $submenu;
@@ -153,11 +153,20 @@ add_action('admin_menu', function (): void {
         if ($visibility($entry) === false) remove_menu_page($entry[2]);
     }
     foreach ((array) $submenu as $parent => $entries) {
-        $submenu[$parent] = array_values(array_filter($entries, static function ($entry) use ($parent, $visibility): bool {
+        $submenu[$parent] = array_filter($entries, static function ($entry) use ($parent, $visibility): bool {
             $show = $visibility($entry);
-            if ($parent !== 'wu-toolbox-modular') return $show !== false;
-            return ($entry[2] ?? '') === $parent || $show === true;
-        }));
+            if ($parent !== 'wu-toolbox-modular' && $show === null) return true;
+            return (($entry[2] ?? '') === 'wu-toolbox-modular' || $show === true)
+                && !empty($entry[1]) && current_user_can($entry[1]);
+        });
     }
     if (!wutm_toolbox_can_view()) remove_menu_page('wu-toolbox-modular');
+}
+add_action('admin_menu', 'wutm_prune_restricted_module_menus', PHP_INT_MAX);
+
+// Menu editors can reconstruct the navigation after admin_menu. Reapply the
+// same policy immediately before WordPress renders the sidebar.
+add_filter('submenu_file', static function ($current) {
+    wutm_prune_restricted_module_menus();
+    return $current;
 }, PHP_INT_MAX);
