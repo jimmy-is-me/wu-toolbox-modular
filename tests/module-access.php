@@ -5,6 +5,7 @@ define('ABSPATH', __DIR__ . '/');
 $options = []; $hooks = []; $current = 1; $allowed = true; $menu = []; $removed = [];
 $users = [1 => (object) ['ID' => 1], 2 => (object) ['ID' => 2]];
 function add_action($name, $callback, ...$args) { $GLOBALS['hooks'][$name][] = $callback; }
+function add_filter($name, $callback, ...$args) { add_action($name, $callback, ...$args); }
 function get_option($name, $default = false) { return $GLOBALS['options'][$name] ?? $default; }
 function update_option($name, $value, ...$args) { $GLOBALS['options'][$name] = $value; }
 function add_option($name,$value,...$args) {if(array_key_exists($name,$GLOBALS['options']))return false;$GLOBALS['options'][$name]=$value;return true;}
@@ -83,6 +84,10 @@ $hooks['admin_menu'][0]();
 check(count($menu) === 2 && !$removed, 'One existing Toolbox menu retained; no individual module menu added');
 check(count($submenu['wu-toolbox-modular']) === 2, 'Only dashboard and shared submenu retained');
 check(array_column($submenu['existing.php'], 2) === ['native.php'], 'A relocated unshared module is hidden and native entries remain');
+$submenu['wu-toolbox-modular'][] = ['Restored unshared', 'manage_options', 'wu-admin-bar-cleaner'];
+$submenu['wu-toolbox-modular'][] = ['Restored heading', 'read', 'wutm-group-admin'];
+check($hooks['submenu_file'][0]('wu-custom-cursor') === 'wu-custom-cursor', 'Late check preserves current page selection');
+check(array_column($submenu['wu-toolbox-modular'], 2) === ['wu-toolbox-modular', 'wu-custom-cursor'], 'Render-time filtering removes reinserted links and empty headings');
 check(array_keys(wutm_toolbox_shared_modules()) === ['custom-cursor'], 'Shared dashboard only contains explicitly shared enabled modules');
 $options[wutm_module_option('custom-cursor')] = 0; $hooks['admin_menu'][0]();
 check(!wutm_toolbox_can_view() && $removed === ['wu-toolbox-modular'], 'No enabled shares hides Toolbox');

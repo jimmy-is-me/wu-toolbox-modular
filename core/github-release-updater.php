@@ -58,6 +58,7 @@ final class WUTM_GitHub_Release_Updater {
         $release_notes = !empty($release['body']) ? wp_kses_post(wpautop($release['body'])) : '';
 
 		$changelog = '
+            <h4>4.3.8</h4><ul><li>側邊選單輸出前重新套用其他管理員的模組開放設定，移除被選單整理工具加回的未開放入口及空分類。</li></ul>
             <h4>4.3.7</h4><ul><li>修正非主帳號可見的未開放模組選單，更新外掛開發者名稱。</li><li>新增獨立外掛分類與 WP Booking 預約模組，首次開啟自動安裝並沿用 Wu Toolbox 授權。</li></ul>
             <h4>4.3.6</h4><ul><li>新增唯讀變更驗證及分類審核工具，標準宣告 taxonomy:write。</li><li>補上工具層級授權挑戰與 Scope 診斷，保留舊版 Dry Run 及人工審核。</li></ul>
             <h4>4.3.5</h4><ul><li>修正隱藏登入攔截 OAuth 授權及獨立安裝目錄的登入網址，加入登入返回驗證。</li><li>重新授權顯示先前與新增權限，補上相容性檢查及不含憑證的 OAuth 診斷。</li></ul>
